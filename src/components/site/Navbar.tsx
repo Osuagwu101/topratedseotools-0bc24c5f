@@ -47,7 +47,13 @@ export function Navbar() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="flex items-center gap-2 font-semibold"
+          aria-label={`${APP_NAME} — Home`}
+        >
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary text-primary-foreground shadow-glow">
             <Sparkles className="h-4 w-4" />
           </span>
