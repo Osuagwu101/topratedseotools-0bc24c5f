@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
 import { APP_NAME } from "@/lib/site-config";
+import logoAsset from "@/assets/logo.png.asset.json";
+
 
 const COLS = [
   {
