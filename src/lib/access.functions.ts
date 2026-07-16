@@ -249,32 +249,79 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
 
 // ---------- ADMIN ----------
 
-/** Admin — upsert a single tool's settings. */
+/** Admin — upsert a single tool's settings (enable + access level only). */
 const upsertSettingInput = z.object({
   tool_slug: z.string().min(1).max(120),
   enabled: z.boolean().optional(),
   access_level: z.enum(["public", "logged_in", "purchased"]).optional(),
-  login_email: z.string().max(200).nullable().optional(),
-  login_password: z.string().max(500).nullable().optional(),
-  login_url: z.string().max(500).nullable().optional(),
-  login_notes: z.string().max(2000).nullable().optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => upsertSettingInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const patch: Record<string, unknown> = { tool_slug: data.tool_slug };
-    for (const k of ["enabled", "access_level", "login_email", "login_password", "login_url", "login_notes"] as const) {
-      if (data[k] !== undefined) patch[k] = data[k];
-    }
+    const patch = {
+      tool_slug: data.tool_slug,
+      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+      ...(data.access_level !== undefined ? { access_level: data.access_level } : {}),
+    };
     const { error } = await context.supabase
       .from("tool_settings")
-      .upsert(patch as any, { onConflict: "tool_slug" });
-
+      .upsert(patch, { onConflict: "tool_slug" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------- CREDENTIAL VAULT (admin only, one row per tool) ----------
+
+export interface ToolCredential {
+  tool_slug: string;
+  login_email: string | null;
+  login_password: string | null;
+  login_url: string | null;
+  login_notes: string | null;
+  updated_at: string;
+}
+
+/** Admin — list every stored login credential. */
+export const adminListToolCredentials = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase
+      .from("tool_credentials")
+      .select("*");
+    if (error) throw new Error(error.message);
+    return { credentials: (data ?? []) as ToolCredential[] };
+  });
+
+const upsertCredentialInput = z.object({
+  tool_slug: z.string().min(1).max(120),
+  login_email: z.string().max(200).nullable().optional(),
+  login_password: z.string().max(500).nullable().optional(),
+  login_url: z.string().max(500).nullable().optional(),
+  login_notes: z.string().max(2000).nullable().optional(),
+});
+export const adminUpsertToolCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => upsertCredentialInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const patch = {
+      tool_slug: data.tool_slug,
+      login_email: data.login_email ?? null,
+      login_password: data.login_password ?? null,
+      login_url: data.login_url ?? null,
+      login_notes: data.login_notes ?? null,
+    };
+    const { error } = await context.supabase
+      .from("tool_credentials")
+      .upsert(patch, { onConflict: "tool_slug" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
 
 
 /** Admin — list every order (paged simply, most-recent first). */
