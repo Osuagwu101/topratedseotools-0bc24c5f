@@ -69,6 +69,9 @@ const upsertInput = z.object({
   currency: z.string().max(8).optional(),
   contact_admin: z.boolean().optional(),
   sort_order: z.number().int().optional(),
+  duration_days: z.number().int().min(0).max(3650).nullable().optional(),
+  grace_days: z.number().int().min(0).max(60).optional(),
+  warning_days: z.number().int().min(0).max(60).optional(),
 });
 
 export const upsertToolPricing = createServerFn({ method: "POST" })
@@ -84,7 +87,11 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
       currency: data.currency ?? "₦",
       contact_admin: data.contact_admin ?? false,
       sort_order: data.sort_order ?? 0,
+      duration_days: data.duration_days ?? null,
+      grace_days: data.grace_days ?? 0,
+      warning_days: data.warning_days ?? 0,
     };
+
     if (data.id) {
       const { error } = await context.supabase
         .from("tool_pricing")
