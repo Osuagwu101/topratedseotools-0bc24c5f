@@ -91,8 +91,24 @@ function ToolsDirectory() {
                   className="group relative flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground">
-                      <Icon className="h-5 w-5" />
+                    <div className="relative inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border bg-background">
+                      <img
+                        src={getToolLogo(t.domain)}
+                        alt={`${t.name} logo`}
+                        loading="lazy"
+                        className="h-8 w-8 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.style.display = "flex";
+                        }}
+                      />
+                      <span
+                        className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground"
+                        aria-hidden
+                      >
+                        <Icon className="h-5 w-5" />
+                      </span>
                     </div>
                     <span
                       className={cn(
