@@ -13,7 +13,11 @@ export interface ToolPricingOption {
   currency: string;
   contact_admin: boolean;
   sort_order: number;
+  duration_days: number | null;
+  grace_days: number;
+  warning_days: number;
 }
+
 
 function publicClient() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
