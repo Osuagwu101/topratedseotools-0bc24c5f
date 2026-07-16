@@ -1,0 +1,58 @@
+import type { Tool } from "@/lib/tools-data";
+import { getToolLogo } from "@/lib/tools-data";
+import { cn } from "@/lib/utils";
+
+type ToolBrandMarkProps = {
+  tool: Tool;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+};
+
+const frameSize = {
+  sm: "h-10 w-10 rounded-lg",
+  md: "h-11 w-11 rounded-xl",
+  lg: "h-16 w-16 rounded-2xl",
+};
+
+const imageSize = {
+  sm: "h-7 w-7",
+  md: "h-8 w-8",
+  lg: "h-12 w-12",
+};
+
+const iconSize = {
+  sm: "h-4 w-4",
+  md: "h-5 w-5",
+  lg: "h-7 w-7",
+};
+
+export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
+  const Icon = tool.icon;
+
+  return (
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border bg-background shadow-sm",
+        frameSize[size],
+        className,
+      )}
+    >
+      <img
+        src={getToolLogo(tool.domain)}
+        alt={`${tool.name} logo`}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className={cn("object-contain", imageSize[size])}
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
+          if (fallback) fallback.style.display = "flex";
+        }}
+      />
+      <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+        <Icon className={iconSize[size]} />
+      </span>
+    </span>
+  );
+}

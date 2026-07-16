@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
 import { TOOLS, getTool } from "@/lib/tools-data";
 
@@ -199,25 +200,20 @@ function Section({
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {items.slice(0, 6).map((t) => {
-            const Icon = t.icon;
-            return (
+          {items.slice(0, 6).map((t) => (
               <Link
                 key={t.slug}
                 to="/tools/$slug"
                 params={{ slug: t.slug }}
                 className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
               >
-                <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-primary text-primary-foreground">
-                  <Icon className="h-4 w-4" />
-                </div>
+                <ToolBrandMark tool={t} size="sm" />
                 <div className="min-w-0">
                   <div className="truncate font-medium">{t.name}</div>
                   <div className="truncate text-xs text-muted-foreground">{t.tagline}</div>
                 </div>
               </Link>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>
