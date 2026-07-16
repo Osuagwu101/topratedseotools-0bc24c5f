@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, Lock } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { getTool, TOOLS } from "@/lib/tools-data";
+import { getTool, getToolLogo, TOOLS } from "@/lib/tools-data";
 
 export const Route = createFileRoute("/tools/$slug")({
   loader: ({ params }) => {
@@ -71,8 +71,20 @@ function ToolPage() {
             <ArrowLeft className="h-4 w-4" /> All tools
           </Link>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <div className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-primary-foreground shadow-glow">
-              <Icon className="h-7 w-7" />
+            <div className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-background shadow-card">
+              <img
+                src={getToolLogo(tool.domain)}
+                alt={`${tool.name} logo`}
+                className="h-12 w-12 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fb) fb.style.display = "flex";
+                }}
+              />
+              <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+                <Icon className="h-7 w-7" />
+              </span>
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -151,8 +163,21 @@ function ToolPage() {
                     params={{ slug: r.slug }}
                     className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
                   >
-                    <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-primary text-primary-foreground">
-                      <RIcon className="h-4 w-4" />
+                    <div className="relative mb-3 inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border bg-background">
+                      <img
+                        src={getToolLogo(r.domain)}
+                        alt={`${r.name} logo`}
+                        loading="lazy"
+                        className="h-7 w-7 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.style.display = "flex";
+                        }}
+                      />
+                      <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+                        <RIcon className="h-4 w-4" />
+                      </span>
                     </div>
                     <div className="font-semibold">{r.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">{r.tagline}</div>
