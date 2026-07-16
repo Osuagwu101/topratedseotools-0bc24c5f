@@ -95,15 +95,8 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Admin — same as listToolSettings but includes stored login credentials. */
-export const adminListToolSettings = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context);
-    const { data, error } = await context.supabase.from("tool_settings").select("*");
-    if (error) throw new Error(error.message);
-    return { settings: (data ?? []) as ToolSetting[] };
-  });
+
+
 
 
 // ---------- USER ----------
