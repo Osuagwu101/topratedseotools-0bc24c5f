@@ -163,8 +163,21 @@ function ToolPage() {
                     params={{ slug: r.slug }}
                     className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
                   >
-                    <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-primary text-primary-foreground">
-                      <RIcon className="h-4 w-4" />
+                    <div className="relative mb-3 inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border bg-background">
+                      <img
+                        src={getToolLogo(r.domain)}
+                        alt={`${r.name} logo`}
+                        loading="lazy"
+                        className="h-7 w-7 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.style.display = "flex";
+                        }}
+                      />
+                      <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+                        <RIcon className="h-4 w-4" />
+                      </span>
                     </div>
                     <div className="font-semibold">{r.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">{r.tagline}</div>
