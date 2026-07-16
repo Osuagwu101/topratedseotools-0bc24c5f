@@ -26,13 +26,13 @@ function Home() {
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              20+ AI tools in one subscription
+              20+ premium SEO & AI tools in one subscription
             </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              One subscription. <span className="text-gradient-primary">Every AI tool</span> you need.
+              All the <span className="text-gradient-primary">top-rated SEO & AI tools</span>, one login.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Writing, images, audio, video, code and data — all your favorite AI tools behind a single, simple subscription.
+              Stealthwriter, Phrasly, ChatGPT, QuillBot, Grammarly, CapCut, Semrush, Turnitin and more — bundled behind one affordable plan.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
