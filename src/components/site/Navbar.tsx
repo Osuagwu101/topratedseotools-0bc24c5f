@@ -1,10 +1,12 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, Sparkles, LogOut, LayoutDashboard, User as UserIcon } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+import logoAsset from "@/assets/logo.png.asset.json";
+
 
 const NAV_LINKS = [
   { to: "/tools", label: "Tools" },
@@ -54,11 +56,16 @@ export function Navbar() {
           className="flex items-center gap-2 font-semibold"
           aria-label={`${APP_NAME} — Home`}
         >
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary text-primary-foreground shadow-glow">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <span className="text-base tracking-tight">{APP_NAME}</span>
+          <img
+            src={logoAsset.url}
+            alt={`${APP_NAME} logo`}
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-md object-contain"
+          />
+          <span className="hidden text-base tracking-tight sm:inline">{APP_NAME}</span>
         </Link>
+
 
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((l) => (

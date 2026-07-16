@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
 import { APP_NAME } from "@/lib/site-config";
+import logoAsset from "@/assets/logo.png.asset.json";
+
 
 const COLS = [
   {
@@ -34,11 +35,16 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-12 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="col-span-2 md:col-span-1">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary text-primary-foreground">
-              <Sparkles className="h-4 w-4" />
-            </span>
+            <img
+              src={logoAsset.url}
+              alt={`${APP_NAME} logo`}
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-md object-contain"
+            />
             {APP_NAME}
           </Link>
+
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
             One subscription. Every AI tool you need. Built for creators, teams and builders.
           </p>
