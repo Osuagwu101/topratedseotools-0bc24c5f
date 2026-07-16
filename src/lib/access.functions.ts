@@ -86,15 +86,28 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
 
 // ---------- PUBLIC ----------
 
-/** Public — every tool's settings. Cached and read by every tool card. */
+/** Public — every tool's settings. Cached and read by every tool card. Credentials are NEVER included here. */
 export const listToolSettings = createServerFn({ method: "GET" }).handler(
   async () => {
     const supabase = publicClient();
-    const { data, error } = await supabase.from("tool_settings").select("*");
+    const { data, error } = await supabase
+      .from("tool_settings")
+      .select("tool_slug, enabled, access_level");
     if (error) throw new Error(error.message);
     return { settings: (data ?? []) as ToolSetting[] };
   },
 );
+
+/** Admin — same as listToolSettings but includes stored login credentials. */
+export const adminListToolSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase.from("tool_settings").select("*");
+    if (error) throw new Error(error.message);
+    return { settings: (data ?? []) as ToolSetting[] };
+  });
+
 
 // ---------- USER ----------
 
