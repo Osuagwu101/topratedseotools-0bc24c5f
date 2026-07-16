@@ -95,6 +95,65 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_orders: {
+        Row: {
+          admin_notes: string | null
+          approved_at: string | null
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          notes: string | null
+          price_amount: number | null
+          price_label: string | null
+          pricing_option_id: string | null
+          status: Database["public"]["Enums"]["tool_order_status"]
+          tool_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          price_amount?: number | null
+          price_label?: string | null
+          pricing_option_id?: string | null
+          status?: Database["public"]["Enums"]["tool_order_status"]
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          approved_at?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          price_amount?: number | null
+          price_label?: string | null
+          pricing_option_id?: string | null
+          status?: Database["public"]["Enums"]["tool_order_status"]
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_orders_pricing_option_id_fkey"
+            columns: ["pricing_option_id"]
+            isOneToOne: false
+            referencedRelation: "tool_pricing"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_pricing: {
         Row: {
           amount: number | null
@@ -130,6 +189,27 @@ export type Database = {
           sort_order?: number
           tool_slug?: string
           unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tool_settings: {
+        Row: {
+          access_level: Database["public"]["Enums"]["tool_access_level"]
+          enabled: boolean
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["tool_access_level"]
+          enabled?: boolean
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["tool_access_level"]
+          enabled?: boolean
+          tool_slug?: string
           updated_at?: string
         }
         Relationships: []
@@ -242,9 +322,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_has_tool_access: {
+        Args: { _slug: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
+      tool_access_level: "public" | "logged_in" | "purchased"
+      tool_order_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+        | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -373,6 +464,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      tool_access_level: ["public", "logged_in", "purchased"],
+      tool_order_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled",
+        "expired",
+      ],
     },
   },
 } as const

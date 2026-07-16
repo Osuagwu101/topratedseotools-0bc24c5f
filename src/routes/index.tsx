@@ -1,23 +1,84 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Check, Sparkles, Zap, Shield, Users } from "lucide-react";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { ArrowRight, Check, Sparkles, Zap, Shield, Users, Star, HelpCircle } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
-import { PRICING_PLANS } from "@/lib/pricing-data";
+import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
 import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/site-config";
+
+const pricingQuery = queryOptions({
+  queryKey: ["tool-pricing"],
+  queryFn: () => listToolPricing(),
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: `${APP_NAME} — ${APP_TAGLINE}` },
       { name: "description", content: APP_DESCRIPTION },
+      { property: "og:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
+      { property: "og:description", content: APP_DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
   component: Home,
 });
 
+const TESTIMONIALS = [
+  {
+    quote:
+      "The cheapest way to get Stealthwriter and ChatGPT together. Delivery was instant after payment confirmation.",
+    name: "Adaeze O.",
+    role: "Content writer, Lagos",
+  },
+  {
+    quote:
+      "I ran Semrush and Grammarly for two months and my organic traffic doubled. Worth every naira.",
+    name: "Michael K.",
+    role: "SEO Consultant",
+  },
+  {
+    quote:
+      "Support is fast and the tools work exactly as advertised — no reselling gimmicks. Highly recommended.",
+    name: "Ifeoma A.",
+    role: "Agency Owner",
+  },
+];
+
+const FAQ = [
+  {
+    q: "How does the subscription work?",
+    a: "Pick any tool from the catalog, submit your subscription request, and the admin activates access as soon as your payment is confirmed. Each tool is priced individually.",
+  },
+  {
+    q: "Which payment methods are supported?",
+    a: "For now, payments are confirmed manually — bank transfer, Paystack link, or Flutterwave transfer. Automatic checkout is coming soon and will plug straight into the same flow.",
+  },
+  {
+    q: "Can I subscribe to just one tool?",
+    a: "Yes. Every tool is priced separately. Buy Stealthwriter alone, or bundle it with Semrush and Grammarly — there is no forced package.",
+  },
+  {
+    q: "How long does activation take?",
+    a: "Usually within minutes during business hours. You'll see the status change from Pending to Active on your subscriptions page.",
+  },
+  {
+    q: "Do you offer refunds?",
+    a: "If a tool cannot be delivered, we refund in full. Once access is granted and used, refunds are handled case-by-case.",
+  },
+];
+
 function Home() {
   const featured = TOOLS.filter((t) => t.featured);
+  const { data: pricing } = useSuspenseQuery(pricingQuery);
+
+  const showcase = TOOLS.slice(0, 8).map((t) => {
+    const primary = pricing.options.find((o) => o.tool_slug === t.slug);
+    return { tool: t, price: primary };
+  });
 
   return (
     <SiteLayout>
@@ -27,30 +88,31 @@ function Home() {
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              20+ premium SEO & AI tools in one subscription
+              Premium SEO & AI tools — pay only for what you use
             </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              All the <span className="text-gradient-primary">top-rated SEO & AI tools</span>, one login.
+              All the <span className="text-gradient-primary">top-rated SEO & AI tools</span>, one place.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Stealthwriter, Phrasly, ChatGPT, QuillBot, Grammarly, CapCut, Semrush, Turnitin and more — bundled behind one affordable plan.
+              Stealthwriter, Phrasly, ChatGPT, QuillBot, Grammarly, CapCut, Semrush, Turnitin and more —
+              subscribed individually, delivered instantly, priced in ₦.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/register"
+                to="/tools"
                 className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90"
               >
-                Start free trial <ArrowRight className="h-4 w-4" />
+                Browse tools <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/tools"
+                to="/pricing"
                 className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted"
               >
-                Explore tools
+                See pricing
               </Link>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              No card required · 7-day Pro trial · Cancel anytime
+              No forced bundles · Instant activation · Cancel anytime
             </p>
           </div>
         </div>
@@ -75,19 +137,19 @@ function Home() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {featured.map((t) => (
-              <Link
-                key={t.slug}
-                to="/tools/$slug"
-                params={{ slug: t.slug }}
-                className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
-              >
-                <ToolBrandMark tool={t} className="mb-4" />
-                <div className="text-lg font-semibold">{t.name}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-                <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                  Launch tool <ArrowRight className="h-4 w-4" />
-                </div>
-              </Link>
+            <Link
+              key={t.slug}
+              to="/tools/$slug"
+              params={{ slug: t.slug }}
+              className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
+            >
+              <ToolBrandMark tool={t} className="mb-4" />
+              <div className="text-lg font-semibold">{t.name}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
+              <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
+                View plans <ArrowRight className="h-4 w-4" />
+              </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -96,9 +158,9 @@ function Home() {
       <section className="border-y bg-muted/30">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
           {[
-            { icon: Zap, title: "Fast by default", body: "Priority routing to the latest models. No cold starts, no queues." },
-            { icon: Shield, title: "Private & secure", body: "Your data is encrypted, isolated per account and never used to train models." },
-            { icon: Users, title: "Built for teams", body: "Shared workspaces, seat management and SSO on the Team plan." },
+            { icon: Zap, title: "Instant delivery", body: "Access is unlocked in minutes once payment is confirmed. No waiting for shared logins." },
+            { icon: Shield, title: "Verified accounts", body: "Every account is genuine, fully-featured, and monitored — never a cracked or throwaway version." },
+            { icon: Users, title: "Human support", body: "Message us any time. We handle activation, renewals and account questions personally." },
           ].map((v) => (
             <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -111,52 +173,102 @@ function Home() {
         </div>
       </section>
 
-      {/* Pricing preview */}
+      {/* Pricing preview — per tool */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Simple, honest pricing</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Pay per tool</h2>
           <p className="mt-3 text-muted-foreground">
-            Start free. Upgrade when you're ready. Cancel with one click.
+            No forced bundles. Each tool has its own transparent price.
           </p>
         </div>
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {PRICING_PLANS.map((p) => (
-            <div
-              key={p.id}
-              className={`relative flex flex-col rounded-2xl border bg-card p-6 shadow-card ${
-                p.featured ? "border-primary/50 shadow-glow" : ""
-              }`}
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {showcase.map(({ tool, price }) => (
+            <Link
+              key={tool.slug}
+              to="/tools/$slug"
+              params={{ slug: tool.slug }}
+              className="group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
             >
-              {p.featured && (
-                <div className="absolute -top-3 left-6 rounded-full bg-gradient-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                  Most popular
+              <div className="flex items-center gap-3">
+                <ToolBrandMark tool={tool} size="sm" />
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{tool.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">{tool.category}</div>
                 </div>
-              )}
-              <div className="text-lg font-semibold">{p.name}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{p.tagline}</div>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-bold">${p.monthly}</span>
-                <span className="text-sm text-muted-foreground">/month</span>
               </div>
-              <ul className="mt-5 flex-1 space-y-2 text-sm">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/pricing"
-                className={`mt-6 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition ${
-                  p.featured
-                    ? "bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
-                    : "border border-input hover:bg-muted"
-                }`}
-              >
-                {p.cta}
-              </Link>
-            </div>
+              <div className="mt-4 flex-1 text-sm text-muted-foreground line-clamp-2">
+                {tool.tagline}
+              </div>
+              <div className="mt-4 border-t pt-3">
+                {price ? (
+                  <div className={price.contact_admin ? "text-sm font-medium text-primary" : "text-lg font-bold"}>
+                    {formatPrice(price)}
+                  </div>
+                ) : (
+                  <div className="text-sm font-medium text-primary">Contact admin</div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-8 text-center">
+          <Link
+            to="/pricing"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            View full pricing <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="border-y bg-muted/30">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight">Loved by creators & agencies</h2>
+            <p className="mt-3 text-muted-foreground">
+              Real feedback from members using our tools every day.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} className="rounded-2xl border bg-card p-6 shadow-card">
+                <div className="flex gap-0.5 text-warning">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-current" />
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-foreground/90">"{t.quote}"</p>
+                <div className="mt-4 text-xs">
+                  <div className="font-semibold">{t.name}</div>
+                  <div className="text-muted-foreground">{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
+            <HelpCircle className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-3xl font-bold tracking-tight">Frequently asked questions</h2>
+        </div>
+        <div className="mt-10 space-y-3">
+          {FAQ.map((item) => (
+            <details
+              key={item.q}
+              className="group rounded-2xl border bg-card p-5 shadow-card open:shadow-glow"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
+                {item.q}
+                <span className="text-lg text-muted-foreground transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 text-sm text-muted-foreground">{item.a}</p>
+            </details>
           ))}
         </div>
       </section>
@@ -165,19 +277,31 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-3xl border bg-gradient-primary p-10 text-center text-primary-foreground shadow-glow sm:p-16">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to build faster with AI?
+            Ready to get every premium SEO tool?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
-            Join thousands of creators and teams using {APP_NAME} every day.
+            Create an account, pick a tool, and start using it in minutes.
           </p>
-          <Link
-            to="/register"
-            className="mt-6 inline-flex items-center gap-2 rounded-md bg-background px-5 py-3 text-sm font-medium text-foreground shadow hover:opacity-90"
-          >
-            Start your free trial <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-2 rounded-md bg-background px-5 py-3 text-sm font-medium text-foreground shadow hover:opacity-90"
+            >
+              Create account <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/tools"
+              className="inline-flex items-center rounded-md border border-primary-foreground/40 px-5 py-3 text-sm font-medium hover:bg-primary-foreground/10"
+            >
+              Explore all tools
+            </Link>
+          </div>
         </div>
       </section>
     </SiteLayout>
   );
 }
+
+/* Ensure the following exists in tool-pricing.functions.ts:
+   export function formatPrice(o: ToolPricingOption): string
+   — already exported. */

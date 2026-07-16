@@ -1,21 +1,37 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Tag } from "lucide-react";
+import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
+import { ArrowLeft, Check, Tag } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
+import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
 import { getTool, TOOLS } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolSettings } from "@/lib/access.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
 });
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
+});
+const sessionQuery = queryOptions({
+  queryKey: ["session-flag"],
+  queryFn: async () => {
+    const { data } = await supabase.auth.getSession();
+    return { isAuthenticated: !!data.session };
+  },
+  staleTime: 30_000,
+});
 
 export const Route = createFileRoute("/tools/$slug")({
-  loader: ({ params }) => {
+  loader: ({ params, context }) => {
     const tool = getTool(params.slug);
     if (!tool) throw notFound();
-    // Return only serializable fields; the icon component is looked up in the component.
+    context.queryClient.ensureQueryData(pricingQuery);
+    context.queryClient.ensureQueryData(settingsQuery);
     return {
       slug: tool.slug,
       name: tool.name,
@@ -69,8 +85,20 @@ function ToolPage() {
   const data = Route.useLoaderData();
   const tool = getTool(data.slug)!;
   const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const { data: settings } = useSuspenseQuery(settingsQuery);
+  const { data: session } = useQuery(sessionQuery);
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
+  const setting = settings.settings.find((s) => s.tool_slug === tool.slug);
   const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
+
+  const badge =
+    setting?.enabled === false
+      ? { label: "Disabled", cls: "bg-destructive/10 text-destructive" }
+      : setting?.access_level === "public"
+        ? { label: "Free", cls: "bg-success/15 text-success" }
+        : setting?.access_level === "logged_in"
+          ? { label: "Members", cls: "bg-accent text-accent-foreground" }
+          : { label: "Premium", cls: "bg-primary/10 text-primary" };
 
   return (
     <SiteLayout>
@@ -84,32 +112,13 @@ function ToolPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border bg-background/60 px-2 py-0.5">{tool.category}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${
-                    tool.access === "pro" ? "bg-primary/10 text-primary" : "bg-success/15 text-success"
-                  }`}
-                >
-                  {tool.access}
+                <span className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${badge.cls}`}>
+                  {badge.label}
                 </span>
               </div>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{tool.name}</h1>
               <p className="mt-2 text-lg text-muted-foreground">{tool.tagline}</p>
               <p className="mt-4 max-w-2xl text-foreground/80">{tool.description}</p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  to="/register"
-                  className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
-                >
-                  {tool.access === "pro" ? "Start free trial" : "Get started"} <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  to="/pricing"
-                  className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-2.5 text-sm font-medium backdrop-blur hover:bg-muted"
-                >
-                  View pricing
-                </Link>
-              </div>
             </div>
           </div>
         </div>
@@ -117,17 +126,12 @@ function ToolPage() {
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-6 shadow-card">
-            <h2 className="text-lg font-semibold">What you can do</h2>
-            <ul className="mt-4 space-y-3 text-sm">
-              {["Fast, high-quality output on the latest models", "Templates and presets to get you started", "Export, share and integrate with your workflow", "Priority speed on paid plans"].map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ToolAccessPanel
+            tool={tool}
+            setting={setting}
+            isAuthenticated={session?.isAuthenticated ?? false}
+          />
+
           <div className="rounded-2xl border bg-card p-6 shadow-card">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <Tag className="h-4 w-4 text-primary" /> Pricing
@@ -159,31 +163,41 @@ function ToolPage() {
                 ))}
               </ul>
             )}
-            <Link
-              to="/contact"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
-            >
-              Order this tool
-            </Link>
           </div>
         </div>
 
+        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+          <h2 className="text-lg font-semibold">What you can do</h2>
+          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            {[
+              "Fast, high-quality output on the latest models",
+              "Templates and presets to get you started",
+              "Export, share and integrate with your workflow",
+              "Priority speed on paid plans",
+            ].map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {related.length > 0 && (
           <>
             <h2 className="mt-14 text-xl font-semibold">More in {tool.category}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               {related.map((r) => (
-                  <Link
-                    key={r.slug}
-                    to="/tools/$slug"
-                    params={{ slug: r.slug }}
-                    className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
-                  >
-                    <ToolBrandMark tool={r} size="sm" className="mb-3" />
-                    <div className="font-semibold">{r.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{r.tagline}</div>
-                  </Link>
+                <Link
+                  key={r.slug}
+                  to="/tools/$slug"
+                  params={{ slug: r.slug }}
+                  className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
+                >
+                  <ToolBrandMark tool={r} size="sm" className="mb-3" />
+                  <div className="font-semibold">{r.name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{r.tagline}</div>
+                </Link>
               ))}
             </div>
           </>
