@@ -93,26 +93,51 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
 
 // ---------- USER ----------
 
-/** Auth — returns the current user's active (approved, unexpired) tool slugs. */
+/** Auth — returns the current user's active (approved, unexpired) tool slugs, with credentials. */
 export const getMyAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const nowIso = new Date().toISOString();
     const { data, error } = await context.supabase
       .from("tool_orders")
-      .select("tool_slug, expires_at, approved_at")
+      .select("id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days")
       .eq("user_id", context.userId)
       .eq("status", "approved")
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
     if (error) throw new Error(error.message);
+
+    const slugs = Array.from(new Set((data ?? []).map((r) => r.tool_slug as string)));
+    let creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    if (slugs.length > 0) {
+      const { data: settings } = await context.supabase
+        .from("tool_settings")
+        .select("tool_slug, login_email, login_password, login_url, login_notes")
+        .in("tool_slug", slugs);
+      for (const s of settings ?? []) {
+        creds[s.tool_slug as string] = {
+          email: s.login_email as string | null,
+          password: s.login_password as string | null,
+          login_url: s.login_url as string | null,
+          login_notes: s.login_notes as string | null,
+        };
+      }
+    }
+
     return {
       access: (data ?? []).map((r) => ({
+        order_id: r.id as string,
         tool_slug: r.tool_slug as string,
         expires_at: r.expires_at as string | null,
         approved_at: r.approved_at as string | null,
+        paid_at: r.paid_at as string | null,
+        duration_days: (r.duration_days as number) ?? null,
+        grace_days: (r.grace_days as number) ?? 0,
+        warning_days: (r.warning_days as number) ?? 0,
+        credentials: creds[r.tool_slug as string] ?? null,
       })),
     };
   });
+
 
 /** Auth — the current user's orders (all statuses). */
 export const listMyOrders = createServerFn({ method: "GET" })
