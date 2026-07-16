@@ -31,11 +31,8 @@ export interface ToolSetting {
   tool_slug: string;
   enabled: boolean;
   access_level: ToolAccessLevel;
-  login_email?: string | null;
-  login_password?: string | null;
-  login_url?: string | null;
-  login_notes?: string | null;
 }
+
 
 
 export interface ToolOrder {
