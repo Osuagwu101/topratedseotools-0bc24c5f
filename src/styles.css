@@ -120,6 +120,28 @@
   --ring: oklch(0.72 0.19 285);
 }
 
+/* =====================================================================
+   THEME 2 — placeholder palette (waiting for the client's Colour 2).
+   Override only these variables to re-skin the entire site.
+   Currently a warm teal/amber accent as a visible placeholder.
+   ===================================================================== */
+.theme-2 {
+  --primary: oklch(0.62 0.14 195);
+  --primary-foreground: oklch(0.99 0.005 200);
+  --primary-glow: oklch(0.75 0.13 175);
+  --accent: oklch(0.94 0.05 195);
+  --accent-foreground: oklch(0.3 0.12 200);
+  --ring: oklch(0.62 0.14 195);
+}
+.theme-2.dark {
+  --primary: oklch(0.75 0.13 195);
+  --primary-foreground: oklch(0.14 0.02 200);
+  --primary-glow: oklch(0.82 0.12 175);
+  --accent: oklch(0.28 0.07 195);
+  --accent-foreground: oklch(0.9 0.05 195);
+  --ring: oklch(0.75 0.13 195);
+}
+
 @utility bg-gradient-primary {
   background-image: linear-gradient(135deg, var(--primary), var(--primary-glow));
 }
