@@ -71,8 +71,20 @@ function ToolPage() {
             <ArrowLeft className="h-4 w-4" /> All tools
           </Link>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <div className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-primary-foreground shadow-glow">
-              <Icon className="h-7 w-7" />
+            <div className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-background shadow-card">
+              <img
+                src={getToolLogo(tool.domain)}
+                alt={`${tool.name} logo`}
+                className="h-12 w-12 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fb) fb.style.display = "flex";
+                }}
+              />
+              <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+                <Icon className="h-7 w-7" />
+              </span>
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
