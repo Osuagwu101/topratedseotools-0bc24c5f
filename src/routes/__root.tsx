@@ -83,6 +83,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 const title = `${APP_NAME} — ${APP_TAGLINE}`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  loader: async () => {
+    try {
+      return await getActiveTheme();
+    } catch {
+      return { activeTheme: "theme-1" as const };
+    }
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -115,8 +122,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const data = Route.useLoaderData();
+  const themeClass = data?.activeTheme ?? "theme-1";
   return (
-    <html lang="en">
+    <html lang="en" className={themeClass}>
       <head>
         <HeadContent />
       </head>
