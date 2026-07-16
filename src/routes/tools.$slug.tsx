@@ -1,8 +1,15 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Check, Lock } from "lucide-react";
+import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, Check, Tag } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool, TOOLS } from "@/lib/tools-data";
+import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+
+const pricingQuery = queryOptions({
+  queryKey: ["tool-pricing"],
+  queryFn: () => listToolPricing(),
+});
 
 export const Route = createFileRoute("/tools/$slug")({
   loader: ({ params }) => {
@@ -61,6 +68,8 @@ export const Route = createFileRoute("/tools/$slug")({
 function ToolPage() {
   const data = Route.useLoaderData();
   const tool = getTool(data.slug)!;
+  const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
   const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
 
   return (
@@ -120,21 +129,45 @@ function ToolPage() {
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6 shadow-card">
-            <h2 className="text-lg font-semibold">Access level</h2>
-            {tool.access === "pro" ? (
-              <div className="mt-3 flex items-start gap-3">
-                <Lock className="mt-0.5 h-5 w-5 text-primary" />
-                <div className="text-sm text-muted-foreground">
-                  This tool is included on the <span className="font-medium text-foreground">Pro</span> and <span className="font-medium text-foreground">Team</span> plans. Start a 7-day free trial to use it.
-                </div>
-              </div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Tag className="h-4 w-4 text-primary" /> Pricing
+            </h2>
+            {priceOptions.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Contact admin for pricing.
+              </p>
             ) : (
-              <div className="mt-3 text-sm text-muted-foreground">
-                Available on every plan, including free.
-              </div>
+              <ul className="mt-4 space-y-2">
+                {priceOptions.map((opt) => (
+                  <li
+                    key={opt.id}
+                    className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2"
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {opt.label ?? (opt.contact_admin ? "Custom pricing" : "Standard")}
+                    </span>
+                    <span
+                      className={
+                        opt.contact_admin
+                          ? "text-sm font-medium text-primary"
+                          : "text-sm font-semibold"
+                      }
+                    >
+                      {formatPrice(opt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
+            <Link
+              to="/contact"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+            >
+              Order this tool
+            </Link>
           </div>
         </div>
+
 
         {related.length > 0 && (
           <>

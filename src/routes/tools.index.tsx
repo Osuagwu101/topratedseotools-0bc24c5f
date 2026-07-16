@@ -1,12 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
+import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
 import { cn } from "@/lib/utils";
 
+const pricingQuery = queryOptions({
+  queryKey: ["tool-pricing"],
+  queryFn: () => listToolPricing(),
+});
+
 export const Route = createFileRoute("/tools/")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
   head: () => ({
     meta: [
       { title: "All AI Tools — Top Rated SEO Tools" },
@@ -21,6 +29,15 @@ export const Route = createFileRoute("/tools/")({
 function ToolsDirectory() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
+  const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const priceByTool = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof formatPrice>>();
+    for (const opt of pricing.options) {
+      if (!m.has(opt.tool_slug)) m.set(opt.tool_slug, formatPrice(opt));
+    }
+    return m;
+  }, [pricing.options]);
+
 
   const filtered = useMemo(() => {
     return TOOLS.filter((t) => {
@@ -104,7 +121,12 @@ function ToolsDirectory() {
                 </div>
                 <div className="mt-4 text-lg font-semibold">{t.name}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-                <div className="mt-4 text-xs text-muted-foreground">{t.category}</div>
+                <div className="mt-4 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t.category}</span>
+                  <span className="font-semibold text-foreground">
+                    {priceByTool.get(t.slug) ?? "Contact admin"}
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
