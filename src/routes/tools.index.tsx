@@ -121,7 +121,12 @@ function ToolsDirectory() {
                 </div>
                 <div className="mt-4 text-lg font-semibold">{t.name}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-                <div className="mt-4 text-xs text-muted-foreground">{t.category}</div>
+                <div className="mt-4 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t.category}</span>
+                  <span className="font-semibold text-foreground">
+                    {priceByTool.get(t.slug) ?? "Contact admin"}
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
