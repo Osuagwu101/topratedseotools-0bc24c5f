@@ -39,6 +39,8 @@ export interface Tool {
   tagline: string;
   description: string;
   icon: LucideIcon;
+  /** Official brand domain — used to fetch the real product logo. */
+  domain: string;
   category: ToolCategory;
   access: "free" | "pro";
   featured?: boolean;
@@ -56,14 +58,20 @@ export const CATEGORIES: ToolCategory[] = [
   "Productivity",
 ];
 
+/** Returns a high-quality logo URL for a given brand domain. */
+export function getToolLogo(domain: string): string {
+  return `https://unavatar.io/${domain}?fallback=https://www.google.com/s2/favicons?domain=${domain}%26sz=256`;
+}
+
 export const TOOLS: Tool[] = [
   {
     slug: "stealthwriter",
     name: "Stealthwriter",
     tagline: "Humanize AI text — undetectable",
     description:
-      "Rewrite AI-generated content so it passes GPTZero, Originality.ai and Turnitin AI detection while keeping the original meaning.",
+      "Stealthwriter rewrites AI-generated content into natural, human-sounding writing that reliably bypasses GPTZero, Originality.ai, Turnitin and Copyleaks. Preserve meaning, tone and SEO keywords while making essays, blogs and reports read as if a person wrote them.",
     icon: Feather,
+    domain: "stealthwriter.ai",
     category: "AI Detection Bypass",
     access: "pro",
     featured: true,
@@ -73,8 +81,9 @@ export const TOOLS: Tool[] = [
     name: "Phrasly",
     tagline: "AI humanizer & paraphraser",
     description:
-      "Bypass AI detectors and paraphrase essays, blogs and reports into natural, human-sounding writing.",
+      "Phrasly is an all-in-one AI humanizer, paraphraser and grammar checker. Rewrite ChatGPT drafts into undetectable, plagiarism-free content, adjust tone from academic to casual, and export polished essays, articles and reports in seconds.",
     icon: Shuffle,
+    domain: "phrasly.ai",
     category: "AI Detection Bypass",
     access: "pro",
     featured: true,
@@ -84,8 +93,9 @@ export const TOOLS: Tool[] = [
     name: "ChatGPT",
     tagline: "The world's best AI assistant",
     description:
-      "Full access to ChatGPT for research, writing, coding, brainstorming and everyday questions — powered by the latest GPT models.",
+      "Full ChatGPT Plus access on the latest GPT models. Draft blog posts, research topics, generate code, brainstorm campaigns, analyze data and get long-form answers with vision, file uploads and advanced reasoning — all inside one workspace.",
     icon: MessageSquare,
+    domain: "openai.com",
     category: "Writing",
     access: "pro",
     featured: true,
@@ -95,8 +105,9 @@ export const TOOLS: Tool[] = [
     name: "QuillBot",
     tagline: "Paraphrase, summarize & rewrite",
     description:
-      "Rewrite sentences, improve fluency, summarize long documents and check grammar with QuillBot's premium modes.",
+      "QuillBot Premium unlocks unlimited paraphrasing modes, a powerful summarizer, grammar checker, plagiarism scanner and citation generator. Rewrite sentences, condense long documents and refine fluency without losing the original meaning.",
     icon: PenLine,
+    domain: "quillbot.com",
     category: "Writing",
     access: "pro",
     featured: true,
@@ -106,8 +117,9 @@ export const TOOLS: Tool[] = [
     name: "Grammarly",
     tagline: "Grammar, clarity & tone",
     description:
-      "Advanced grammar, spelling, clarity, tone and plagiarism checks — polish every email, essay and article.",
+      "Grammarly Premium checks grammar, spelling, punctuation, clarity, engagement, tone and delivery across every app you write in. Get full-sentence rewrites, vocabulary suggestions and a built-in plagiarism detector to polish essays, emails and articles.",
     icon: CheckCircle2,
+    domain: "grammarly.com",
     category: "Grammar & Proofreading",
     access: "pro",
     featured: true,
@@ -117,8 +129,9 @@ export const TOOLS: Tool[] = [
     name: "CapCut Pro",
     tagline: "Pro-grade video editing",
     description:
-      "Edit videos with premium templates, effects, transitions, background removal and AI captions from CapCut Pro.",
+      "CapCut Pro is a full video editing suite with premium templates, effects, transitions, keyframe animation, AI auto-captions, background removal, noise reduction and 4K exports — perfect for TikTok, Reels, YouTube Shorts and long-form content.",
     icon: Video,
+    domain: "capcut.com",
     category: "Video",
     access: "pro",
     featured: true,
@@ -128,8 +141,9 @@ export const TOOLS: Tool[] = [
     name: "Semrush",
     tagline: "Keyword & competitor research",
     description:
-      "Full Semrush SEO toolkit — keyword research, rank tracking, backlink analysis and competitor insights.",
+      "Semrush is the industry-standard SEO platform. Run keyword research, track daily rankings, audit sites, analyze competitor traffic and backlinks, explore SERP features and plan content that ranks — all from one dashboard.",
     icon: Search,
+    domain: "semrush.com",
     category: "SEO",
     access: "pro",
     featured: true,
@@ -139,8 +153,9 @@ export const TOOLS: Tool[] = [
     name: "Turnitin Checks",
     tagline: "Plagiarism & AI detection reports",
     description:
-      "Run Turnitin plagiarism and AI-writing detection reports on essays and papers before you submit.",
+      "Run the same Turnitin plagiarism and AI-writing detection reports universities use, before you submit. Get a detailed similarity score, source-by-source matches and an AI-generated content percentage on essays, theses and dissertations.",
     icon: ShieldCheck,
+    domain: "turnitin.com",
     category: "Plagiarism",
     access: "pro",
     featured: true,
@@ -150,8 +165,9 @@ export const TOOLS: Tool[] = [
     name: "Ahrefs",
     tagline: "Backlinks & keyword explorer",
     description:
-      "Analyze backlinks, keyword difficulty, top pages and content gaps with the full Ahrefs suite.",
+      "Ahrefs gives you the world's largest live backlink index plus Keywords Explorer, Site Audit, Rank Tracker and Content Explorer. Uncover keyword difficulty, top pages, content gaps and link-building opportunities to outrank the competition.",
     icon: BarChart3,
+    domain: "ahrefs.com",
     category: "SEO",
     access: "pro",
   },
@@ -160,8 +176,9 @@ export const TOOLS: Tool[] = [
     name: "Canva Pro",
     tagline: "Design without limits",
     description:
-      "Create social posts, thumbnails, presentations and brand kits with premium Canva Pro templates and assets.",
+      "Canva Pro unlocks 100M+ premium photos, videos, fonts and templates plus Magic Studio AI tools, background remover, brand kits and one-click resizing. Design social posts, thumbnails, presentations and marketing assets in minutes.",
     icon: Palette,
+    domain: "canva.com",
     category: "Image",
     access: "pro",
   },
@@ -170,8 +187,9 @@ export const TOOLS: Tool[] = [
     name: "Midjourney",
     tagline: "Stunning AI images",
     description:
-      "Generate high-quality AI artwork, illustrations and photorealistic images from a text prompt.",
+      "Midjourney generates breathtaking AI artwork, illustrations and photorealistic images from a simple text prompt. Perfect for blog visuals, ad creatives, thumbnails, moodboards and concept art — with fine control over style, aspect ratio and detail.",
     icon: Image,
+    domain: "midjourney.com",
     category: "Image",
     access: "pro",
   },
@@ -180,8 +198,9 @@ export const TOOLS: Tool[] = [
     name: "ElevenLabs",
     tagline: "Realistic AI voices",
     description:
-      "Convert scripts into studio-quality voiceovers in dozens of languages with lifelike AI voices.",
+      "ElevenLabs turns any script into studio-quality voiceovers with hyper-realistic AI voices in 30+ languages. Clone your own voice, control emotion and pacing, and export narrations for videos, podcasts, audiobooks and IVR systems.",
     icon: Mic,
+    domain: "elevenlabs.io",
     category: "Audio",
     access: "pro",
   },
@@ -190,8 +209,9 @@ export const TOOLS: Tool[] = [
     name: "Originality.ai",
     tagline: "AI & plagiarism scanner",
     description:
-      "Scan any document for AI-generated content and plagiarism with detailed, shareable reports.",
+      "Originality.ai scans any document for AI-generated content and plagiarism with industry-leading accuracy. Get shareable PDF reports, team seats, Chrome extension checks and readability scores — trusted by publishers and SEO agencies worldwide.",
     icon: ScanText,
+    domain: "originality.ai",
     category: "Plagiarism",
     access: "pro",
   },
@@ -200,8 +220,9 @@ export const TOOLS: Tool[] = [
     name: "GPTZero",
     tagline: "AI content detector",
     description:
-      "Detect AI-written text with sentence-level breakdowns from GPTZero's classroom-grade detector.",
+      "GPTZero is the classroom-grade AI content detector used by millions of teachers and editors. Get sentence-level highlighting, a mixed AI/human probability score and support for ChatGPT, Claude, Gemini and Llama-generated text.",
     icon: Bot,
+    domain: "gptzero.me",
     category: "AI Detection Bypass",
     access: "free",
   },
@@ -210,8 +231,9 @@ export const TOOLS: Tool[] = [
     name: "DeepL Pro",
     tagline: "Best-in-class translation",
     description:
-      "Translate documents and text between 30+ languages with DeepL Pro's natural, context-aware output.",
+      "DeepL Pro delivers the most natural, context-aware translations available across 30+ languages. Translate entire Word, PDF and PowerPoint files, fine-tune tone and formality, and integrate with your browser and favorite tools.",
     icon: Languages,
+    domain: "deepl.com",
     category: "Writing",
     access: "pro",
   },
@@ -220,8 +242,9 @@ export const TOOLS: Tool[] = [
     name: "Notion AI",
     tagline: "AI inside your workspace",
     description:
-      "Summarize meetings, draft docs, translate and brainstorm — right inside Notion.",
+      "Notion AI lives inside your docs and databases. Summarize meeting notes, draft blog outlines, translate content, extract action items and ask questions across your entire workspace — without leaving the page you're writing on.",
     icon: FileText,
+    domain: "notion.so",
     category: "Productivity",
     access: "pro",
   },
@@ -230,8 +253,9 @@ export const TOOLS: Tool[] = [
     name: "Gamma",
     tagline: "AI presentations & decks",
     description:
-      "Turn a prompt or outline into a polished slide deck, webpage or document in seconds.",
+      "Gamma turns a prompt, outline or existing document into a polished slide deck, webpage or PDF in seconds. Restyle with a click, edit in a doc-like editor, add charts and embeds, and export to PowerPoint or share as a live link.",
     icon: Presentation,
+    domain: "gamma.app",
     category: "Productivity",
     access: "pro",
   },
@@ -240,8 +264,9 @@ export const TOOLS: Tool[] = [
     name: "Suno",
     tagline: "AI music generator",
     description:
-      "Compose full songs — vocals, lyrics and instruments — from a short description with Suno.",
+      "Suno composes full original songs — vocals, lyrics, melody and instrumentation — from a short text description. Generate jingles, background tracks, demos and social-ready songs in any genre, then download the stems in high quality.",
     icon: Music,
+    domain: "suno.com",
     category: "Audio",
     access: "pro",
   },
@@ -250,8 +275,9 @@ export const TOOLS: Tool[] = [
     name: "Perplexity Pro",
     tagline: "Answer engine with sources",
     description:
-      "Ask any question and get a sourced, up-to-date answer powered by the latest AI models.",
+      "Perplexity Pro is the AI answer engine that cites its sources. Ask any question and get an up-to-date, cited response powered by GPT-4o, Claude and Sonar — with file uploads, Pro Search and focus modes for academic, coding and Reddit research.",
     icon: Sparkles,
+    domain: "perplexity.ai",
     category: "Productivity",
     access: "pro",
   },
@@ -260,8 +286,9 @@ export const TOOLS: Tool[] = [
     name: "Prompt Lab",
     tagline: "Test & save winning prompts",
     description:
-      "Compare prompts side-by-side across models and save your best-performing variations.",
+      "Prompt Lab lets you compare prompts side-by-side across GPT, Claude and Gemini, score outputs and save your best-performing variations to a personal library. Perfect for marketers, developers and content teams building repeatable AI workflows.",
     icon: Wand2,
+    domain: "toolratedseotools.com",
     category: "Productivity",
     access: "free",
   },
