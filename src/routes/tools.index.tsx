@@ -1,10 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
+import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
 import { cn } from "@/lib/utils";
+
+const pricingQuery = queryOptions({
+  queryKey: ["tool-pricing"],
+  queryFn: () => listToolPricing(),
+});
 
 export const Route = createFileRoute("/tools/")({
   head: () => ({
