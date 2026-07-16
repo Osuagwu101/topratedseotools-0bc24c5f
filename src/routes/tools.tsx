@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
+import { CATEGORIES, TOOLS, getToolLogo, type ToolCategory } from "@/lib/tools-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/tools")({
