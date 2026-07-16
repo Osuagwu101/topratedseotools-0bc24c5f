@@ -289,7 +289,7 @@ export const TOOLS: Tool[] = [
     description:
       "Prompt Lab lets you compare prompts side-by-side across GPT, Claude and Gemini, score outputs and save your best-performing variations to a personal library. Perfect for marketers, developers and content teams building repeatable AI workflows.",
     icon: Wand2,
-    domain: "toolratedseotools.com",
+    domain: "",
     category: "Productivity",
     access: "free",
   },

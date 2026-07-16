@@ -28,6 +28,7 @@ const iconSize = {
 
 export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
   const Icon = tool.icon;
+  const hasDomain = Boolean(tool.domain);
 
   return (
     <span
@@ -37,20 +38,28 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
         className,
       )}
     >
-      <img
-        src={getToolLogo(tool.domain)}
-        alt={`${tool.name} logo`}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        className={cn("object-contain", imageSize[size])}
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
-          if (fallback) fallback.style.display = "flex";
-        }}
-      />
-      <span className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground" aria-hidden>
+      {hasDomain && (
+        <img
+          src={getToolLogo(tool.domain)}
+          alt={`${tool.name} logo`}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className={cn("object-contain", imageSize[size])}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+            const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
+            if (fallback) fallback.style.display = "flex";
+          }}
+        />
+      )}
+      <span
+        className={cn(
+          "absolute inset-0 items-center justify-center bg-gradient-primary text-primary-foreground",
+          hasDomain ? "hidden" : "flex",
+        )}
+        aria-hidden
+      >
         <Icon className={iconSize[size]} />
       </span>
     </span>
