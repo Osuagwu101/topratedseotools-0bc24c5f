@@ -7,7 +7,7 @@ import { AuthShell, FieldPassword } from "./login";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Set a new password — Nexus AI" },
+      { title: "Set a new password — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),

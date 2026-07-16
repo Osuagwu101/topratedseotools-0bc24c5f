@@ -8,7 +8,7 @@ import { TOOLS, getTool } from "@/lib/tools-data";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Nexus AI" },
+      { title: "Dashboard — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),

@@ -7,8 +7,8 @@ import { AuthShell, FieldEmail } from "./login";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Forgot password — Nexus AI" },
-      { name: "description", content: "Reset your Nexus AI password." },
+      { title: "Forgot password — Top Rated SEO Tools" },
+      { name: "description", content: "Reset your Top Rated SEO Tools password." },
     ],
   }),
   component: ForgotPage,

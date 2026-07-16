@@ -9,7 +9,7 @@ import { PRICING_PLANS } from "@/lib/pricing-data";
 export const Route = createFileRoute("/_authenticated/subscription")({
   head: () => ({
     meta: [
-      { title: "Subscription — Nexus AI" },
+      { title: "Subscription — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),

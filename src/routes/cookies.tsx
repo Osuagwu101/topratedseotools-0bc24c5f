@@ -4,8 +4,8 @@ import { LegalPage } from "@/components/site/LegalPage";
 export const Route = createFileRoute("/cookies")({
   head: () => ({
     meta: [
-      { title: "Cookie Policy — Nexus AI" },
-      { name: "description", content: "How Nexus AI uses cookies and similar technologies." },
+      { title: "Cookie Policy — Top Rated SEO Tools" },
+      { name: "description", content: "How Top Rated SEO Tools uses cookies and similar technologies." },
     ],
   }),
   component: () => (

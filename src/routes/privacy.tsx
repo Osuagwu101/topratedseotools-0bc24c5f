@@ -4,14 +4,14 @@ import { LegalPage } from "@/components/site/LegalPage";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy — Nexus AI" },
-      { name: "description", content: "How Nexus AI collects, uses, and protects your data." },
+      { title: "Privacy Policy — Top Rated SEO Tools" },
+      { name: "description", content: "How Top Rated SEO Tools collects, uses, and protects your data." },
     ],
   }),
   component: () => (
     <LegalPage title="Privacy Policy" updated="July 16, 2026">
       <p>
-        This Privacy Policy describes how Nexus AI ("we", "us", or "our") collects, uses, and shares information when you use our service.
+        This Privacy Policy describes how Top Rated SEO Tools ("we", "us", or "our") collects, uses, and shares information when you use our service.
       </p>
       <h2>Information we collect</h2>
       <p>Account information you provide (name, email), authentication data, billing information processed via Stripe, and usage data such as which tools you access.</p>

@@ -7,24 +7,31 @@ export const Route = createFileRoute("/tools/$slug")({
   loader: ({ params }) => {
     const tool = getTool(params.slug);
     if (!tool) throw notFound();
-    return { tool };
+    // Return only serializable fields; the icon component is looked up in the component.
+    return {
+      slug: tool.slug,
+      name: tool.name,
+      tagline: tool.tagline,
+      description: tool.description,
+      category: tool.category,
+      access: tool.access,
+    };
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
       return {
         meta: [
-          { title: "Tool not found — Nexus AI" },
+          { title: "Tool not found — Top Rated SEO Tools" },
           { name: "robots", content: "noindex" },
         ],
       };
     }
-    const t = loaderData.tool;
     return {
       meta: [
-        { title: `${t.name} — Nexus AI` },
-        { name: "description", content: t.description },
-        { property: "og:title", content: `${t.name} — Nexus AI` },
-        { property: "og:description", content: t.description },
+        { title: `${loaderData.name} — Top Rated SEO Tools` },
+        { name: "description", content: loaderData.description },
+        { property: "og:title", content: `${loaderData.name} — Top Rated SEO Tools` },
+        { property: "og:description", content: loaderData.description },
       ],
     };
   },
@@ -51,7 +58,8 @@ export const Route = createFileRoute("/tools/$slug")({
 });
 
 function ToolPage() {
-  const { tool } = Route.useLoaderData();
+  const data = Route.useLoaderData();
+  const tool = getTool(data.slug)!;
   const Icon = tool.icon;
   const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
 

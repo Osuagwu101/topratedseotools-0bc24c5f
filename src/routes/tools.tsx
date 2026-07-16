@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/tools")({
   head: () => ({
     meta: [
-      { title: "All AI Tools — Nexus AI" },
+      { title: "All AI Tools — Top Rated SEO Tools" },
       { name: "description", content: "Browse the full catalog of AI tools for writing, images, audio, video, code and data." },
-      { property: "og:title", content: "All AI Tools — Nexus AI" },
+      { property: "og:title", content: "All AI Tools — Top Rated SEO Tools" },
       { property: "og:description", content: "Browse the full catalog of AI tools." },
     ],
   }),
