@@ -61,7 +61,11 @@ function PricingPage() {
           currency: "₦",
           contact_admin: true,
           sort_order: 0,
+          duration_days: null,
+          grace_days: 0,
+          warning_days: 0,
         } satisfies ToolPricingOption,
+
       ],
     }));
   }, [data.options]);
