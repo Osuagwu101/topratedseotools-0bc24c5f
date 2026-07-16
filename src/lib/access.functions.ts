@@ -33,6 +33,8 @@ export interface ToolSetting {
   access_level: ToolAccessLevel;
 }
 
+
+
 export interface ToolOrder {
   id: string;
   user_id: string;
@@ -46,8 +48,14 @@ export interface ToolOrder {
   admin_notes: string | null;
   expires_at: string | null;
   approved_at: string | null;
+  paid_at: string | null;
+  paystack_reference: string | null;
+  duration_days: number | null;
+  grace_days: number | null;
+  warning_days: number | null;
   created_at: string;
   updated_at: string;
+
 }
 
 function publicClient() {
@@ -81,38 +89,73 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
 
 // ---------- PUBLIC ----------
 
-/** Public — every tool's settings. Cached and read by every tool card. */
+/** Public — every tool's settings. Cached and read by every tool card. Credentials are NEVER included here. */
 export const listToolSettings = createServerFn({ method: "GET" }).handler(
   async () => {
     const supabase = publicClient();
-    const { data, error } = await supabase.from("tool_settings").select("*");
+    const { data, error } = await supabase
+      .from("tool_settings")
+      .select("tool_slug, enabled, access_level");
     if (error) throw new Error(error.message);
     return { settings: (data ?? []) as ToolSetting[] };
   },
 );
 
+
+
+
+
 // ---------- USER ----------
 
-/** Auth — returns the current user's active (approved, unexpired) tool slugs. */
+/** Auth — returns the current user's active (approved, unexpired) tool slugs, with credentials. */
 export const getMyAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const nowIso = new Date().toISOString();
     const { data, error } = await context.supabase
       .from("tool_orders")
-      .select("tool_slug, expires_at, approved_at")
+      .select("id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days")
       .eq("user_id", context.userId)
       .eq("status", "approved")
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
     if (error) throw new Error(error.message);
+
+    const slugs = Array.from(new Set((data ?? []).map((r) => r.tool_slug as string)));
+    const creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    if (slugs.length > 0) {
+      // tool_credentials is admin-only via RLS; use the service-role client to
+      // fetch just the rows the caller has already been shown to have paid for.
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: rows } = await supabaseAdmin
+        .from("tool_credentials")
+        .select("tool_slug, login_email, login_password, login_url, login_notes")
+        .in("tool_slug", slugs);
+      for (const s of rows ?? []) {
+        creds[s.tool_slug as string] = {
+          email: (s.login_email as string | null) ?? null,
+          password: (s.login_password as string | null) ?? null,
+          login_url: (s.login_url as string | null) ?? null,
+          login_notes: (s.login_notes as string | null) ?? null,
+        };
+      }
+    }
+
+
     return {
       access: (data ?? []).map((r) => ({
+        order_id: r.id as string,
         tool_slug: r.tool_slug as string,
         expires_at: r.expires_at as string | null,
         approved_at: r.approved_at as string | null,
+        paid_at: r.paid_at as string | null,
+        duration_days: (r.duration_days as number) ?? null,
+        grace_days: (r.grace_days as number) ?? 0,
+        warning_days: (r.warning_days as number) ?? 0,
+        credentials: creds[r.tool_slug as string] ?? null,
       })),
     };
   });
+
 
 /** Auth — the current user's orders (all statuses). */
 export const listMyOrders = createServerFn({ method: "GET" })
@@ -202,7 +245,7 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
 
 // ---------- ADMIN ----------
 
-/** Admin — upsert a single tool's settings. */
+/** Admin — upsert a single tool's settings (enable + access level only). */
 const upsertSettingInput = z.object({
   tool_slug: z.string().min(1).max(120),
   enabled: z.boolean().optional(),
@@ -224,6 +267,58 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------- CREDENTIAL VAULT (admin only, one row per tool) ----------
+
+export interface ToolCredential {
+  tool_slug: string;
+  login_email: string | null;
+  login_password: string | null;
+  login_url: string | null;
+  login_notes: string | null;
+  updated_at: string;
+}
+
+/** Admin — list every stored login credential. */
+export const adminListToolCredentials = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase
+      .from("tool_credentials")
+      .select("*");
+    if (error) throw new Error(error.message);
+    return { credentials: (data ?? []) as ToolCredential[] };
+  });
+
+const upsertCredentialInput = z.object({
+  tool_slug: z.string().min(1).max(120),
+  login_email: z.string().max(200).nullable().optional(),
+  login_password: z.string().max(500).nullable().optional(),
+  login_url: z.string().max(500).nullable().optional(),
+  login_notes: z.string().max(2000).nullable().optional(),
+});
+export const adminUpsertToolCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => upsertCredentialInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const patch = {
+      tool_slug: data.tool_slug,
+      login_email: data.login_email ?? null,
+      login_password: data.login_password ?? null,
+      login_url: data.login_url ?? null,
+      login_notes: data.login_notes ?? null,
+    };
+    const { error } = await context.supabase
+      .from("tool_credentials")
+      .upsert(patch, { onConflict: "tool_slug" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
+
 
 /** Admin — list every order (paged simply, most-recent first). */
 export const adminListOrders = createServerFn({ method: "GET" })

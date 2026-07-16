@@ -95,15 +95,49 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_credentials: {
+        Row: {
+          created_at: string
+          login_email: string | null
+          login_notes: string | null
+          login_password: string | null
+          login_url: string | null
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tool_orders: {
         Row: {
           admin_notes: string | null
           approved_at: string | null
           created_at: string
           currency: string
+          duration_days: number | null
           expires_at: string | null
+          grace_days: number
           id: string
           notes: string | null
+          paid_at: string | null
+          paystack_reference: string | null
           price_amount: number | null
           price_label: string | null
           pricing_option_id: string | null
@@ -111,15 +145,20 @@ export type Database = {
           tool_slug: string
           updated_at: string
           user_id: string
+          warning_days: number
         }
         Insert: {
           admin_notes?: string | null
           approved_at?: string | null
           created_at?: string
           currency?: string
+          duration_days?: number | null
           expires_at?: string | null
+          grace_days?: number
           id?: string
           notes?: string | null
+          paid_at?: string | null
+          paystack_reference?: string | null
           price_amount?: number | null
           price_label?: string | null
           pricing_option_id?: string | null
@@ -127,15 +166,20 @@ export type Database = {
           tool_slug: string
           updated_at?: string
           user_id: string
+          warning_days?: number
         }
         Update: {
           admin_notes?: string | null
           approved_at?: string | null
           created_at?: string
           currency?: string
+          duration_days?: number | null
           expires_at?: string | null
+          grace_days?: number
           id?: string
           notes?: string | null
+          paid_at?: string | null
+          paystack_reference?: string | null
           price_amount?: number | null
           price_label?: string | null
           pricing_option_id?: string | null
@@ -143,6 +187,7 @@ export type Database = {
           tool_slug?: string
           updated_at?: string
           user_id?: string
+          warning_days?: number
         }
         Relationships: [
           {
@@ -160,36 +205,45 @@ export type Database = {
           contact_admin: boolean
           created_at: string
           currency: string
+          duration_days: number | null
+          grace_days: number
           id: string
           label: string | null
           sort_order: number
           tool_slug: string
           unit: string | null
           updated_at: string
+          warning_days: number
         }
         Insert: {
           amount?: number | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
+          duration_days?: number | null
+          grace_days?: number
           id?: string
           label?: string | null
           sort_order?: number
           tool_slug: string
           unit?: string | null
           updated_at?: string
+          warning_days?: number
         }
         Update: {
           amount?: number | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
+          duration_days?: number | null
+          grace_days?: number
           id?: string
           label?: string | null
           sort_order?: number
           tool_slug?: string
           unit?: string | null
           updated_at?: string
+          warning_days?: number
         }
         Relationships: []
       }

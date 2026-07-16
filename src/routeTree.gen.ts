@@ -33,7 +33,9 @@ import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminToolsRouteImport } from './routes/_authenticated.admin.tools'
 import { Route as AuthenticatedAdminPricingRouteImport } from './routes/_authenticated.admin.pricing'
 import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenticated.admin.orders'
+import { Route as AuthenticatedAdminCredentialsRouteImport } from './routes/_authenticated.admin.credentials'
 import { Route as AuthenticatedAdminAppearanceRouteImport } from './routes/_authenticated.admin.appearance'
+import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
 
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
@@ -157,11 +159,23 @@ const AuthenticatedAdminOrdersRoute =
     path: '/admin/orders',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminCredentialsRoute =
+  AuthenticatedAdminCredentialsRouteImport.update({
+    id: '/admin/credentials',
+    path: '/admin/credentials',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminAppearanceRoute =
   AuthenticatedAdminAppearanceRouteImport.update({
     id: '/admin/appearance',
     path: '/admin/appearance',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicWebhooksPaystackRoute =
+  ApiPublicWebhooksPaystackRouteImport.update({
+    id: '/api/public/webhooks/paystack',
+    path: '/api/public/webhooks/paystack',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -185,10 +199,12 @@ export interface FileRoutesByFullPath {
   '/tools/$slug': typeof ToolsSlugRoute
   '/tools/': typeof ToolsIndexRoute
   '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
+  '/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -210,10 +226,12 @@ export interface FileRoutesByTo {
   '/tools/$slug': typeof ToolsSlugRoute
   '/tools': typeof ToolsIndexRoute
   '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
+  '/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -238,10 +256,12 @@ export interface FileRoutesById {
   '/tools/$slug': typeof ToolsSlugRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
+  '/_authenticated/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
   '/_authenticated/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/_authenticated/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/_authenticated/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -266,10 +286,12 @@ export interface FileRouteTypes {
     | '/tools/$slug'
     | '/tools/'
     | '/admin/appearance'
+    | '/admin/credentials'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
     | '/order/$slug'
+    | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -291,10 +313,12 @@ export interface FileRouteTypes {
     | '/tools/$slug'
     | '/tools'
     | '/admin/appearance'
+    | '/admin/credentials'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
     | '/order/$slug'
+    | '/api/public/webhooks/paystack'
   id:
     | '__root__'
     | '/'
@@ -318,10 +342,12 @@ export interface FileRouteTypes {
     | '/tools/$slug'
     | '/tools/'
     | '/_authenticated/admin/appearance'
+    | '/_authenticated/admin/credentials'
     | '/_authenticated/admin/orders'
     | '/_authenticated/admin/pricing'
     | '/_authenticated/admin/tools'
     | '/_authenticated/order/$slug'
+    | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -338,6 +364,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -510,12 +537,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminOrdersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/credentials': {
+      id: '/_authenticated/admin/credentials'
+      path: '/admin/credentials'
+      fullPath: '/admin/credentials'
+      preLoaderRoute: typeof AuthenticatedAdminCredentialsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/appearance': {
       id: '/_authenticated/admin/appearance'
       path: '/admin/appearance'
       fullPath: '/admin/appearance'
       preLoaderRoute: typeof AuthenticatedAdminAppearanceRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/webhooks/paystack': {
+      id: '/api/public/webhooks/paystack'
+      path: '/api/public/webhooks/paystack'
+      fullPath: '/api/public/webhooks/paystack'
+      preLoaderRoute: typeof ApiPublicWebhooksPaystackRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -527,6 +568,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
   AuthenticatedAdminAppearanceRoute: typeof AuthenticatedAdminAppearanceRoute
+  AuthenticatedAdminCredentialsRoute: typeof AuthenticatedAdminCredentialsRoute
   AuthenticatedAdminOrdersRoute: typeof AuthenticatedAdminOrdersRoute
   AuthenticatedAdminPricingRoute: typeof AuthenticatedAdminPricingRoute
   AuthenticatedAdminToolsRoute: typeof AuthenticatedAdminToolsRoute
@@ -540,6 +582,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
   AuthenticatedAdminAppearanceRoute: AuthenticatedAdminAppearanceRoute,
+  AuthenticatedAdminCredentialsRoute: AuthenticatedAdminCredentialsRoute,
   AuthenticatedAdminOrdersRoute: AuthenticatedAdminOrdersRoute,
   AuthenticatedAdminPricingRoute: AuthenticatedAdminPricingRoute,
   AuthenticatedAdminToolsRoute: AuthenticatedAdminToolsRoute,
@@ -576,17 +619,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

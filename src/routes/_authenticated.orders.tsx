@@ -1,25 +1,59 @@
 /**
  * My subscriptions — user-side view of every tool_orders row.
- * Approved rows = active access. Pending = awaiting admin confirmation.
+ *
+ * When redirected back from Paystack with `?reference=…`, we call
+ * `verifyPaystackPayment` so approved status shows immediately (the webhook
+ * is the authoritative path but may be delayed).
+ *
+ * For approved subscriptions we also show the stored login credentials
+ * (email / password / URL) plus expiry warnings — 7 days for 90/365-day
+ * plans, and the 2-day grace-period notice for monthly plans past day 28.
  */
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useRouter, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Clock, CheckCircle2, XCircle, PauseCircle } from "lucide-react";
+import {
+  Clock,
+  CheckCircle2,
+  XCircle,
+  PauseCircle,
+  AlertTriangle,
+  Copy,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  KeyRound,
+} from "lucide-react";
+import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
 import {
   listMyOrders,
   cancelMyOrder,
+  getMyAccess,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
+import { verifyPaystackPayment } from "@/lib/paystack.functions";
 
 const ordersQuery = queryOptions({
   queryKey: ["my-orders"],
   queryFn: () => listMyOrders(),
 });
+const accessQuery = queryOptions({
+  queryKey: ["my-access"],
+  queryFn: () => getMyAccess(),
+});
+
+const searchSchema = z
+  .object({
+    reference: z.string().optional(),
+    trxref: z.string().optional(),
+    verify: z.string().optional(),
+  })
+  .partial();
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
@@ -28,7 +62,12 @@ export const Route = createFileRoute("/_authenticated/orders")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(ordersQuery),
+  validateSearch: (raw) => searchSchema.parse(raw),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(ordersQuery),
+      context.queryClient.ensureQueryData(accessQuery),
+    ]),
   component: MyOrdersPage,
 });
 
@@ -36,7 +75,7 @@ const STATUS: Record<
   ToolOrderStatus,
   { label: string; cls: string; icon: typeof Clock }
 > = {
-  pending: { label: "Pending confirmation", cls: "bg-warning/15 text-warning", icon: Clock },
+  pending: { label: "Awaiting payment", cls: "bg-warning/15 text-warning", icon: Clock },
   approved: { label: "Active", cls: "bg-success/15 text-success", icon: CheckCircle2 },
   rejected: { label: "Rejected", cls: "bg-destructive/10 text-destructive", icon: XCircle },
   cancelled: { label: "Cancelled", cls: "bg-muted text-muted-foreground", icon: PauseCircle },
@@ -44,9 +83,33 @@ const STATUS: Record<
 };
 
 function MyOrdersPage() {
-  const { data } = useSuspenseQuery(ordersQuery);
-  const cancel = useServerFn(cancelMyOrder);
+  const search = useSearch({ from: Route.id });
   const router = useRouter();
+  const { data: ordersData } = useSuspenseQuery(ordersQuery);
+  const { data: accessData } = useSuspenseQuery(accessQuery);
+  const cancel = useServerFn(cancelMyOrder);
+  const verify = useServerFn(verifyPaystackPayment);
+  const [verifying, setVerifying] = useState(false);
+
+  // If we came back from Paystack with a reference, verify once.
+  useEffect(() => {
+    const ref = search.reference ?? search.trxref;
+    if (!ref || verifying) return;
+    setVerifying(true);
+    verify({ data: { reference: ref } })
+      .then((res) => {
+        if (res.ok) toast.success("Payment confirmed — your subscription is active.");
+        else toast.error(`Payment status: ${res.status}`);
+      })
+      .catch((err) =>
+        toast.error(err instanceof Error ? err.message : "Verification failed"),
+      )
+      .finally(() => {
+        router.navigate({ to: "/orders", search: {}, replace: true });
+        router.invalidate();
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.reference, search.trxref]);
 
   async function onCancel(id: string) {
     try {
@@ -59,7 +122,13 @@ function MyOrdersPage() {
   }
 
   const now = Date.now();
-  const orders = data.orders.map((o) => {
+  const accessBySlug = useMemo(() => {
+    const map = new Map<string, (typeof accessData.access)[number]>();
+    for (const a of accessData.access) map.set(a.tool_slug, a);
+    return map;
+  }, [accessData.access]);
+
+  const orders = ordersData.orders.map((o) => {
     const s: ToolOrderStatus =
       o.status === "approved" && o.expires_at && new Date(o.expires_at).getTime() < now
         ? "expired"
@@ -74,7 +143,7 @@ function MyOrdersPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My subscriptions</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Every tool you've requested. Approved subscriptions are ready to launch.
+              Every tool you've subscribed to. Active plans show your login details.
             </p>
           </div>
           <Link
@@ -103,71 +172,83 @@ function MyOrdersPage() {
               const tool = getTool(o.tool_slug);
               const meta = STATUS[o.effectiveStatus];
               const Icon = meta.icon;
+              const access =
+                o.effectiveStatus === "approved" ? accessBySlug.get(o.tool_slug) : null;
               return (
                 <li
                   key={o.id}
-                  className="flex flex-wrap items-center gap-4 rounded-2xl border bg-card p-5 shadow-card"
+                  className="rounded-2xl border bg-card p-5 shadow-card"
                 >
-                  {tool ? (
-                    <ToolBrandMark tool={tool} size="sm" />
-                  ) : (
-                    <div className="h-12 w-12 rounded-lg bg-muted" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{tool?.name ?? o.tool_slug}</span>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.cls}`}
-                      >
-                        <Icon className="h-3 w-3" /> {meta.label}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {o.price_label && `${o.price_label} · `}
-                      {o.price_amount !== null
-                        ? `${o.currency}${o.price_amount.toLocaleString()}`
-                        : "Custom pricing"}
-                      {" · "}
-                      {new Date(o.created_at).toLocaleDateString()}
-                      {o.expires_at && ` · until ${new Date(o.expires_at).toLocaleDateString()}`}
-                    </div>
-                    {o.admin_notes && (
-                      <div className="mt-1 text-xs italic text-muted-foreground">
-                        Admin note: {o.admin_notes}
-                      </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    {tool ? (
+                      <ToolBrandMark tool={tool} size="sm" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-muted" />
                     )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {o.effectiveStatus === "approved" && tool && (
-                      <Link
-                        to="/tools/$slug"
-                        params={{ slug: tool.slug }}
-                        className="rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
-                      >
-                        Launch
-                      </Link>
-                    )}
-                    {o.effectiveStatus === "pending" && (
-                      <button
-                        onClick={() => onCancel(o.id)}
-                        className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    {(o.effectiveStatus === "rejected" ||
-                      o.effectiveStatus === "cancelled" ||
-                      o.effectiveStatus === "expired") &&
-                      tool && (
-                        <Link
-                          to="/order/$slug"
-                          params={{ slug: tool.slug }}
-                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{tool?.name ?? o.tool_slug}</span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.cls}`}
                         >
-                          Order again
-                        </Link>
+                          <Icon className="h-3 w-3" /> {meta.label}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {o.price_label && `${o.price_label} · `}
+                        {o.price_amount !== null
+                          ? `${o.currency}${o.price_amount.toLocaleString()}`
+                          : "Custom pricing"}
+                        {" · "}
+                        Ordered {new Date(o.created_at).toLocaleDateString()}
+                        {o.paid_at &&
+                          ` · Paid ${new Date(o.paid_at).toLocaleDateString()}`}
+                        {o.expires_at &&
+                          ` · Expires ${new Date(o.expires_at).toLocaleDateString()}`}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {o.effectiveStatus === "pending" && (
+                        <>
+                          {tool && (
+                            <Link
+                              to="/order/$slug"
+                              params={{ slug: tool.slug }}
+                              className="rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+                            >
+                              Complete payment
+                            </Link>
+                          )}
+                          <button
+                            onClick={() => onCancel(o.id)}
+                            className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            Cancel
+                          </button>
+                        </>
                       )}
+                      {(o.effectiveStatus === "rejected" ||
+                        o.effectiveStatus === "cancelled" ||
+                        o.effectiveStatus === "expired") &&
+                        tool && (
+                          <Link
+                            to="/order/$slug"
+                            params={{ slug: tool.slug }}
+                            className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            Renew
+                          </Link>
+                        )}
+                    </div>
                   </div>
+
+                  {o.effectiveStatus === "expired" && (
+                    <div className="mt-3 rounded-lg border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
+                      No active subscription for this tool. Renew to restore access.
+                    </div>
+                  )}
+
+                  {access && <CredentialCard access={access} />}
                 </li>
               );
             })}
@@ -175,5 +256,147 @@ function MyOrdersPage() {
         )}
       </section>
     </SiteLayout>
+  );
+}
+
+function CredentialCard({
+  access,
+}: {
+  access: {
+    tool_slug: string;
+    expires_at: string | null;
+    paid_at: string | null;
+    duration_days: number | null;
+    grace_days: number;
+    warning_days: number;
+    credentials: {
+      email: string | null;
+      password: string | null;
+      login_url: string | null;
+      login_notes: string | null;
+    } | null;
+  };
+}) {
+  const [reveal, setReveal] = useState(false);
+  const creds = access.credentials;
+
+  const banner = useMemo(() => {
+    if (!access.expires_at) return null;
+    const now = Date.now();
+    const expiresAt = new Date(access.expires_at).getTime();
+    const daysLeft = Math.ceil((expiresAt - now) / 86400_000);
+    // 90/365-day plans → warning_days before expiry.
+    if (access.warning_days > 0 && daysLeft <= access.warning_days) {
+      return {
+        tone: "warning",
+        text: `Your subscription expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"} — renew to avoid interruption.`,
+      };
+    }
+    // Monthly plans (grace_days > 0) → after billing day, show grace notice.
+    if (access.grace_days > 0 && access.paid_at && access.duration_days) {
+      const billingEnd =
+        new Date(access.paid_at).getTime() + access.duration_days * 86400_000;
+      if (now >= billingEnd) {
+        const graceLeft = Math.max(0, Math.ceil((expiresAt - now) / 86400_000));
+        return {
+          tone: "warning",
+          text: `Grace period active — access ends in ${graceLeft} day${graceLeft === 1 ? "" : "s"}. Renew now to stay active.`,
+        };
+      }
+    }
+    return null;
+  }, [access]);
+
+  return (
+    <div className="mt-4 rounded-xl border bg-background/60 p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <KeyRound className="h-3.5 w-3.5" />
+        Login details
+      </div>
+
+      {banner && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{banner.text}</span>
+        </div>
+      )}
+
+      {!creds || (!creds.email && !creds.password && !creds.login_url) ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Your access is active. Login details will appear here as soon as the admin adds them.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+          {creds.login_url && (
+            <a
+              href={creds.login_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 font-medium hover:bg-muted sm:col-span-2"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open login page
+            </a>
+          )}
+          {creds.email && (
+            <CredField label="Email" value={creds.email} />
+          )}
+          {creds.password && (
+            <CredField
+              label="Password"
+              value={creds.password}
+              masked={!reveal}
+              onToggle={() => setReveal((r) => !r)}
+            />
+          )}
+          {creds.login_notes && (
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground sm:col-span-2">
+              <span className="font-medium text-foreground">Notes: </span>
+              {creds.login_notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CredField({
+  label,
+  value,
+  masked,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  masked?: boolean;
+  onToggle?: () => void;
+}) {
+  const shown = masked ? "•".repeat(Math.min(value.length, 12)) : value;
+  return (
+    <div className="flex items-center gap-1 rounded-md border bg-background px-2 py-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="ml-1 flex-1 truncate font-mono">{shown}</span>
+      {onToggle && (
+        <button
+          onClick={onToggle}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={masked ? "Reveal" : "Hide"}
+        >
+          {masked ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        </button>
+      )}
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(value);
+          toast.success(`${label} copied`);
+        }}
+        className="text-muted-foreground hover:text-foreground"
+        aria-label={`Copy ${label}`}
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
