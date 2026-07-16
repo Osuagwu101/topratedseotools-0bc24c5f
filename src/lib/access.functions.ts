@@ -125,21 +125,25 @@ export const getMyAccess = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const slugs = Array.from(new Set((data ?? []).map((r) => r.tool_slug as string)));
-    let creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    const creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
     if (slugs.length > 0) {
-      const { data: settings } = await context.supabase
-        .from("tool_settings")
+      // tool_credentials is admin-only via RLS; use the service-role client to
+      // fetch just the rows the caller has already been shown to have paid for.
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: rows } = await supabaseAdmin
+        .from("tool_credentials")
         .select("tool_slug, login_email, login_password, login_url, login_notes")
         .in("tool_slug", slugs);
-      for (const s of settings ?? []) {
+      for (const s of rows ?? []) {
         creds[s.tool_slug as string] = {
-          email: s.login_email as string | null,
-          password: s.login_password as string | null,
-          login_url: s.login_url as string | null,
-          login_notes: s.login_notes as string | null,
+          email: (s.login_email as string | null) ?? null,
+          password: (s.login_password as string | null) ?? null,
+          login_url: (s.login_url as string | null) ?? null,
+          login_notes: (s.login_notes as string | null) ?? null,
         };
       }
     }
+
 
     return {
       access: (data ?? []).map((r) => ({
