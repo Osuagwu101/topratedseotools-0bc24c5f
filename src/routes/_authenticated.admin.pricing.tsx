@@ -285,7 +285,11 @@ function PricingRow({
             currency: d.currency || "₦",
             contact_admin: d.contact_admin,
             sort_order: d.sort_order,
+            duration_days: null,
+            grace_days: 0,
+            warning_days: 0,
           })}
+
         </span>
       </div>
     </div>
