@@ -1,19 +1,24 @@
 /**
- * Order flow — user requests access to a single tool.
- * Manual/admin-approval for now; the same row is what a future Paystack
- * webhook will flip from `pending` → `approved`.
+ * Order flow — user pays for a tool via Paystack.
+ *
+ * 1. User picks a plan → we create a `pending` order + call Paystack init.
+ * 2. Browser redirects to Paystack's hosted checkout.
+ * 3. Paystack redirects back to `/orders?verify=<ref>`; the orders page
+ *    then calls `verifyPaystackPayment` to grant access instantly.
+ * 4. Paystack's webhook is the authoritative source; verify is a fallback.
  */
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Info } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
 import { createOrder } from "@/lib/access.functions";
+import { initializePaystackPayment } from "@/lib/paystack.functions";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -23,7 +28,7 @@ const pricingQuery = queryOptions({
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   head: () => ({
     meta: [
-      { title: "Order tool — Top Rated SEO Tools" },
+      { title: "Subscribe — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -36,15 +41,15 @@ function OrderPage() {
   const tool = getTool(slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const submitOrder = useServerFn(createOrder);
+  const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
-  const options = pricing.options.filter((o) => o.tool_slug === slug);
-
-  const [selected, setSelected] = useState<string | null>(
-    options.find((o) => !o.contact_admin)?.id ?? options[0]?.id ?? null,
+  const options = pricing.options.filter(
+    (o) => o.tool_slug === slug && !o.contact_admin,
   );
+
+  const [selected, setSelected] = useState<string | null>(options[0]?.id ?? null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
 
   if (!tool) {
     return (
@@ -63,22 +68,28 @@ function OrderPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!chosen) {
+      toast.error("Please select a plan");
+      return;
+    }
     setSubmitting(true);
     try {
-      await submitOrder({
+      const { orderId } = await submitOrder({
         data: {
           tool_slug: slug,
           pricing_option_id: selected,
           notes: notes || null,
         },
       });
-      setDone(true);
-      toast.success("Request submitted — an admin will confirm shortly.");
-      router.invalidate();
+      const callback = `${window.location.origin}/orders?verify=1`;
+      const { authorization_url } = await initPay({
+        data: { order_id: orderId, callback_url: callback },
+      });
+      window.location.href = authorization_url;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not submit order");
-    } finally {
+      toast.error(err instanceof Error ? err.message : "Could not start payment");
       setSubmitting(false);
+      router.invalidate();
     }
   }
 
@@ -101,46 +112,24 @@ function OrderPage() {
           </div>
         </div>
 
-        {done ? (
-          <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-success/15 text-success">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <h2 className="mt-3 text-lg font-semibold">Request submitted</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              We'll email you and unlock the tool as soon as payment is confirmed.
-              You can track this on your subscriptions page.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                to="/orders"
-                className="inline-flex items-center rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
-              >
-                My subscriptions
-              </Link>
-              <Link
-                to="/tools"
-                className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
-              >
-                Browse more tools
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="mt-8 space-y-6">
-            <div className="rounded-2xl border bg-card p-6 shadow-card">
-              <div className="text-sm font-semibold">Choose your plan</div>
-              {options.length === 0 ? (
-                <p className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                  Contact admin for a custom quote — leave a note below and we'll follow up.
-                </p>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {options.map((o) => (
+        <form onSubmit={submit} className="mt-8 space-y-6">
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <div className="text-sm font-semibold">Choose your plan</div>
+            {options.length === 0 ? (
+              <p className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                No plans are available for this tool yet. Please check back soon.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {options.map((o) => {
+                  const totalDays = (o.duration_days ?? 0) + (o.grace_days ?? 0);
+                  return (
                     <li key={o.id}>
                       <label
                         className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2.5 text-sm transition ${
-                          selected === o.id ? "border-primary ring-1 ring-primary/40" : "hover:border-primary/40"
+                          selected === o.id
+                            ? "border-primary ring-1 ring-primary/40"
+                            : "hover:border-primary/40"
                         }`}
                       >
                         <span className="flex items-center gap-2">
@@ -152,51 +141,68 @@ function OrderPage() {
                             onChange={() => setSelected(o.id)}
                             className="h-4 w-4"
                           />
-                          <span>{o.label ?? (o.contact_admin ? "Custom pricing" : "Standard")}</span>
+                          <span className="flex flex-col">
+                            <span>{o.label ?? "Standard"}</span>
+                            {o.duration_days ? (
+                              <span className="text-[11px] text-muted-foreground">
+                                {o.duration_days} days access
+                                {o.grace_days ? ` + ${o.grace_days}-day grace` : ""}
+                                {o.warning_days ? ` · ${o.warning_days}-day expiry warning` : ""}
+                              </span>
+                            ) : null}
+                          </span>
                         </span>
-                        <span className={o.contact_admin ? "font-medium text-primary" : "font-semibold"}>
-                          {formatPrice(o)}
-                        </span>
+                        <span className="font-semibold">{formatPrice(o)}</span>
                       </label>
                     </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
-            <div className="rounded-2xl border bg-card p-6 shadow-card">
-              <label className="text-sm font-semibold" htmlFor="notes">
-                Notes for the admin <span className="font-normal text-muted-foreground">(optional)</span>
-              </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                maxLength={1000}
-                placeholder="Preferred payment method, timing, or any special request…"
-                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <label className="text-sm font-semibold" htmlFor="notes">
+              Notes <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="Any preferences or details you'd like us to know…"
+              className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
 
-            <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <div>
-                Payments are currently confirmed manually by an admin. Automatic checkout
-                (Paystack / Flutterwave) will be plugged into this same flow later — your
-                order will convert automatically.
-              </div>
+          <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+            <div>
+              You'll be redirected to <strong>Paystack</strong> to pay securely.
+              Access unlocks the moment your payment is confirmed — no admin
+              approval needed.
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
-            >
-              {submitting ? "Submitting…" : chosen ? `Request access · ${formatPrice(chosen)}` : "Request access"}
-            </button>
-          </form>
-        )}
+          <button
+            type="submit"
+            disabled={submitting || !chosen}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
+          >
+            <CreditCard className="h-4 w-4" />
+            {submitting
+              ? "Redirecting to Paystack…"
+              : chosen
+                ? `Pay ${formatPrice(chosen)} with Paystack`
+                : "Select a plan to continue"}
+          </button>
+
+          <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+            Payments processed in Nigerian Naira. Cards, bank transfer, and USSD are supported.
+          </p>
+        </form>
       </section>
     </SiteLayout>
   );
