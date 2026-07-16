@@ -95,6 +95,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_pricing: {
+        Row: {
+          amount: number | null
+          contact_admin: boolean
+          created_at: string
+          currency: string
+          id: string
+          label: string | null
+          sort_order: number
+          tool_slug: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          contact_admin?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          label?: string | null
+          sort_order?: number
+          tool_slug: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          contact_admin?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          label?: string | null
+          sort_order?: number
+          tool_slug?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tool_usage: {
         Row: {
           id: string
