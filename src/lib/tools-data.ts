@@ -59,8 +59,9 @@ export const CATEGORIES: ToolCategory[] = [
 ];
 
 /** Returns a high-quality logo URL for a given brand domain. */
+/** Returns a high-quality logo URL for a given brand domain. */
 export function getToolLogo(domain: string): string {
-  return `https://unavatar.io/${domain}?fallback=https://www.google.com/s2/favicons?domain=${domain}%26sz=256`;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
 
 export const TOOLS: Tool[] = [
