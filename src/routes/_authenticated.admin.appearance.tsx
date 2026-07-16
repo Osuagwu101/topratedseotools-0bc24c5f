@@ -1,9 +1,9 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Palette, ShieldAlert } from "lucide-react";
+import { Check, Palette, ShieldAlert, Tag } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import {
   getActiveTheme,
@@ -101,6 +101,15 @@ function AdminAppearancePage() {
               Switch the active colour palette. Applies to every page instantly.
             </p>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <Link
+            to="/admin/pricing"
+            className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Tag className="h-4 w-4" /> Manage tool pricing
+          </Link>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
