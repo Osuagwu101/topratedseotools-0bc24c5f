@@ -253,7 +253,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
     }
     const { error } = await context.supabase
       .from("tool_settings")
-      .upsert(patch, { onConflict: "tool_slug" });
+      .upsert(patch as any, { onConflict: "tool_slug" });
+
     if (error) throw new Error(error.message);
     return { ok: true };
   });
