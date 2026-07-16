@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_credentials: {
+        Row: {
+          created_at: string
+          login_email: string | null
+          login_notes: string | null
+          login_password: string | null
+          login_url: string | null
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tool_orders: {
         Row: {
           admin_notes: string | null
@@ -221,30 +251,18 @@ export type Database = {
         Row: {
           access_level: Database["public"]["Enums"]["tool_access_level"]
           enabled: boolean
-          login_email: string | null
-          login_notes: string | null
-          login_password: string | null
-          login_url: string | null
           tool_slug: string
           updated_at: string
         }
         Insert: {
           access_level?: Database["public"]["Enums"]["tool_access_level"]
           enabled?: boolean
-          login_email?: string | null
-          login_notes?: string | null
-          login_password?: string | null
-          login_url?: string | null
           tool_slug: string
           updated_at?: string
         }
         Update: {
           access_level?: Database["public"]["Enums"]["tool_access_level"]
           enabled?: boolean
-          login_email?: string | null
-          login_notes?: string | null
-          login_password?: string | null
-          login_url?: string | null
           tool_slug?: string
           updated_at?: string
         }
