@@ -213,6 +213,14 @@ export function AdminNav() {
         Pricing
       </Link>
       <Link
+        to="/admin/credentials"
+        activeProps={{ className: "!bg-primary/10 !text-primary" }}
+        className="rounded-md border border-input px-2.5 py-1.5 font-medium hover:bg-muted"
+      >
+        Credentials
+      </Link>
+
+      <Link
         to="/admin/appearance"
         activeProps={{ className: "!bg-primary/10 !text-primary" }}
         className="rounded-md border border-input px-2.5 py-1.5 font-medium hover:bg-muted"
