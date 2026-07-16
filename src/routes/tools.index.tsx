@@ -14,6 +14,7 @@ const pricingQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/tools/")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
   head: () => ({
     meta: [
       { title: "All AI Tools — Top Rated SEO Tools" },
@@ -28,6 +29,15 @@ export const Route = createFileRoute("/tools/")({
 function ToolsDirectory() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
+  const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const priceByTool = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof formatPrice>>();
+    for (const opt of pricing.options) {
+      if (!m.has(opt.tool_slug)) m.set(opt.tool_slug, formatPrice(opt));
+    }
+    return m;
+  }, [pricing.options]);
+
 
   const filtered = useMemo(() => {
     return TOOLS.filter((t) => {
