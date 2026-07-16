@@ -46,9 +46,9 @@ function Dashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from("tool_usage")
-        .select("tool_slug, last_used_at")
+        .select("tool_slug, used_at")
         .eq("user_id", user.id)
-        .order("last_used_at", { ascending: false })
+        .order("used_at", { ascending: false })
         .limit(6);
       return data ?? [];
     },
