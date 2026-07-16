@@ -13,7 +13,7 @@ export const Route = createFileRoute("/tools/$slug")({
     if (!loaderData) {
       return {
         meta: [
-          { title: "Tool not found — Nexus AI" },
+          { title: "Tool not found — Top Rated SEO Tools" },
           { name: "robots", content: "noindex" },
         ],
       };
@@ -21,9 +21,9 @@ export const Route = createFileRoute("/tools/$slug")({
     const t = loaderData.tool;
     return {
       meta: [
-        { title: `${t.name} — Nexus AI` },
+        { title: `${t.name} — Top Rated SEO Tools` },
         { name: "description", content: t.description },
-        { property: "og:title", content: `${t.name} — Nexus AI` },
+        { property: "og:title", content: `${t.name} — Top Rated SEO Tools` },
         { property: "og:description", content: t.description },
       ],
     };

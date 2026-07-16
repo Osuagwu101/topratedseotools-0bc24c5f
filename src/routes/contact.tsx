@@ -9,10 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — Nexus AI" },
-      { name: "description", content: "Get in touch with the Nexus AI team." },
-      { property: "og:title", content: "Contact — Nexus AI" },
-      { property: "og:description", content: "Get in touch with the Nexus AI team." },
+      { title: "Contact — Top Rated SEO Tools" },
+      { name: "description", content: "Get in touch with the Top Rated SEO Tools team." },
+      { property: "og:title", content: "Contact — Top Rated SEO Tools" },
+      { property: "og:description", content: "Get in touch with the Top Rated SEO Tools team." },
     ],
   }),
   component: ContactPage,

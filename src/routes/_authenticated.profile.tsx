@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
     meta: [
-      { title: "Profile settings — Nexus AI" },
+      { title: "Profile settings — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),

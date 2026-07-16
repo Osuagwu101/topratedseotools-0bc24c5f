@@ -6,9 +6,9 @@ import { APP_NAME } from "@/lib/site-config";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — Nexus AI" },
+      { title: "About — Top Rated SEO Tools" },
       { name: "description", content: "Our mission: make every AI tool accessible behind one simple subscription." },
-      { property: "og:title", content: "About — Nexus AI" },
+      { property: "og:title", content: "About — Top Rated SEO Tools" },
       { property: "og:description", content: "Our mission: make every AI tool accessible behind one simple subscription." },
     ],
   }),

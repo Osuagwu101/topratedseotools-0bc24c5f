@@ -8,8 +8,8 @@ import { AuthShell, FieldEmail, FieldPassword, GoogleIcon } from "./login";
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Create your account — Nexus AI" },
-      { name: "description", content: "Start your 7-day free trial of Nexus AI." },
+      { title: "Create your account — Top Rated SEO Tools" },
+      { name: "description", content: "Start your 7-day free trial of Top Rated SEO Tools." },
     ],
   }),
   component: RegisterPage,

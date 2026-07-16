@@ -4,13 +4,13 @@ import { LegalPage } from "@/components/site/LegalPage";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms of Service — Nexus AI" },
-      { name: "description", content: "The terms governing your use of Nexus AI." },
+      { title: "Terms of Service — Top Rated SEO Tools" },
+      { name: "description", content: "The terms governing your use of Top Rated SEO Tools." },
     ],
   }),
   component: () => (
     <LegalPage title="Terms of Service" updated="July 16, 2026">
-      <p>By using Nexus AI, you agree to these Terms of Service. Please read them carefully.</p>
+      <p>By using Top Rated SEO Tools, you agree to these Terms of Service. Please read them carefully.</p>
       <h2>Accounts</h2>
       <p>You must provide accurate information and are responsible for keeping your credentials secure.</p>
       <h2>Subscriptions & billing</h2>

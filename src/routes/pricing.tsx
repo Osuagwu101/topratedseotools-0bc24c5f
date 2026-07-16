@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing — Nexus AI" },
+      { title: "Pricing — Top Rated SEO Tools" },
       { name: "description", content: "Simple monthly and annual plans. 7-day free trial. Cancel anytime." },
-      { property: "og:title", content: "Pricing — Nexus AI" },
+      { property: "og:title", content: "Pricing — Top Rated SEO Tools" },
       { property: "og:description", content: "Simple monthly and annual plans. 7-day free trial. Cancel anytime." },
     ],
   }),

@@ -15,8 +15,8 @@ export const Route = createFileRoute("/login")({
   validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [
-      { title: "Sign in — Nexus AI" },
-      { name: "description", content: "Sign in to your Nexus AI account." },
+      { title: "Sign in — Top Rated SEO Tools" },
+      { name: "description", content: "Sign in to your Top Rated SEO Tools account." },
     ],
   }),
   component: LoginPage,
