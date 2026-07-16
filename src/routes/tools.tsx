@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { CATEGORIES, TOOLS, getToolLogo, type ToolCategory } from "@/lib/tools-data";
+import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
+import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/tools")({
@@ -81,9 +82,7 @@ function ToolsDirectory() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((t) => {
-              const Icon = t.icon;
-              return (
+            {filtered.map((t) => (
                 <Link
                   key={t.slug}
                   to="/tools/$slug"
@@ -91,25 +90,7 @@ function ToolsDirectory() {
                   className="group relative flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="relative inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border bg-background">
-                      <img
-                        src={getToolLogo(t.domain)}
-                        alt={`${t.name} logo`}
-                        loading="lazy"
-                        className="h-8 w-8 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = "flex";
-                        }}
-                      />
-                      <span
-                        className="absolute inset-0 hidden items-center justify-center bg-gradient-primary text-primary-foreground"
-                        aria-hidden
-                      >
-                        <Icon className="h-5 w-5" />
-                      </span>
-                    </div>
+                    <ToolBrandMark tool={t} />
                     <span
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -125,8 +106,7 @@ function ToolsDirectory() {
                   <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
                   <div className="mt-4 text-xs text-muted-foreground">{t.category}</div>
                 </Link>
-              );
-            })}
+            ))}
           </div>
         )}
       </section>

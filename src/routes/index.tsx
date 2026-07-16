@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check, Sparkles, Zap, Shield, Users } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import { PRICING_PLANS } from "@/lib/pricing-data";
 import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/site-config";
@@ -73,26 +74,21 @@ function Home() {
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((t) => {
-            const Icon = t.icon;
-            return (
+          {featured.map((t) => (
               <Link
                 key={t.slug}
                 to="/tools/$slug"
                 params={{ slug: t.slug }}
                 className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
               >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground">
-                  <Icon className="h-5 w-5" />
-                </div>
+                <ToolBrandMark tool={t} className="mb-4" />
                 <div className="text-lg font-semibold">{t.name}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
                 <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
                   Launch tool <ArrowRight className="h-4 w-4" />
                 </div>
               </Link>
-            );
-          })}
+          ))}
         </div>
       </section>
 
