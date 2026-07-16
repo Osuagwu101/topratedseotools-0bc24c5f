@@ -48,8 +48,14 @@ export interface ToolOrder {
   admin_notes: string | null;
   expires_at: string | null;
   approved_at: string | null;
+  paid_at: string | null;
+  paystack_reference: string | null;
+  duration_days: number | null;
+  grace_days: number | null;
+  warning_days: number | null;
   created_at: string;
   updated_at: string;
+
 }
 
 function publicClient() {
