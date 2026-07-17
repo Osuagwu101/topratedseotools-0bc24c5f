@@ -215,7 +215,7 @@ function AdminDashboardInner() {
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{o.tool_slug}</div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(o.created_at).toLocaleString()} · {o.plan_label ?? "—"}
+                      {new Date(o.created_at).toLocaleString()} · {o.price_label ?? "—"}
                     </div>
                   </div>
                   <span
