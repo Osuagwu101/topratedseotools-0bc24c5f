@@ -223,6 +223,14 @@ export function AdminNav() {
         Credentials
       </Link>
 
+
+      <Link
+        to="/admin/blog"
+        activeProps={{ className: "!bg-primary/10 !text-primary" }}
+        className="rounded-md border border-input px-2.5 py-1.5 font-medium hover:bg-muted"
+      >
+        Blog
+      </Link>
       <Link
         to="/admin/appearance"
         activeProps={{ className: "!bg-primary/10 !text-primary" }}

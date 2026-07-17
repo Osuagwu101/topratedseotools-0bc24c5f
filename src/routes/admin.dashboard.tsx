@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  BookOpen,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
@@ -114,6 +115,13 @@ function AdminDashboardInner() {
       description: "Save the login email & password shown to subscribers.",
       icon: KeyRound,
       meta: `${credsData.credentials.length} tools configured`,
+    },
+    {
+      title: "Blog",
+      to: "/admin/blog" as const,
+      description: "Write, schedule and publish articles; manage categories, tags and comments.",
+      icon: BookOpen,
+      meta: "Content marketing",
     },
     {
       title: "Appearance",
