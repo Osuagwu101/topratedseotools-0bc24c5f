@@ -19,25 +19,40 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
+import { Route as BlogSearchRouteImport } from './routes/blog.search'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials'
+import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated.subscription'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
+import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
+import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
+import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
+import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
+import { Route as AdminBlogTagsRouteImport } from './routes/admin.blog.tags'
+import { Route as AdminBlogSettingsRouteImport } from './routes/admin.blog.settings'
+import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
+import { Route as AdminBlogCommentsRouteImport } from './routes/admin.blog.comments'
+import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.categories'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
+import { Route as AdminBlogIdEditRouteImport } from './routes/admin.blog.$id.edit'
 
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
@@ -89,6 +104,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -108,6 +128,11 @@ const ToolsIndexRoute = ToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ToolsRoute,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRoute,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -117,6 +142,16 @@ const ToolsSlugRoute = ToolsSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => ToolsRoute,
+} as any)
+const BlogSearchRoute = BlogSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRoute,
 } as any)
 const AdminToolsRoute = AdminToolsRouteImport.update({
   id: '/admin/tools',
@@ -141,6 +176,11 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
 const AdminCredentialsRoute = AdminCredentialsRouteImport.update({
   id: '/admin/credentials',
   path: '/admin/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminBlogRoute = AdminBlogRouteImport.update({
+  id: '/admin/blog',
+  path: '/admin/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAppearanceRoute = AdminAppearanceRouteImport.update({
@@ -174,6 +214,51 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AdminBlogIndexRoute = AdminBlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
+const BlogTagSlugRoute = BlogTagSlugRouteImport.update({
+  id: '/tag/$slug',
+  path: '/tag/$slug',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogCategorySlugRoute = BlogCategorySlugRouteImport.update({
+  id: '/category/$slug',
+  path: '/category/$slug',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
+  id: '/author/$id',
+  path: '/author/$id',
+  getParentRoute: () => BlogRoute,
+} as any)
+const AdminBlogTagsRoute = AdminBlogTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
+const AdminBlogSettingsRoute = AdminBlogSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
+const AdminBlogNewRoute = AdminBlogNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
+const AdminBlogCommentsRoute = AdminBlogCommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
+const AdminBlogCategoriesRoute = AdminBlogCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
 const AuthenticatedOrderSlugRoute = AuthenticatedOrderSlugRouteImport.update({
   id: '/order/$slug',
   path: '/order/$slug',
@@ -185,10 +270,16 @@ const ApiPublicWebhooksPaystackRoute =
     path: '/api/public/webhooks/paystack',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminBlogIdEditRoute = AdminBlogIdEditRouteImport.update({
+  id: '/$id/edit',
+  path: '/$id/edit',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -205,15 +296,29 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/categories': typeof AdminBlogCategoriesRoute
+  '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/blog/settings': typeof AdminBlogSettingsRoute
+  '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
+  '/blog/category/$slug': typeof BlogCategorySlugRoute
+  '/blog/tag/$slug': typeof BlogTagSlugRoute
+  '/admin/blog/': typeof AdminBlogIndexRoute
+  '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -239,10 +344,23 @@ export interface FileRoutesByTo {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/blog': typeof BlogIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/categories': typeof AdminBlogCategoriesRoute
+  '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/blog/settings': typeof AdminBlogSettingsRoute
+  '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
+  '/blog/category/$slug': typeof BlogCategorySlugRoute
+  '/blog/tag/$slug': typeof BlogTagSlugRoute
+  '/admin/blog': typeof AdminBlogIndexRoute
+  '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -250,6 +368,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/about': typeof AboutRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -266,15 +385,29 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/categories': typeof AdminBlogCategoriesRoute
+  '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/new': typeof AdminBlogNewRoute
+  '/admin/blog/settings': typeof AdminBlogSettingsRoute
+  '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
+  '/blog/category/$slug': typeof BlogCategorySlugRoute
+  '/blog/tag/$slug': typeof BlogTagSlugRoute
+  '/admin/blog/': typeof AdminBlogIndexRoute
+  '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -282,6 +415,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/blog'
     | '/contact'
     | '/cookies'
     | '/forgot-password'
@@ -298,15 +432,29 @@ export interface FileRouteTypes {
     | '/profile'
     | '/subscription'
     | '/admin/appearance'
+    | '/admin/blog'
     | '/admin/credentials'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/blog/$slug'
+    | '/blog/search'
     | '/tools/$slug'
     | '/admin/'
+    | '/blog/'
     | '/tools/'
     | '/order/$slug'
+    | '/admin/blog/categories'
+    | '/admin/blog/comments'
+    | '/admin/blog/new'
+    | '/admin/blog/settings'
+    | '/admin/blog/tags'
+    | '/blog/author/$id'
+    | '/blog/category/$slug'
+    | '/blog/tag/$slug'
+    | '/admin/blog/'
+    | '/admin/blog/$id/edit'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -332,16 +480,30 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/blog/$slug'
+    | '/blog/search'
     | '/tools/$slug'
     | '/admin'
+    | '/blog'
     | '/tools'
     | '/order/$slug'
+    | '/admin/blog/categories'
+    | '/admin/blog/comments'
+    | '/admin/blog/new'
+    | '/admin/blog/settings'
+    | '/admin/blog/tags'
+    | '/blog/author/$id'
+    | '/blog/category/$slug'
+    | '/blog/tag/$slug'
+    | '/admin/blog'
+    | '/admin/blog/$id/edit'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/about'
+    | '/blog'
     | '/contact'
     | '/cookies'
     | '/forgot-password'
@@ -358,15 +520,29 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/subscription'
     | '/admin/appearance'
+    | '/admin/blog'
     | '/admin/credentials'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/blog/$slug'
+    | '/blog/search'
     | '/tools/$slug'
     | '/admin/'
+    | '/blog/'
     | '/tools/'
     | '/_authenticated/order/$slug'
+    | '/admin/blog/categories'
+    | '/admin/blog/comments'
+    | '/admin/blog/new'
+    | '/admin/blog/settings'
+    | '/admin/blog/tags'
+    | '/blog/author/$id'
+    | '/blog/category/$slug'
+    | '/blog/tag/$slug'
+    | '/admin/blog/'
+    | '/admin/blog/$id/edit'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -374,6 +550,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AboutRoute: typeof AboutRoute
+  BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -385,6 +562,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
   AdminAppearanceRoute: typeof AdminAppearanceRoute
+  AdminBlogRoute: typeof AdminBlogRouteWithChildren
   AdminCredentialsRoute: typeof AdminCredentialsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
@@ -466,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -494,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof ToolsRoute
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -507,6 +699,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/tools/$slug'
       preLoaderRoute: typeof ToolsSlugRouteImport
       parentRoute: typeof ToolsRoute
+    }
+    '/blog/search': {
+      id: '/blog/search'
+      path: '/search'
+      fullPath: '/blog/search'
+      preLoaderRoute: typeof BlogSearchRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRoute
     }
     '/admin/tools': {
       id: '/admin/tools'
@@ -541,6 +747,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/credentials'
       fullPath: '/admin/credentials'
       preLoaderRoute: typeof AdminCredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/blog': {
+      id: '/admin/blog'
+      path: '/admin/blog'
+      fullPath: '/admin/blog'
+      preLoaderRoute: typeof AdminBlogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/appearance': {
@@ -585,6 +798,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/admin/blog/': {
+      id: '/admin/blog/'
+      path: '/'
+      fullPath: '/admin/blog/'
+      preLoaderRoute: typeof AdminBlogIndexRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
+    '/blog/tag/$slug': {
+      id: '/blog/tag/$slug'
+      path: '/tag/$slug'
+      fullPath: '/blog/tag/$slug'
+      preLoaderRoute: typeof BlogTagSlugRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/category/$slug': {
+      id: '/blog/category/$slug'
+      path: '/category/$slug'
+      fullPath: '/blog/category/$slug'
+      preLoaderRoute: typeof BlogCategorySlugRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/author/$id': {
+      id: '/blog/author/$id'
+      path: '/author/$id'
+      fullPath: '/blog/author/$id'
+      preLoaderRoute: typeof BlogAuthorIdRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/admin/blog/tags': {
+      id: '/admin/blog/tags'
+      path: '/tags'
+      fullPath: '/admin/blog/tags'
+      preLoaderRoute: typeof AdminBlogTagsRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
+    '/admin/blog/settings': {
+      id: '/admin/blog/settings'
+      path: '/settings'
+      fullPath: '/admin/blog/settings'
+      preLoaderRoute: typeof AdminBlogSettingsRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
+    '/admin/blog/new': {
+      id: '/admin/blog/new'
+      path: '/new'
+      fullPath: '/admin/blog/new'
+      preLoaderRoute: typeof AdminBlogNewRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
+    '/admin/blog/comments': {
+      id: '/admin/blog/comments'
+      path: '/comments'
+      fullPath: '/admin/blog/comments'
+      preLoaderRoute: typeof AdminBlogCommentsRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
+    '/admin/blog/categories': {
+      id: '/admin/blog/categories'
+      path: '/categories'
+      fullPath: '/admin/blog/categories'
+      preLoaderRoute: typeof AdminBlogCategoriesRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
     '/_authenticated/order/$slug': {
       id: '/_authenticated/order/$slug'
       path: '/order/$slug'
@@ -598,6 +874,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/webhooks/paystack'
       preLoaderRoute: typeof ApiPublicWebhooksPaystackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/blog/$id/edit': {
+      id: '/admin/blog/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/admin/blog/$id/edit'
+      preLoaderRoute: typeof AdminBlogIdEditRouteImport
+      parentRoute: typeof AdminBlogRoute
     }
   }
 }
@@ -624,6 +907,26 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface BlogRouteChildren {
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogSearchRoute: typeof BlogSearchRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  BlogAuthorIdRoute: typeof BlogAuthorIdRoute
+  BlogCategorySlugRoute: typeof BlogCategorySlugRoute
+  BlogTagSlugRoute: typeof BlogTagSlugRoute
+}
+
+const BlogRouteChildren: BlogRouteChildren = {
+  BlogSlugRoute: BlogSlugRoute,
+  BlogSearchRoute: BlogSearchRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  BlogAuthorIdRoute: BlogAuthorIdRoute,
+  BlogCategorySlugRoute: BlogCategorySlugRoute,
+  BlogTagSlugRoute: BlogTagSlugRoute,
+}
+
+const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
+
 interface ToolsRouteChildren {
   ToolsSlugRoute: typeof ToolsSlugRoute
   ToolsIndexRoute: typeof ToolsIndexRoute
@@ -636,10 +939,35 @@ const ToolsRouteChildren: ToolsRouteChildren = {
 
 const ToolsRouteWithChildren = ToolsRoute._addFileChildren(ToolsRouteChildren)
 
+interface AdminBlogRouteChildren {
+  AdminBlogCategoriesRoute: typeof AdminBlogCategoriesRoute
+  AdminBlogCommentsRoute: typeof AdminBlogCommentsRoute
+  AdminBlogNewRoute: typeof AdminBlogNewRoute
+  AdminBlogSettingsRoute: typeof AdminBlogSettingsRoute
+  AdminBlogTagsRoute: typeof AdminBlogTagsRoute
+  AdminBlogIndexRoute: typeof AdminBlogIndexRoute
+  AdminBlogIdEditRoute: typeof AdminBlogIdEditRoute
+}
+
+const AdminBlogRouteChildren: AdminBlogRouteChildren = {
+  AdminBlogCategoriesRoute: AdminBlogCategoriesRoute,
+  AdminBlogCommentsRoute: AdminBlogCommentsRoute,
+  AdminBlogNewRoute: AdminBlogNewRoute,
+  AdminBlogSettingsRoute: AdminBlogSettingsRoute,
+  AdminBlogTagsRoute: AdminBlogTagsRoute,
+  AdminBlogIndexRoute: AdminBlogIndexRoute,
+  AdminBlogIdEditRoute: AdminBlogIdEditRoute,
+}
+
+const AdminBlogRouteWithChildren = AdminBlogRoute._addFileChildren(
+  AdminBlogRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AboutRoute: AboutRoute,
+  BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
@@ -651,6 +979,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
   AdminAppearanceRoute: AdminAppearanceRoute,
+  AdminBlogRoute: AdminBlogRouteWithChildren,
   AdminCredentialsRoute: AdminCredentialsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminOrdersRoute: AdminOrdersRoute,
