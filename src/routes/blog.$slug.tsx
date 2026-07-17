@@ -274,7 +274,11 @@ function BlogPost() {
         {post.featured_image && (
           <img
             src={post.featured_image}
-            alt={post.title}
+            alt={
+              ((post as unknown as { image_alts?: Record<string, string> }).image_alts?.[
+                post.featured_image
+              ]) || post.title
+            }
             className="mt-6 aspect-[16/9] w-full rounded-2xl object-cover"
           />
         )}
@@ -300,6 +304,50 @@ function BlogPost() {
               className="prose prose-neutral max-w-none dark:prose-invert prose-headings:scroll-mt-24 prose-a:text-primary prose-img:rounded-xl"
               dangerouslySetInnerHTML={{ __html: html }}
             />
+
+            {(() => {
+              const faq = (post as unknown as { faq?: Array<{ question: string; answer: string }> }).faq;
+              if (!faq || faq.length === 0) return null;
+              return (
+                <section className="mt-10">
+                  <h2 className="text-2xl font-bold tracking-tight">Frequently asked questions</h2>
+                  <div className="mt-4 divide-y rounded-2xl border bg-card">
+                    {faq.map((f, i) => (
+                      <details key={i} className="group p-5 open:bg-muted/30">
+                        <summary className="cursor-pointer list-none text-sm font-semibold marker:hidden">
+                          <span className="mr-2 text-muted-foreground group-open:text-primary">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          {f.question}
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                          {f.answer}
+                        </p>
+                      </details>
+                    ))}
+                  </div>
+                </section>
+              );
+            })()}
+
+            {(() => {
+              const cta = (post as unknown as {
+                cta?: { title: string; body: string; button_label: string; button_url: string } | null;
+              }).cta;
+              if (!cta) return null;
+              return (
+                <aside className="mt-10 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">
+                  <h3 className="text-xl font-bold tracking-tight sm:text-2xl">{cta.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground sm:text-base">{cta.body}</p>
+                  <a
+                    href={cta.button_url}
+                    className="mt-5 inline-flex items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    {cta.button_label}
+                  </a>
+                </aside>
+              );
+            })()}
 
             {data.tags.length > 0 && (
               <div className="mt-10 flex flex-wrap gap-2">
