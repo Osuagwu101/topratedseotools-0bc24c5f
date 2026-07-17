@@ -58,24 +58,9 @@ export const Route = createFileRoute("/admin/dashboard")({
 
 
 function AdminIndexPage() {
-  const { isAdmin } = Route.useLoaderData();
-
-  if (!isAdmin) {
-    return (
-      <SiteLayout>
-        <div className="mx-auto max-w-md px-4 py-24 text-center">
-          <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <h1 className="mt-3 text-2xl font-semibold">Admins only</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            You don't have permission to view the admin dashboard.
-          </p>
-        </div>
-      </SiteLayout>
-    );
-  }
-
   return <AdminDashboardInner />;
 }
+
 
 function AdminDashboardInner() {
   const { data: ordersData } = useSuspenseQuery(ordersQuery);
