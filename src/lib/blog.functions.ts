@@ -340,6 +340,23 @@ const postInputSchema = z.object({
   is_featured: z.boolean().optional(),
   seo_title: z.string().max(200).optional().nullable(),
   seo_description: z.string().max(300).optional().nullable(),
+  canonical_url: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  og_title: z.string().max(200).optional().nullable(),
+  og_description: z.string().max(400).optional().nullable(),
+  twitter_title: z.string().max(200).optional().nullable(),
+  twitter_description: z.string().max(400).optional().nullable(),
+  semantic_keywords: z.array(z.string().trim().min(1).max(120)).max(10).optional(),
+  faq: z
+    .array(
+      z.object({
+        question: z.string().trim().min(1).max(300),
+        answer: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .max(10)
+    .optional(),
+  image_alts: z.record(z.string(), z.string().max(300)).optional(),
+  cta_template_id: z.string().uuid().nullable().optional(),
   tag_ids: z.array(z.string().uuid()).optional(),
 });
 
