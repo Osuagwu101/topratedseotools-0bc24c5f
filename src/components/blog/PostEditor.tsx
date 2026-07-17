@@ -297,19 +297,36 @@ function EditorBody({
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Content (Markdown)
               </label>
-              <button
-                type="button"
-                onClick={() => setPreview((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
-              >
-                <Eye className="h-3.5 w-3.5" /> {preview ? "Edit" : "Preview"}
-              </button>
+              <div className="flex items-center gap-2">
+                {form.semantic_keywords.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setHighlightOn((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                    style={
+                      highlightOn ? { borderColor: highlightColor, background: `${highlightColor}30` } : undefined
+                    }
+                    title="Highlight semantic keywords in preview"
+                  >
+                    <Highlighter className="h-3.5 w-3.5" /> Keywords
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreview((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                >
+                  <Eye className="h-3.5 w-3.5" /> {preview ? "Edit" : "Preview"}
+                </button>
+              </div>
             </div>
 
             {preview ? (
-              <div
-                className="prose prose-neutral min-h-[24rem] max-w-none rounded-md border bg-card p-4 dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(form.content) }}
+              <PreviewPane
+                markdown={form.content}
+                keywords={form.semantic_keywords}
+                highlight={highlightOn}
+                highlightColor={highlightColor}
               />
             ) : (
               <textarea
