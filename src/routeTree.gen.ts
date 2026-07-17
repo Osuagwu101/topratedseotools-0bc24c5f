@@ -23,6 +23,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
@@ -106,6 +107,11 @@ const ToolsIndexRoute = ToolsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ToolsRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ToolsSlugRoute = ToolsSlugRouteImport.update({
   id: '/$slug',
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/tools'
     | '/tools/$slug'
+    | '/admin/'
     | '/tools/'
     | '/order/$slug'
     | '/api/public/webhooks/paystack'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/tools'
     | '/tools/$slug'
+    | '/admin'
     | '/tools'
     | '/order/$slug'
     | '/api/public/webhooks/paystack'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/tools'
     | '/tools/$slug'
+    | '/admin/'
     | '/tools/'
     | '/_authenticated/order/$slug'
     | '/api/public/webhooks/paystack'
@@ -378,6 +390,7 @@ export interface RootRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminToolsRoute: typeof AdminToolsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -480,6 +493,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tools/'
       preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof ToolsRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/tools/$slug': {
       id: '/tools/$slug'
@@ -636,6 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminToolsRoute: AdminToolsRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport

@@ -25,6 +25,7 @@ import { getIsAdmin } from "@/lib/site-settings.functions";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
 import { TOOLS } from "@/lib/tools-data";
 import { AdminNav } from "./admin.tools";
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
@@ -36,24 +37,26 @@ const credsQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/admin/dashboard")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Admin dashboard — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   loader: async ({ context }) => {
-    const { isAdmin } = await getIsAdmin();
-    if (isAdmin) {
-      await Promise.all([
-        context.queryClient.ensureQueryData(ordersQuery),
-        context.queryClient.ensureQueryData(credsQuery),
-      ]);
-    }
-    return { isAdmin };
+    await Promise.all([
+      context.queryClient.ensureQueryData(ordersQuery),
+      context.queryClient.ensureQueryData(credsQuery),
+    ]);
+    return { isAdmin: true as const };
   },
   component: AdminIndexPage,
 });
+
 
 function AdminIndexPage() {
   const { isAdmin } = Route.useLoaderData();
