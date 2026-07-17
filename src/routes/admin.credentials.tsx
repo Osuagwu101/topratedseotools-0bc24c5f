@@ -1,4 +1,5 @@
 /**
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
  * Admin — tool login credential vault.
  *
  * One row per tool (email + password + optional login URL + admin notes).
@@ -29,6 +30,8 @@ const credsQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/admin/credentials")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Credentials — Admin — Top Rated SEO Tools" },

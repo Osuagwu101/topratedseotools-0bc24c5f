@@ -1,4 +1,5 @@
 /**
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
  * Admin — per-tool settings: enable/disable + access level.
  * Reads the static catalog (`TOOLS`) and overlays DB rows in `tool_settings`.
  */
@@ -24,6 +25,8 @@ const settingsQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/admin/tools")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Tool access — Admin — Top Rated SEO Tools" },

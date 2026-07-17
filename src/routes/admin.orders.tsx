@@ -1,4 +1,5 @@
 /**
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
  * Admin — order queue. Approve/reject/expire tool_orders rows.
  */
 import { createFileRoute, useRouter } from "@tanstack/react-router";
@@ -23,6 +24,8 @@ const ordersQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/admin/orders")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Order queue — Admin — Top Rated SEO Tools" },
