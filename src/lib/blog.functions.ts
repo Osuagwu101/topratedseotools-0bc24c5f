@@ -762,35 +762,37 @@ export const adminUpdateBlogSettings = createServerFn({ method: "POST" })
         hero_title: z.string().trim().min(1).max(120),
         hero_subtitle: z.string().trim().min(1).max(240),
         posts_per_page: z.number().int().min(3).max(48),
+        keyword_highlight_enabled: z.boolean().default(true),
+        keyword_highlight_color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .default("#fde68a"),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    // Find latest row
     const { data: existing } = await context.supabase
       .from("blog_settings")
       .select("id")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const payload = {
+      comments_enabled: data.comments_enabled,
+      hero_title: data.hero_title,
+      hero_subtitle: data.hero_subtitle,
+      posts_per_page: data.posts_per_page,
+      keyword_highlight_enabled: data.keyword_highlight_enabled,
+      keyword_highlight_color: data.keyword_highlight_color,
+    };
     if (existing) {
       const { error } = await context.supabase
         .from("blog_settings")
-        .update({
-          comments_enabled: data.comments_enabled,
-          hero_title: data.hero_title,
-          hero_subtitle: data.hero_subtitle,
-          posts_per_page: data.posts_per_page,
-        })
+        .update(payload)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
-      await context.supabase.from("blog_settings").insert({
-        comments_enabled: data.comments_enabled,
-        hero_title: data.hero_title,
-        hero_subtitle: data.hero_subtitle,
-        posts_per_page: data.posts_per_page,
-      });
+      await context.supabase.from("blog_settings").insert(payload);
     }
     return { ok: true };
   });
