@@ -1,5 +1,4 @@
 /**
-import { requireAdminOrRedirect } from "@/lib/admin-gate";
  * Admin — tool login credential vault.
  *
  * One row per tool (email + password + optional login URL + admin notes).
@@ -7,6 +6,7 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
  * write here, and `getMyAccess` on the user side reads them via the
  * service role AFTER checking the caller has an active paid subscription.
  */
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
