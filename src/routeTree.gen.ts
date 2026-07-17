@@ -50,6 +50,7 @@ import { Route as AdminBlogSettingsRouteImport } from './routes/admin.blog.setti
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
 import { Route as AdminBlogCommentsRouteImport } from './routes/admin.blog.comments'
 import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.categories'
+import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai-generator'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
 import { Route as AdminBlogIdEditRouteImport } from './routes/admin.blog.$id.edit'
@@ -259,6 +260,11 @@ const AdminBlogCategoriesRoute = AdminBlogCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AdminBlogRoute,
 } as any)
+const AdminBlogAiGeneratorRoute = AdminBlogAiGeneratorRouteImport.update({
+  id: '/ai-generator',
+  path: '/ai-generator',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
 const AuthenticatedOrderSlugRoute = AuthenticatedOrderSlugRouteImport.update({
   id: '/order/$slug',
   path: '/order/$slug',
@@ -309,6 +315,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
@@ -351,6 +358,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
@@ -398,6 +406,7 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
@@ -445,6 +454,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/order/$slug'
+    | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
     | '/admin/blog/new'
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/tools'
     | '/order/$slug'
+    | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
     | '/admin/blog/new'
@@ -533,6 +544,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/_authenticated/order/$slug'
+    | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
     | '/admin/blog/new'
@@ -861,6 +873,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBlogCategoriesRouteImport
       parentRoute: typeof AdminBlogRoute
     }
+    '/admin/blog/ai-generator': {
+      id: '/admin/blog/ai-generator'
+      path: '/ai-generator'
+      fullPath: '/admin/blog/ai-generator'
+      preLoaderRoute: typeof AdminBlogAiGeneratorRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
     '/_authenticated/order/$slug': {
       id: '/_authenticated/order/$slug'
       path: '/order/$slug'
@@ -940,6 +959,7 @@ const ToolsRouteChildren: ToolsRouteChildren = {
 const ToolsRouteWithChildren = ToolsRoute._addFileChildren(ToolsRouteChildren)
 
 interface AdminBlogRouteChildren {
+  AdminBlogAiGeneratorRoute: typeof AdminBlogAiGeneratorRoute
   AdminBlogCategoriesRoute: typeof AdminBlogCategoriesRoute
   AdminBlogCommentsRoute: typeof AdminBlogCommentsRoute
   AdminBlogNewRoute: typeof AdminBlogNewRoute
@@ -950,6 +970,7 @@ interface AdminBlogRouteChildren {
 }
 
 const AdminBlogRouteChildren: AdminBlogRouteChildren = {
+  AdminBlogAiGeneratorRoute: AdminBlogAiGeneratorRoute,
   AdminBlogCategoriesRoute: AdminBlogCategoriesRoute,
   AdminBlogCommentsRoute: AdminBlogCommentsRoute,
   AdminBlogNewRoute: AdminBlogNewRoute,

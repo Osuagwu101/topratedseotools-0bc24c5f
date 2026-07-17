@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 const LINKS: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/blog", label: "Posts", exact: true },
+  { to: "/admin/blog/ai-generator", label: "AI Generator" },
   { to: "/admin/blog/categories", label: "Categories" },
   { to: "/admin/blog/tags", label: "Tags" },
   { to: "/admin/blog/comments", label: "Comments" },
