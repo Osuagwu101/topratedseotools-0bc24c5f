@@ -151,7 +151,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
     const { data: post, error } = await supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,created_at,updated_at,category:blog_categories(id,name,slug)",
+        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
       )
       .eq("slug", data.slug)
       .eq("status", "published")
@@ -257,7 +257,7 @@ export const getBlogSettings = createServerFn({ method: "GET" }).handler(async (
   const supabase = serverPublic();
   const { data } = await supabase
     .from("blog_settings")
-    .select("id,comments_enabled,hero_title,hero_subtitle,posts_per_page")
+    .select("id,comments_enabled,hero_title,hero_subtitle,posts_per_page,keyword_highlight_enabled,keyword_highlight_color")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -268,6 +268,8 @@ export const getBlogSettings = createServerFn({ method: "GET" }).handler(async (
       hero_title: "Insights & Guides",
       hero_subtitle: "The latest on SEO tools, tips, and strategy.",
       posts_per_page: 12,
+      keyword_highlight_enabled: true,
+      keyword_highlight_color: "#fde68a",
     },
   };
 });
@@ -338,6 +340,23 @@ const postInputSchema = z.object({
   is_featured: z.boolean().optional(),
   seo_title: z.string().max(200).optional().nullable(),
   seo_description: z.string().max(300).optional().nullable(),
+  canonical_url: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  og_title: z.string().max(200).optional().nullable(),
+  og_description: z.string().max(400).optional().nullable(),
+  twitter_title: z.string().max(200).optional().nullable(),
+  twitter_description: z.string().max(400).optional().nullable(),
+  semantic_keywords: z.array(z.string().trim().min(1).max(120)).max(10).optional(),
+  faq: z
+    .array(
+      z.object({
+        question: z.string().trim().min(1).max(300),
+        answer: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .max(10)
+    .optional(),
+  image_alts: z.record(z.string(), z.string().max(300)).optional(),
+  cta_template_id: z.string().uuid().nullable().optional(),
   tag_ids: z.array(z.string().uuid()).optional(),
 });
 
@@ -403,6 +422,15 @@ export const adminCreatePost = createServerFn({ method: "POST" })
         reading_time_minutes: readingTime,
         seo_title: data.seo_title ?? null,
         seo_description: data.seo_description ?? null,
+        canonical_url: data.canonical_url || null,
+        og_title: data.og_title ?? null,
+        og_description: data.og_description ?? null,
+        twitter_title: data.twitter_title ?? null,
+        twitter_description: data.twitter_description ?? null,
+        semantic_keywords: data.semantic_keywords ?? [],
+        faq: data.faq ?? [],
+        image_alts: data.image_alts ?? {},
+        cta_template_id: data.cta_template_id ?? null,
       })
       .select("id")
       .single();
@@ -463,6 +491,15 @@ export const adminUpdatePost = createServerFn({ method: "POST" })
         reading_time_minutes: readingTime,
         seo_title: data.seo_title ?? null,
         seo_description: data.seo_description ?? null,
+        canonical_url: data.canonical_url || null,
+        og_title: data.og_title ?? null,
+        og_description: data.og_description ?? null,
+        twitter_title: data.twitter_title ?? null,
+        twitter_description: data.twitter_description ?? null,
+        semantic_keywords: data.semantic_keywords ?? [],
+        faq: data.faq ?? [],
+        image_alts: data.image_alts ?? {},
+        cta_template_id: data.cta_template_id ?? null,
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -725,35 +762,37 @@ export const adminUpdateBlogSettings = createServerFn({ method: "POST" })
         hero_title: z.string().trim().min(1).max(120),
         hero_subtitle: z.string().trim().min(1).max(240),
         posts_per_page: z.number().int().min(3).max(48),
+        keyword_highlight_enabled: z.boolean().default(true),
+        keyword_highlight_color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .default("#fde68a"),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    // Find latest row
     const { data: existing } = await context.supabase
       .from("blog_settings")
       .select("id")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const payload = {
+      comments_enabled: data.comments_enabled,
+      hero_title: data.hero_title,
+      hero_subtitle: data.hero_subtitle,
+      posts_per_page: data.posts_per_page,
+      keyword_highlight_enabled: data.keyword_highlight_enabled,
+      keyword_highlight_color: data.keyword_highlight_color,
+    };
     if (existing) {
       const { error } = await context.supabase
         .from("blog_settings")
-        .update({
-          comments_enabled: data.comments_enabled,
-          hero_title: data.hero_title,
-          hero_subtitle: data.hero_subtitle,
-          posts_per_page: data.posts_per_page,
-        })
+        .update(payload)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
-      await context.supabase.from("blog_settings").insert({
-        comments_enabled: data.comments_enabled,
-        hero_title: data.hero_title,
-        hero_subtitle: data.hero_subtitle,
-        posts_per_page: data.posts_per_page,
-      });
+      await context.supabase.from("blog_settings").insert(payload);
     }
     return { ok: true };
   });

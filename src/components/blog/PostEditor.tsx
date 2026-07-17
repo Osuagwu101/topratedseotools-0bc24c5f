@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, Save, Send, History } from "lucide-react";
+import { Eye, Save, Send, History, Highlighter, Plus, Trash2 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
@@ -15,7 +15,9 @@ import {
   adminRestoreRevision,
   listCategories,
   listTags,
+  getBlogSettings,
 } from "@/lib/blog.functions";
+import { listCtaTemplates } from "@/lib/blog-cta.functions";
 import { renderMarkdown, slugify, formatDate, estimateReadingTime } from "@/lib/blog-utils";
 
 type Mode = "create" | "edit";
@@ -27,6 +29,14 @@ const catsQuery = queryOptions({
 const tagsQuery = queryOptions({
   queryKey: ["blog", "tags"],
   queryFn: () => listTags(),
+});
+const blogSettingsQuery = queryOptions({
+  queryKey: ["blog", "settings"],
+  queryFn: () => getBlogSettings(),
+});
+const ctasQuery = queryOptions({
+  queryKey: ["blog", "ctas"],
+  queryFn: () => listCtaTemplates(),
 });
 const postQuery = (id: string) =>
   queryOptions({
@@ -41,6 +51,8 @@ const revisionsQuery = (id: string) =>
     enabled: !!id,
   });
 
+interface FaqItem { question: string; answer: string }
+
 interface FormState {
   title: string;
   subtitle: string;
@@ -54,6 +66,14 @@ interface FormState {
   is_featured: boolean;
   seo_title: string;
   seo_description: string;
+  canonical_url: string;
+  og_title: string;
+  og_description: string;
+  twitter_title: string;
+  twitter_description: string;
+  semantic_keywords: string[];
+  faq: FaqItem[];
+  cta_template_id: string;
   tag_ids: string[];
 }
 
@@ -70,27 +90,43 @@ const empty: FormState = {
   is_featured: false,
   seo_title: "",
   seo_description: "",
+  canonical_url: "",
+  og_title: "",
+  og_description: "",
+  twitter_title: "",
+  twitter_description: "",
+  semantic_keywords: [],
+  faq: [],
+  cta_template_id: "",
   tag_ids: [],
 };
 
 export function PostEditor({ mode, id }: { mode: Mode; id?: string }) {
   const { data: catsData } = useSuspenseQuery(catsQuery);
   const { data: tagsData } = useSuspenseQuery(tagsQuery);
+  const { data: settingsData } = useSuspenseQuery(blogSettingsQuery);
+  const { data: ctasData } = useSuspenseQuery(ctasQuery);
+  const ctxProps = { catsData, tagsData, settingsData, ctasData };
   if (mode === "edit" && id) {
-    return <EditPostEditor id={id} catsData={catsData} tagsData={tagsData} />;
+    return <EditPostEditor id={id} {...ctxProps} />;
   }
-  return <EditorBody mode="create" catsData={catsData} tagsData={tagsData} initial={empty} />;
+  return <EditorBody mode="create" {...ctxProps} initial={empty} />;
+}
+
+interface CtxProps {
+  catsData: { categories: Array<{ id: string; name: string }> };
+  tagsData: { tags: Array<{ id: string; name: string }> };
+  settingsData: { settings: { keyword_highlight_enabled: boolean; keyword_highlight_color: string } };
+  ctasData: { templates: Array<{ id: string; name: string; title: string }> };
 }
 
 function EditPostEditor({
   id,
   catsData,
   tagsData,
-}: {
-  id: string;
-  catsData: { categories: Array<{ id: string; name: string }> };
-  tagsData: { tags: Array<{ id: string; name: string }> };
-}) {
+  settingsData,
+  ctasData,
+}: CtxProps & { id: string }) {
   const existing = useSuspenseQuery(postQuery(id));
   const d = existing.data as { post: Record<string, unknown>; tag_ids: string[] };
   const p = d.post;
@@ -109,9 +145,27 @@ function EditPostEditor({
     is_featured: !!p.is_featured,
     seo_title: (p.seo_title as string) ?? "",
     seo_description: (p.seo_description as string) ?? "",
+    canonical_url: (p.canonical_url as string) ?? "",
+    og_title: (p.og_title as string) ?? "",
+    og_description: (p.og_description as string) ?? "",
+    twitter_title: (p.twitter_title as string) ?? "",
+    twitter_description: (p.twitter_description as string) ?? "",
+    semantic_keywords: Array.isArray(p.semantic_keywords) ? (p.semantic_keywords as string[]) : [],
+    faq: Array.isArray(p.faq) ? (p.faq as FaqItem[]) : [],
+    cta_template_id: (p.cta_template_id as string) ?? "",
     tag_ids: d.tag_ids ?? [],
   };
-  return <EditorBody mode="edit" id={id} catsData={catsData} tagsData={tagsData} initial={initial} />;
+  return (
+    <EditorBody
+      mode="edit"
+      id={id}
+      catsData={catsData}
+      tagsData={tagsData}
+      settingsData={settingsData}
+      ctasData={ctasData}
+      initial={initial}
+    />
+  );
 }
 
 function EditorBody({
@@ -119,20 +173,20 @@ function EditorBody({
   id,
   catsData,
   tagsData,
+  settingsData,
+  ctasData,
   initial,
-}: {
-  mode: Mode;
-  id?: string;
-  catsData: { categories: Array<{ id: string; name: string }> };
-  tagsData: { tags: Array<{ id: string; name: string }> };
-  initial: FormState;
-}) {
+}: CtxProps & { mode: Mode; id?: string; initial: FormState }) {
   const router = useRouter();
   const qc = useQueryClient();
 
   const [form, setForm] = useState<FormState>(initial);
   const [preview, setPreview] = useState(false);
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
+  const [highlightOn, setHighlightOn] = useState<boolean>(
+    settingsData.settings.keyword_highlight_enabled,
+  );
+  const highlightColor = settingsData.settings.keyword_highlight_color || "#fde68a";
 
   const create = useServerFn(adminCreatePost);
   const update = useServerFn(adminUpdatePost);
@@ -154,6 +208,14 @@ function EditorBody({
         is_featured: form.is_featured,
         seo_title: form.seo_title || null,
         seo_description: form.seo_description || null,
+        canonical_url: form.canonical_url || null,
+        og_title: form.og_title || null,
+        og_description: form.og_description || null,
+        twitter_title: form.twitter_title || null,
+        twitter_description: form.twitter_description || null,
+        semantic_keywords: form.semantic_keywords,
+        faq: form.faq.filter((f) => f.question.trim() && f.answer.trim()),
+        cta_template_id: form.cta_template_id || null,
         tag_ids: form.tag_ids,
       };
       if (mode === "create") {
@@ -235,19 +297,36 @@ function EditorBody({
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Content (Markdown)
               </label>
-              <button
-                type="button"
-                onClick={() => setPreview((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
-              >
-                <Eye className="h-3.5 w-3.5" /> {preview ? "Edit" : "Preview"}
-              </button>
+              <div className="flex items-center gap-2">
+                {form.semantic_keywords.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setHighlightOn((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                    style={
+                      highlightOn ? { borderColor: highlightColor, background: `${highlightColor}30` } : undefined
+                    }
+                    title="Highlight semantic keywords in preview"
+                  >
+                    <Highlighter className="h-3.5 w-3.5" /> Keywords
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreview((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                >
+                  <Eye className="h-3.5 w-3.5" /> {preview ? "Edit" : "Preview"}
+                </button>
+              </div>
             </div>
 
             {preview ? (
-              <div
-                className="prose prose-neutral min-h-[24rem] max-w-none rounded-md border bg-card p-4 dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(form.content) }}
+              <PreviewPane
+                markdown={form.content}
+                keywords={form.semantic_keywords}
+                highlight={highlightOn}
+                highlightColor={highlightColor}
               />
             ) : (
               <textarea
@@ -404,6 +483,82 @@ function EditorBody({
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
                 />
               </label>
+              <label className="mt-3 block text-sm">
+                <span className="text-muted-foreground">Canonical URL</span>
+                <input
+                  value={form.canonical_url}
+                  onChange={(e) => setForm((f) => ({ ...f, canonical_url: e.target.value }))}
+                  placeholder="https://…"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                  Open Graph & Twitter overrides
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={form.og_title}
+                    onChange={(e) => setForm((f) => ({ ...f, og_title: e.target.value }))}
+                    placeholder="og:title"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    value={form.og_description}
+                    onChange={(e) => setForm((f) => ({ ...f, og_description: e.target.value }))}
+                    placeholder="og:description"
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={form.twitter_title}
+                    onChange={(e) => setForm((f) => ({ ...f, twitter_title: e.target.value }))}
+                    placeholder="twitter:title"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    value={form.twitter_description}
+                    onChange={(e) => setForm((f) => ({ ...f, twitter_description: e.target.value }))}
+                    placeholder="twitter:description"
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </details>
+            </div>
+
+            <SemanticKeywordsPanel
+              content={form.content}
+              keywords={form.semantic_keywords}
+              highlightColor={highlightColor}
+              onChange={(kws) => setForm((f) => ({ ...f, semantic_keywords: kws }))}
+            />
+
+            <FaqPanel
+              faq={form.faq}
+              onChange={(faq) => setForm((f) => ({ ...f, faq }))}
+            />
+
+            <div className="rounded-2xl border bg-card p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                CTA template
+              </h3>
+              <select
+                value={form.cta_template_id}
+                onChange={(e) => setForm((f) => ({ ...f, cta_template_id: e.target.value }))}
+                className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Auto / none —</option>
+                {ctasData.templates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.title.slice(0, 40)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Leave blank to let the AI generator pick the best match. Manage templates in{" "}
+                <Link to="/admin/blog/ctas" className="text-primary">CTAs</Link>.
+              </p>
             </div>
 
             {mode === "edit" && id && <RevisionsPanel postId={id} onRestore={(rid) => {
@@ -452,3 +607,184 @@ function RevisionsPanel({ postId, onRestore }: { postId: string; onRestore: (rid
     </div>
   );
 }
+
+/* ---------------- helper components ---------------- */
+
+const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function PreviewPane({
+  markdown,
+  keywords,
+  highlight,
+  highlightColor,
+}: {
+  markdown: string;
+  keywords: string[];
+  highlight: boolean;
+  highlightColor: string;
+}) {
+  const html = useMemo(() => {
+    let h = renderMarkdown(markdown);
+    if (highlight && keywords.length > 0) {
+      // Highlight outside HTML tags only.
+      const parts = h.split(/(<[^>]+>)/g);
+      for (const kw of keywords) {
+        if (!kw.trim()) continue;
+        const re = new RegExp(`\\b(${escapeReg(kw)})\\b`, "gi");
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i].startsWith("<")) continue;
+          parts[i] = parts[i].replace(
+            re,
+            `<mark style="background:${highlightColor};color:inherit;padding:0 2px;border-radius:3px">$1</mark>`,
+          );
+        }
+      }
+      h = parts.join("");
+    }
+    return h;
+  }, [markdown, keywords, highlight, highlightColor]);
+  return (
+    <div
+      className="prose prose-neutral min-h-[24rem] max-w-none rounded-md border bg-card p-4 dark:prose-invert"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function SemanticKeywordsPanel({
+  content,
+  keywords,
+  highlightColor,
+  onChange,
+}: {
+  content: string;
+  keywords: string[];
+  highlightColor: string;
+  onChange: (kws: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const counts = useMemo(() => {
+    const lower = content.toLowerCase();
+    return keywords.map((kw) => {
+      const re = new RegExp(`\\b${escapeReg(kw)}\\b`, "gi");
+      return (lower.match(re) ?? []).length;
+    });
+  }, [content, keywords]);
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Semantic keywords
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        3–5 semantic phrases. Highlighted in the preview.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {keywords.map((kw, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+            style={{ background: `${highlightColor}30`, borderColor: `${highlightColor}80` }}
+          >
+            {kw}
+            <span className="text-[10px] text-muted-foreground">×{counts[i] ?? 0}</span>
+            <button
+              type="button"
+              onClick={() => onChange(keywords.filter((_, j) => j !== i))}
+              className="ml-1 text-muted-foreground hover:text-destructive"
+              aria-label={`Remove ${kw}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && input.trim()) {
+              e.preventDefault();
+              const next = input.trim();
+              if (!keywords.some((k) => k.toLowerCase() === next.toLowerCase())) {
+                onChange([...keywords, next]);
+              }
+              setInput("");
+            }
+          }}
+          placeholder="Add keyword and press Enter"
+          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FaqPanel({
+  faq,
+  onChange,
+}: {
+  faq: FaqItem[];
+  onChange: (f: FaqItem[]) => void;
+}) {
+  const add = () => onChange([...faq, { question: "", answer: "" }]);
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          FAQ
+        </h3>
+        <button
+          type="button"
+          onClick={add}
+          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+      </div>
+      <div className="mt-3 space-y-3">
+        {faq.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Emitted in-page and as FAQPage JSON-LD.
+          </p>
+        )}
+        {faq.map((f, i) => (
+          <div key={i} className="rounded-md border p-2">
+            <div className="flex items-center gap-2">
+              <input
+                value={f.question}
+                onChange={(e) => {
+                  const next = [...faq];
+                  next[i] = { ...next[i], question: e.target.value };
+                  onChange(next);
+                }}
+                placeholder="Question"
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => onChange(faq.filter((_, j) => j !== i))}
+                className="rounded-md border border-destructive/40 p-1.5 text-destructive hover:bg-destructive/10"
+                aria-label="Remove FAQ"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <textarea
+              value={f.answer}
+              onChange={(e) => {
+                const next = [...faq];
+                next[i] = { ...next[i], answer: e.target.value };
+                onChange(next);
+              }}
+              rows={2}
+              placeholder="Answer"
+              className="mt-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+

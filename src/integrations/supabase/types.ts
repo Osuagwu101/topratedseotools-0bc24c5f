@@ -136,6 +136,54 @@ export type Database = {
           },
         ]
       }
+      blog_cta_templates: {
+        Row: {
+          body: string
+          button_label: string
+          button_url: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_default: boolean
+          name: string
+          priority: number
+          target_category_slugs: string[]
+          target_tool_slugs: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          button_label: string
+          button_url: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          name: string
+          priority?: number
+          target_category_slugs?: string[]
+          target_tool_slugs?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          button_label?: string
+          button_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          name?: string
+          priority?: number
+          target_category_slugs?: string[]
+          target_tool_slugs?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blog_post_tags: {
         Row: {
           post_id: string
@@ -169,64 +217,97 @@ export type Database = {
       blog_posts: {
         Row: {
           author_id: string | null
+          canonical_url: string | null
           category_id: string | null
           content: string
           created_at: string
+          cta_template_id: string | null
           excerpt: string | null
+          faq: Json
           featured_image: string | null
           id: string
+          image_alts: Json
           is_featured: boolean
+          og_description: string | null
+          og_image: string | null
+          og_title: string | null
           published_at: string | null
           reading_time_minutes: number
           scheduled_for: string | null
+          semantic_keywords: string[]
           seo_description: string | null
           seo_title: string | null
           slug: string
           status: Database["public"]["Enums"]["blog_post_status"]
           subtitle: string | null
           title: string
+          twitter_description: string | null
+          twitter_image: string | null
+          twitter_title: string | null
           updated_at: string
           view_count: number
         }
         Insert: {
           author_id?: string | null
+          canonical_url?: string | null
           category_id?: string | null
           content?: string
           created_at?: string
+          cta_template_id?: string | null
           excerpt?: string | null
+          faq?: Json
           featured_image?: string | null
           id?: string
+          image_alts?: Json
           is_featured?: boolean
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
           published_at?: string | null
           reading_time_minutes?: number
           scheduled_for?: string | null
+          semantic_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
           slug: string
           status?: Database["public"]["Enums"]["blog_post_status"]
           subtitle?: string | null
           title: string
+          twitter_description?: string | null
+          twitter_image?: string | null
+          twitter_title?: string | null
           updated_at?: string
           view_count?: number
         }
         Update: {
           author_id?: string | null
+          canonical_url?: string | null
           category_id?: string | null
           content?: string
           created_at?: string
+          cta_template_id?: string | null
           excerpt?: string | null
+          faq?: Json
           featured_image?: string | null
           id?: string
+          image_alts?: Json
           is_featured?: boolean
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
           published_at?: string | null
           reading_time_minutes?: number
           scheduled_for?: string | null
+          semantic_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["blog_post_status"]
           subtitle?: string | null
           title?: string
+          twitter_description?: string | null
+          twitter_image?: string | null
+          twitter_title?: string | null
           updated_at?: string
           view_count?: number
         }
@@ -291,6 +372,8 @@ export type Database = {
           hero_subtitle: string
           hero_title: string
           id: string
+          keyword_highlight_color: string
+          keyword_highlight_enabled: boolean
           posts_per_page: number
           updated_at: string
         }
@@ -300,6 +383,8 @@ export type Database = {
           hero_subtitle?: string
           hero_title?: string
           id?: string
+          keyword_highlight_color?: string
+          keyword_highlight_enabled?: boolean
           posts_per_page?: number
           updated_at?: string
         }
@@ -309,6 +394,8 @@ export type Database = {
           hero_subtitle?: string
           hero_title?: string
           id?: string
+          keyword_highlight_color?: string
+          keyword_highlight_enabled?: boolean
           posts_per_page?: number
           updated_at?: string
         }

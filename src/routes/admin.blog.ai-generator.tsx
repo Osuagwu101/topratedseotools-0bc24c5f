@@ -702,6 +702,28 @@ function AiGeneratorPage() {
             {result.excerpt && (
               <p className="mt-3 text-sm text-muted-foreground">{result.excerpt}</p>
             )}
+            {result.semantic_keywords && result.semantic_keywords.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {result.semantic_keywords.map((k) => (
+                  <span key={k} className="rounded-full border bg-primary/10 px-2 py-0.5 text-xs">
+                    {k}
+                  </span>
+                ))}
+              </div>
+            )}
+            {result.faq && result.faq.length > 0 && (
+              <details className="mt-3 rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">FAQ ({result.faq.length})</summary>
+                <ul className="mt-2 space-y-2">
+                  {result.faq.map((q, i) => (
+                    <li key={i}>
+                      <p className="font-medium">{q.question}</p>
+                      <p className="text-muted-foreground">{q.answer}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             <pre className="mt-4 max-h-[500px] overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-xs">
               {result.content}
             </pre>

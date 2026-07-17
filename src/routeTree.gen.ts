@@ -48,6 +48,7 @@ import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminBlogTagsRouteImport } from './routes/admin.blog.tags'
 import { Route as AdminBlogSettingsRouteImport } from './routes/admin.blog.settings'
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
+import { Route as AdminBlogCtasRouteImport } from './routes/admin.blog.ctas'
 import { Route as AdminBlogCommentsRouteImport } from './routes/admin.blog.comments'
 import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.categories'
 import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai-generator'
@@ -250,6 +251,11 @@ const AdminBlogNewRoute = AdminBlogNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AdminBlogRoute,
 } as any)
+const AdminBlogCtasRoute = AdminBlogCtasRouteImport.update({
+  id: '/ctas',
+  path: '/ctas',
+  getParentRoute: () => AdminBlogRoute,
+} as any)
 const AdminBlogCommentsRoute = AdminBlogCommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
@@ -318,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/ctas': typeof AdminBlogCtasRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
@@ -361,6 +368,7 @@ export interface FileRoutesByTo {
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/ctas': typeof AdminBlogCtasRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
@@ -409,6 +417,7 @@ export interface FileRoutesById {
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
+  '/admin/blog/ctas': typeof AdminBlogCtasRoute
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
@@ -457,6 +466,7 @@ export interface FileRouteTypes {
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
+    | '/admin/blog/ctas'
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
+    | '/admin/blog/ctas'
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
@@ -547,6 +558,7 @@ export interface FileRouteTypes {
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
+    | '/admin/blog/ctas'
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
@@ -859,6 +871,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBlogNewRouteImport
       parentRoute: typeof AdminBlogRoute
     }
+    '/admin/blog/ctas': {
+      id: '/admin/blog/ctas'
+      path: '/ctas'
+      fullPath: '/admin/blog/ctas'
+      preLoaderRoute: typeof AdminBlogCtasRouteImport
+      parentRoute: typeof AdminBlogRoute
+    }
     '/admin/blog/comments': {
       id: '/admin/blog/comments'
       path: '/comments'
@@ -962,6 +981,7 @@ interface AdminBlogRouteChildren {
   AdminBlogAiGeneratorRoute: typeof AdminBlogAiGeneratorRoute
   AdminBlogCategoriesRoute: typeof AdminBlogCategoriesRoute
   AdminBlogCommentsRoute: typeof AdminBlogCommentsRoute
+  AdminBlogCtasRoute: typeof AdminBlogCtasRoute
   AdminBlogNewRoute: typeof AdminBlogNewRoute
   AdminBlogSettingsRoute: typeof AdminBlogSettingsRoute
   AdminBlogTagsRoute: typeof AdminBlogTagsRoute
@@ -973,6 +993,7 @@ const AdminBlogRouteChildren: AdminBlogRouteChildren = {
   AdminBlogAiGeneratorRoute: AdminBlogAiGeneratorRoute,
   AdminBlogCategoriesRoute: AdminBlogCategoriesRoute,
   AdminBlogCommentsRoute: AdminBlogCommentsRoute,
+  AdminBlogCtasRoute: AdminBlogCtasRoute,
   AdminBlogNewRoute: AdminBlogNewRoute,
   AdminBlogSettingsRoute: AdminBlogSettingsRoute,
   AdminBlogTagsRoute: AdminBlogTagsRoute,
@@ -1012,13 +1033,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
