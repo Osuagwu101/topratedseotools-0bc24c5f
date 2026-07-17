@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generator_settings: {
+        Row: {
+          brand_voice: string | null
+          created_at: string
+          default_audience: string
+          default_country: string | null
+          default_language: string
+          default_length: string
+          default_reading_level: string
+          default_tone: string
+          default_writing_style: string
+          id: string
+          model: string
+          provider: string
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_voice?: string | null
+          created_at?: string
+          default_audience?: string
+          default_country?: string | null
+          default_language?: string
+          default_length?: string
+          default_reading_level?: string
+          default_tone?: string
+          default_writing_style?: string
+          id?: string
+          model?: string
+          provider?: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_voice?: string | null
+          created_at?: string
+          default_audience?: string
+          default_country?: string | null
+          default_language?: string
+          default_length?: string
+          default_reading_level?: string
+          default_tone?: string
+          default_writing_style?: string
+          id?: string
+          model?: string
+          provider?: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blog_categories: {
         Row: {
           created_at: string
