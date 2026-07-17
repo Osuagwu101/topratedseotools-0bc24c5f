@@ -51,6 +51,8 @@ const revisionsQuery = (id: string) =>
     enabled: !!id,
   });
 
+interface FaqItem { question: string; answer: string }
+
 interface FormState {
   title: string;
   subtitle: string;
@@ -64,6 +66,14 @@ interface FormState {
   is_featured: boolean;
   seo_title: string;
   seo_description: string;
+  canonical_url: string;
+  og_title: string;
+  og_description: string;
+  twitter_title: string;
+  twitter_description: string;
+  semantic_keywords: string[];
+  faq: FaqItem[];
+  cta_template_id: string;
   tag_ids: string[];
 }
 
@@ -80,16 +90,27 @@ const empty: FormState = {
   is_featured: false,
   seo_title: "",
   seo_description: "",
+  canonical_url: "",
+  og_title: "",
+  og_description: "",
+  twitter_title: "",
+  twitter_description: "",
+  semantic_keywords: [],
+  faq: [],
+  cta_template_id: "",
   tag_ids: [],
 };
 
 export function PostEditor({ mode, id }: { mode: Mode; id?: string }) {
   const { data: catsData } = useSuspenseQuery(catsQuery);
   const { data: tagsData } = useSuspenseQuery(tagsQuery);
+  const { data: settingsData } = useSuspenseQuery(blogSettingsQuery);
+  const { data: ctasData } = useSuspenseQuery(ctasQuery);
+  const ctxProps = { catsData, tagsData, settingsData, ctasData };
   if (mode === "edit" && id) {
-    return <EditPostEditor id={id} catsData={catsData} tagsData={tagsData} />;
+    return <EditPostEditor id={id} {...ctxProps} />;
   }
-  return <EditorBody mode="create" catsData={catsData} tagsData={tagsData} initial={empty} />;
+  return <EditorBody mode="create" {...ctxProps} initial={empty} />;
 }
 
 function EditPostEditor({
