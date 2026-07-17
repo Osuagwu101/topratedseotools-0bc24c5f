@@ -483,6 +483,82 @@ function EditorBody({
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
                 />
               </label>
+              <label className="mt-3 block text-sm">
+                <span className="text-muted-foreground">Canonical URL</span>
+                <input
+                  value={form.canonical_url}
+                  onChange={(e) => setForm((f) => ({ ...f, canonical_url: e.target.value }))}
+                  placeholder="https://…"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                  Open Graph & Twitter overrides
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={form.og_title}
+                    onChange={(e) => setForm((f) => ({ ...f, og_title: e.target.value }))}
+                    placeholder="og:title"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    value={form.og_description}
+                    onChange={(e) => setForm((f) => ({ ...f, og_description: e.target.value }))}
+                    placeholder="og:description"
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={form.twitter_title}
+                    onChange={(e) => setForm((f) => ({ ...f, twitter_title: e.target.value }))}
+                    placeholder="twitter:title"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    value={form.twitter_description}
+                    onChange={(e) => setForm((f) => ({ ...f, twitter_description: e.target.value }))}
+                    placeholder="twitter:description"
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </details>
+            </div>
+
+            <SemanticKeywordsPanel
+              content={form.content}
+              keywords={form.semantic_keywords}
+              highlightColor={highlightColor}
+              onChange={(kws) => setForm((f) => ({ ...f, semantic_keywords: kws }))}
+            />
+
+            <FaqPanel
+              faq={form.faq}
+              onChange={(faq) => setForm((f) => ({ ...f, faq }))}
+            />
+
+            <div className="rounded-2xl border bg-card p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                CTA template
+              </h3>
+              <select
+                value={form.cta_template_id}
+                onChange={(e) => setForm((f) => ({ ...f, cta_template_id: e.target.value }))}
+                className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Auto / none —</option>
+                {ctasData.templates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.title.slice(0, 40)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Leave blank to let the AI generator pick the best match. Manage templates in{" "}
+                <Link to="/admin/blog/ctas" className="text-primary">CTAs</Link>.
+              </p>
             </div>
 
             {mode === "edit" && id && <RevisionsPanel postId={id} onRestore={(rid) => {
