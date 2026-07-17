@@ -108,6 +108,15 @@ export function Navbar() {
               >
                 <LayoutDashboard className="h-4 w-4" /> Dashboard
               </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Admin
+                </Link>
+              )}
+
               <button
                 onClick={signOut}
                 className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
