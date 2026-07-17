@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Eye, Save, Send, History } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -74,40 +74,61 @@ const empty: FormState = {
 };
 
 export function PostEditor({ mode, id }: { mode: Mode; id?: string }) {
-  const router = useRouter();
-  const qc = useQueryClient();
   const { data: catsData } = useSuspenseQuery(catsQuery);
   const { data: tagsData } = useSuspenseQuery(tagsQuery);
-  const existing = useSuspenseQuery({
-    ...postQuery(id ?? ""),
-    enabled: mode === "edit" && !!id,
-  } as never);
+  if (mode === "edit" && id) {
+    return <EditPostEditor id={id} catsData={catsData} tagsData={tagsData} />;
+  }
+  return <EditorBody mode="create" catsData={catsData} tagsData={tagsData} initial={empty} />;
+}
 
-  const initial: FormState = useMemo(() => {
-    if (mode === "edit" && id && (existing.data as never)) {
-      const d = existing.data as { post: Record<string, unknown>; tag_ids: string[] };
-      const p = d.post;
-      return {
-        title: (p.title as string) ?? "",
-        subtitle: (p.subtitle as string) ?? "",
-        slug: (p.slug as string) ?? "",
-        excerpt: (p.excerpt as string) ?? "",
-        content: (p.content as string) ?? "",
-        featured_image: (p.featured_image as string) ?? "",
-        category_id: (p.category_id as string) ?? "",
-        status: ((p.status as FormState["status"]) ?? "draft"),
-        scheduled_for: p.scheduled_for
-          ? new Date(p.scheduled_for as string).toISOString().slice(0, 16)
-          : "",
-        is_featured: !!p.is_featured,
-        seo_title: (p.seo_title as string) ?? "",
-        seo_description: (p.seo_description as string) ?? "",
-        tag_ids: d.tag_ids ?? [],
-      };
-    }
-    return empty;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, id]);
+function EditPostEditor({
+  id,
+  catsData,
+  tagsData,
+}: {
+  id: string;
+  catsData: { categories: Array<{ id: string; name: string }> };
+  tagsData: { tags: Array<{ id: string; name: string }> };
+}) {
+  const existing = useSuspenseQuery(postQuery(id));
+  const d = existing.data as { post: Record<string, unknown>; tag_ids: string[] };
+  const p = d.post;
+  const initial: FormState = {
+    title: (p.title as string) ?? "",
+    subtitle: (p.subtitle as string) ?? "",
+    slug: (p.slug as string) ?? "",
+    excerpt: (p.excerpt as string) ?? "",
+    content: (p.content as string) ?? "",
+    featured_image: (p.featured_image as string) ?? "",
+    category_id: (p.category_id as string) ?? "",
+    status: ((p.status as FormState["status"]) ?? "draft"),
+    scheduled_for: p.scheduled_for
+      ? new Date(p.scheduled_for as string).toISOString().slice(0, 16)
+      : "",
+    is_featured: !!p.is_featured,
+    seo_title: (p.seo_title as string) ?? "",
+    seo_description: (p.seo_description as string) ?? "",
+    tag_ids: d.tag_ids ?? [],
+  };
+  return <EditorBody mode="edit" id={id} catsData={catsData} tagsData={tagsData} initial={initial} />;
+}
+
+function EditorBody({
+  mode,
+  id,
+  catsData,
+  tagsData,
+  initial,
+}: {
+  mode: Mode;
+  id?: string;
+  catsData: { categories: Array<{ id: string; name: string }> };
+  tagsData: { tags: Array<{ id: string; name: string }> };
+  initial: FormState;
+}) {
+  const router = useRouter();
+  const qc = useQueryClient();
 
   const [form, setForm] = useState<FormState>(initial);
   const [preview, setPreview] = useState(false);
