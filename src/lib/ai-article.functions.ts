@@ -10,7 +10,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { estimateReadingTime, slugify } from "@/lib/blog-utils";
 import { getProvider, providerCatalog } from "@/lib/ai-providers/registry";
 
-async function assertAdmin(supabase: ReturnType<typeof requireSupabaseAuth> extends never ? never : any, userId: string) {
+async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", {
     _user_id: userId,
     _role: "admin",
