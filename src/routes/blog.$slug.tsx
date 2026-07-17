@@ -36,16 +36,28 @@ export const Route = createFileRoute("/blog/$slug")({
     if (!data.post) throw notFound();
     await context.queryClient.ensureQueryData(settingsQuery);
     await context.queryClient.ensureQueryData(commentsQueryOpts(data.post.id));
+    const p = data.post as unknown as Record<string, unknown>;
     return {
       title: data.post.title,
       excerpt: data.post.excerpt ?? "",
       featured_image: data.post.featured_image ?? "",
       seo_title: data.post.seo_title ?? "",
       seo_description: data.post.seo_description ?? "",
+      canonical_url: (p.canonical_url as string) ?? "",
+      og_title: (p.og_title as string) ?? "",
+      og_description: (p.og_description as string) ?? "",
+      twitter_title: (p.twitter_title as string) ?? "",
+      twitter_description: (p.twitter_description as string) ?? "",
+      faq: (p.faq as Array<{ question: string; answer: string }>) ?? [],
+      published_at: data.post.published_at,
+      updated_at: data.post.updated_at,
+      author_name: data.author?.full_name ?? null,
+      category_name: data.post.category?.name ?? null,
+      category_slug: data.post.category?.slug ?? null,
     };
   },
   head: ({ params, loaderData }) => {
-    const url = `https://topratedseotools.lovable.app/blog/${params.slug}`;
+    const fallback = `https://topratedseotools.lovable.app/blog/${params.slug}`;
     if (!loaderData) {
       return {
         meta: [
@@ -54,25 +66,103 @@ export const Route = createFileRoute("/blog/$slug")({
         ],
       };
     }
+    const url = loaderData.canonical_url || fallback;
     const title = loaderData.seo_title || `${loaderData.title} — Top Rated SEO Tools`;
     const description = loaderData.seo_description || loaderData.excerpt || undefined;
+    const ogTitle = loaderData.og_title || title;
+    const ogDesc = loaderData.og_description || description;
+    const twTitle = loaderData.twitter_title || ogTitle;
+    const twDesc = loaderData.twitter_description || ogDesc;
     const meta: Array<Record<string, string>> = [
       { title },
       { property: "og:type", content: "article" },
       { property: "og:url", content: url },
-      { property: "og:title", content: title },
+      { property: "og:title", content: ogTitle },
+      { property: "og:site_name", content: "Top Rated SEO Tools" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: twTitle },
     ];
-    if (description) {
-      meta.push({ name: "description", content: description });
-      meta.push({ property: "og:description", content: description });
-    }
+    if (description) meta.push({ name: "description", content: description });
+    if (ogDesc) meta.push({ property: "og:description", content: ogDesc });
+    if (twDesc) meta.push({ name: "twitter:description", content: twDesc });
     if (loaderData.featured_image) {
       meta.push({ property: "og:image", content: loaderData.featured_image });
-      meta.push({ name: "twitter:card", content: "summary_large_image" });
+      meta.push({ name: "twitter:image", content: loaderData.featured_image });
     }
+    if (loaderData.published_at) {
+      meta.push({ property: "article:published_time", content: loaderData.published_at });
+    }
+    if (loaderData.updated_at) {
+      meta.push({ property: "article:modified_time", content: loaderData.updated_at });
+    }
+
+    // JSON-LD schemas
+    const articleLd = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: loaderData.title,
+      description: description ?? undefined,
+      image: loaderData.featured_image || undefined,
+      datePublished: loaderData.published_at ?? undefined,
+      dateModified: loaderData.updated_at ?? undefined,
+      author: loaderData.author_name
+        ? { "@type": "Person", name: loaderData.author_name }
+        : { "@type": "Organization", name: "Top Rated SEO Tools" },
+      publisher: {
+        "@type": "Organization",
+        name: "Top Rated SEO Tools",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://topratedseotools.lovable.app/favicon.ico",
+        },
+      },
+      mainEntityOfPage: url,
+    };
+    const breadcrumbLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: "https://topratedseotools.lovable.app/" },
+        { "@type": "ListItem", position: 2, name: "Blog", item: "https://topratedseotools.lovable.app/blog" },
+        ...(loaderData.category_slug
+          ? [
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: loaderData.category_name,
+                item: `https://topratedseotools.lovable.app/blog/category/${loaderData.category_slug}`,
+              },
+            ]
+          : []),
+        {
+          "@type": "ListItem",
+          position: loaderData.category_slug ? 4 : 3,
+          name: loaderData.title,
+          item: url,
+        },
+      ],
+    };
+    const scripts: Array<{ type: string; children: string }> = [
+      { type: "application/ld+json", children: JSON.stringify(articleLd) },
+      { type: "application/ld+json", children: JSON.stringify(breadcrumbLd) },
+    ];
+    if (loaderData.faq && loaderData.faq.length > 0) {
+      const faqLd = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: loaderData.faq.map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        })),
+      };
+      scripts.push({ type: "application/ld+json", children: JSON.stringify(faqLd) });
+    }
+
     return {
       meta,
       links: [{ rel: "canonical", href: url }],
+      scripts,
     };
   },
   errorComponent: ({ error }) => (
