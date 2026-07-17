@@ -607,3 +607,184 @@ function RevisionsPanel({ postId, onRestore }: { postId: string; onRestore: (rid
     </div>
   );
 }
+
+/* ---------------- helper components ---------------- */
+
+const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function PreviewPane({
+  markdown,
+  keywords,
+  highlight,
+  highlightColor,
+}: {
+  markdown: string;
+  keywords: string[];
+  highlight: boolean;
+  highlightColor: string;
+}) {
+  const html = useMemo(() => {
+    let h = renderMarkdown(markdown);
+    if (highlight && keywords.length > 0) {
+      // Highlight outside HTML tags only.
+      const parts = h.split(/(<[^>]+>)/g);
+      for (const kw of keywords) {
+        if (!kw.trim()) continue;
+        const re = new RegExp(`\\b(${escapeReg(kw)})\\b`, "gi");
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i].startsWith("<")) continue;
+          parts[i] = parts[i].replace(
+            re,
+            `<mark style="background:${highlightColor};color:inherit;padding:0 2px;border-radius:3px">$1</mark>`,
+          );
+        }
+      }
+      h = parts.join("");
+    }
+    return h;
+  }, [markdown, keywords, highlight, highlightColor]);
+  return (
+    <div
+      className="prose prose-neutral min-h-[24rem] max-w-none rounded-md border bg-card p-4 dark:prose-invert"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function SemanticKeywordsPanel({
+  content,
+  keywords,
+  highlightColor,
+  onChange,
+}: {
+  content: string;
+  keywords: string[];
+  highlightColor: string;
+  onChange: (kws: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const counts = useMemo(() => {
+    const lower = content.toLowerCase();
+    return keywords.map((kw) => {
+      const re = new RegExp(`\\b${escapeReg(kw)}\\b`, "gi");
+      return (lower.match(re) ?? []).length;
+    });
+  }, [content, keywords]);
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Semantic keywords
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        3–5 semantic phrases. Highlighted in the preview.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {keywords.map((kw, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+            style={{ background: `${highlightColor}30`, borderColor: `${highlightColor}80` }}
+          >
+            {kw}
+            <span className="text-[10px] text-muted-foreground">×{counts[i] ?? 0}</span>
+            <button
+              type="button"
+              onClick={() => onChange(keywords.filter((_, j) => j !== i))}
+              className="ml-1 text-muted-foreground hover:text-destructive"
+              aria-label={`Remove ${kw}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && input.trim()) {
+              e.preventDefault();
+              const next = input.trim();
+              if (!keywords.some((k) => k.toLowerCase() === next.toLowerCase())) {
+                onChange([...keywords, next]);
+              }
+              setInput("");
+            }
+          }}
+          placeholder="Add keyword and press Enter"
+          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FaqPanel({
+  faq,
+  onChange,
+}: {
+  faq: FaqItem[];
+  onChange: (f: FaqItem[]) => void;
+}) {
+  const add = () => onChange([...faq, { question: "", answer: "" }]);
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          FAQ
+        </h3>
+        <button
+          type="button"
+          onClick={add}
+          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+      </div>
+      <div className="mt-3 space-y-3">
+        {faq.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Emitted in-page and as FAQPage JSON-LD.
+          </p>
+        )}
+        {faq.map((f, i) => (
+          <div key={i} className="rounded-md border p-2">
+            <div className="flex items-center gap-2">
+              <input
+                value={f.question}
+                onChange={(e) => {
+                  const next = [...faq];
+                  next[i] = { ...next[i], question: e.target.value };
+                  onChange(next);
+                }}
+                placeholder="Question"
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => onChange(faq.filter((_, j) => j !== i))}
+                className="rounded-md border border-destructive/40 p-1.5 text-destructive hover:bg-destructive/10"
+                aria-label="Remove FAQ"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <textarea
+              value={f.answer}
+              onChange={(e) => {
+                const next = [...faq];
+                next[i] = { ...next[i], answer: e.target.value };
+                onChange(next);
+              }}
+              rows={2}
+              placeholder="Answer"
+              className="mt-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
