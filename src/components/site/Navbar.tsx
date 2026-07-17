@@ -1,11 +1,12 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, LogOut, LayoutDashboard, User as UserIcon } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, User as UserIcon, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/logo.png.asset.json";
+
 
 
 const NAV_LINKS = [
