@@ -36,9 +36,16 @@ export const Route = createFileRoute("/blog/$slug")({
     if (!data.post) throw notFound();
     await context.queryClient.ensureQueryData(settingsQuery);
     await context.queryClient.ensureQueryData(commentsQueryOpts(data.post.id));
-    return null;
+    return {
+      title: data.post.title,
+      excerpt: data.post.excerpt ?? "",
+      featured_image: data.post.featured_image ?? "",
+      seo_title: data.post.seo_title ?? "",
+      seo_description: data.post.seo_description ?? "",
+    };
   },
   head: ({ params, loaderData }) => {
+    const url = `https://topratedseotools.lovable.app/blog/${params.slug}`;
     if (!loaderData) {
       return {
         meta: [
@@ -47,16 +54,35 @@ export const Route = createFileRoute("/blog/$slug")({
         ],
       };
     }
-    const url = `https://topratedseotools.lovable.app/blog/${params.slug}`;
+    const title = loaderData.seo_title || `${loaderData.title} — Top Rated SEO Tools`;
+    const description = loaderData.seo_description || loaderData.excerpt || undefined;
+    const meta: Array<Record<string, string>> = [
+      { title },
+      { property: "og:type", content: "article" },
+      { property: "og:url", content: url },
+      { property: "og:title", content: title },
+    ];
+    if (description) {
+      meta.push({ name: "description", content: description });
+      meta.push({ property: "og:description", content: description });
+    }
+    if (loaderData.featured_image) {
+      meta.push({ property: "og:image", content: loaderData.featured_image });
+      meta.push({ name: "twitter:card", content: "summary_large_image" });
+    }
     return {
-      meta: [
-        { title: "Article — Top Rated SEO Tools" },
-        { property: "og:type", content: "article" },
-        { property: "og:url", content: url },
-      ],
+      meta,
       links: [{ rel: "canonical", href: url }],
     };
   },
+  errorComponent: ({ error }) => (
+    <SiteLayout>
+      <div className="mx-auto max-w-lg px-4 py-24 text-center">
+        <h1 className="text-2xl font-semibold">Something went wrong</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+      </div>
+    </SiteLayout>
+  ),
   notFoundComponent: NotFoundArticle,
   component: BlogPost,
 });
