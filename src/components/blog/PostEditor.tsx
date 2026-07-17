@@ -113,15 +113,20 @@ export function PostEditor({ mode, id }: { mode: Mode; id?: string }) {
   return <EditorBody mode="create" {...ctxProps} initial={empty} />;
 }
 
+interface CtxProps {
+  catsData: { categories: Array<{ id: string; name: string }> };
+  tagsData: { tags: Array<{ id: string; name: string }> };
+  settingsData: { settings: { keyword_highlight_enabled: boolean; keyword_highlight_color: string } };
+  ctasData: { templates: Array<{ id: string; name: string; title: string }> };
+}
+
 function EditPostEditor({
   id,
   catsData,
   tagsData,
-}: {
-  id: string;
-  catsData: { categories: Array<{ id: string; name: string }> };
-  tagsData: { tags: Array<{ id: string; name: string }> };
-}) {
+  settingsData,
+  ctasData,
+}: CtxProps & { id: string }) {
   const existing = useSuspenseQuery(postQuery(id));
   const d = existing.data as { post: Record<string, unknown>; tag_ids: string[] };
   const p = d.post;
@@ -140,9 +145,27 @@ function EditPostEditor({
     is_featured: !!p.is_featured,
     seo_title: (p.seo_title as string) ?? "",
     seo_description: (p.seo_description as string) ?? "",
+    canonical_url: (p.canonical_url as string) ?? "",
+    og_title: (p.og_title as string) ?? "",
+    og_description: (p.og_description as string) ?? "",
+    twitter_title: (p.twitter_title as string) ?? "",
+    twitter_description: (p.twitter_description as string) ?? "",
+    semantic_keywords: Array.isArray(p.semantic_keywords) ? (p.semantic_keywords as string[]) : [],
+    faq: Array.isArray(p.faq) ? (p.faq as FaqItem[]) : [],
+    cta_template_id: (p.cta_template_id as string) ?? "",
     tag_ids: d.tag_ids ?? [],
   };
-  return <EditorBody mode="edit" id={id} catsData={catsData} tagsData={tagsData} initial={initial} />;
+  return (
+    <EditorBody
+      mode="edit"
+      id={id}
+      catsData={catsData}
+      tagsData={tagsData}
+      settingsData={settingsData}
+      ctasData={ctasData}
+      initial={initial}
+    />
+  );
 }
 
 function EditorBody({
