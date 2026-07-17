@@ -6,6 +6,7 @@ const LINKS: { to: string; label: string; exact?: boolean }[] = [
   { to: "/admin/blog/categories", label: "Categories" },
   { to: "/admin/blog/tags", label: "Tags" },
   { to: "/admin/blog/comments", label: "Comments" },
+  { to: "/admin/blog/ctas", label: "CTAs" },
   { to: "/admin/blog/settings", label: "Settings" },
 ];
 
