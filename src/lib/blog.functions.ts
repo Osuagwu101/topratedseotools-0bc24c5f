@@ -151,7 +151,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
     const { data: post, error } = await supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,created_at,updated_at,category:blog_categories(id,name,slug)",
+        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
       )
       .eq("slug", data.slug)
       .eq("status", "published")
@@ -257,7 +257,7 @@ export const getBlogSettings = createServerFn({ method: "GET" }).handler(async (
   const supabase = serverPublic();
   const { data } = await supabase
     .from("blog_settings")
-    .select("id,comments_enabled,hero_title,hero_subtitle,posts_per_page")
+    .select("id,comments_enabled,hero_title,hero_subtitle,posts_per_page,keyword_highlight_enabled,keyword_highlight_color")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -268,6 +268,8 @@ export const getBlogSettings = createServerFn({ method: "GET" }).handler(async (
       hero_title: "Insights & Guides",
       hero_subtitle: "The latest on SEO tools, tips, and strategy.",
       posts_per_page: 12,
+      keyword_highlight_enabled: true,
+      keyword_highlight_color: "#fde68a",
     },
   };
 });
