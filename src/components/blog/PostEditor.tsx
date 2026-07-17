@@ -173,20 +173,20 @@ function EditorBody({
   id,
   catsData,
   tagsData,
+  settingsData,
+  ctasData,
   initial,
-}: {
-  mode: Mode;
-  id?: string;
-  catsData: { categories: Array<{ id: string; name: string }> };
-  tagsData: { tags: Array<{ id: string; name: string }> };
-  initial: FormState;
-}) {
+}: CtxProps & { mode: Mode; id?: string; initial: FormState }) {
   const router = useRouter();
   const qc = useQueryClient();
 
   const [form, setForm] = useState<FormState>(initial);
   const [preview, setPreview] = useState(false);
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
+  const [highlightOn, setHighlightOn] = useState<boolean>(
+    settingsData.settings.keyword_highlight_enabled,
+  );
+  const highlightColor = settingsData.settings.keyword_highlight_color || "#fde68a";
 
   const create = useServerFn(adminCreatePost);
   const update = useServerFn(adminUpdatePost);
@@ -208,6 +208,14 @@ function EditorBody({
         is_featured: form.is_featured,
         seo_title: form.seo_title || null,
         seo_description: form.seo_description || null,
+        canonical_url: form.canonical_url || null,
+        og_title: form.og_title || null,
+        og_description: form.og_description || null,
+        twitter_title: form.twitter_title || null,
+        twitter_description: form.twitter_description || null,
+        semantic_keywords: form.semantic_keywords,
+        faq: form.faq.filter((f) => f.question.trim() && f.answer.trim()),
+        cta_template_id: form.cta_template_id || null,
         tag_ids: form.tag_ids,
       };
       if (mode === "create") {
