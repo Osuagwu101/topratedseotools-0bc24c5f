@@ -23,7 +23,7 @@ const settingsQuery = queryOptions({
   queryFn: () => listToolSettings(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/tools")({
+export const Route = createFileRoute("/admin/tools")({
   head: () => ({
     meta: [
       { title: "Tool access — Admin — Top Rated SEO Tools" },

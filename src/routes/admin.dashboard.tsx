@@ -24,7 +24,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
 import { TOOLS } from "@/lib/tools-data";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
@@ -35,7 +35,7 @@ const credsQuery = queryOptions({
   queryFn: () => adminListToolCredentials(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/")({
+export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({
     meta: [
       { title: "Admin dashboard — Top Rated SEO Tools" },

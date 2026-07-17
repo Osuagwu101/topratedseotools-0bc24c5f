@@ -15,14 +15,14 @@ import {
   adminUpdateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
   queryFn: () => adminListOrders(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/orders")({
+export const Route = createFileRoute("/admin/orders")({
   head: () => ({
     meta: [
       { title: "Order queue — Admin — Top Rated SEO Tools" },

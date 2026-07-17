@@ -20,7 +20,7 @@ const pricingQuery = queryOptions({
   queryFn: () => listToolPricing(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/pricing")({
+export const Route = createFileRoute("/admin/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — Admin — Top Rated SEO Tools" },

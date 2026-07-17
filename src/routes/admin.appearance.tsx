@@ -12,7 +12,7 @@ import {
   type ActiveTheme,
 } from "@/lib/site-settings.functions";
 
-export const Route = createFileRoute("/_authenticated/admin/appearance")({
+export const Route = createFileRoute("/admin/appearance")({
   head: () => ({
     meta: [
       { title: "Appearance — Admin — Top Rated SEO Tools" },

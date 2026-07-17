@@ -21,14 +21,14 @@ import {
   adminUpsertToolCredential,
   type ToolCredential,
 } from "@/lib/access.functions";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
 
 const credsQuery = queryOptions({
   queryKey: ["admin-credentials"],
   queryFn: () => adminListToolCredentials(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/credentials")({
+export const Route = createFileRoute("/admin/credentials")({
   head: () => ({
     meta: [
       { title: "Credentials — Admin — Top Rated SEO Tools" },
