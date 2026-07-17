@@ -1,5 +1,6 @@
 import { anthropicProvider } from "./anthropic";
-import { googleProvider, openaiProvider } from "./lovable-gateway";
+import { googleProvider } from "./google";
+import { openaiProvider } from "./openai";
 import type { AIProvider, AIProviderId } from "./types";
 
 /**
