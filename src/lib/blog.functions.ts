@@ -491,6 +491,15 @@ export const adminUpdatePost = createServerFn({ method: "POST" })
         reading_time_minutes: readingTime,
         seo_title: data.seo_title ?? null,
         seo_description: data.seo_description ?? null,
+        canonical_url: data.canonical_url || null,
+        og_title: data.og_title ?? null,
+        og_description: data.og_description ?? null,
+        twitter_title: data.twitter_title ?? null,
+        twitter_description: data.twitter_description ?? null,
+        semantic_keywords: data.semantic_keywords ?? [],
+        faq: data.faq ?? [],
+        image_alts: data.image_alts ?? {},
+        cta_template_id: data.cta_template_id ?? null,
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
