@@ -19,16 +19,34 @@ const NAV_LINKS = [
 export function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    async function loadAdmin(uid: string | null) {
+      if (!uid) return setIsAdmin(false);
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null;
+      setUser(u);
+      loadAdmin(u?.id ?? null);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
+      loadAdmin(u?.id ?? null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
