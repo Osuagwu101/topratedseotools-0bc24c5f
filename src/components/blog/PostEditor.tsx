@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, Save, Send, History } from "lucide-react";
+import { Eye, Save, Send, History, Highlighter, Plus, Trash2 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
@@ -15,7 +15,9 @@ import {
   adminRestoreRevision,
   listCategories,
   listTags,
+  getBlogSettings,
 } from "@/lib/blog.functions";
+import { listCtaTemplates } from "@/lib/blog-cta.functions";
 import { renderMarkdown, slugify, formatDate, estimateReadingTime } from "@/lib/blog-utils";
 
 type Mode = "create" | "edit";
@@ -27,6 +29,14 @@ const catsQuery = queryOptions({
 const tagsQuery = queryOptions({
   queryKey: ["blog", "tags"],
   queryFn: () => listTags(),
+});
+const blogSettingsQuery = queryOptions({
+  queryKey: ["blog", "settings"],
+  queryFn: () => getBlogSettings(),
+});
+const ctasQuery = queryOptions({
+  queryKey: ["blog", "ctas"],
+  queryFn: () => listCtaTemplates(),
 });
 const postQuery = (id: string) =>
   queryOptions({
