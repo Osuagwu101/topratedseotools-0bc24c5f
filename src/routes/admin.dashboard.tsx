@@ -8,7 +8,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import {
   ShieldCheck,
-  ShieldAlert,
   Settings2,
   ClipboardList,
   Tag,
@@ -21,11 +20,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { getIsAdmin } from "@/lib/site-settings.functions";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
 import { TOOLS } from "@/lib/tools-data";
 import { AdminNav } from "./admin.tools";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
+
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
