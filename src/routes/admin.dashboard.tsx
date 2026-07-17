@@ -8,7 +8,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import {
   ShieldCheck,
-  ShieldAlert,
   Settings2,
   ClipboardList,
   Tag,
@@ -21,10 +20,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { getIsAdmin } from "@/lib/site-settings.functions";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
 import { TOOLS } from "@/lib/tools-data";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
+
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
@@ -35,45 +35,32 @@ const credsQuery = queryOptions({
   queryFn: () => adminListToolCredentials(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/")({
+export const Route = createFileRoute("/admin/dashboard")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Admin dashboard — Top Rated SEO Tools" },
       { name: "robots", content: "noindex" },
     ],
   }),
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   loader: async ({ context }) => {
-    const { isAdmin } = await getIsAdmin();
-    if (isAdmin) {
-      await Promise.all([
-        context.queryClient.ensureQueryData(ordersQuery),
-        context.queryClient.ensureQueryData(credsQuery),
-      ]);
-    }
-    return { isAdmin };
+    await Promise.all([
+      context.queryClient.ensureQueryData(ordersQuery),
+      context.queryClient.ensureQueryData(credsQuery),
+    ]);
+    return { isAdmin: true as const };
   },
   component: AdminIndexPage,
 });
 
+
 function AdminIndexPage() {
-  const { isAdmin } = Route.useLoaderData();
-
-  if (!isAdmin) {
-    return (
-      <SiteLayout>
-        <div className="mx-auto max-w-md px-4 py-24 text-center">
-          <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <h1 className="mt-3 text-2xl font-semibold">Admins only</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            You don't have permission to view the admin dashboard.
-          </p>
-        </div>
-      </SiteLayout>
-    );
-  }
-
   return <AdminDashboardInner />;
 }
+
 
 function AdminDashboardInner() {
   const { data: ordersData } = useSuspenseQuery(ordersQuery);

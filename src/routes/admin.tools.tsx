@@ -2,6 +2,7 @@
  * Admin — per-tool settings: enable/disable + access level.
  * Reads the static catalog (`TOOLS`) and overlays DB rows in `tool_settings`.
  */
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
@@ -23,7 +24,9 @@ const settingsQuery = queryOptions({
   queryFn: () => listToolSettings(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/tools")({
+export const Route = createFileRoute("/admin/tools")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Tool access — Admin — Top Rated SEO Tools" },

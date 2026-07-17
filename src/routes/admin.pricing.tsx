@@ -1,4 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { useServerFn } from "@tanstack/react-start";
 import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -20,7 +21,9 @@ const pricingQuery = queryOptions({
   queryFn: () => listToolPricing(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/pricing")({
+export const Route = createFileRoute("/admin/pricing")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Pricing — Admin — Top Rated SEO Tools" },

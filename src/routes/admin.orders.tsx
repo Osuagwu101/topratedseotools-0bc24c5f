@@ -1,6 +1,7 @@
 /**
  * Admin — order queue. Approve/reject/expire tool_orders rows.
  */
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
@@ -15,14 +16,16 @@ import {
   adminUpdateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
   queryFn: () => adminListOrders(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/orders")({
+export const Route = createFileRoute("/admin/orders")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Order queue — Admin — Top Rated SEO Tools" },

@@ -23,19 +23,20 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
+import { Route as AdminToolsRouteImport } from './routes/admin.tools'
+import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
+import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials'
+import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated.subscription'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
-import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
-import { Route as AuthenticatedAdminToolsRouteImport } from './routes/_authenticated.admin.tools'
-import { Route as AuthenticatedAdminPricingRouteImport } from './routes/_authenticated.admin.pricing'
-import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenticated.admin.orders'
-import { Route as AuthenticatedAdminCredentialsRouteImport } from './routes/_authenticated.admin.credentials'
-import { Route as AuthenticatedAdminAppearanceRouteImport } from './routes/_authenticated.admin.appearance'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
 
 const ToolsRoute = ToolsRouteImport.update({
@@ -107,10 +108,45 @@ const ToolsIndexRoute = ToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ToolsRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsSlugRoute = ToolsSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => ToolsRoute,
+} as any)
+const AdminToolsRoute = AdminToolsRouteImport.update({
+  id: '/admin/tools',
+  path: '/admin/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPricingRoute = AdminPricingRouteImport.update({
+  id: '/admin/pricing',
+  path: '/admin/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/admin/orders',
+  path: '/admin/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCredentialsRoute = AdminCredentialsRouteImport.update({
+  id: '/admin/credentials',
+  path: '/admin/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAppearanceRoute = AdminAppearanceRouteImport.update({
+  id: '/admin/appearance',
+  path: '/admin/appearance',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSubscriptionRoute =
   AuthenticatedSubscriptionRouteImport.update({
@@ -138,45 +174,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedOrderSlugRoute = AuthenticatedOrderSlugRouteImport.update({
   id: '/order/$slug',
   path: '/order/$slug',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminToolsRoute = AuthenticatedAdminToolsRouteImport.update({
-  id: '/admin/tools',
-  path: '/admin/tools',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAdminPricingRoute =
-  AuthenticatedAdminPricingRouteImport.update({
-    id: '/admin/pricing',
-    path: '/admin/pricing',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminOrdersRoute =
-  AuthenticatedAdminOrdersRouteImport.update({
-    id: '/admin/orders',
-    path: '/admin/orders',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminCredentialsRoute =
-  AuthenticatedAdminCredentialsRouteImport.update({
-    id: '/admin/credentials',
-    path: '/admin/credentials',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminAppearanceRoute =
-  AuthenticatedAdminAppearanceRouteImport.update({
-    id: '/admin/appearance',
-    path: '/admin/appearance',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const ApiPublicWebhooksPaystackRoute =
   ApiPublicWebhooksPaystackRouteImport.update({
     id: '/api/public/webhooks/paystack',
@@ -202,15 +204,16 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/tools/': typeof ToolsIndexRoute
-  '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
-  '/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
-  '/admin/orders': typeof AuthenticatedAdminOrdersRoute
-  '/admin/pricing': typeof AuthenticatedAdminPricingRoute
-  '/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
-  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -230,15 +233,16 @@ export interface FileRoutesByTo {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/tools': typeof ToolsIndexRoute
-  '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
-  '/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
-  '/admin/orders': typeof AuthenticatedAdminOrdersRoute
-  '/admin/pricing': typeof AuthenticatedAdminPricingRoute
-  '/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
-  '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -261,15 +265,16 @@ export interface FileRoutesById {
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
+  '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/pricing': typeof AdminPricingRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/tools/': typeof ToolsIndexRoute
-  '/_authenticated/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
-  '/_authenticated/admin/credentials': typeof AuthenticatedAdminCredentialsRoute
-  '/_authenticated/admin/orders': typeof AuthenticatedAdminOrdersRoute
-  '/_authenticated/admin/pricing': typeof AuthenticatedAdminPricingRoute
-  '/_authenticated/admin/tools': typeof AuthenticatedAdminToolsRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
-  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -292,15 +297,16 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
-    | '/tools/$slug'
-    | '/tools/'
     | '/admin/appearance'
     | '/admin/credentials'
+    | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
-    | '/order/$slug'
+    | '/tools/$slug'
     | '/admin/'
+    | '/tools/'
+    | '/order/$slug'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -320,15 +326,16 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
-    | '/tools/$slug'
-    | '/tools'
     | '/admin/appearance'
     | '/admin/credentials'
+    | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
-    | '/order/$slug'
+    | '/tools/$slug'
     | '/admin'
+    | '/tools'
+    | '/order/$slug'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -350,15 +357,16 @@ export interface FileRouteTypes {
     | '/_authenticated/orders'
     | '/_authenticated/profile'
     | '/_authenticated/subscription'
+    | '/admin/appearance'
+    | '/admin/credentials'
+    | '/admin/dashboard'
+    | '/admin/orders'
+    | '/admin/pricing'
+    | '/admin/tools'
     | '/tools/$slug'
+    | '/admin/'
     | '/tools/'
-    | '/_authenticated/admin/appearance'
-    | '/_authenticated/admin/credentials'
-    | '/_authenticated/admin/orders'
-    | '/_authenticated/admin/pricing'
-    | '/_authenticated/admin/tools'
     | '/_authenticated/order/$slug'
-    | '/_authenticated/admin/'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -376,6 +384,13 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  AdminAppearanceRoute: typeof AdminAppearanceRoute
+  AdminCredentialsRoute: typeof AdminCredentialsRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminPricingRoute: typeof AdminPricingRoute
+  AdminToolsRoute: typeof AdminToolsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -479,12 +494,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof ToolsRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools/$slug': {
       id: '/tools/$slug'
       path: '/$slug'
       fullPath: '/tools/$slug'
       preLoaderRoute: typeof ToolsSlugRouteImport
       parentRoute: typeof ToolsRoute
+    }
+    '/admin/tools': {
+      id: '/admin/tools'
+      path: '/admin/tools'
+      fullPath: '/admin/tools'
+      preLoaderRoute: typeof AdminToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/pricing': {
+      id: '/admin/pricing'
+      path: '/admin/pricing'
+      fullPath: '/admin/pricing'
+      preLoaderRoute: typeof AdminPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/credentials': {
+      id: '/admin/credentials'
+      path: '/admin/credentials'
+      fullPath: '/admin/credentials'
+      preLoaderRoute: typeof AdminCredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/appearance': {
+      id: '/admin/appearance'
+      path: '/admin/appearance'
+      fullPath: '/admin/appearance'
+      preLoaderRoute: typeof AdminAppearanceRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/subscription': {
       id: '/_authenticated/subscription'
@@ -521,53 +585,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/': {
-      id: '/_authenticated/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/order/$slug': {
       id: '/_authenticated/order/$slug'
       path: '/order/$slug'
       fullPath: '/order/$slug'
       preLoaderRoute: typeof AuthenticatedOrderSlugRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/tools': {
-      id: '/_authenticated/admin/tools'
-      path: '/admin/tools'
-      fullPath: '/admin/tools'
-      preLoaderRoute: typeof AuthenticatedAdminToolsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/pricing': {
-      id: '/_authenticated/admin/pricing'
-      path: '/admin/pricing'
-      fullPath: '/admin/pricing'
-      preLoaderRoute: typeof AuthenticatedAdminPricingRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/orders': {
-      id: '/_authenticated/admin/orders'
-      path: '/admin/orders'
-      fullPath: '/admin/orders'
-      preLoaderRoute: typeof AuthenticatedAdminOrdersRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/credentials': {
-      id: '/_authenticated/admin/credentials'
-      path: '/admin/credentials'
-      fullPath: '/admin/credentials'
-      preLoaderRoute: typeof AuthenticatedAdminCredentialsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin/appearance': {
-      id: '/_authenticated/admin/appearance'
-      path: '/admin/appearance'
-      fullPath: '/admin/appearance'
-      preLoaderRoute: typeof AuthenticatedAdminAppearanceRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/webhooks/paystack': {
@@ -586,13 +608,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
-  AuthenticatedAdminAppearanceRoute: typeof AuthenticatedAdminAppearanceRoute
-  AuthenticatedAdminCredentialsRoute: typeof AuthenticatedAdminCredentialsRoute
-  AuthenticatedAdminOrdersRoute: typeof AuthenticatedAdminOrdersRoute
-  AuthenticatedAdminPricingRoute: typeof AuthenticatedAdminPricingRoute
-  AuthenticatedAdminToolsRoute: typeof AuthenticatedAdminToolsRoute
   AuthenticatedOrderSlugRoute: typeof AuthenticatedOrderSlugRoute
-  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -601,13 +617,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
-  AuthenticatedAdminAppearanceRoute: AuthenticatedAdminAppearanceRoute,
-  AuthenticatedAdminCredentialsRoute: AuthenticatedAdminCredentialsRoute,
-  AuthenticatedAdminOrdersRoute: AuthenticatedAdminOrdersRoute,
-  AuthenticatedAdminPricingRoute: AuthenticatedAdminPricingRoute,
-  AuthenticatedAdminToolsRoute: AuthenticatedAdminToolsRoute,
   AuthenticatedOrderSlugRoute: AuthenticatedOrderSlugRoute,
-  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -640,6 +650,13 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  AdminAppearanceRoute: AdminAppearanceRoute,
+  AdminCredentialsRoute: AdminCredentialsRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
+  AdminPricingRoute: AdminPricingRoute,
+  AdminToolsRoute: AdminToolsRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport

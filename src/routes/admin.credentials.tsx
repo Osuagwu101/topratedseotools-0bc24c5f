@@ -6,6 +6,7 @@
  * write here, and `getMyAccess` on the user side reads them via the
  * service role AFTER checking the caller has an active paid subscription.
  */
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
@@ -21,14 +22,16 @@ import {
   adminUpsertToolCredential,
   type ToolCredential,
 } from "@/lib/access.functions";
-import { AdminNav } from "./_authenticated.admin.tools";
+import { AdminNav } from "./admin.tools";
 
 const credsQuery = queryOptions({
   queryKey: ["admin-credentials"],
   queryFn: () => adminListToolCredentials(),
 });
 
-export const Route = createFileRoute("/_authenticated/admin/credentials")({
+export const Route = createFileRoute("/admin/credentials")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Credentials — Admin — Top Rated SEO Tools" },

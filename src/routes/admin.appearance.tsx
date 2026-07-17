@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -12,7 +13,9 @@ import {
   type ActiveTheme,
 } from "@/lib/site-settings.functions";
 
-export const Route = createFileRoute("/_authenticated/admin/appearance")({
+export const Route = createFileRoute("/admin/appearance")({
+  ssr: false,
+  beforeLoad: async () => { await requireAdminOrRedirect(); },
   head: () => ({
     meta: [
       { title: "Appearance — Admin — Top Rated SEO Tools" },
