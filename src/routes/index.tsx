@@ -92,31 +92,32 @@ function Home() {
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Premium SEO & AI tools — pay only for what you use
+              Premium software subscriptions, priced individually
             </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              All the <span className="text-gradient-primary">top-rated SEO & AI tools</span>, one place.
+              Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Stealthwriter, Phrasly, ChatGPT, QuillBot, Grammarly, CapCut, Semrush, Turnitin and more —
-              subscribed individually, delivered instantly, priced in ₦.
+              Choose from leading SEO, AI, writing, research, design, and productivity tools.
+              Each product has its own monthly and annual subscription, with clear pricing and fast
+              access after payment.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/tools"
+                to="/pricing"
                 className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90"
               >
-                Browse tools <ArrowRight className="h-4 w-4" />
+                Browse Individual Plans <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/pricing"
+                to="/tools"
                 className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted"
               >
-                See pricing
+                See How It Works
               </Link>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              No forced bundles · Instant activation · Cancel anytime
+              Clear per-tool pricing · Secure Paystack payments · Automatic activation when access is available · WhatsApp and email support
             </p>
           </div>
         </div>
