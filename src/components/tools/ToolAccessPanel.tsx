@@ -173,20 +173,6 @@ function resolveState(
   return hasPurchased ? "granted" : "paywall";
 }
 
-function launchTool(tool: Tool) {
-  // Record usage (best-effort — do not block the launch on errors).
-  supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      supabase
-        .from("tool_usage")
-        .insert({ tool_slug: tool.slug, user_id: data.user.id })
-        .then(() => undefined);
-    }
-  });
-  // Placeholder launch: open the official brand site. Later this can point
-  // to an embedded or SSO-tokenized version of the tool.
-  window.open(`https://${tool.domain}`, "_blank", "noopener");
-}
 
 function StateBlock({
   icon: Icon,
