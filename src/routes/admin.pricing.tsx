@@ -216,6 +216,9 @@ function AdminPricingPage() {
           {TOOLS.map((t) => {
             const opts = byTool.get(t.slug) ?? [];
             const hasEnabled = opts.some((o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true));
+            const setting = settingsBySlug.get(t.slug);
+            const sharedOn = setting?.shared_access_enabled ?? true;
+            const privateOn = setting?.private_access_enabled ?? true;
             return (
               <div key={t.slug} className="rounded-2xl border bg-card p-5 shadow-card">
                 <div className="flex items-center justify-between gap-3">
@@ -242,6 +245,9 @@ function AdminPricingPage() {
                   onAdd={(period) =>
                     save(newDraft(t.slug, "shared", period, opts.length))
                   }
+                  masterEnabled={sharedOn}
+                  masterBusy={busy === `${t.slug}-shared_access_enabled`}
+                  onToggleMaster={(v) => toggleAccess(t.slug, "shared_access_enabled", v)}
                 />
 
                 <AccessGroup
@@ -256,6 +262,9 @@ function AdminPricingPage() {
                   onAdd={(period) =>
                     save(newDraft(t.slug, "private", period, opts.length))
                   }
+                  masterEnabled={privateOn}
+                  masterBusy={busy === `${t.slug}-private_access_enabled`}
+                  onToggleMaster={(v) => toggleAccess(t.slug, "private_access_enabled", v)}
                 />
               </div>
             );
