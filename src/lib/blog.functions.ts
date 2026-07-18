@@ -244,12 +244,12 @@ export const listTags = createServerFn({ method: "GET" }).handler(async () => {
   return { tags: data ?? [] };
 });
 
-/** Public: approved comments for a post. */
+/** Public: approved comments for a post (via admin client — base table is not readable by anon to protect commenter emails). */
 export const listApprovedComments = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => z.object({ postId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
-    const supabase = serverPublic();
-    const { data: rows, error } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
       .from("blog_comments")
       .select("id,author_name,content,created_at")
       .eq("post_id", data.postId)
@@ -258,6 +258,7 @@ export const listApprovedComments = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { comments: rows ?? [] };
   });
+
 
 /** Public: blog settings (singleton, latest row). */
 export const getBlogSettings = createServerFn({ method: "GET" }).handler(async () => {
