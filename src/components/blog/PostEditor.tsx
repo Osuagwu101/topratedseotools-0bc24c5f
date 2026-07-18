@@ -19,6 +19,7 @@ import {
 } from "@/lib/blog.functions";
 import { listCtaTemplates } from "@/lib/blog-cta.functions";
 import { renderMarkdown, slugify, formatDate, estimateReadingTime } from "@/lib/blog-utils";
+import { FeaturedImagePicker } from "@/components/blog/FeaturedImagePicker";
 
 type Mode = "create" | "edit";
 
@@ -60,6 +61,9 @@ interface FormState {
   excerpt: string;
   content: string;
   featured_image: string;
+  featured_image_alt: string;
+  featured_image_source: "ai" | "stock" | "upload" | "manual";
+  featured_image_credit: string;
   category_id: string;
   status: "draft" | "scheduled" | "published" | "archived";
   scheduled_for: string;
@@ -84,6 +88,9 @@ const empty: FormState = {
   excerpt: "",
   content: "",
   featured_image: "",
+  featured_image_alt: "",
+  featured_image_source: "manual",
+  featured_image_credit: "",
   category_id: "",
   status: "draft",
   scheduled_for: "",
@@ -137,6 +144,9 @@ function EditPostEditor({
     excerpt: (p.excerpt as string) ?? "",
     content: (p.content as string) ?? "",
     featured_image: (p.featured_image as string) ?? "",
+    featured_image_alt: (p.featured_image_alt as string) ?? "",
+    featured_image_source: ((p.featured_image_source as FormState["featured_image_source"]) ?? "manual"),
+    featured_image_credit: (p.featured_image_credit as string) ?? "",
     category_id: (p.category_id as string) ?? "",
     status: ((p.status as FormState["status"]) ?? "draft"),
     scheduled_for: p.scheduled_for
@@ -201,6 +211,9 @@ function EditorBody({
         excerpt: form.excerpt || null,
         content: form.content,
         featured_image: form.featured_image || null,
+        featured_image_alt: form.featured_image_alt || null,
+        featured_image_source: form.featured_image_source,
+        featured_image_credit: form.featured_image_credit || null,
         category_id: form.category_id || null,
         status: nextStatus ?? form.status,
         published_at: null as string | null,
@@ -451,18 +464,24 @@ function EditorBody({
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-card p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Featured image</h3>
-              <input
-                value={form.featured_image}
-                onChange={(e) => setForm((f) => ({ ...f, featured_image: e.target.value }))}
-                placeholder="https://…"
-                className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-              {form.featured_image && (
-                <img src={form.featured_image} alt="" className="mt-2 aspect-[16/9] w-full rounded-md object-cover" />
-              )}
-            </div>
+            <FeaturedImagePicker
+              value={{
+                url: form.featured_image,
+                alt: form.featured_image_alt,
+                source: form.featured_image_source,
+                credit: form.featured_image_credit,
+              }}
+              articleTitle={form.title || form.seo_title}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  featured_image: v.url,
+                  featured_image_alt: v.alt,
+                  featured_image_source: v.source,
+                  featured_image_credit: v.credit ?? "",
+                }))
+              }
+            />
 
             <div className="rounded-2xl border bg-card p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SEO</h3>

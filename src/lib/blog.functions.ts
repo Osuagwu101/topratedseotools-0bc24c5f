@@ -36,6 +36,7 @@ export interface PostSummary {
   slug: string;
   excerpt: string | null;
   featured_image: string | null;
+  featured_image_alt?: string | null;
   category_id: string | null;
   author_id: string | null;
   status: PostStatus;
@@ -61,6 +62,8 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
         authorId: z.string().uuid().optional(),
         search: z.string().optional(),
         featured: z.boolean().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
         limit: z.number().int().min(1).max(60).optional(),
         offset: z.number().int().min(0).optional(),
       })
@@ -71,7 +74,7 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
     let query = supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at,category:blog_categories(id,name,slug)",
+        "id,title,subtitle,slug,excerpt,featured_image,featured_image_alt,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at,category:blog_categories(id,name,slug)",
       )
       .eq("status", "published")
       .lte("published_at", new Date().toISOString())
@@ -79,9 +82,13 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
 
     if (data.featured) query = query.eq("is_featured", true);
     if (data.authorId) query = query.eq("author_id", data.authorId);
-    if (data.search) {
-      const like = `%${data.search.replace(/[%_]/g, "")}%`;
-      query = query.or(`title.ilike.${like},excerpt.ilike.${like}`);
+    if (data.dateFrom) query = query.gte("published_at", data.dateFrom);
+    if (data.dateTo) query = query.lte("published_at", data.dateTo);
+    if (data.search && data.search.trim()) {
+      const like = `%${data.search.trim().replace(/[%_]/g, "")}%`;
+      query = query.or(
+        `title.ilike.${like},subtitle.ilike.${like},excerpt.ilike.${like},content.ilike.${like}`,
+      );
     }
     if (data.categorySlug) {
       const { data: cat } = await supabase
@@ -151,7 +158,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
     const { data: post, error } = await supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
+        "id,title,subtitle,slug,excerpt,content,featured_image,featured_image_alt,featured_image_credit,featured_image_source,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
       )
       .eq("slug", data.slug)
       .eq("status", "published")
@@ -183,7 +190,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
       const { data: rel } = await supabase
         .from("blog_posts")
         .select(
-          "id,title,subtitle,slug,excerpt,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at",
+          "id,title,subtitle,slug,excerpt,featured_image,featured_image_alt,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at",
         )
         .eq("status", "published")
         .lte("published_at", new Date().toISOString())
@@ -333,6 +340,9 @@ const postInputSchema = z.object({
   excerpt: z.string().trim().max(500).optional().nullable(),
   content: z.string().max(200_000).default(""),
   featured_image: z.string().url().optional().nullable().or(z.literal("")),
+  featured_image_alt: z.string().max(300).optional().nullable(),
+  featured_image_source: z.enum(["ai", "stock", "upload", "manual"]).optional().nullable(),
+  featured_image_credit: z.string().max(300).optional().nullable(),
   category_id: z.string().uuid().optional().nullable(),
   status: z.enum(["draft", "scheduled", "published", "archived"]),
   published_at: z.string().datetime().optional().nullable(),
@@ -413,6 +423,9 @@ export const adminCreatePost = createServerFn({ method: "POST" })
         excerpt: data.excerpt ?? null,
         content: data.content ?? "",
         featured_image: data.featured_image || null,
+        featured_image_alt: data.featured_image_alt ?? null,
+        featured_image_source: data.featured_image_source ?? "manual",
+        featured_image_credit: data.featured_image_credit ?? null,
         category_id: data.category_id ?? null,
         author_id: context.userId,
         status: data.status,
@@ -483,6 +496,9 @@ export const adminUpdatePost = createServerFn({ method: "POST" })
         excerpt: data.excerpt ?? null,
         content: data.content ?? "",
         featured_image: data.featured_image || null,
+        featured_image_alt: data.featured_image_alt ?? null,
+        featured_image_source: data.featured_image_source ?? "manual",
+        featured_image_credit: data.featured_image_credit ?? null,
         category_id: data.category_id ?? null,
         status: data.status,
         published_at: publishedAt,
