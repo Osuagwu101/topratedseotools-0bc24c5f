@@ -76,6 +76,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
     Promise.all([
       context.queryClient.ensureQueryData(ordersQuery),
       context.queryClient.ensureQueryData(accessQuery),
+      context.queryClient.ensureQueryData(settingsQuery),
     ]),
   component: MyOrdersPage,
 });
