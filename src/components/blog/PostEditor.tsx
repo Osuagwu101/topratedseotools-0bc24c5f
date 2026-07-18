@@ -144,6 +144,9 @@ function EditPostEditor({
     excerpt: (p.excerpt as string) ?? "",
     content: (p.content as string) ?? "",
     featured_image: (p.featured_image as string) ?? "",
+    featured_image_alt: (p.featured_image_alt as string) ?? "",
+    featured_image_source: ((p.featured_image_source as FormState["featured_image_source"]) ?? "manual"),
+    featured_image_credit: (p.featured_image_credit as string) ?? "",
     category_id: (p.category_id as string) ?? "",
     status: ((p.status as FormState["status"]) ?? "draft"),
     scheduled_for: p.scheduled_for
