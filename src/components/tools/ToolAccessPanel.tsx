@@ -19,6 +19,7 @@ import type { Tool } from "@/lib/tools-data";
 import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { launchTool } from "@/lib/tool-launcher";
 
 interface Props {
   tool: Tool;
