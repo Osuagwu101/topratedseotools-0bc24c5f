@@ -19,6 +19,7 @@ import {
 } from "@/lib/blog.functions";
 import { listCtaTemplates } from "@/lib/blog-cta.functions";
 import { renderMarkdown, slugify, formatDate, estimateReadingTime } from "@/lib/blog-utils";
+import { FeaturedImagePicker } from "@/components/blog/FeaturedImagePicker";
 
 type Mode = "create" | "edit";
 
