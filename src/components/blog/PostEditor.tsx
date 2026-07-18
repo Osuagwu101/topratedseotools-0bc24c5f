@@ -466,10 +466,10 @@ function EditorBody({
 
             <FeaturedImagePicker
               value={{
-                url: form.featured_image ?? "",
-                alt: (form as any).featured_image_alt ?? "",
-                source: ((form as any).featured_image_source ?? "manual") as any,
-                credit: (form as any).featured_image_credit ?? "",
+                url: form.featured_image,
+                alt: form.featured_image_alt,
+                source: form.featured_image_source,
+                credit: form.featured_image_credit,
               }}
               articleTitle={form.title || form.seo_title}
               onChange={(v) =>
