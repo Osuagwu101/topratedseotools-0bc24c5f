@@ -59,7 +59,7 @@ function OrderPage() {
   const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
   const options = pricing.options.filter(
-    (o) => o.tool_slug === slug && !o.contact_admin,
+    (o) => o.tool_slug === slug && o.enabled && !o.contact_admin,
   );
 
   const initialId =
