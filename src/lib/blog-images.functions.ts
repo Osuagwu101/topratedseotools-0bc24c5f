@@ -10,8 +10,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const BUCKET = "blog-images";
 const SIGNED_TTL = 60 * 60 * 24 * 365 * 10; // 10 years
 
-async function assertAdmin(context: { supabase: ReturnType<typeof requireSupabaseAuth> extends { server: (fn: (arg: infer C) => unknown) => unknown } ? C["supabase"] : never; userId: string }) {
-  // Simplified: check user_roles directly under RLS
+async function assertAdmin(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
     .from("user_roles")
     .select("role")
