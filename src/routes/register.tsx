@@ -52,8 +52,8 @@ function RegisterPage() {
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle="Start your 7-day free trial. No card required."
+      title="Create your TopRatedSEOTools account"
+      subtitle="Create a free account to purchase and manage your individual tool subscriptions. Premium tool access requires an active subscription."
       footer={
         <>
           Already have an account?{" "}
