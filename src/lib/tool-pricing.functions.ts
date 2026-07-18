@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type AccessType = "shared" | "private";
+
 export interface ToolPricingOption {
   id: string;
   tool_slug: string;
@@ -16,7 +18,13 @@ export interface ToolPricingOption {
   duration_days: number | null;
   grace_days: number;
   warning_days: number;
+  access_type: AccessType;
+  enabled: boolean;
+  note: string | null;
+  badge: string | null;
+  paystack_plan_code: string | null;
 }
+
 
 
 function publicClient() {
