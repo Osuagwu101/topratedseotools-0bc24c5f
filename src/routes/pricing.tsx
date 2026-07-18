@@ -33,7 +33,10 @@ const settingsQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/pricing")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
+  loader: ({ context }) => {
+    context.queryClient.ensureQueryData(pricingQuery);
+    return context.queryClient.ensureQueryData(settingsQuery);
+  },
   head: () => ({
     meta: [
       { title: "Pricing — Top Rated SEO Tools" },
