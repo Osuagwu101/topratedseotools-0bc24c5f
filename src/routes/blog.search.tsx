@@ -77,7 +77,7 @@ function SearchPage() {
     const merged = { ...draft, ...next };
     setDraft(merged);
     navigate({
-      search: (prev) => ({ ...prev, ...merged }),
+      search: (prev: Filters) => ({ ...prev, ...merged }),
       replace: true,
     });
   }
