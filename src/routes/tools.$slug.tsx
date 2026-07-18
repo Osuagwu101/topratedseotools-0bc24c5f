@@ -1,17 +1,20 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, Check, Tag, TrendingDown } from "lucide-react";
+import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
 import { getTool, TOOLS } from "@/lib/tools-data";
-import { listToolPricing, type ToolPricingOption } from "@/lib/tool-pricing.functions";
+import { listToolPricing, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
-  computeAnnualSaving,
+  computeQuarterlySaving,
+  computeYearlySaving,
+  computeYearlyVsQuarterlySaving,
   formatCurrency,
   formatPlanPrice,
   getBillingKind,
+  normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
@@ -201,6 +204,30 @@ function ToolPage() {
   );
 }
 
+type Period = "monthly" | "quarterly" | "yearly";
+interface AccessBucket {
+  monthly: ToolPricingOption | null;
+  quarterly: ToolPricingOption | null;
+  yearly: ToolPricingOption | null;
+  other: ToolPricingOption[];
+}
+
+function bucketize(opts: ToolPricingOption[]): AccessBucket {
+  const b: AccessBucket = { monthly: null, quarterly: null, yearly: null, other: [] };
+  for (const o of opts) {
+    const k = normaliseBillingKind(getBillingKind(o));
+    if (k === "monthly" && !b.monthly) b.monthly = o;
+    else if (k === "quarterly" && !b.quarterly) b.quarterly = o;
+    else if (k === "yearly" && !b.yearly) b.yearly = o;
+    else b.other.push(o);
+  }
+  return b;
+}
+
+function bucketHas(b: AccessBucket): boolean {
+  return !!(b.monthly || b.quarterly || b.yearly) || b.other.length > 0;
+}
+
 function SubscriptionCard({
   slug,
   options,
@@ -208,17 +235,16 @@ function SubscriptionCard({
   slug: string;
   options: ToolPricingOption[];
 }) {
-  const purchasable = options.filter((o) => !o.contact_admin && o.amount != null);
-  const monthly = purchasable.find((o) => getBillingKind(o) === "monthly") ?? null;
-  const annual = purchasable.find((o) => getBillingKind(o) === "annual") ?? null;
-  const others = purchasable.filter(
-    (o) => getBillingKind(o) === "other" && o !== monthly && o !== annual,
+  const purchasable = options.filter(
+    (o) => o.enabled && !o.contact_admin && o.amount != null,
   );
+  const shared = bucketize(
+    purchasable.filter((o) => ((o.access_type as AccessType) ?? "shared") === "shared"),
+  );
+  const priv = bucketize(purchasable.filter((o) => o.access_type === "private"));
   const contactOnly = options.length > 0 && purchasable.length === 0;
-  const saving =
-    monthly && annual
-      ? computeAnnualSaving(Number(monthly.amount), Number(annual.amount))
-      : null;
+  const hasShared = bucketHas(shared);
+  const hasPrivate = bucketHas(priv);
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
@@ -226,58 +252,127 @@ function SubscriptionCard({
         <Tag className="h-4 w-4 text-primary" /> Choose Your Subscription
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Subscribe monthly or annually to this individual tool.
+        Pick Shared or Private access, then choose Monthly, Quarterly, or Yearly billing.
       </p>
 
-      {options.length === 0 || contactOnly ? (
+      {(!hasShared && !hasPrivate) || contactOnly ? (
         <p className="mt-4 rounded-lg border bg-background/40 px-3 py-3 text-sm text-primary">
           Pricing confirmed on WhatsApp
         </p>
       ) : (
-        <div className="mt-4 grid gap-3">
-          {monthly ? (
-            <PlanTile slug={slug} opt={monthly} label="Monthly" />
-          ) : null}
-          {annual ? (
-            <PlanTile
+        <div className="mt-4 space-y-5">
+          {hasShared ? (
+            <AccessSection
               slug={slug}
-              opt={annual}
-              label="Annual"
-              badge={
-                saving
-                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")}`
-                  : null
-              }
-              savingText={
-                saving
-                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")} compared with monthly billing${
-                      saving.percent > 0 ? ` (${saving.percent}%)` : ""
-                    }`
-                  : null
-              }
-              monthlyEquivalent={
-                saving
-                  ? `Equivalent to approximately ${formatCurrency(
-                      saving.monthlyEquivalent,
-                      annual.currency || "₦",
-                    )} per month`
-                  : null
-              }
+              title="Shared Access"
+              icon={<Users className="h-4 w-4" />}
+              bucket={shared}
             />
           ) : null}
-          {others.map((o) => (
-            <PlanTile
-              key={o.id}
+          {hasPrivate ? (
+            <AccessSection
               slug={slug}
-              opt={o}
-              label={o.label ?? "Standard"}
+              title="Private Access"
+              icon={<Lock className="h-4 w-4" />}
+              bucket={priv}
             />
-          ))}
+          ) : null}
         </div>
       )}
     </div>
   );
 }
+
+function AccessSection({
+  slug,
+  title,
+  icon,
+  bucket,
+}: {
+  slug: string;
+  title: string;
+  icon: React.ReactNode;
+  bucket: AccessBucket;
+}) {
+  const qSave = computeQuarterlySaving(bucket.monthly?.amount, bucket.quarterly?.amount);
+  const ySave = computeYearlySaving(bucket.monthly?.amount, bucket.yearly?.amount);
+  const yFromQ =
+    !bucket.monthly && bucket.quarterly && bucket.yearly
+      ? computeYearlyVsQuarterlySaving(bucket.quarterly.amount, bucket.yearly.amount)
+      : null;
+
+  return (
+    <div className="rounded-xl border bg-background/40 p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="mt-3 grid gap-3">
+        {bucket.monthly ? (
+          <PlanTile slug={slug} opt={bucket.monthly} label="Monthly" />
+        ) : null}
+        {bucket.quarterly ? (
+          <PlanTile
+            slug={slug}
+            opt={bucket.quarterly}
+            label="Quarterly"
+
+            badge={
+              qSave
+                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")}`
+                : null
+            }
+            savingText={
+              qSave
+                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")} compared with three monthly payments`
+                : null
+            }
+          />
+        ) : null}
+        {bucket.yearly ? (
+          <PlanTile
+            slug={slug}
+            opt={bucket.yearly}
+            label="Yearly"
+
+            badge={
+              ySave
+                ? `Save ${formatCurrency(ySave.amount, bucket.yearly.currency || "₦")}`
+                : yFromQ
+                  ? `Save ${formatCurrency(yFromQ.amount, bucket.yearly.currency || "₦")}`
+                  : null
+            }
+            savingText={
+              ySave
+                ? `Save ${formatCurrency(ySave.amount, bucket.yearly.currency || "₦")} yearly compared with monthly billing`
+                : yFromQ
+                  ? `Save ${formatCurrency(yFromQ.amount, bucket.yearly.currency || "₦")} compared with four quarterly payments`
+                  : null
+            }
+            monthlyEquivalent={
+              ySave || yFromQ
+                ? `Equivalent to approximately ${formatCurrency(
+                    Math.round(Number(bucket.yearly.amount) / 12),
+                    bucket.yearly.currency || "₦",
+                  )} per month`
+                : null
+            }
+          />
+        ) : null}
+        {bucket.other.map((o) => (
+          <PlanTile
+            key={o.id}
+            slug={slug}
+            opt={o}
+            label={o.label ?? "Standard"}
+
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 function PlanTile({
   slug,

@@ -627,14 +627,19 @@ export type Database = {
       }
       tool_pricing: {
         Row: {
+          access_type: string
           amount: number | null
+          badge: string | null
           contact_admin: boolean
           created_at: string
           currency: string
           duration_days: number | null
+          enabled: boolean
           grace_days: number
           id: string
           label: string | null
+          note: string | null
+          paystack_plan_code: string | null
           sort_order: number
           tool_slug: string
           unit: string | null
@@ -642,14 +647,19 @@ export type Database = {
           warning_days: number
         }
         Insert: {
+          access_type?: string
           amount?: number | null
+          badge?: string | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
           duration_days?: number | null
+          enabled?: boolean
           grace_days?: number
           id?: string
           label?: string | null
+          note?: string | null
+          paystack_plan_code?: string | null
           sort_order?: number
           tool_slug: string
           unit?: string | null
@@ -657,14 +667,19 @@ export type Database = {
           warning_days?: number
         }
         Update: {
+          access_type?: string
           amount?: number | null
+          badge?: string | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
           duration_days?: number | null
+          enabled?: boolean
           grace_days?: number
           id?: string
           label?: string | null
+          note?: string | null
+          paystack_plan_code?: string | null
           sort_order?: number
           tool_slug?: string
           unit?: string | null

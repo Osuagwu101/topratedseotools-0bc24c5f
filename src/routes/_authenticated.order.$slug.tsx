@@ -12,17 +12,20 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
-  computeAnnualSaving,
+  computeQuarterlySaving,
+  computeYearlySaving,
+  computeYearlyVsQuarterlySaving,
   formatCurrency,
   formatPlanPrice,
   getBillingKind,
+  normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
 import { createOrder } from "@/lib/access.functions";
@@ -56,7 +59,7 @@ function OrderPage() {
   const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
   const options = pricing.options.filter(
-    (o) => o.tool_slug === slug && !o.contact_admin,
+    (o) => o.tool_slug === slug && o.enabled && !o.contact_admin,
   );
 
   const initialId =
@@ -136,52 +139,86 @@ function OrderPage() {
                 No plans are available for this tool yet. Please check back soon.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2" role="radiogroup" aria-label="Billing period">
-                {options.map((o) => {
-                  const kind = getBillingKind(o);
-                  const billingLabel =
-                    kind === "monthly" ? "Monthly" : kind === "annual" ? "Annual" : o.label ?? "Standard";
+              <div className="mt-3 space-y-5" role="radiogroup" aria-label="Subscription plan">
+                {(["shared", "private"] as AccessType[]).map((access) => {
+                  const group = options.filter(
+                    (o) => ((o.access_type as AccessType) ?? "shared") === access,
+                  );
+                  if (group.length === 0) return null;
                   return (
-                    <li key={o.id}>
-                      <label
-                        className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2.5 text-sm transition ${
-                          selected === o.id
-                            ? "border-primary ring-1 ring-primary/40"
-                            : "hover:border-primary/40"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="opt"
-                            value={o.id}
-                            checked={selected === o.id}
-                            onChange={() => setSelected(o.id)}
-                            className="h-4 w-4"
-                            aria-label={`${billingLabel} — ${formatPlanPrice(o)}`}
-                          />
-                          <span className="flex flex-col">
-                            <span className="font-medium">{billingLabel}</span>
-                            {o.label && o.label !== billingLabel ? (
-                              <span className="text-[11px] text-muted-foreground">{o.label}</span>
-                            ) : null}
-                            {billingDescription(kind) ? (
-                              <span className="text-[11px] text-muted-foreground">
-                                {billingDescription(kind)}
-                              </span>
-                            ) : null}
-                          </span>
-                        </span>
-                        <span className="text-right">
-                          <span className="block font-semibold">{formatPlanPrice(o)}</span>
-                        </span>
-                      </label>
-                    </li>
+                    <div key={access}>
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {access === "shared" ? (
+                          <Users className="h-3.5 w-3.5" />
+                        ) : (
+                          <Lock className="h-3.5 w-3.5" />
+                        )}
+                        {access === "shared" ? "Shared Access" : "Private Access"}
+                      </div>
+                      <ul className="space-y-2">
+                        {group.map((o) => {
+                          const kind = normaliseBillingKind(getBillingKind(o));
+                          const billingLabel =
+                            kind === "monthly"
+                              ? "Monthly"
+                              : kind === "quarterly"
+                                ? "Quarterly"
+                                : kind === "yearly"
+                                  ? "Yearly"
+                                  : o.label ?? "Standard";
+                          return (
+                            <li key={o.id}>
+                              <label
+                                className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2.5 text-sm transition ${
+                                  selected === o.id
+                                    ? "border-primary ring-1 ring-primary/40"
+                                    : "hover:border-primary/40"
+                                }`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name="opt"
+                                    value={o.id}
+                                    checked={selected === o.id}
+                                    onChange={() => setSelected(o.id)}
+                                    className="h-4 w-4"
+                                    aria-label={`${billingLabel} — ${formatPlanPrice(o)}`}
+                                  />
+                                  <span className="flex flex-col">
+                                    <span className="font-medium">
+                                      {billingLabel}
+                                      {o.badge ? (
+                                        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                          {o.badge}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                    {o.label && o.label !== billingLabel ? (
+                                      <span className="text-[11px] text-muted-foreground">{o.label}</span>
+                                    ) : null}
+                                    {billingDescription(kind) ? (
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {billingDescription(kind)}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </span>
+                                <span className="text-right">
+                                  <span className="block font-semibold">{formatPlanPrice(o)}</span>
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             )}
           </div>
+
 
           {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} /> : null}
 
@@ -236,38 +273,71 @@ function CheckoutSummary({
   chosen,
   allOptions,
 }: {
-  chosen: import("@/lib/tool-pricing.functions").ToolPricingOption;
-  allOptions: import("@/lib/tool-pricing.functions").ToolPricingOption[];
+  chosen: ToolPricingOption;
+  allOptions: ToolPricingOption[];
 }) {
-  const kind = getBillingKind(chosen);
+  const kind = normaliseBillingKind(getBillingKind(chosen));
   const billing = billingDescription(kind);
   const renewal = renewalText(kind);
+  const access: AccessType = (chosen.access_type as AccessType) ?? "shared";
 
-  // If the customer chose Annual and a Monthly plan exists for the same tool,
-  // compute the saving off backend prices.
-  let saving: ReturnType<typeof computeAnnualSaving> = null;
-  if (kind === "annual") {
-    const monthly = allOptions.find(
-      (o) => getBillingKind(o) === "monthly" && !o.contact_admin && o.amount != null,
-    );
+  // Compare against peers of the same access type.
+  const peers = allOptions.filter(
+    (o) => ((o.access_type as AccessType) ?? "shared") === access && o.amount != null,
+  );
+  const monthly = peers.find((o) => normaliseBillingKind(getBillingKind(o)) === "monthly");
+  const quarterly = peers.find((o) => normaliseBillingKind(getBillingKind(o)) === "quarterly");
+
+  let savingLine: string | null = null;
+  if (kind === "quarterly" && monthly) {
+    const s = computeQuarterlySaving(monthly.amount, chosen.amount);
+    if (s) {
+      savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with three monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+    }
+  } else if (kind === "yearly") {
     if (monthly) {
-      saving = computeAnnualSaving(Number(monthly.amount), Number(chosen.amount));
+      const s = computeYearlySaving(monthly.amount, chosen.amount);
+      if (s) {
+        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with twelve monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+      }
+    } else if (quarterly) {
+      const s = computeYearlyVsQuarterlySaving(quarterly.amount, chosen.amount);
+      if (s) {
+        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with four quarterly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+      }
     }
   }
+
+  const planLabel =
+    kind === "monthly"
+      ? "Monthly Subscription"
+      : kind === "quarterly"
+        ? "Quarterly Subscription"
+        : kind === "yearly"
+          ? "Yearly Subscription"
+          : chosen.label ?? "Standard";
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
       <div className="text-sm font-semibold">Order summary</div>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex items-center justify-between">
-          <dt className="text-muted-foreground">Plan</dt>
-          <dd className="font-medium">
-            {kind === "monthly"
-              ? "Monthly Subscription"
-              : kind === "annual"
-                ? "Annual Subscription"
-                : chosen.label ?? "Standard"}
+          <dt className="text-muted-foreground">Access</dt>
+          <dd className="flex items-center gap-1 font-medium">
+            {access === "private" ? (
+              <>
+                <Lock className="h-3.5 w-3.5" /> Private
+              </>
+            ) : (
+              <>
+                <Users className="h-3.5 w-3.5" /> Shared
+              </>
+            )}
           </dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Plan</dt>
+          <dd className="font-medium">{planLabel}</dd>
         </div>
         {billing ? (
           <div className="flex items-center justify-between">
@@ -279,20 +349,17 @@ function CheckoutSummary({
           <dt className="text-muted-foreground">Amount due today</dt>
           <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
         </div>
-        {saving ? (
+        {savingLine ? (
           <div className="flex items-start gap-1 text-[11px] text-success">
             <TrendingDown className="mt-0.5 h-3 w-3" />
-            <span>
-              You save {formatCurrency(saving.amount, chosen.currency || "₦")} compared with
-              twelve monthly payments
-              {saving.percent > 0 ? ` (${saving.percent}%)` : ""}.
-            </span>
+            <span>{savingLine}</span>
           </div>
         ) : null}
         {renewal ? (
           <p className="text-[11px] text-muted-foreground">{renewal}</p>
         ) : null}
       </dl>
+
     </div>
   );
 }

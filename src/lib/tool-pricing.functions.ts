@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type AccessType = "shared" | "private";
+
 export interface ToolPricingOption {
   id: string;
   tool_slug: string;
@@ -16,7 +18,13 @@ export interface ToolPricingOption {
   duration_days: number | null;
   grace_days: number;
   warning_days: number;
+  access_type: AccessType;
+  enabled: boolean;
+  note: string | null;
+  badge: string | null;
+  paystack_plan_code: string | null;
 }
+
 
 
 function publicClient() {
@@ -72,6 +80,11 @@ const upsertInput = z.object({
   duration_days: z.number().int().min(0).max(3650).nullable().optional(),
   grace_days: z.number().int().min(0).max(60).optional(),
   warning_days: z.number().int().min(0).max(60).optional(),
+  access_type: z.enum(["shared", "private"]).optional(),
+  enabled: z.boolean().optional(),
+  note: z.string().max(500).nullable().optional(),
+  badge: z.string().max(80).nullable().optional(),
+  paystack_plan_code: z.string().max(120).nullable().optional(),
 });
 
 export const upsertToolPricing = createServerFn({ method: "POST" })
@@ -90,7 +103,13 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
       duration_days: data.duration_days ?? null,
       grace_days: data.grace_days ?? 0,
       warning_days: data.warning_days ?? 0,
+      access_type: data.access_type ?? "shared",
+      enabled: data.enabled ?? true,
+      note: data.note ?? null,
+      badge: data.badge ?? null,
+      paystack_plan_code: data.paystack_plan_code ?? null,
     };
+
 
     if (data.id) {
       const { error } = await context.supabase

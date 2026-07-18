@@ -6,19 +6,52 @@
  * to the storage convention only touches one file.
  *
  * Billing period is derived from `unit` on the pricing row:
- *   - "month" → monthly plan
- *   - "year"  → annual plan
- *   - anything else (e.g. "check") → other (pay-per-use etc.)
+ *   - "month" / "monthly" / "mo"                    → monthly
+ *   - "quarter" / "quarterly" / "3month" / "3mo"    → quarterly
+ *   - "year" / "annual" / "yearly" / "yr"           → yearly
+ *   - anything else (e.g. "check")                  → other (pay-per-use)
+ *
+ * Customer-facing wording is always "Yearly" (never "Annual"), but the
+ * underlying `unit` value on existing rows may still be "year" — both are
+ * accepted.
  */
 import type { ToolPricingOption } from "@/lib/tool-pricing.functions";
 
-export type BillingKind = "monthly" | "annual" | "other";
+/**
+ * `annual` is kept as a legacy alias equivalent to `yearly` so nothing that
+ * still narrows on the old kind breaks. New code should prefer `yearly`.
+ */
+export type BillingKind = "monthly" | "quarterly" | "yearly" | "annual" | "other";
 
 export function getBillingKind(opt: Pick<ToolPricingOption, "unit">): BillingKind {
   const u = (opt.unit ?? "").toLowerCase().trim();
   if (u === "month" || u === "monthly" || u === "mo") return "monthly";
-  if (u === "year" || u === "annual" || u === "yearly" || u === "yr") return "annual";
+  if (
+    u === "quarter" ||
+    u === "quarterly" ||
+    u === "3month" ||
+    u === "3months" ||
+    u === "3mo" ||
+    u === "quarter-year"
+  )
+    return "quarterly";
+  if (u === "year" || u === "annual" || u === "yearly" || u === "yr") return "yearly";
   return "other";
+}
+
+/** Normalised, comparable kind — folds legacy "annual" into "yearly". */
+export function normaliseBillingKind(k: BillingKind): "monthly" | "quarterly" | "yearly" | "other" {
+  if (k === "annual") return "yearly";
+  return k;
+}
+
+/** Customer-facing period name. */
+export function billingPeriodLabel(kind: BillingKind): string {
+  const n = normaliseBillingKind(kind);
+  if (n === "monthly") return "Monthly";
+  if (n === "quarterly") return "Quarterly";
+  if (n === "yearly") return "Yearly";
+  return "";
 }
 
 /** "₦5,000" — no decimals unless present and non-zero. */
@@ -33,24 +66,31 @@ export function formatCurrency(amount: number | null | undefined, currency = "�
   return `${currency}${formatted}`;
 }
 
-/** "per month" / "per year" / "per check" — British English. */
+/** "per month" / "every three months" / "per year" / "per check". */
 export function billingSuffix(opt: Pick<ToolPricingOption, "unit">): string {
-  const kind = getBillingKind(opt);
+  const kind = normaliseBillingKind(getBillingKind(opt));
   if (kind === "monthly") return "per month";
-  if (kind === "annual") return "per year";
+  if (kind === "quarterly") return "every three months";
+  if (kind === "yearly") return "per year";
   return opt.unit ? `per ${opt.unit}` : "";
 }
 
+/** Customer-facing "Billed …" line. */
 export function billingDescription(kind: BillingKind): string {
-  if (kind === "monthly") return "Billed monthly";
-  if (kind === "annual") return "Billed annually";
+  const n = normaliseBillingKind(kind);
+  if (n === "monthly") return "Billed every month";
+  if (n === "quarterly") return "Billed every three months";
+  if (n === "yearly") return "Billed once per year";
   return "";
 }
 
 export function renewalText(kind: BillingKind): string {
-  if (kind === "monthly")
+  const n = normaliseBillingKind(kind);
+  if (n === "monthly")
     return "Renews automatically every month until renewal is disabled.";
-  if (kind === "annual")
+  if (n === "quarterly")
+    return "Renews automatically every three months until renewal is disabled.";
+  if (n === "yearly")
     return "Renews automatically every year until renewal is disabled.";
   return "";
 }
@@ -70,35 +110,63 @@ export function formatPlanPriceCompact(
   opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin">,
 ): string {
   if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
-  const kind = getBillingKind(opt);
+  const kind = normaliseBillingKind(getBillingKind(opt));
   const money = formatCurrency(Number(opt.amount), opt.currency || "₦");
   if (kind === "monthly") return `${money}/month`;
-  if (kind === "annual") return `${money}/year`;
+  if (kind === "quarterly") return `${money}/quarter`;
+  if (kind === "yearly") return `${money}/year`;
   return opt.unit ? `${money} / ${opt.unit}` : money;
 }
 
-export interface AnnualSaving {
+export interface Saving {
   amount: number;
   percent: number;
-  monthlyEquivalent: number;
+  /** How many payments of the base plan were compared against. */
+  baseCount: number;
+  /** Which base plan we compared against ("monthly" or "quarterly"). */
+  baseKind: "monthly" | "quarterly";
 }
 
-/**
- * Compute savings for an annual plan vs 12× monthly.
- * Returns null when the annual price is not strictly lower than 12× monthly,
- * or when either input is missing / invalid.
- */
-export function computeAnnualSaving(
-  monthlyAmount: number | null | undefined,
-  annualAmount: number | null | undefined,
-): AnnualSaving | null {
-  const m = Number(monthlyAmount);
-  const a = Number(annualAmount);
-  if (!Number.isFinite(m) || !Number.isFinite(a) || m <= 0 || a <= 0) return null;
-  const twelve = m * 12;
-  if (a >= twelve) return null;
-  const amount = twelve - a;
-  const percent = Math.round((amount / twelve) * 100);
-  const monthlyEquivalent = Math.round(a / 12);
-  return { amount, percent, monthlyEquivalent };
+function computeSaving(
+  baseAmount: number | null | undefined,
+  targetAmount: number | null | undefined,
+  count: number,
+  baseKind: "monthly" | "quarterly",
+): Saving | null {
+  const b = Number(baseAmount);
+  const t = Number(targetAmount);
+  if (!Number.isFinite(b) || !Number.isFinite(t) || b <= 0 || t <= 0) return null;
+  const total = b * count;
+  if (t >= total) return null;
+  const amount = total - t;
+  const percent = Math.round((amount / total) * 100);
+  return { amount, percent, baseCount: count, baseKind };
 }
+
+/** Quarterly price vs 3× monthly. */
+export function computeQuarterlySaving(
+  monthlyAmount: number | null | undefined,
+  quarterlyAmount: number | null | undefined,
+): Saving | null {
+  return computeSaving(monthlyAmount, quarterlyAmount, 3, "monthly");
+}
+
+/** Yearly price vs 12× monthly. */
+export function computeYearlySaving(
+  monthlyAmount: number | null | undefined,
+  yearlyAmount: number | null | undefined,
+): Saving | null {
+  return computeSaving(monthlyAmount, yearlyAmount, 12, "monthly");
+}
+
+/** Yearly price vs 4× quarterly — only when Monthly is unavailable. */
+export function computeYearlyVsQuarterlySaving(
+  quarterlyAmount: number | null | undefined,
+  yearlyAmount: number | null | undefined,
+): Saving | null {
+  return computeSaving(quarterlyAmount, yearlyAmount, 4, "quarterly");
+}
+
+/** Back-compat: same as computeYearlySaving. Some routes still import this name. */
+export const computeAnnualSaving = computeYearlySaving;
+export type AnnualSaving = Saving;

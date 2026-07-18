@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { Search, TrendingDown } from "lucide-react";
+import { Search, TrendingDown, Users, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
@@ -9,12 +9,17 @@ import { TOOLS, getTool } from "@/lib/tools-data";
 import {
   listToolPricing,
   type ToolPricingOption,
+  type AccessType,
 } from "@/lib/tool-pricing.functions";
 import {
-  computeAnnualSaving,
+  billingPeriodLabel,
+  computeQuarterlySaving,
+  computeYearlySaving,
+  computeYearlyVsQuarterlySaving,
   formatCurrency,
   formatPlanPrice,
   getBillingKind,
+  normaliseBillingKind,
 } from "@/lib/currency";
 
 const pricingQuery = queryOptions({
@@ -30,26 +35,50 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Compare monthly and annual subscriptions for every premium tool. Pay only for the tools you need — each renews separately, no forced bundle.",
+          "Compare Shared and Private access plans — Monthly, Quarterly, and Yearly — for every premium tool. Each renews separately, no forced bundle.",
       },
       { property: "og:title", content: "Individual Plans for Every Tool" },
       {
         property: "og:description",
         content:
-          "Compare monthly and annual subscriptions and choose only the premium tools you need.",
+          "Shared and Private access with Monthly, Quarterly, and Yearly billing — choose only the tools you need.",
       },
     ],
   }),
   component: PricingPage,
 });
 
+type Period = "monthly" | "quarterly" | "yearly";
+
+interface AccessBucket {
+  monthly: ToolPricingOption | null;
+  quarterly: ToolPricingOption | null;
+  yearly: ToolPricingOption | null;
+  other: ToolPricingOption[];
+}
+
 interface GroupedTool {
   slug: string;
-  monthly: ToolPricingOption[];
-  annual: ToolPricingOption[];
-  other: ToolPricingOption[];
+  shared: AccessBucket;
+  private: AccessBucket;
   contact: boolean;
   hasAny: boolean;
+}
+
+function emptyBucket(): AccessBucket {
+  return { monthly: null, quarterly: null, yearly: null, other: [] };
+}
+
+function placeIntoBucket(bucket: AccessBucket, opt: ToolPricingOption) {
+  const kind = normaliseBillingKind(getBillingKind(opt));
+  if (kind === "monthly" && !bucket.monthly) bucket.monthly = opt;
+  else if (kind === "quarterly" && !bucket.quarterly) bucket.quarterly = opt;
+  else if (kind === "yearly" && !bucket.yearly) bucket.yearly = opt;
+  else bucket.other.push(opt);
+}
+
+function bucketHasAny(b: AccessBucket): boolean {
+  return !!(b.monthly || b.quarterly || b.yearly) || b.other.length > 0;
 }
 
 function PricingPage() {
@@ -59,23 +88,22 @@ function PricingPage() {
   const grouped: GroupedTool[] = useMemo(() => {
     const map = new Map<string, GroupedTool>();
     for (const opt of data.options) {
+      // Only enabled plans on the public site.
+      if (!opt.enabled) continue;
       const g =
         map.get(opt.tool_slug) ??
         {
           slug: opt.tool_slug,
-          monthly: [],
-          annual: [],
-          other: [],
+          shared: emptyBucket(),
+          private: emptyBucket(),
           contact: false,
           hasAny: false,
         };
       if (opt.contact_admin || opt.amount == null) {
         g.contact = true;
       } else {
-        const kind = getBillingKind(opt);
-        if (kind === "monthly") g.monthly.push(opt);
-        else if (kind === "annual") g.annual.push(opt);
-        else g.other.push(opt);
+        const access: AccessType = (opt.access_type as AccessType) ?? "shared";
+        placeIntoBucket(access === "private" ? g.private : g.shared, opt);
         g.hasAny = true;
       }
       map.set(opt.tool_slug, g);
@@ -84,9 +112,8 @@ function PricingPage() {
       (t) =>
         map.get(t.slug) ?? {
           slug: t.slug,
-          monthly: [],
-          annual: [],
-          other: [],
+          shared: emptyBucket(),
+          private: emptyBucket(),
           contact: true,
           hasAny: false,
         },
@@ -114,8 +141,8 @@ function PricingPage() {
             Individual Plans for Every Tool
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Compare monthly and annual subscriptions and choose only the premium
-            tools you need. Each tool has its own plan and renews separately —
+            Choose Shared or Private access, then pick Monthly, Quarterly, or
+            Yearly billing. Each tool has its own plan and renews separately —
             no forced software bundle.
           </p>
           <div className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card">
@@ -153,20 +180,24 @@ function PricingPage() {
           <dl className="mt-6 space-y-4">
             {[
               {
+                q: "What's the difference between Shared and Private access?",
+                a: "Shared access is a slot on a pooled account and costs less. Private access gives you a dedicated login for that tool. Not every tool offers both — you'll only see the options that are actually available.",
+              },
+              {
                 q: "How do I pay for a tool?",
-                a: "Choose a plan on the tool you need and pay securely via Paystack. Access is granted the moment payment is confirmed — no admin approval needed.",
+                a: "Choose Shared or Private access, pick your billing period, and pay securely via Paystack. Access is granted the moment payment is confirmed — no admin approval needed.",
               },
               {
                 q: "Why do some tools say 'Pricing confirmed on WhatsApp'?",
                 a: "Those tools have custom or volume-based pricing. Message us and we'll quote you within a few hours.",
               },
               {
-                q: "Can I switch between monthly and annual later?",
-                a: "Yes. Start on whichever suits you now; when it renews you can pick the other billing period.",
+                q: "Can I switch between Monthly, Quarterly, and Yearly later?",
+                a: "Yes. Start on whichever suits you now; when it renews you can pick a different billing period or access type.",
               },
               {
-                q: "Do annual plans really save money?",
-                a: "Only when the annual price is lower than twelve monthly payments. We only show a 'Save' badge when the maths genuinely works in your favour.",
+                q: "Do longer plans really save money?",
+                a: "Only when the maths genuinely works in your favour. We only show a 'Save' badge when the longer plan is cheaper than the equivalent number of shorter payments — never the other way around.",
               },
             ].map((f) => (
               <div key={f.q} className="rounded-xl border bg-card p-5">
@@ -181,6 +212,26 @@ function PricingPage() {
   );
 }
 
+/** Lowest-price hint for the compact catalogue card. */
+function lowestPlan(bucket: AccessBucket): {
+  opt: ToolPricingOption;
+  period: Period;
+} | null {
+  const candidates: Array<{ opt: ToolPricingOption; period: Period }> = [];
+  if (bucket.monthly) candidates.push({ opt: bucket.monthly, period: "monthly" });
+  if (bucket.quarterly) candidates.push({ opt: bucket.quarterly, period: "quarterly" });
+  if (bucket.yearly) candidates.push({ opt: bucket.yearly, period: "yearly" });
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => Number(a.opt.amount ?? 0) - Number(b.opt.amount ?? 0));
+  return candidates[0];
+}
+
+function periodSuffix(p: Period): string {
+  if (p === "monthly") return "/month";
+  if (p === "quarterly") return "/quarter";
+  return "/year";
+}
+
 function ToolPricingCard({
   group,
   tool,
@@ -188,12 +239,15 @@ function ToolPricingCard({
   group: GroupedTool;
   tool: ReturnType<typeof getTool> & object;
 }) {
-  const monthly = group.monthly[0] ?? null;
-  const annual = group.annual[0] ?? null;
-  const saving =
-    monthly && annual
-      ? computeAnnualSaving(Number(monthly.amount), Number(annual.amount))
-      : null;
+  const sharedHas = bucketHasAny(group.shared);
+  const privateHas = bucketHasAny(group.private);
+  const lowestShared = sharedHas ? lowestPlan(group.shared) : null;
+  const lowestPrivate = privateHas ? lowestPlan(group.private) : null;
+
+  // Primary "from" line: prefer Shared, fall back to Private.
+  const primary = lowestShared ?? lowestPrivate;
+  const secondary =
+    lowestShared && lowestPrivate ? "Private access also available" : null;
 
   return (
     <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40">
@@ -207,22 +261,21 @@ function ToolPricingCard({
         </div>
       </div>
 
-      <div className="mt-5 flex-1 space-y-2">
-        {monthly ? <PlanRow opt={monthly} label="Monthly" /> : null}
-        {annual ? (
-          <PlanRow
-            opt={annual}
-            label="Annual"
-            badge={
-              saving
-                ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")}`
-                : null
-            }
+      <div className="mt-5 flex-1 space-y-3">
+        {sharedHas ? (
+          <AccessMini
+            title="Shared Access"
+            icon={<Users className="h-3.5 w-3.5" />}
+            bucket={group.shared}
           />
         ) : null}
-        {group.other.map((o) => (
-          <PlanRow key={o.id} opt={o} label={o.label ?? "Standard"} />
-        ))}
+        {privateHas ? (
+          <AccessMini
+            title="Private Access"
+            icon={<Lock className="h-3.5 w-3.5" />}
+            bucket={group.private}
+          />
+        ) : null}
 
         {!group.hasAny ? (
           <p className="rounded-lg border bg-background/40 px-3 py-2 text-xs text-primary">
@@ -230,11 +283,14 @@ function ToolPricingCard({
           </p>
         ) : null}
 
-        {saving ? (
-          <p className="flex items-center gap-1 pt-1 text-[11px] text-success">
-            <TrendingDown className="h-3 w-3" />
-            Save {formatCurrency(saving.amount, annual!.currency || "₦")} annually
-            {saving.percent > 0 ? ` (${saving.percent}%)` : ""}
+        {primary ? (
+          <p className="pt-1 text-[11px] text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {lowestShared ? "Shared access" : "Private access"} from{" "}
+              {formatCurrency(Number(primary.opt.amount), primary.opt.currency || "₦")}
+              {periodSuffix(primary.period)}
+            </span>
+            {secondary ? <span> · {secondary}</span> : null}
           </p>
         ) : null}
       </div>
@@ -259,33 +315,112 @@ function ToolPricingCard({
   );
 }
 
-function PlanRow({
+function AccessMini({
+  title,
+  icon,
+  bucket,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  bucket: AccessBucket;
+}) {
+  const qSave = computeQuarterlySaving(
+    bucket.monthly?.amount,
+    bucket.quarterly?.amount,
+  );
+  const ySaveFromM = computeYearlySaving(
+    bucket.monthly?.amount,
+    bucket.yearly?.amount,
+  );
+  const ySaveFromQ =
+    !bucket.monthly && bucket.quarterly && bucket.yearly
+      ? computeYearlyVsQuarterlySaving(bucket.quarterly.amount, bucket.yearly.amount)
+      : null;
+
+  return (
+    <div className="rounded-lg border bg-background/40 p-3">
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {title}
+      </div>
+      <ul className="space-y-1.5">
+        {bucket.monthly ? (
+          <PlanLine opt={bucket.monthly} label="Monthly" />
+        ) : null}
+        {bucket.quarterly ? (
+          <PlanLine
+            opt={bucket.quarterly}
+            label="Quarterly"
+            savingBadge={
+              qSave
+                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")}`
+                : null
+            }
+          />
+        ) : null}
+        {bucket.yearly ? (
+          <PlanLine
+            opt={bucket.yearly}
+            label="Yearly"
+            savingBadge={
+              ySaveFromM
+                ? `Save ${formatCurrency(ySaveFromM.amount, bucket.yearly.currency || "₦")}`
+                : ySaveFromQ
+                  ? `Save ${formatCurrency(ySaveFromQ.amount, bucket.yearly.currency || "₦")}`
+                  : null
+            }
+          />
+        ) : null}
+        {bucket.other.map((o) => (
+          <PlanLine key={o.id} opt={o} label={o.label ?? "Standard"} />
+        ))}
+      </ul>
+      {qSave || ySaveFromM || ySaveFromQ ? (
+        <p className="mt-2 flex items-center gap-1 text-[11px] text-success">
+          <TrendingDown className="h-3 w-3" />
+          {ySaveFromM
+            ? `Save ${formatCurrency(ySaveFromM.amount, bucket.yearly!.currency || "₦")} yearly`
+            : ySaveFromQ
+              ? `Save ${formatCurrency(ySaveFromQ.amount, bucket.yearly!.currency || "₦")} compared with four quarterly payments`
+              : qSave
+                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly!.currency || "₦")} every quarter`
+                : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PlanLine({
   opt,
   label,
-  badge,
+  savingBadge,
 }: {
   opt: ToolPricingOption;
   label: string;
-  badge?: string | null;
+  savingBadge?: string | null;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2">
+    <li className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-muted-foreground">
         {label}
-        {opt.label && opt.label !== label ? (
-          <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            · {opt.label}
+        {opt.badge ? (
+          <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            {opt.badge}
           </span>
         ) : null}
       </span>
       <span className="flex items-baseline gap-2">
-        {badge ? (
+        {savingBadge ? (
           <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-            {badge}
+            {savingBadge}
           </span>
         ) : null}
         <span className="text-sm font-semibold">{formatPlanPrice(opt)}</span>
       </span>
-    </div>
+    </li>
   );
 }
+
+// Silence "unused" warning for the shared label helper in some builds.
+void billingPeriodLabel;
