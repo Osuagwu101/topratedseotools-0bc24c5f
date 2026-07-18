@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Save, Tag, Trash2, ShieldAlert } from "lucide-react";
+import { Plus, Save, Tag, Trash2, ShieldAlert, Lock, Users, AlertTriangle } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { TOOLS } from "@/lib/tools-data";
 import { getIsAdmin } from "@/lib/site-settings.functions";
@@ -14,7 +14,9 @@ import {
   deleteToolPricing,
   formatPrice,
   type ToolPricingOption,
+  type AccessType,
 } from "@/lib/tool-pricing.functions";
+import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -43,25 +45,39 @@ export const Route = createFileRoute("/admin/pricing")({
 type Draft = {
   id?: string;
   tool_slug: string;
+  access_type: AccessType;
   label: string;
   amount: string;
   unit: string;
   currency: string;
   contact_admin: boolean;
   sort_order: number;
+  enabled: boolean;
+  note: string;
+  badge: string;
+  paystack_plan_code: string;
 };
 
 function toDraft(opt: ToolPricingOption): Draft {
   return {
     id: opt.id,
     tool_slug: opt.tool_slug,
+    access_type: opt.access_type ?? "shared",
     label: opt.label ?? "",
     amount: opt.amount == null ? "" : String(opt.amount),
     unit: opt.unit ?? "",
     currency: opt.currency ?? "₦",
     contact_admin: opt.contact_admin,
     sort_order: opt.sort_order,
+    enabled: opt.enabled ?? true,
+    note: opt.note ?? "",
+    badge: opt.badge ?? "",
+    paystack_plan_code: opt.paystack_plan_code ?? "",
   };
+}
+
+function periodOfDraft(d: Pick<Draft, "unit">): "monthly" | "quarterly" | "yearly" | "other" {
+  return normaliseBillingKind(getBillingKind({ unit: d.unit || null }));
 }
 
 function AdminPricingPage() {
@@ -93,10 +109,18 @@ function AdminPricingPage() {
     const key = draft.id ?? `${draft.tool_slug}-new`;
     setBusy(key);
     try {
+      // Independent validation for enabled non-contact plans.
+      if (draft.enabled && !draft.contact_admin) {
+        const n = Number(draft.amount);
+        if (draft.amount === "" || !Number.isFinite(n) || n <= 0) {
+          throw new Error("Enabled plans need a price greater than zero. Disable or set a valid amount.");
+        }
+      }
       await upsert({
         data: {
           id: draft.id,
           tool_slug: draft.tool_slug,
+          access_type: draft.access_type,
           label: draft.label.trim() || null,
           amount: draft.contact_admin
             ? null
@@ -107,6 +131,10 @@ function AdminPricingPage() {
           currency: draft.currency || "₦",
           contact_admin: draft.contact_admin,
           sort_order: draft.sort_order,
+          enabled: draft.enabled,
+          note: draft.note.trim() || null,
+          badge: draft.badge.trim() || null,
+          paystack_plan_code: draft.paystack_plan_code.trim() || null,
         },
       });
       toast.success("Pricing saved");
@@ -149,7 +177,7 @@ function AdminPricingPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Tool pricing</h1>
             <p className="text-sm text-muted-foreground">
-              Edit per-tool prices shown on the Pricing page and tool detail pages.
+              Configure Shared Access and Private Access plans (Monthly, Quarterly, Yearly). Each plan can be enabled or disabled independently.
             </p>
           </div>
         </div>
@@ -157,6 +185,7 @@ function AdminPricingPage() {
         <div className="mt-8 space-y-6">
           {TOOLS.map((t) => {
             const opts = byTool.get(t.slug) ?? [];
+            const hasEnabled = opts.some((o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true));
             return (
               <div key={t.slug} className="rounded-2xl border bg-card p-5 shadow-card">
                 <div className="flex items-center justify-between gap-3">
@@ -164,41 +193,40 @@ function AdminPricingPage() {
                     <div className="font-semibold">{t.name}</div>
                     <div className="text-xs text-muted-foreground">{t.category} · {t.slug}</div>
                   </div>
-                  <button
-                    onClick={() =>
-                      save({
-                        tool_slug: t.slug,
-                        label: "",
-                        amount: "",
-                        unit: "month",
-                        currency: "₦",
-                        contact_admin: false,
-                        sort_order: opts.length,
-                      })
-                    }
-                    className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add option
-                  </button>
+                  {!hasEnabled && opts.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-1 text-[11px] font-medium text-warning">
+                      <AlertTriangle className="h-3 w-3" /> No enabled plan
+                    </span>
+                  ) : null}
                 </div>
 
-                {opts.length === 0 ? (
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    No pricing rows yet — customers will see "Contact admin".
-                  </p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {opts.map((o) => (
-                      <PricingRow
-                        key={o.id}
-                        initial={toDraft(o)}
-                        busy={busy === o.id}
-                        onSave={save}
-                        onDelete={() => del(o.id)}
-                      />
-                    ))}
-                  </div>
-                )}
+                <AccessGroup
+                  title="Shared Access"
+                  icon={<Users className="h-4 w-4" />}
+                  accessType="shared"
+                  tool={t}
+                  opts={opts.filter((o) => (o.access_type ?? "shared") === "shared")}
+                  busyKey={busy}
+                  onSave={save}
+                  onDelete={del}
+                  onAdd={(period) =>
+                    save(newDraft(t.slug, "shared", period, opts.length))
+                  }
+                />
+
+                <AccessGroup
+                  title="Private Access"
+                  icon={<Lock className="h-4 w-4" />}
+                  accessType="private"
+                  tool={t}
+                  opts={opts.filter((o) => o.access_type === "private")}
+                  busyKey={busy}
+                  onSave={save}
+                  onDelete={del}
+                  onAdd={(period) =>
+                    save(newDraft(t.slug, "private", period, opts.length))
+                  }
+                />
               </div>
             );
           })}
@@ -208,27 +236,145 @@ function AdminPricingPage() {
   );
 }
 
+function newDraft(
+  slug: string,
+  access: AccessType,
+  period: "monthly" | "quarterly" | "yearly" | "other",
+  sort: number,
+): Draft {
+  const unit =
+    period === "monthly" ? "month" : period === "quarterly" ? "quarter" : period === "yearly" ? "year" : "";
+  const duration =
+    period === "monthly" ? 28 : period === "quarterly" ? 90 : period === "yearly" ? 365 : 0;
+  return {
+    tool_slug: slug,
+    access_type: access,
+    label: "",
+    amount: "",
+    unit,
+    currency: "₦",
+    contact_admin: false,
+    sort_order: sort,
+    enabled: false,
+    note: "",
+    badge: "",
+    paystack_plan_code: "",
+    // Duration hints are set on save via a follow-up admin edit if needed
+    // (kept out of the draft here to preserve the existing schema shape).
+    ...(duration ? {} : {}),
+  };
+}
+
+function AccessGroup({
+  title,
+  icon,
+  accessType,
+  tool,
+  opts,
+  busyKey,
+  onSave,
+  onDelete,
+  onAdd,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  accessType: AccessType;
+  tool: { slug: string };
+  opts: ToolPricingOption[];
+  busyKey: string | null;
+  onSave: (d: Draft) => void;
+  onDelete: (id: string) => void;
+  onAdd: (period: "monthly" | "quarterly" | "yearly" | "other") => void;
+}) {
+  const periods: Array<"monthly" | "quarterly" | "yearly"> = ["monthly", "quarterly", "yearly"];
+  const others = opts.filter((o) => periodOfDraft({ unit: o.unit ?? "" }) === "other");
+
+  return (
+    <div className="mt-5 rounded-xl border bg-background/40 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="space-y-3">
+        {periods.map((p) => {
+          const row = opts.find((o) => periodOfDraft({ unit: o.unit ?? "" }) === p);
+          if (row) {
+            return (
+              <PricingRow
+                key={row.id}
+                initial={toDraft(row)}
+                busy={busyKey === row.id}
+                onSave={onSave}
+                onDelete={() => onDelete(row.id)}
+                periodLabel={labelFor(p)}
+              />
+            );
+          }
+          return (
+            <button
+              key={p}
+              onClick={() => onAdd(p)}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-dashed bg-background/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            >
+              <span className="font-medium">Add {labelFor(p)} plan</span>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          );
+        })}
+        {others.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Other plans (custom unit)</div>
+            {others.map((row) => (
+              <PricingRow
+                key={row.id}
+                initial={toDraft(row)}
+                busy={busyKey === row.id}
+                onSave={onSave}
+                onDelete={() => onDelete(row.id)}
+                periodLabel="Custom"
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function labelFor(p: "monthly" | "quarterly" | "yearly"): string {
+  if (p === "monthly") return "Monthly";
+  if (p === "quarterly") return "Quarterly";
+  return "Yearly";
+}
+
 function PricingRow({
   initial,
   busy,
   onSave,
   onDelete,
+  periodLabel,
 }: {
   initial: Draft;
   busy: boolean;
   onSave: (d: Draft) => void;
   onDelete: () => void;
+  periodLabel: string;
 }) {
   const [d, setD] = useState<Draft>(initial);
 
   return (
-    <div className="grid gap-2 rounded-lg border bg-background/40 p-3 sm:grid-cols-12 sm:items-center">
-      <input
-        placeholder="Label (optional)"
-        value={d.label}
-        onChange={(e) => setD({ ...d, label: e.target.value })}
-        className="rounded-md border bg-background px-2 py-1.5 text-xs sm:col-span-3"
-      />
+    <div className="grid gap-2 rounded-lg border bg-background px-3 py-3 sm:grid-cols-12 sm:items-center">
+      <div className="flex items-center gap-2 sm:col-span-2">
+        <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold">{periodLabel}</span>
+      </div>
+      <label className="flex items-center gap-1.5 text-xs sm:col-span-2">
+        <input
+          type="checkbox"
+          checked={d.enabled}
+          onChange={(e) => setD({ ...d, enabled: e.target.checked })}
+        />
+        {d.enabled ? "Enabled" : "Disabled"}
+      </label>
       <input
         placeholder="Currency"
         value={d.currency}
@@ -246,20 +392,12 @@ function PricingRow({
         className="rounded-md border bg-background px-2 py-1.5 text-xs disabled:opacity-50 sm:col-span-2"
       />
       <input
-        placeholder="Unit (month, year, check…)"
+        placeholder="Unit (month/quarter/year/check)"
         value={d.unit}
         onChange={(e) => setD({ ...d, unit: e.target.value })}
         disabled={d.contact_admin}
         className="rounded-md border bg-background px-2 py-1.5 text-xs disabled:opacity-50 sm:col-span-3"
       />
-      <label className="flex items-center gap-1.5 text-xs sm:col-span-1">
-        <input
-          type="checkbox"
-          checked={d.contact_admin}
-          onChange={(e) => setD({ ...d, contact_admin: e.target.checked })}
-        />
-        Contact
-      </label>
       <div className="flex items-center gap-1 sm:col-span-2 sm:justify-end">
         <button
           disabled={busy}
@@ -276,6 +414,38 @@ function PricingRow({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+      <input
+        placeholder="Optional plan label"
+        value={d.label}
+        onChange={(e) => setD({ ...d, label: e.target.value })}
+        className="rounded-md border bg-background px-2 py-1.5 text-xs sm:col-span-4"
+      />
+      <input
+        placeholder="Badge (e.g. Best value)"
+        value={d.badge}
+        onChange={(e) => setD({ ...d, badge: e.target.value })}
+        className="rounded-md border bg-background px-2 py-1.5 text-xs sm:col-span-3"
+      />
+      <input
+        placeholder="Paystack plan code (optional)"
+        value={d.paystack_plan_code}
+        onChange={(e) => setD({ ...d, paystack_plan_code: e.target.value })}
+        className="rounded-md border bg-background px-2 py-1.5 text-xs sm:col-span-5"
+      />
+      <input
+        placeholder="Optional note shown near the price"
+        value={d.note}
+        onChange={(e) => setD({ ...d, note: e.target.value })}
+        className="rounded-md border bg-background px-2 py-1.5 text-xs sm:col-span-9"
+      />
+      <label className="flex items-center gap-1.5 text-xs sm:col-span-3">
+        <input
+          type="checkbox"
+          checked={d.contact_admin}
+          onChange={(e) => setD({ ...d, contact_admin: e.target.checked })}
+        />
+        Contact-admin
+      </label>
       <div className="text-[11px] text-muted-foreground sm:col-span-12">
         Preview:{" "}
         <span className="font-medium text-foreground">
@@ -291,9 +461,16 @@ function PricingRow({
             duration_days: null,
             grace_days: 0,
             warning_days: 0,
+            access_type: d.access_type,
+            enabled: d.enabled,
+            note: d.note || null,
+            badge: d.badge || null,
+            paystack_plan_code: d.paystack_plan_code || null,
           })}
-
         </span>
+        {!d.enabled ? (
+          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">Hidden from customers</span>
+        ) : null}
       </div>
     </div>
   );
