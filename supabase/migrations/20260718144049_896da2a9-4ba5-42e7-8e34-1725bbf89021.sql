@@ -1,0 +1,1 @@
+UPDATE public.blog_posts SET status = 'draft' WHERE slug = 'audit-test-post';
