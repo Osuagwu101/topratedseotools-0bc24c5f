@@ -14,8 +14,10 @@ export function PostCard({ post, featured = false }: { post: PostSummary; featur
         {post.featured_image ? (
           <img
             src={post.featured_image}
-            alt={post.title}
+            alt={(post as unknown as { featured_image_alt?: string }).featured_image_alt || post.title}
             loading="lazy"
+            decoding="async"
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="h-full w-full object-cover transition group-hover:scale-105"
           />
         ) : (
