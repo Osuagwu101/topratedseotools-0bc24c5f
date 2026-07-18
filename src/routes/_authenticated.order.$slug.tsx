@@ -231,3 +231,68 @@ function OrderPage() {
     </SiteLayout>
   );
 }
+
+function CheckoutSummary({
+  chosen,
+  allOptions,
+}: {
+  chosen: import("@/lib/tool-pricing.functions").ToolPricingOption;
+  allOptions: import("@/lib/tool-pricing.functions").ToolPricingOption[];
+}) {
+  const kind = getBillingKind(chosen);
+  const billing = billingDescription(kind);
+  const renewal = renewalText(kind);
+
+  // If the customer chose Annual and a Monthly plan exists for the same tool,
+  // compute the saving off backend prices.
+  let saving: ReturnType<typeof computeAnnualSaving> = null;
+  if (kind === "annual") {
+    const monthly = allOptions.find(
+      (o) => getBillingKind(o) === "monthly" && !o.contact_admin && o.amount != null,
+    );
+    if (monthly) {
+      saving = computeAnnualSaving(Number(monthly.amount), Number(chosen.amount));
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
+      <div className="text-sm font-semibold">Order summary</div>
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Plan</dt>
+          <dd className="font-medium">
+            {kind === "monthly"
+              ? "Monthly Subscription"
+              : kind === "annual"
+                ? "Annual Subscription"
+                : chosen.label ?? "Standard"}
+          </dd>
+        </div>
+        {billing ? (
+          <div className="flex items-center justify-between">
+            <dt className="text-muted-foreground">Billing</dt>
+            <dd>{billing}</dd>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between border-t pt-2">
+          <dt className="text-muted-foreground">Amount due today</dt>
+          <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
+        </div>
+        {saving ? (
+          <div className="flex items-start gap-1 text-[11px] text-success">
+            <TrendingDown className="mt-0.5 h-3 w-3" />
+            <span>
+              You save {formatCurrency(saving.amount, chosen.currency || "₦")} compared with
+              twelve monthly payments
+              {saving.percent > 0 ? ` (${saving.percent}%)` : ""}.
+            </span>
+          </div>
+        ) : null}
+        {renewal ? (
+          <p className="text-[11px] text-muted-foreground">{renewal}</p>
+        ) : null}
+      </dl>
+    </div>
+  );
+}
