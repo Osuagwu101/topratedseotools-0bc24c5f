@@ -309,6 +309,7 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
       .from("tool_settings")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(patch as any, { onConflict: "tool_slug" });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
