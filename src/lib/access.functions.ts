@@ -26,11 +26,17 @@ export type ToolOrderStatus =
   | "rejected"
   | "cancelled"
   | "expired";
+export type LaunchMode = "new_tab" | "same_tab" | "popup";
 
 export interface ToolSetting {
   tool_slug: string;
   enabled: boolean;
   access_level: ToolAccessLevel;
+  one_click_auth_enabled: boolean;
+  official_login_url: string | null;
+  auth_provider: string | null;
+  launch_mode: LaunchMode;
+  display_manual_credentials: boolean;
 }
 
 
@@ -95,9 +101,11 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
     const supabase = publicClient();
     const { data, error } = await supabase
       .from("tool_settings")
-      .select("tool_slug, enabled, access_level");
+      .select(
+        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials",
+      );
     if (error) throw new Error(error.message);
-    return { settings: (data ?? []) as ToolSetting[] };
+    return { settings: (data ?? []) as unknown as ToolSetting[] };
   },
 );
 
@@ -250,20 +258,57 @@ const upsertSettingInput = z.object({
   tool_slug: z.string().min(1).max(120),
   enabled: z.boolean().optional(),
   access_level: z.enum(["public", "logged_in", "purchased"]).optional(),
+  one_click_auth_enabled: z.boolean().optional(),
+  official_login_url: z
+    .string()
+    .trim()
+    .max(500)
+    .url({ message: "Enter a valid URL (https://…)" })
+    .nullable()
+    .optional(),
+  auth_provider: z.string().trim().max(80).nullable().optional(),
+  launch_mode: z.enum(["new_tab", "same_tab", "popup"]).optional(),
+  display_manual_credentials: z.boolean().optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => upsertSettingInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const patch = {
-      tool_slug: data.tool_slug,
-      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
-      ...(data.access_level !== undefined ? { access_level: data.access_level } : {}),
-    };
+    // Validate: when enabling one-click, an official login URL is required
+    // (either provided in this patch, or already stored).
+    if (data.one_click_auth_enabled === true) {
+      let url = data.official_login_url;
+      if (url === undefined) {
+        const { data: existing } = await context.supabase
+          .from("tool_settings")
+          .select("official_login_url")
+          .eq("tool_slug", data.tool_slug)
+          .maybeSingle();
+        url = (existing?.official_login_url as string | null) ?? null;
+      }
+      if (!url) {
+        throw new Error(
+          "Add an Official Login URL before enabling One-Click Login.",
+        );
+      }
+    }
+    const patch: Record<string, unknown> = { tool_slug: data.tool_slug };
+    for (const k of [
+      "enabled",
+      "access_level",
+      "one_click_auth_enabled",
+      "official_login_url",
+      "auth_provider",
+      "launch_mode",
+      "display_manual_credentials",
+    ] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
     const { error } = await context.supabase
       .from("tool_settings")
-      .upsert(patch, { onConflict: "tool_slug" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(patch as any, { onConflict: "tool_slug" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

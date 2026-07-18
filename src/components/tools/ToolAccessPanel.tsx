@@ -18,7 +18,7 @@ import { Check, Lock, LogIn, Rocket, ShieldAlert, Sparkles } from "lucide-react"
 import type { Tool } from "@/lib/tools-data";
 import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { launchTool } from "@/lib/tool-launcher";
 
 interface Props {
   tool: Tool;
@@ -29,6 +29,11 @@ interface Props {
 const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
   enabled: true,
   access_level: "purchased",
+  one_click_auth_enabled: false,
+  official_login_url: null,
+  auth_provider: null,
+  launch_mode: "new_tab",
+  display_manual_credentials: true,
 };
 
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
@@ -125,12 +130,16 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
         <StateBlock
           icon={Rocket}
           title="You have access"
-          body="Your subscription is active for this tool. Launch it below."
+          body={
+            effective.one_click_auth_enabled
+              ? "Click below to continue to the official website and sign in using your own account."
+              : "Your subscription is active for this tool. Launch it below."
+          }
         >
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => launchTool(tool)}
+              onClick={() => launchTool(tool, effective)}
               className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
             >
               <Rocket className="h-4 w-4" /> Launch {tool.name}
@@ -163,20 +172,6 @@ function resolveState(
   return hasPurchased ? "granted" : "paywall";
 }
 
-function launchTool(tool: Tool) {
-  // Record usage (best-effort — do not block the launch on errors).
-  supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      supabase
-        .from("tool_usage")
-        .insert({ tool_slug: tool.slug, user_id: data.user.id })
-        .then(() => undefined);
-    }
-  });
-  // Placeholder launch: open the official brand site. Later this can point
-  // to an embedded or SSO-tokenized version of the tool.
-  window.open(`https://${tool.domain}`, "_blank", "noopener");
-}
 
 function StateBlock({
   icon: Icon,

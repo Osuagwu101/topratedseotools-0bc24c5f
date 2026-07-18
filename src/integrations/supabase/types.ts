@@ -676,19 +676,34 @@ export type Database = {
       tool_settings: {
         Row: {
           access_level: Database["public"]["Enums"]["tool_access_level"]
+          auth_provider: string | null
+          display_manual_credentials: boolean
           enabled: boolean
+          launch_mode: string
+          official_login_url: string | null
+          one_click_auth_enabled: boolean
           tool_slug: string
           updated_at: string
         }
         Insert: {
           access_level?: Database["public"]["Enums"]["tool_access_level"]
+          auth_provider?: string | null
+          display_manual_credentials?: boolean
           enabled?: boolean
+          launch_mode?: string
+          official_login_url?: string | null
+          one_click_auth_enabled?: boolean
           tool_slug: string
           updated_at?: string
         }
         Update: {
           access_level?: Database["public"]["Enums"]["tool_access_level"]
+          auth_provider?: string | null
+          display_manual_credentials?: boolean
           enabled?: boolean
+          launch_mode?: string
+          official_login_url?: string | null
+          one_click_auth_enabled?: boolean
           tool_slug?: string
           updated_at?: string
         }

@@ -25,17 +25,22 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Rocket,
+  Zap,
 } from "lucide-react";
 import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { getTool } from "@/lib/tools-data";
+import { getTool, type Tool } from "@/lib/tools-data";
 import {
   listMyOrders,
   cancelMyOrder,
   getMyAccess,
+  listToolSettings,
   type ToolOrderStatus,
+  type ToolSetting,
 } from "@/lib/access.functions";
+import { launchTool } from "@/lib/tool-launcher";
 import { verifyPaystackPayment } from "@/lib/paystack.functions";
 
 const ordersQuery = queryOptions({
@@ -45,6 +50,10 @@ const ordersQuery = queryOptions({
 const accessQuery = queryOptions({
   queryKey: ["my-access"],
   queryFn: () => getMyAccess(),
+});
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
 });
 
 const searchSchema = z
@@ -67,6 +76,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
     Promise.all([
       context.queryClient.ensureQueryData(ordersQuery),
       context.queryClient.ensureQueryData(accessQuery),
+      context.queryClient.ensureQueryData(settingsQuery),
     ]),
   component: MyOrdersPage,
 });
@@ -87,6 +97,7 @@ function MyOrdersPage() {
   const router = useRouter();
   const { data: ordersData } = useSuspenseQuery(ordersQuery);
   const { data: accessData } = useSuspenseQuery(accessQuery);
+  const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const cancel = useServerFn(cancelMyOrder);
   const verify = useServerFn(verifyPaystackPayment);
   const [verifying, setVerifying] = useState(false);
@@ -127,6 +138,13 @@ function MyOrdersPage() {
     for (const a of accessData.access) map.set(a.tool_slug, a);
     return map;
   }, [accessData.access]);
+
+  const settingBySlug = useMemo(() => {
+    const map = new Map<string, ToolSetting>();
+    for (const s of settingsData.settings) map.set(s.tool_slug, s);
+    return map;
+  }, [settingsData.settings]);
+
 
   const orders = ordersData.orders.map((o) => {
     const s: ToolOrderStatus =
@@ -248,7 +266,13 @@ function MyOrdersPage() {
                     </div>
                   )}
 
-                  {access && <CredentialCard access={access} />}
+                  {access && tool && (
+                    <CredentialCard
+                      access={access}
+                      tool={tool}
+                      setting={settingBySlug.get(o.tool_slug)}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -261,6 +285,8 @@ function MyOrdersPage() {
 
 function CredentialCard({
   access,
+  tool,
+  setting,
 }: {
   access: {
     tool_slug: string;
@@ -276,23 +302,25 @@ function CredentialCard({
       login_notes: string | null;
     } | null;
   };
+  tool: Tool;
+  setting: ToolSetting | undefined;
 }) {
   const [reveal, setReveal] = useState(false);
   const creds = access.credentials;
+  const oneClick = !!setting?.one_click_auth_enabled;
+  const showManual = setting?.display_manual_credentials ?? true;
 
   const banner = useMemo(() => {
     if (!access.expires_at) return null;
     const now = Date.now();
     const expiresAt = new Date(access.expires_at).getTime();
     const daysLeft = Math.ceil((expiresAt - now) / 86400_000);
-    // 90/365-day plans → warning_days before expiry.
     if (access.warning_days > 0 && daysLeft <= access.warning_days) {
       return {
         tone: "warning",
         text: `Your subscription expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"} — renew to avoid interruption.`,
       };
     }
-    // Monthly plans (grace_days > 0) → after billing day, show grace notice.
     if (access.grace_days > 0 && access.paid_at && access.duration_days) {
       const billingEnd =
         new Date(access.paid_at).getTime() + access.duration_days * 86400_000;
@@ -307,6 +335,47 @@ function CredentialCard({
     return null;
   }, [access]);
 
+  // One-Click Login mode → replace credentials with a "Launch Tool" button.
+  if (oneClick) {
+    return (
+      <div className="mt-4 rounded-xl border bg-background/60 p-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Zap className="h-3.5 w-3.5" />
+          One-Click Login
+        </div>
+        {banner && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{banner.text}</span>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          Click below to open the official {tool.name} login page. Sign in with
+          your own {tool.name} account — your subscription here keeps your
+          access active.
+        </p>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => launchTool(tool, setting)}
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            <Rocket className="h-3.5 w-3.5" /> Launch {tool.name}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Manual credentials mode — hide entirely if the admin turned it off.
+  if (!showManual) {
+    return (
+      <div className="mt-4 rounded-xl border bg-background/60 p-4 text-xs text-muted-foreground">
+        Your access is active. Contact support for login assistance.
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 rounded-xl border bg-background/60 p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -320,6 +389,7 @@ function CredentialCard({
           <span>{banner.text}</span>
         </div>
       )}
+
 
       {!creds || (!creds.email && !creds.password && !creds.login_url) ? (
         <p className="mt-3 text-xs text-muted-foreground">
