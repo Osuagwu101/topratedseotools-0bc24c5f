@@ -65,7 +65,7 @@ function ContactPage() {
           <div className="rounded-xl border bg-card p-5 shadow-card">
             <MessageSquare className="h-5 w-5 text-primary" />
             <div className="mt-3 font-semibold">Response time</div>
-            <div className="text-sm text-muted-foreground">Usually within 24 hours on business days.</div>
+            <div className="text-sm text-muted-foreground">Usually responds within few minutes.</div>
           </div>
         </div>
 
