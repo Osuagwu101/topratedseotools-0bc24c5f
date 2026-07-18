@@ -28,12 +28,16 @@ import {
   normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
-import { createOrder } from "@/lib/access.functions";
+import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
+});
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
 });
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
