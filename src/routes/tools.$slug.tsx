@@ -200,3 +200,149 @@ function ToolPage() {
     </SiteLayout>
   );
 }
+
+function SubscriptionCard({
+  slug,
+  options,
+}: {
+  slug: string;
+  options: ToolPricingOption[];
+}) {
+  const purchasable = options.filter((o) => !o.contact_admin && o.amount != null);
+  const monthly = purchasable.find((o) => getBillingKind(o) === "monthly") ?? null;
+  const annual = purchasable.find((o) => getBillingKind(o) === "annual") ?? null;
+  const others = purchasable.filter(
+    (o) => getBillingKind(o) === "other" && o !== monthly && o !== annual,
+  );
+  const contactOnly = options.length > 0 && purchasable.length === 0;
+  const saving =
+    monthly && annual
+      ? computeAnnualSaving(Number(monthly.amount), Number(annual.amount))
+      : null;
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Tag className="h-4 w-4 text-primary" /> Choose Your Subscription
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Subscribe monthly or annually to this individual tool.
+      </p>
+
+      {options.length === 0 || contactOnly ? (
+        <p className="mt-4 rounded-lg border bg-background/40 px-3 py-3 text-sm text-primary">
+          Pricing confirmed on WhatsApp
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {monthly ? (
+            <PlanTile slug={slug} opt={monthly} label="Monthly" />
+          ) : null}
+          {annual ? (
+            <PlanTile
+              slug={slug}
+              opt={annual}
+              label="Annual"
+              badge={
+                saving
+                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")}`
+                  : null
+              }
+              savingText={
+                saving
+                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")} compared with monthly billing${
+                      saving.percent > 0 ? ` (${saving.percent}%)` : ""
+                    }`
+                  : null
+              }
+              monthlyEquivalent={
+                saving
+                  ? `Equivalent to approximately ${formatCurrency(
+                      saving.monthlyEquivalent,
+                      annual.currency || "₦",
+                    )} per month`
+                  : null
+              }
+            />
+          ) : null}
+          {others.map((o) => (
+            <PlanTile
+              key={o.id}
+              slug={slug}
+              opt={o}
+              label={o.label ?? "Standard"}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanTile({
+  slug,
+  opt,
+  label,
+  badge,
+  savingText,
+  monthlyEquivalent,
+}: {
+  slug: string;
+  opt: ToolPricingOption;
+  label: string;
+  badge?: string | null;
+  savingText?: string | null;
+  monthlyEquivalent?: string | null;
+}) {
+  const kind = getBillingKind(opt);
+  const billing = billingDescription(kind);
+  const renewal = renewalText(kind);
+  return (
+    <div className="rounded-xl border bg-background/40 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{label}</span>
+            {badge ? (
+              <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {opt.label && opt.label !== label ? (
+            <div className="text-[11px] text-muted-foreground">{opt.label}</div>
+          ) : null}
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold" aria-label={formatPlanPrice(opt)}>
+            {formatPlanPrice(opt)}
+          </div>
+          {billing ? (
+            <div className="text-[11px] text-muted-foreground">{billing}</div>
+          ) : null}
+        </div>
+      </div>
+
+      {monthlyEquivalent ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{monthlyEquivalent}</p>
+      ) : null}
+      {savingText ? (
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-success">
+          <TrendingDown className="h-3 w-3" /> {savingText}
+        </p>
+      ) : null}
+      {renewal ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{renewal}</p>
+      ) : null}
+
+      <Link
+        to="/order/$slug"
+        params={{ slug }}
+        search={{ plan: opt.id }}
+        className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+      >
+        Choose {label}
+      </Link>
+    </div>
+  );
+}
