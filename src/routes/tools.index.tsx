@@ -55,9 +55,10 @@ function ToolsDirectory() {
     <SiteLayout>
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Browse premium tools</h1>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Browse Individual Tool Subscriptions</h1>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            {TOOLS.length} premium tools, each with its own individual subscription. Choose only the tools you need.
+            Every tool is subscribed to separately, so you pay only for the products you need.
+            Explore premium tools across SEO, AI, writing, research, design, and productivity.
           </p>
 
           <div className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card">
