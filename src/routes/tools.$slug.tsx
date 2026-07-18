@@ -316,7 +316,7 @@ function AccessSection({
             slug={slug}
             opt={bucket.quarterly}
             label="Quarterly"
-            accessTitle={title}
+
             badge={
               qSave
                 ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")}`
@@ -334,7 +334,7 @@ function AccessSection({
             slug={slug}
             opt={bucket.yearly}
             label="Yearly"
-            accessTitle={title}
+
             badge={
               ySave
                 ? `Save ${formatCurrency(ySave.amount, bucket.yearly.currency || "₦")}`
@@ -365,7 +365,7 @@ function AccessSection({
             slug={slug}
             opt={o}
             label={o.label ?? "Standard"}
-            accessTitle={title}
+
           />
         ))}
       </div>
