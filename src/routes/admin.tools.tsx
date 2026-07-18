@@ -93,9 +93,15 @@ function AdminToolsPage() {
 
   async function update(
     slug: string,
-    patch: Parameters<typeof adminUpsertToolSetting>[0]["data"] extends infer P
-      ? Omit<Extract<P, { tool_slug: string }>, "tool_slug">
-      : never,
+    patch: {
+      enabled?: boolean;
+      access_level?: ToolAccessLevel;
+      one_click_auth_enabled?: boolean;
+      official_login_url?: string | null;
+      auth_provider?: string | null;
+      launch_mode?: LaunchMode;
+      display_manual_credentials?: boolean;
+    },
   ) {
     setBusy(slug);
     try {
