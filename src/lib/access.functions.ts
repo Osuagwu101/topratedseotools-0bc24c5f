@@ -26,11 +26,17 @@ export type ToolOrderStatus =
   | "rejected"
   | "cancelled"
   | "expired";
+export type LaunchMode = "new_tab" | "same_tab" | "popup";
 
 export interface ToolSetting {
   tool_slug: string;
   enabled: boolean;
   access_level: ToolAccessLevel;
+  one_click_auth_enabled: boolean;
+  official_login_url: string | null;
+  auth_provider: string | null;
+  launch_mode: LaunchMode;
+  display_manual_credentials: boolean;
 }
 
 
