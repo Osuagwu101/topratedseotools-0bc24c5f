@@ -158,7 +158,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
     const { data: post, error } = await supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,content,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
+        "id,title,subtitle,slug,excerpt,content,featured_image,featured_image_alt,featured_image_credit,featured_image_source,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,seo_title,seo_description,canonical_url,og_title,og_description,twitter_title,twitter_description,semantic_keywords,faq,image_alts,cta_template_id,created_at,updated_at,category:blog_categories(id,name,slug),cta:blog_cta_templates(id,title,body,button_label,button_url)",
       )
       .eq("slug", data.slug)
       .eq("status", "published")
