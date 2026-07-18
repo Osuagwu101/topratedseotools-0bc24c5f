@@ -1,16 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, TrendingDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS, getTool } from "@/lib/tools-data";
 import {
   listToolPricing,
-  formatPrice,
   type ToolPricingOption,
 } from "@/lib/tool-pricing.functions";
+import {
+  computeAnnualSaving,
+  formatCurrency,
+  formatPlanPrice,
+  getBillingKind,
+} from "@/lib/currency";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -25,59 +30,80 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Pay only for the tools you need. Transparent per-tool pricing for Stealthwriter, ChatGPT, Semrush, Turnitin and more.",
+          "Compare monthly and annual subscriptions for every premium tool. Pay only for the tools you need — each renews separately, no forced bundle.",
       },
-      { property: "og:title", content: "Pricing — Top Rated SEO Tools" },
+      { property: "og:title", content: "Individual Plans for Every Tool" },
       {
         property: "og:description",
-        content: "Pay only for the tools you need. Transparent per-tool pricing.",
+        content:
+          "Compare monthly and annual subscriptions and choose only the premium tools you need.",
       },
     ],
   }),
   component: PricingPage,
 });
 
+interface GroupedTool {
+  slug: string;
+  monthly: ToolPricingOption[];
+  annual: ToolPricingOption[];
+  other: ToolPricingOption[];
+  contact: boolean;
+  hasAny: boolean;
+}
+
 function PricingPage() {
   const { data } = useSuspenseQuery(pricingQuery);
   const [q, setQ] = useState("");
 
-  // Group pricing options by tool_slug and preserve TOOLS ordering.
-  const grouped = useMemo(() => {
-    const map = new Map<string, ToolPricingOption[]>();
+  const grouped: GroupedTool[] = useMemo(() => {
+    const map = new Map<string, GroupedTool>();
     for (const opt of data.options) {
-      const arr = map.get(opt.tool_slug) ?? [];
-      arr.push(opt);
-      map.set(opt.tool_slug, arr);
-    }
-    return TOOLS.map((t) => ({
-      tool: t,
-      options: map.get(t.slug) ?? [
+      const g =
+        map.get(opt.tool_slug) ??
         {
-          id: `placeholder-${t.slug}`,
-          tool_slug: t.slug,
-          label: null,
-          amount: null,
-          unit: null,
-          currency: "₦",
-          contact_admin: true,
-          sort_order: 0,
-          duration_days: null,
-          grace_days: 0,
-          warning_days: 0,
-        } satisfies ToolPricingOption,
-
-      ],
-    }));
+          slug: opt.tool_slug,
+          monthly: [],
+          annual: [],
+          other: [],
+          contact: false,
+          hasAny: false,
+        };
+      if (opt.contact_admin || opt.amount == null) {
+        g.contact = true;
+      } else {
+        const kind = getBillingKind(opt);
+        if (kind === "monthly") g.monthly.push(opt);
+        else if (kind === "annual") g.annual.push(opt);
+        else g.other.push(opt);
+        g.hasAny = true;
+      }
+      map.set(opt.tool_slug, g);
+    }
+    return TOOLS.map(
+      (t) =>
+        map.get(t.slug) ?? {
+          slug: t.slug,
+          monthly: [],
+          annual: [],
+          other: [],
+          contact: true,
+          hasAny: false,
+        },
+    );
   }, [data.options]);
 
   const filtered = useMemo(() => {
     if (!q) return grouped;
     const needle = q.toLowerCase();
-    return grouped.filter(
-      ({ tool }) =>
-        tool.name.toLowerCase().includes(needle) ||
-        tool.category.toLowerCase().includes(needle),
-    );
+    return grouped.filter((g) => {
+      const t = getTool(g.slug);
+      if (!t) return false;
+      return (
+        t.name.toLowerCase().includes(needle) ||
+        t.category.toLowerCase().includes(needle)
+      );
+    });
   }, [grouped, q]);
 
   return (
@@ -88,8 +114,9 @@ function PricingPage() {
             Individual Plans for Every Tool
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Compare monthly and annual subscriptions and choose only the premium tools you need.
-            Each tool has its own plan and renews separately — no forced software bundle.
+            Compare monthly and annual subscriptions and choose only the premium
+            tools you need. Each tool has its own plan and renews separately —
+            no forced software bundle.
           </p>
           <div className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -98,67 +125,19 @@ function PricingPage() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search a tool..."
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              aria-label="Search tools"
             />
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 lg:px-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(({ tool, options }) => (
-            <div
-              key={tool.slug}
-              className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
-            >
-              <div className="flex items-center gap-3">
-                <ToolBrandMark tool={tool} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">{tool.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {tool.category}
-                  </div>
-                </div>
-              </div>
-
-              <ul className="mt-5 flex-1 space-y-2">
-                {options.map((opt) => (
-                  <li
-                    key={opt.id}
-                    className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2"
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {opt.label ?? (opt.contact_admin ? "Custom pricing" : "Standard")}
-                    </span>
-                    <span
-                      className={
-                        opt.contact_admin
-                          ? "text-sm font-medium text-primary"
-                          : "text-sm font-semibold"
-                      }
-                    >
-                      {formatPrice(opt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-5 flex gap-2">
-                <Link
-                  to="/tools/$slug"
-                  params={{ slug: tool.slug }}
-                  className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted"
-                >
-                  Learn more
-                </Link>
-                <Link
-                  to="/contact"
-                  className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
-                >
-                  Order
-                </Link>
-              </div>
-            </div>
-          ))}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((g) => {
+            const tool = getTool(g.slug);
+            if (!tool) return null;
+            return <ToolPricingCard key={g.slug} group={g} tool={tool} />;
+          })}
         </div>
 
         {filtered.length === 0 && (
@@ -175,19 +154,19 @@ function PricingPage() {
             {[
               {
                 q: "How do I pay for a tool?",
-                a: "Click Order on the tool you need or contact us via the Contact page. The admin will confirm your access after payment.",
+                a: "Choose a plan on the tool you need and pay securely via Paystack. Access is granted the moment payment is confirmed — no admin approval needed.",
               },
               {
-                q: "Why do some tools say 'Contact admin'?",
+                q: "Why do some tools say 'Pricing confirmed on WhatsApp'?",
                 a: "Those tools have custom or volume-based pricing. Message us and we'll quote you within a few hours.",
               },
               {
-                q: "Can I get a shared or private account?",
-                a: "For tools like Canva Pro we offer both — shared for lower cost, private for full control. See the tool card for prices.",
+                q: "Can I switch between monthly and annual later?",
+                a: "Yes. Start on whichever suits you now; when it renews you can pick the other billing period.",
               },
               {
-                q: "Do prices change?",
-                a: "Our admin keeps pricing up to date. Prices on this page are always the current published rates.",
+                q: "Do annual plans really save money?",
+                a: "Only when the annual price is lower than twelve monthly payments. We only show a 'Save' badge when the maths genuinely works in your favour.",
               },
             ].map((f) => (
               <div key={f.q} className="rounded-xl border bg-card p-5">
@@ -202,5 +181,111 @@ function PricingPage() {
   );
 }
 
-// Re-export for convenience if other pages want the helper via this route module.
-export { getTool };
+function ToolPricingCard({
+  group,
+  tool,
+}: {
+  group: GroupedTool;
+  tool: ReturnType<typeof getTool> & object;
+}) {
+  const monthly = group.monthly[0] ?? null;
+  const annual = group.annual[0] ?? null;
+  const saving =
+    monthly && annual
+      ? computeAnnualSaving(Number(monthly.amount), Number(annual.amount))
+      : null;
+
+  return (
+    <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40">
+      <div className="flex items-center gap-3">
+        <ToolBrandMark tool={tool} size="sm" />
+        <div className="min-w-0">
+          <div className="truncate font-semibold">{tool.name}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {tool.category}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex-1 space-y-2">
+        {monthly ? <PlanRow opt={monthly} label="Monthly" /> : null}
+        {annual ? (
+          <PlanRow
+            opt={annual}
+            label="Annual"
+            badge={
+              saving
+                ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")}`
+                : null
+            }
+          />
+        ) : null}
+        {group.other.map((o) => (
+          <PlanRow key={o.id} opt={o} label={o.label ?? "Standard"} />
+        ))}
+
+        {!group.hasAny ? (
+          <p className="rounded-lg border bg-background/40 px-3 py-2 text-xs text-primary">
+            Pricing confirmed on WhatsApp
+          </p>
+        ) : null}
+
+        {saving ? (
+          <p className="flex items-center gap-1 pt-1 text-[11px] text-success">
+            <TrendingDown className="h-3 w-3" />
+            Save {formatCurrency(saving.amount, annual!.currency || "₦")} annually
+            {saving.percent > 0 ? ` (${saving.percent}%)` : ""}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-5 flex gap-2">
+        <Link
+          to="/tools/$slug"
+          params={{ slug: tool.slug }}
+          className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted"
+        >
+          Learn more
+        </Link>
+        <Link
+          to="/tools/$slug"
+          params={{ slug: tool.slug }}
+          className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+        >
+          View Plans
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function PlanRow({
+  opt,
+  label,
+  badge,
+}: {
+  opt: ToolPricingOption;
+  label: string;
+  badge?: string | null;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2">
+      <span className="text-xs text-muted-foreground">
+        {label}
+        {opt.label && opt.label !== label ? (
+          <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            · {opt.label}
+          </span>
+        ) : null}
+      </span>
+      <span className="flex items-baseline gap-2">
+        {badge ? (
+          <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+            {badge}
+          </span>
+        ) : null}
+        <span className="text-sm font-semibold">{formatPlanPrice(opt)}</span>
+      </span>
+    </div>
+  );
+}
