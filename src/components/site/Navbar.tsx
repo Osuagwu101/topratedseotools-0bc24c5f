@@ -134,10 +134,10 @@ export function Navbar() {
                 Sign in
               </Link>
               <Link
-                to="/register"
+                to="/tools"
                 className="rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90"
               >
-                Get started
+                Browse Tools
               </Link>
             </>
           )}
