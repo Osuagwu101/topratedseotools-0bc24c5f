@@ -74,7 +74,7 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
     let query = supabase
       .from("blog_posts")
       .select(
-        "id,title,subtitle,slug,excerpt,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at,category:blog_categories(id,name,slug)",
+        "id,title,subtitle,slug,excerpt,featured_image,featured_image_alt,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at,category:blog_categories(id,name,slug)",
       )
       .eq("status", "published")
       .lte("published_at", new Date().toISOString())
@@ -190,7 +190,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
       const { data: rel } = await supabase
         .from("blog_posts")
         .select(
-          "id,title,subtitle,slug,excerpt,featured_image,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at",
+          "id,title,subtitle,slug,excerpt,featured_image,featured_image_alt,category_id,author_id,status,published_at,scheduled_for,is_featured,reading_time_minutes,view_count,created_at,updated_at",
         )
         .eq("status", "published")
         .lte("published_at", new Date().toISOString())
