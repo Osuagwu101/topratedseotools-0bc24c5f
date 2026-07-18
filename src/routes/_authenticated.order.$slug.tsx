@@ -12,11 +12,19 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import {
+  billingDescription,
+  computeAnnualSaving,
+  formatCurrency,
+  formatPlanPrice,
+  getBillingKind,
+  renewalText,
+} from "@/lib/currency";
 import { createOrder } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
 
@@ -26,6 +34,9 @@ const pricingQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    plan: typeof search.plan === "string" ? search.plan : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Subscribe — Top Rated SEO Tools" },
@@ -38,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
 
 function OrderPage() {
   const { slug } = Route.useParams();
+  const { plan: preselected } = Route.useSearch();
   const tool = getTool(slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const submitOrder = useServerFn(createOrder);
@@ -47,7 +59,11 @@ function OrderPage() {
     (o) => o.tool_slug === slug && !o.contact_admin,
   );
 
-  const [selected, setSelected] = useState<string | null>(options[0]?.id ?? null);
+  const initialId =
+    (preselected && options.find((o) => o.id === preselected)?.id) ??
+    options[0]?.id ??
+    null;
+  const [selected, setSelected] = useState<string | null>(initialId);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -120,9 +136,11 @@ function OrderPage() {
                 No plans are available for this tool yet. Please check back soon.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-3 space-y-2" role="radiogroup" aria-label="Billing period">
                 {options.map((o) => {
-                  const totalDays = (o.duration_days ?? 0) + (o.grace_days ?? 0);
+                  const kind = getBillingKind(o);
+                  const billingLabel =
+                    kind === "monthly" ? "Monthly" : kind === "annual" ? "Annual" : o.label ?? "Standard";
                   return (
                     <li key={o.id}>
                       <label
@@ -140,19 +158,23 @@ function OrderPage() {
                             checked={selected === o.id}
                             onChange={() => setSelected(o.id)}
                             className="h-4 w-4"
+                            aria-label={`${billingLabel} — ${formatPlanPrice(o)}`}
                           />
                           <span className="flex flex-col">
-                            <span>{o.label ?? "Standard"}</span>
-                            {o.duration_days ? (
+                            <span className="font-medium">{billingLabel}</span>
+                            {o.label && o.label !== billingLabel ? (
+                              <span className="text-[11px] text-muted-foreground">{o.label}</span>
+                            ) : null}
+                            {billingDescription(kind) ? (
                               <span className="text-[11px] text-muted-foreground">
-                                {o.duration_days} days access
-                                {o.grace_days ? ` + ${o.grace_days}-day grace` : ""}
-                                {o.warning_days ? ` · ${o.warning_days}-day expiry warning` : ""}
+                                {billingDescription(kind)}
                               </span>
                             ) : null}
                           </span>
                         </span>
-                        <span className="font-semibold">{formatPrice(o)}</span>
+                        <span className="text-right">
+                          <span className="block font-semibold">{formatPlanPrice(o)}</span>
+                        </span>
                       </label>
                     </li>
                   );
@@ -160,6 +182,8 @@ function OrderPage() {
               </ul>
             )}
           </div>
+
+          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} /> : null}
 
           <div className="rounded-2xl border bg-card p-6 shadow-card">
             <label className="text-sm font-semibold" htmlFor="notes">
@@ -205,5 +229,70 @@ function OrderPage() {
         </form>
       </section>
     </SiteLayout>
+  );
+}
+
+function CheckoutSummary({
+  chosen,
+  allOptions,
+}: {
+  chosen: import("@/lib/tool-pricing.functions").ToolPricingOption;
+  allOptions: import("@/lib/tool-pricing.functions").ToolPricingOption[];
+}) {
+  const kind = getBillingKind(chosen);
+  const billing = billingDescription(kind);
+  const renewal = renewalText(kind);
+
+  // If the customer chose Annual and a Monthly plan exists for the same tool,
+  // compute the saving off backend prices.
+  let saving: ReturnType<typeof computeAnnualSaving> = null;
+  if (kind === "annual") {
+    const monthly = allOptions.find(
+      (o) => getBillingKind(o) === "monthly" && !o.contact_admin && o.amount != null,
+    );
+    if (monthly) {
+      saving = computeAnnualSaving(Number(monthly.amount), Number(chosen.amount));
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
+      <div className="text-sm font-semibold">Order summary</div>
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Plan</dt>
+          <dd className="font-medium">
+            {kind === "monthly"
+              ? "Monthly Subscription"
+              : kind === "annual"
+                ? "Annual Subscription"
+                : chosen.label ?? "Standard"}
+          </dd>
+        </div>
+        {billing ? (
+          <div className="flex items-center justify-between">
+            <dt className="text-muted-foreground">Billing</dt>
+            <dd>{billing}</dd>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between border-t pt-2">
+          <dt className="text-muted-foreground">Amount due today</dt>
+          <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
+        </div>
+        {saving ? (
+          <div className="flex items-start gap-1 text-[11px] text-success">
+            <TrendingDown className="mt-0.5 h-3 w-3" />
+            <span>
+              You save {formatCurrency(saving.amount, chosen.currency || "₦")} compared with
+              twelve monthly payments
+              {saving.percent > 0 ? ` (${saving.percent}%)` : ""}.
+            </span>
+          </div>
+        ) : null}
+        {renewal ? (
+          <p className="text-[11px] text-muted-foreground">{renewal}</p>
+        ) : null}
+      </dl>
+    </div>
   );
 }

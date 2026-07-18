@@ -1,11 +1,19 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, Check, Tag } from "lucide-react";
+import { ArrowLeft, Check, Tag, TrendingDown } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
 import { getTool, TOOLS } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolPricing, type ToolPricingOption } from "@/lib/tool-pricing.functions";
+import {
+  billingDescription,
+  computeAnnualSaving,
+  formatCurrency,
+  formatPlanPrice,
+  getBillingKind,
+  renewalText,
+} from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -132,38 +140,24 @@ function ToolPage() {
             isAuthenticated={session?.isAuthenticated ?? false}
           />
 
-          <div className="rounded-2xl border bg-card p-6 shadow-card">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Tag className="h-4 w-4 text-primary" /> Pricing
-            </h2>
-            {priceOptions.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Contact admin for pricing.
-              </p>
-            ) : (
-              <ul className="mt-4 space-y-2">
-                {priceOptions.map((opt) => (
-                  <li
-                    key={opt.id}
-                    className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2"
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {opt.label ?? (opt.contact_admin ? "Custom pricing" : "Standard")}
-                    </span>
-                    <span
-                      className={
-                        opt.contact_admin
-                          ? "text-sm font-medium text-primary"
-                          : "text-sm font-semibold"
-                      }
-                    >
-                      {formatPrice(opt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <SubscriptionCard slug={tool.slug} options={priceOptions} />
+        </div>
+
+        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+          <h2 className="text-lg font-semibold">What you can do</h2>
+          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            {[
+              "Fast, high-quality output on the latest models",
+              "Templates and presets to get you started",
+              "Export, share and integrate with your workflow",
+              "Priority speed on paid plans",
+            ].map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
@@ -204,5 +198,151 @@ function ToolPage() {
         )}
       </section>
     </SiteLayout>
+  );
+}
+
+function SubscriptionCard({
+  slug,
+  options,
+}: {
+  slug: string;
+  options: ToolPricingOption[];
+}) {
+  const purchasable = options.filter((o) => !o.contact_admin && o.amount != null);
+  const monthly = purchasable.find((o) => getBillingKind(o) === "monthly") ?? null;
+  const annual = purchasable.find((o) => getBillingKind(o) === "annual") ?? null;
+  const others = purchasable.filter(
+    (o) => getBillingKind(o) === "other" && o !== monthly && o !== annual,
+  );
+  const contactOnly = options.length > 0 && purchasable.length === 0;
+  const saving =
+    monthly && annual
+      ? computeAnnualSaving(Number(monthly.amount), Number(annual.amount))
+      : null;
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Tag className="h-4 w-4 text-primary" /> Choose Your Subscription
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Subscribe monthly or annually to this individual tool.
+      </p>
+
+      {options.length === 0 || contactOnly ? (
+        <p className="mt-4 rounded-lg border bg-background/40 px-3 py-3 text-sm text-primary">
+          Pricing confirmed on WhatsApp
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {monthly ? (
+            <PlanTile slug={slug} opt={monthly} label="Monthly" />
+          ) : null}
+          {annual ? (
+            <PlanTile
+              slug={slug}
+              opt={annual}
+              label="Annual"
+              badge={
+                saving
+                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")}`
+                  : null
+              }
+              savingText={
+                saving
+                  ? `Save ${formatCurrency(saving.amount, annual.currency || "₦")} compared with monthly billing${
+                      saving.percent > 0 ? ` (${saving.percent}%)` : ""
+                    }`
+                  : null
+              }
+              monthlyEquivalent={
+                saving
+                  ? `Equivalent to approximately ${formatCurrency(
+                      saving.monthlyEquivalent,
+                      annual.currency || "₦",
+                    )} per month`
+                  : null
+              }
+            />
+          ) : null}
+          {others.map((o) => (
+            <PlanTile
+              key={o.id}
+              slug={slug}
+              opt={o}
+              label={o.label ?? "Standard"}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanTile({
+  slug,
+  opt,
+  label,
+  badge,
+  savingText,
+  monthlyEquivalent,
+}: {
+  slug: string;
+  opt: ToolPricingOption;
+  label: string;
+  badge?: string | null;
+  savingText?: string | null;
+  monthlyEquivalent?: string | null;
+}) {
+  const kind = getBillingKind(opt);
+  const billing = billingDescription(kind);
+  const renewal = renewalText(kind);
+  return (
+    <div className="rounded-xl border bg-background/40 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{label}</span>
+            {badge ? (
+              <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {opt.label && opt.label !== label ? (
+            <div className="text-[11px] text-muted-foreground">{opt.label}</div>
+          ) : null}
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold" aria-label={formatPlanPrice(opt)}>
+            {formatPlanPrice(opt)}
+          </div>
+          {billing ? (
+            <div className="text-[11px] text-muted-foreground">{billing}</div>
+          ) : null}
+        </div>
+      </div>
+
+      {monthlyEquivalent ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{monthlyEquivalent}</p>
+      ) : null}
+      {savingText ? (
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-success">
+          <TrendingDown className="h-3 w-3" /> {savingText}
+        </p>
+      ) : null}
+      {renewal ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{renewal}</p>
+      ) : null}
+
+      <Link
+        to="/order/$slug"
+        params={{ slug }}
+        search={{ plan: opt.id }}
+        className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+      >
+        Choose {label}
+      </Link>
+    </div>
   );
 }
