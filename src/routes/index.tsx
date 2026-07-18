@@ -5,7 +5,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
-import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/site-config";
+import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
