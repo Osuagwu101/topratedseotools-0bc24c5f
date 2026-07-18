@@ -143,7 +143,7 @@ function ToolPage() {
             isAuthenticated={session?.isAuthenticated ?? false}
           />
 
-          <SubscriptionCard slug={tool.slug} options={priceOptions} />
+          <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
         </div>
 
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
