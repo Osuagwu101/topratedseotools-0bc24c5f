@@ -37,6 +37,8 @@ export interface ToolSetting {
   auth_provider: string | null;
   launch_mode: LaunchMode;
   display_manual_credentials: boolean;
+  shared_access_enabled: boolean;
+  private_access_enabled: boolean;
 }
 
 
