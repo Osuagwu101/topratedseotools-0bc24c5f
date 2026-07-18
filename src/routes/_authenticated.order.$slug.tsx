@@ -136,9 +136,11 @@ function OrderPage() {
                 No plans are available for this tool yet. Please check back soon.
               </p>
             ) : (
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-3 space-y-2" role="radiogroup" aria-label="Billing period">
                 {options.map((o) => {
-                  const totalDays = (o.duration_days ?? 0) + (o.grace_days ?? 0);
+                  const kind = getBillingKind(o);
+                  const billingLabel =
+                    kind === "monthly" ? "Monthly" : kind === "annual" ? "Annual" : o.label ?? "Standard";
                   return (
                     <li key={o.id}>
                       <label
@@ -156,19 +158,23 @@ function OrderPage() {
                             checked={selected === o.id}
                             onChange={() => setSelected(o.id)}
                             className="h-4 w-4"
+                            aria-label={`${billingLabel} — ${formatPlanPrice(o)}`}
                           />
                           <span className="flex flex-col">
-                            <span>{o.label ?? "Standard"}</span>
-                            {o.duration_days ? (
+                            <span className="font-medium">{billingLabel}</span>
+                            {o.label && o.label !== billingLabel ? (
+                              <span className="text-[11px] text-muted-foreground">{o.label}</span>
+                            ) : null}
+                            {billingDescription(kind) ? (
                               <span className="text-[11px] text-muted-foreground">
-                                {o.duration_days} days access
-                                {o.grace_days ? ` + ${o.grace_days}-day grace` : ""}
-                                {o.warning_days ? ` · ${o.warning_days}-day expiry warning` : ""}
+                                {billingDescription(kind)}
                               </span>
                             ) : null}
                           </span>
                         </span>
-                        <span className="font-semibold">{formatPrice(o)}</span>
+                        <span className="text-right">
+                          <span className="block font-semibold">{formatPlanPrice(o)}</span>
+                        </span>
                       </label>
                     </li>
                   );
@@ -176,6 +182,8 @@ function OrderPage() {
               </ul>
             )}
           </div>
+
+          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} /> : null}
 
           <div className="rounded-2xl border bg-card p-6 shadow-card">
             <label className="text-sm font-semibold" htmlFor="notes">
