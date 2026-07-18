@@ -144,34 +144,24 @@ function ToolPage() {
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <Tag className="h-4 w-4 text-primary" /> Pricing
             </h2>
-            {priceOptions.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Contact admin for pricing.
-              </p>
-            ) : (
-              <ul className="mt-4 space-y-2">
-                {priceOptions.map((opt) => (
-                  <li
-                    key={opt.id}
-                    className="flex items-baseline justify-between gap-3 rounded-lg border bg-background/40 px-3 py-2"
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {opt.label ?? (opt.contact_admin ? "Custom pricing" : "Standard")}
-                    </span>
-                    <span
-                      className={
-                        opt.contact_admin
-                          ? "text-sm font-medium text-primary"
-                          : "text-sm font-semibold"
-                      }
-                    >
-                      {formatPrice(opt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <SubscriptionCard slug={tool.slug} options={priceOptions} />
+        </div>
+
+        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+          <h2 className="text-lg font-semibold">What you can do</h2>
+          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            {[
+              "Fast, high-quality output on the latest models",
+              "Templates and presets to get you started",
+              "Export, share and integrate with your workflow",
+              "Priority speed on paid plans",
+            ].map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
