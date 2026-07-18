@@ -225,6 +225,9 @@ export type Database = {
           excerpt: string | null
           faq: Json
           featured_image: string | null
+          featured_image_alt: string | null
+          featured_image_credit: string | null
+          featured_image_source: string | null
           id: string
           image_alts: Json
           is_featured: boolean
@@ -257,6 +260,9 @@ export type Database = {
           excerpt?: string | null
           faq?: Json
           featured_image?: string | null
+          featured_image_alt?: string | null
+          featured_image_credit?: string | null
+          featured_image_source?: string | null
           id?: string
           image_alts?: Json
           is_featured?: boolean
@@ -289,6 +295,9 @@ export type Database = {
           excerpt?: string | null
           faq?: Json
           featured_image?: string | null
+          featured_image_alt?: string | null
+          featured_image_credit?: string | null
+          featured_image_source?: string | null
           id?: string
           image_alts?: Json
           is_featured?: boolean
@@ -367,8 +376,10 @@ export type Database = {
       }
       blog_settings: {
         Row: {
+          ai_image_model: string | null
           comments_enabled: boolean
           created_at: string
+          default_image_provider: string | null
           hero_subtitle: string
           hero_title: string
           id: string
@@ -378,8 +389,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_image_model?: string | null
           comments_enabled?: boolean
           created_at?: string
+          default_image_provider?: string | null
           hero_subtitle?: string
           hero_title?: string
           id?: string
@@ -389,8 +402,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_image_model?: string | null
           comments_enabled?: boolean
           created_at?: string
+          default_image_provider?: string | null
           hero_subtitle?: string
           hero_title?: string
           id?: string
