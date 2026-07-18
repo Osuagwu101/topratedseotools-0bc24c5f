@@ -85,11 +85,11 @@ function PricingPage() {
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Individual tool pricing
+            Individual Plans for Every Tool
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Each tool has its own monthly and annual subscription. Choose only the tools you need —
-            no forced bundle, no all-in-one plan.
+            Compare monthly and annual subscriptions and choose only the premium tools you need.
+            Each tool has its own plan and renews separately — no forced software bundle.
           </p>
           <div className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card">
             <Search className="h-4 w-4 text-muted-foreground" />
