@@ -159,11 +159,18 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
         }
 
         // --- 4. Claim as processing (atomic transition from pending/failed) ---
+        const { data: current } = await supabaseAdmin
+          .from("paystack_webhook_events")
+          .select("processing_attempts")
+          .eq("id", eventId)
+          .maybeSingle();
+        const nextAttempts = ((current?.processing_attempts as number) ?? 0) + 1;
+
         const { data: claimed, error: claimError } = await supabaseAdmin
           .from("paystack_webhook_events")
           .update({
             processing_status: "processing",
-            processing_attempts: (insertRes.data ? 0 : 0) + 1,
+            processing_attempts: nextAttempts,
           })
           .eq("id", eventId)
           .in("processing_status", ["pending", "failed"])
@@ -171,7 +178,6 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
           .maybeSingle();
 
         if (claimError || !claimed) {
-          // Another worker grabbed it between our select and update.
           console.info("[paystack-webhook] claim lost", {
             key: idempotencyKey.slice(0, 12),
           });
