@@ -452,18 +452,24 @@ function EditorBody({
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-card p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Featured image</h3>
-              <input
-                value={form.featured_image}
-                onChange={(e) => setForm((f) => ({ ...f, featured_image: e.target.value }))}
-                placeholder="https://…"
-                className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-              {form.featured_image && (
-                <img src={form.featured_image} alt="" className="mt-2 aspect-[16/9] w-full rounded-md object-cover" />
-              )}
-            </div>
+            <FeaturedImagePicker
+              value={{
+                url: form.featured_image ?? "",
+                alt: (form as any).featured_image_alt ?? "",
+                source: ((form as any).featured_image_source ?? "manual") as any,
+                credit: (form as any).featured_image_credit ?? "",
+              }}
+              articleTitle={form.title || form.seo_title}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  featured_image: v.url,
+                  featured_image_alt: v.alt,
+                  featured_image_source: v.source,
+                  featured_image_credit: v.credit ?? "",
+                }))
+              }
+            />
 
             <div className="rounded-2xl border bg-card p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SEO</h3>
