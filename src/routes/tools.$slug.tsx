@@ -256,9 +256,9 @@ function SubscriptionCard({
                   : null
               }
               monthlyEquivalent={
-                saving
+                saving && annual
                   ? `Equivalent to approximately ${formatCurrency(
-                      saving.monthlyEquivalent,
+                      Math.round(Number(annual.amount) / 12),
                       annual.currency || "₦",
                     )} per month`
                   : null
