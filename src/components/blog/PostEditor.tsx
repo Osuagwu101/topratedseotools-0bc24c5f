@@ -61,6 +61,9 @@ interface FormState {
   excerpt: string;
   content: string;
   featured_image: string;
+  featured_image_alt: string;
+  featured_image_source: "ai" | "stock" | "upload" | "manual";
+  featured_image_credit: string;
   category_id: string;
   status: "draft" | "scheduled" | "published" | "archived";
   scheduled_for: string;
