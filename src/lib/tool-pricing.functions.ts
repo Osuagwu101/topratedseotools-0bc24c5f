@@ -122,12 +122,15 @@ export const deleteToolPricing = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Public price label used across tool cards, pricing page rows, order page,
+ * and admin preview. Contact-admin rows render a neutral hand-off string
+ * (never ₦0 / "Free" / "Contact admin as if it were a price").
+ *
+ * The heavy lifting lives in `src/lib/currency.ts`; this stays for
+ * back-compat with existing imports.
+ */
+import { formatPlanPriceCompact } from "@/lib/currency";
 export function formatPrice(opt: ToolPricingOption): string {
-  if (opt.contact_admin) return "Contact admin";
-  if (opt.amount == null) return "Contact admin";
-  const amt = Number(opt.amount).toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  });
-  const unit = opt.unit ? ` / ${opt.unit}` : "";
-  return `${opt.currency}${amt}${unit}`;
+  return formatPlanPriceCompact(opt);
 }
