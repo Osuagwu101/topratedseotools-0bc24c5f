@@ -12,17 +12,20 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
-  computeAnnualSaving,
+  computeQuarterlySaving,
+  computeYearlySaving,
+  computeYearlyVsQuarterlySaving,
   formatCurrency,
   formatPlanPrice,
   getBillingKind,
+  normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
 import { createOrder } from "@/lib/access.functions";
