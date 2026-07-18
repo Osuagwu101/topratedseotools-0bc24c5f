@@ -14,7 +14,7 @@ export const Route = createFileRoute("/privacy")({
         This Privacy Policy describes how Top Rated SEO Tools ("we", "us", or "our") collects, uses, and shares information when you use our service.
       </p>
       <h2>Information we collect</h2>
-      <p>Account information you provide (name, email), authentication data, billing information processed via Stripe, and usage data such as which tools you access.</p>
+      <p>Account information you provide (name, email), authentication data, billing information processed via Paystack, and usage data such as which tools you access.</p>
       <h2>How we use information</h2>
       <ul>
         <li>To operate, maintain, and improve the service</li>
@@ -25,9 +25,9 @@ export const Route = createFileRoute("/privacy")({
       <h2>Data retention</h2>
       <p>We retain account data for as long as your account is active. You may delete your account at any time.</p>
       <h2>Your rights</h2>
-      <p>You have the right to access, correct, or delete your personal data. Contact us at privacy@nexusai.app.</p>
+      <p>You have the right to access, correct, or delete your personal data. Contact us at support@topratedseotools.com.</p>
       <h2>Contact</h2>
-      <p>For questions about this policy, email privacy@nexusai.app.</p>
+      <p>For questions about this policy, email support@topratedseotools.com.</p>
     </LegalPage>
   ),
 });
