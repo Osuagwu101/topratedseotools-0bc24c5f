@@ -271,6 +271,8 @@ const upsertSettingInput = z.object({
   auth_provider: z.string().trim().max(80).nullable().optional(),
   launch_mode: z.enum(["new_tab", "same_tab", "popup"]).optional(),
   display_manual_credentials: z.boolean().optional(),
+  shared_access_enabled: z.boolean().optional(),
+  private_access_enabled: z.boolean().optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
