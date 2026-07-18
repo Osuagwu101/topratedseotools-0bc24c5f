@@ -12,11 +12,19 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import {
+  billingDescription,
+  computeAnnualSaving,
+  formatCurrency,
+  formatPlanPrice,
+  getBillingKind,
+  renewalText,
+} from "@/lib/currency";
 import { createOrder } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
 
@@ -26,6 +34,9 @@ const pricingQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    plan: typeof search.plan === "string" ? search.plan : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Subscribe — Top Rated SEO Tools" },
@@ -38,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
 
 function OrderPage() {
   const { slug } = Route.useParams();
+  const { plan: preselected } = Route.useSearch();
   const tool = getTool(slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const submitOrder = useServerFn(createOrder);
@@ -47,7 +59,11 @@ function OrderPage() {
     (o) => o.tool_slug === slug && !o.contact_admin,
   );
 
-  const [selected, setSelected] = useState<string | null>(options[0]?.id ?? null);
+  const initialId =
+    (preselected && options.find((o) => o.id === preselected)?.id) ??
+    options[0]?.id ??
+    null;
+  const [selected, setSelected] = useState<string | null>(initialId);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
