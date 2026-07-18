@@ -13,7 +13,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
-import { APP_NAME, APP_DESCRIPTION, APP_TAGLINE } from "@/lib/site-config";
+import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 import { getActiveTheme } from "@/lib/site-settings.functions";
 
 function NotFoundComponent() {
