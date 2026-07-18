@@ -140,10 +140,6 @@ function ToolPage() {
             isAuthenticated={session?.isAuthenticated ?? false}
           />
 
-          <div className="rounded-2xl border bg-card p-6 shadow-card">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Tag className="h-4 w-4 text-primary" /> Pricing
-            </h2>
           <SubscriptionCard slug={tool.slug} options={priceOptions} />
         </div>
 
