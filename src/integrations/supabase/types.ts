@@ -807,41 +807,7 @@ export type Database = {
       }
     }
     Views: {
-      blog_comments_public: {
-        Row: {
-          author_name: string | null
-          content: string | null
-          created_at: string | null
-          id: string | null
-          post_id: string | null
-          status: string | null
-        }
-        Insert: {
-          author_name?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          post_id?: string | null
-          status?: string | null
-        }
-        Update: {
-          author_name?: string | null
-          content?: string | null
-          created_at?: string | null
-          id?: string | null
-          post_id?: string | null
-          status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "blog_comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "blog_posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       has_role: {
