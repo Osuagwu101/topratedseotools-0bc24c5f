@@ -163,9 +163,9 @@ function Home() {
       <section className="border-y bg-muted/30">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
           {[
-            { icon: Zap, title: "Instant delivery", body: "Access is unlocked in minutes once payment is confirmed. No waiting for shared logins." },
-            { icon: Shield, title: "Verified accounts", body: "Every account is genuine, fully-featured, and monitored — never a cracked or throwaway version." },
-            { icon: Users, title: "Human support", body: "Message us any time. We handle activation, renewals and account questions personally." },
+            { icon: Zap, title: "Pay per tool", body: "No forced software bundle. Choose only the tools you need and subscribe to each one separately." },
+            { icon: Shield, title: "One dashboard", body: "Manage every subscription, renewal, and access detail from one place — even when you subscribe to several tools." },
+            { icon: Users, title: "WhatsApp & email support", body: "Talk to a real person for activation, renewals, and account questions during business hours." },
           ].map((v) => (
             <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
