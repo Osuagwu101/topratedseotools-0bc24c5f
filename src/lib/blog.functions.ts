@@ -61,6 +61,8 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
         authorId: z.string().uuid().optional(),
         search: z.string().optional(),
         featured: z.boolean().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
         limit: z.number().int().min(1).max(60).optional(),
         offset: z.number().int().min(0).optional(),
       })
@@ -79,9 +81,13 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
 
     if (data.featured) query = query.eq("is_featured", true);
     if (data.authorId) query = query.eq("author_id", data.authorId);
-    if (data.search) {
-      const like = `%${data.search.replace(/[%_]/g, "")}%`;
-      query = query.or(`title.ilike.${like},excerpt.ilike.${like}`);
+    if (data.dateFrom) query = query.gte("published_at", data.dateFrom);
+    if (data.dateTo) query = query.lte("published_at", data.dateTo);
+    if (data.search && data.search.trim()) {
+      const like = `%${data.search.trim().replace(/[%_]/g, "")}%`;
+      query = query.or(
+        `title.ilike.${like},subtitle.ilike.${like},excerpt.ilike.${like},content.ilike.${like}`,
+      );
     }
     if (data.categorySlug) {
       const { data: cat } = await supabase
