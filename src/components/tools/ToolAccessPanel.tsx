@@ -130,12 +130,16 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
         <StateBlock
           icon={Rocket}
           title="You have access"
-          body="Your subscription is active for this tool. Launch it below."
+          body={
+            effective.one_click_auth_enabled
+              ? "Click below to continue to the official website and sign in using your own account."
+              : "Your subscription is active for this tool. Launch it below."
+          }
         >
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => launchTool(tool)}
+              onClick={() => launchTool(tool, effective)}
               className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
             >
               <Rocket className="h-4 w-4" /> Launch {tool.name}
