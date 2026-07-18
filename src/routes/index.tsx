@@ -80,9 +80,14 @@ function Home() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
 
   const showcase = TOOLS.slice(0, 8).map((t) => {
-    const primary = pricing.options.find((o) => o.tool_slug === t.slug);
+    const enabled = pricing.options.filter((o) => o.tool_slug === t.slug && o.enabled);
+    const paid = enabled.filter((o) => !o.contact_admin && o.amount != null);
+    const primary =
+      paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
+      enabled[0];
     return { tool: t, price: primary };
   });
+
 
   return (
     <SiteLayout>
