@@ -306,6 +306,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
       "auth_provider",
       "launch_mode",
       "display_manual_credentials",
+      "shared_access_enabled",
+      "private_access_enabled",
     ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
