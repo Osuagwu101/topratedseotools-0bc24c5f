@@ -50,24 +50,28 @@ const TESTIMONIALS = [
 
 const FAQ = [
   {
-    q: "How does the subscription work?",
-    a: "Pick any tool from the catalog, submit your subscription request, and the admin activates access as soon as your payment is confirmed. Each tool is priced individually.",
+    q: "How do subscriptions work?",
+    a: "Each tool is subscribed to separately. You can subscribe to one or several tools and manage all of them from the same dashboard.",
+  },
+  {
+    q: "Is there a free trial?",
+    a: "TopRatedSEOTools does not currently offer a general free trial. Creating an account is free, but access to premium tools requires an active subscription.",
   },
   {
     q: "Which payment methods are supported?",
-    a: "For now, payments are confirmed manually — bank transfer, Paystack link, or Flutterwave transfer. Automatic checkout is coming soon and will plug straight into the same flow.",
+    a: "Payments are processed securely through Paystack.",
   },
   {
-    q: "Can I subscribe to just one tool?",
-    a: "Yes. Every tool is priced separately. Buy Stealthwriter alone, or bundle it with Semrush and Grammarly — there is no forced package.",
+    q: "How do renewals work?",
+    a: "Eligible monthly and annual subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period.",
   },
   {
-    q: "How long does activation take?",
-    a: "Usually within minutes during business hours. You'll see the status change from Pending to Active on your subscriptions page.",
+    q: "Are all tools always available?",
+    a: "Some tools may require availability and pricing confirmation before purchase. We'll let you know as soon as your access is activated.",
   },
   {
-    q: "Do you offer refunds?",
-    a: "If a tool cannot be delivered, we refund in full. Once access is granted and used, refunds are handled case-by-case.",
+    q: "How do I get support?",
+    a: "Support is available through WhatsApp and email. Reach us any time via the Contact page.",
   },
 ];
 
