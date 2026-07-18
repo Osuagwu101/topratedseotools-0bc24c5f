@@ -273,38 +273,71 @@ function CheckoutSummary({
   chosen,
   allOptions,
 }: {
-  chosen: import("@/lib/tool-pricing.functions").ToolPricingOption;
-  allOptions: import("@/lib/tool-pricing.functions").ToolPricingOption[];
+  chosen: ToolPricingOption;
+  allOptions: ToolPricingOption[];
 }) {
-  const kind = getBillingKind(chosen);
+  const kind = normaliseBillingKind(getBillingKind(chosen));
   const billing = billingDescription(kind);
   const renewal = renewalText(kind);
+  const access: AccessType = (chosen.access_type as AccessType) ?? "shared";
 
-  // If the customer chose Annual and a Monthly plan exists for the same tool,
-  // compute the saving off backend prices.
-  let saving: ReturnType<typeof computeAnnualSaving> = null;
-  if (kind === "annual") {
-    const monthly = allOptions.find(
-      (o) => getBillingKind(o) === "monthly" && !o.contact_admin && o.amount != null,
-    );
+  // Compare against peers of the same access type.
+  const peers = allOptions.filter(
+    (o) => ((o.access_type as AccessType) ?? "shared") === access && o.amount != null,
+  );
+  const monthly = peers.find((o) => normaliseBillingKind(getBillingKind(o)) === "monthly");
+  const quarterly = peers.find((o) => normaliseBillingKind(getBillingKind(o)) === "quarterly");
+
+  let savingLine: string | null = null;
+  if (kind === "quarterly" && monthly) {
+    const s = computeQuarterlySaving(monthly.amount, chosen.amount);
+    if (s) {
+      savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with three monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+    }
+  } else if (kind === "yearly") {
     if (monthly) {
-      saving = computeAnnualSaving(Number(monthly.amount), Number(chosen.amount));
+      const s = computeYearlySaving(monthly.amount, chosen.amount);
+      if (s) {
+        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with twelve monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+      }
+    } else if (quarterly) {
+      const s = computeYearlyVsQuarterlySaving(quarterly.amount, chosen.amount);
+      if (s) {
+        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with four quarterly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+      }
     }
   }
+
+  const planLabel =
+    kind === "monthly"
+      ? "Monthly Subscription"
+      : kind === "quarterly"
+        ? "Quarterly Subscription"
+        : kind === "yearly"
+          ? "Yearly Subscription"
+          : chosen.label ?? "Standard";
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
       <div className="text-sm font-semibold">Order summary</div>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex items-center justify-between">
-          <dt className="text-muted-foreground">Plan</dt>
-          <dd className="font-medium">
-            {kind === "monthly"
-              ? "Monthly Subscription"
-              : kind === "annual"
-                ? "Annual Subscription"
-                : chosen.label ?? "Standard"}
+          <dt className="text-muted-foreground">Access</dt>
+          <dd className="flex items-center gap-1 font-medium">
+            {access === "private" ? (
+              <>
+                <Lock className="h-3.5 w-3.5" /> Private
+              </>
+            ) : (
+              <>
+                <Users className="h-3.5 w-3.5" /> Shared
+              </>
+            )}
           </dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Plan</dt>
+          <dd className="font-medium">{planLabel}</dd>
         </div>
         {billing ? (
           <div className="flex items-center justify-between">
@@ -316,20 +349,17 @@ function CheckoutSummary({
           <dt className="text-muted-foreground">Amount due today</dt>
           <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
         </div>
-        {saving ? (
+        {savingLine ? (
           <div className="flex items-start gap-1 text-[11px] text-success">
             <TrendingDown className="mt-0.5 h-3 w-3" />
-            <span>
-              You save {formatCurrency(saving.amount, chosen.currency || "₦")} compared with
-              twelve monthly payments
-              {saving.percent > 0 ? ` (${saving.percent}%)` : ""}.
-            </span>
+            <span>{savingLine}</span>
           </div>
         ) : null}
         {renewal ? (
           <p className="text-[11px] text-muted-foreground">{renewal}</p>
         ) : null}
       </dl>
+
     </div>
   );
 }
