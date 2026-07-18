@@ -8,7 +8,7 @@ import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { adminListPosts, adminPostAction } from "@/lib/blog.functions";
-import { formatDate } from "@/lib/blog-utils";
+import { formatDate } from "@/lib/blog-text";
 
 const postsQuery = queryOptions({
   queryKey: ["admin", "blog", "posts"],

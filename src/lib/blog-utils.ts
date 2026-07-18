@@ -3,22 +3,9 @@
  * and table-of-contents extraction. Used by both public pages and admin editor.
  */
 import { marked } from "marked";
-import DOMPurify from "isomorphic-dompurify";
+import { slugify, estimateReadingTime, formatDate } from "@/lib/blog-text";
 
-export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 90);
-}
-
-export function estimateReadingTime(markdown: string): number {
-  const words = markdown.trim().split(/\s+/).length;
-  return Math.max(1, Math.round(words / 220));
-}
+export { slugify, estimateReadingTime, formatDate };
 
 export interface TocEntry {
   id: string;
@@ -41,10 +28,21 @@ marked.use({
 });
 
 export function renderMarkdown(markdown: string): string {
-  const html = marked.parse(markdown || "", { async: false }) as string;
-  return DOMPurify.sanitize(html, {
-    ADD_ATTR: ["target", "rel", "id"],
-  });
+  const escapedMarkdown = escapeRawHtml(markdown || "");
+  const html = marked.parse(escapedMarkdown, { async: false }) as string;
+  return sanitizeRenderedHtml(html);
+}
+
+function escapeRawHtml(markdown: string): string {
+  return markdown.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function sanitizeRenderedHtml(html: string): string {
+  return html
+    .replace(/<\/?(?:script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta)[^>]*>/gi, "")
+    .replace(/\s+on[a-z]+=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(href|src)=("|')\s*javascript:[^"']*\2/gi, "")
+    .replace(/\s+(href|src)=\s*javascript:[^\s>]*/gi, "");
 }
 
 export function extractToc(markdown: string): TocEntry[] {
@@ -72,11 +70,3 @@ export function extractToc(markdown: string): TocEntry[] {
   return entries;
 }
 
-export function formatDate(date: string | null | undefined): string {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}

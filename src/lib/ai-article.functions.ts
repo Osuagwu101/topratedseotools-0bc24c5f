@@ -11,7 +11,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { estimateReadingTime, slugify } from "@/lib/blog-utils";
+import { estimateReadingTime, slugify } from "@/lib/blog-text";
 import { getProvider, providerCatalog } from "@/lib/ai-providers/registry";
 import {
   detectToolSlugs,
