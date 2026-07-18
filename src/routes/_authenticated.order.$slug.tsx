@@ -50,7 +50,10 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
+  loader: ({ context }) => {
+    context.queryClient.ensureQueryData(pricingQuery);
+    return context.queryClient.ensureQueryData(settingsQuery);
+  },
   component: OrderPage,
 });
 
@@ -59,12 +62,21 @@ function OrderPage() {
   const { plan: preselected } = Route.useSearch();
   const tool = getTool(slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const { data: settings } = useSuspenseQuery(settingsQuery);
+  const setting = settings.settings.find((s) => s.tool_slug === slug);
+  const sharedAllowed = setting?.shared_access_enabled ?? true;
+  const privateAllowed = setting?.private_access_enabled ?? true;
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
-  const options = pricing.options.filter(
-    (o) => o.tool_slug === slug && o.enabled && !o.contact_admin,
-  );
+  const options = pricing.options.filter((o) => {
+    if (o.tool_slug !== slug) return false;
+    if (!o.enabled || o.contact_admin) return false;
+    const access = (o.access_type as AccessType) ?? "shared";
+    if (access === "shared" && !sharedAllowed) return false;
+    if (access === "private" && !privateAllowed) return false;
+    return true;
+  });
 
   const initialId =
     (preselected && options.find((o) => o.id === preselected)?.id) ??
