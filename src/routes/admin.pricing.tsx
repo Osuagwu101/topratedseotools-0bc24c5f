@@ -45,6 +45,7 @@ export const Route = createFileRoute("/admin/pricing")({
     const [{ isAdmin }] = await Promise.all([
       getIsAdmin(),
       context.queryClient.ensureQueryData(pricingQuery),
+      context.queryClient.ensureQueryData(settingsQuery),
     ]);
     return { isAdmin };
   },
