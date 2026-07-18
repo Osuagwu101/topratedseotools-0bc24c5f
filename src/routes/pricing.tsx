@@ -11,6 +11,7 @@ import {
   type ToolPricingOption,
   type AccessType,
 } from "@/lib/tool-pricing.functions";
+import { listToolSettings, type ToolSetting } from "@/lib/access.functions";
 import {
   billingPeriodLabel,
   computeQuarterlySaving,
@@ -25,6 +26,10 @@ import {
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
+});
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
 });
 
 export const Route = createFileRoute("/pricing")({
