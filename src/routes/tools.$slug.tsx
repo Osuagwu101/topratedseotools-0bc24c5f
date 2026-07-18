@@ -1,17 +1,20 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, Check, Tag, TrendingDown } from "lucide-react";
+import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
 import { getTool, TOOLS } from "@/lib/tools-data";
-import { listToolPricing, type ToolPricingOption } from "@/lib/tool-pricing.functions";
+import { listToolPricing, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
-  computeAnnualSaving,
+  computeQuarterlySaving,
+  computeYearlySaving,
+  computeYearlyVsQuarterlySaving,
   formatCurrency,
   formatPlanPrice,
   getBillingKind,
+  normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
