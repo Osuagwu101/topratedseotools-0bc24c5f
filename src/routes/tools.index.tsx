@@ -31,12 +31,24 @@ function ToolsDirectory() {
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const priceByTool = useMemo(() => {
-    const m = new Map<string, ReturnType<typeof formatPrice>>();
+    const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
-      if (!m.has(opt.tool_slug)) m.set(opt.tool_slug, formatPrice(opt));
+      if (!opt.enabled) continue;
+      const arr = bySlug.get(opt.tool_slug) ?? [];
+      arr.push(opt);
+      bySlug.set(opt.tool_slug, arr);
+    }
+    const m = new Map<string, ReturnType<typeof formatPrice>>();
+    for (const [slug, opts] of bySlug) {
+      const paid = opts.filter((o) => !o.contact_admin && o.amount != null);
+      const chosen =
+        paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
+        opts[0];
+      if (chosen) m.set(slug, formatPrice(chosen));
     }
     return m;
   }, [pricing.options]);
+
 
 
   const filtered = useMemo(() => {
