@@ -467,6 +467,158 @@ export type Database = {
         }
         Relationships: []
       }
+      paystack_customers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          paystack_customer_code: string
+          paystack_environment: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          paystack_customer_code: string
+          paystack_environment: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          paystack_customer_code?: string
+          paystack_environment?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      paystack_plan_mappings: {
+        Row: {
+          access_type: string
+          active_for_new_purchases: boolean
+          amount_snapshot: number | null
+          billing_period: string
+          created_at: string
+          currency: string
+          id: string
+          last_verified_at: string | null
+          paystack_environment: string
+          paystack_interval: string | null
+          paystack_plan_code: string | null
+          pricing_option_id: string | null
+          superseded_at: string | null
+          sync_error: string | null
+          sync_status: string
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          access_type: string
+          active_for_new_purchases?: boolean
+          amount_snapshot?: number | null
+          billing_period: string
+          created_at?: string
+          currency?: string
+          id?: string
+          last_verified_at?: string | null
+          paystack_environment: string
+          paystack_interval?: string | null
+          paystack_plan_code?: string | null
+          pricing_option_id?: string | null
+          superseded_at?: string | null
+          sync_error?: string | null
+          sync_status?: string
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          access_type?: string
+          active_for_new_purchases?: boolean
+          amount_snapshot?: number | null
+          billing_period?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          last_verified_at?: string | null
+          paystack_environment?: string
+          paystack_interval?: string | null
+          paystack_plan_code?: string | null
+          pricing_option_id?: string | null
+          superseded_at?: string | null
+          sync_error?: string | null
+          sync_status?: string
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paystack_plan_mappings_pricing_option_id_fkey"
+            columns: ["pricing_option_id"]
+            isOneToOne: false
+            referencedRelation: "tool_pricing"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paystack_webhook_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          idempotency_key: string
+          invoice_code: string | null
+          last_error: string | null
+          payload_hash: string | null
+          paystack_environment: string
+          processed_at: string | null
+          processing_attempts: number
+          processing_status: string
+          received_at: string
+          subscription_code: string | null
+          transaction_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          idempotency_key: string
+          invoice_code?: string | null
+          last_error?: string | null
+          payload_hash?: string | null
+          paystack_environment?: string
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_status?: string
+          received_at?: string
+          subscription_code?: string | null
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          idempotency_key?: string
+          invoice_code?: string | null
+          last_error?: string | null
+          payload_hash?: string | null
+          paystack_environment?: string
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_status?: string
+          received_at?: string
+          subscription_code?: string | null
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -553,66 +705,132 @@ export type Database = {
       }
       tool_orders: {
         Row: {
+          access_type: string | null
           admin_notes: string | null
           approved_at: string | null
+          billing_period: string | null
           created_at: string
           currency: string
+          current_period_end: string | null
+          current_period_start: string | null
           duration_days: number | null
           expires_at: string | null
+          fulfilment_status: string
           grace_days: number
           id: string
+          next_payment_at: string | null
+          non_renewal_requested_at: string | null
           notes: string | null
           paid_at: string | null
+          paid_through_at: string | null
+          payment_status: string
+          payment_type: string
+          paystack_customer_code: string | null
+          paystack_environment: string
+          paystack_plan_code: string | null
           paystack_reference: string | null
+          paystack_subscription_code: string | null
           price_amount: number | null
           price_label: string | null
           pricing_option_id: string | null
+          product_type: string
+          quantity: number | null
+          renewal_status: string
+          service_status: string | null
           status: Database["public"]["Enums"]["tool_order_status"]
+          subscription_disabled_at: string | null
+          subscription_status: string
           tool_slug: string
+          unit_amount: number | null
           updated_at: string
           user_id: string
+          verified_total: number | null
           warning_days: number
         }
         Insert: {
+          access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          billing_period?: string | null
           created_at?: string
           currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           duration_days?: number | null
           expires_at?: string | null
+          fulfilment_status?: string
           grace_days?: number
           id?: string
+          next_payment_at?: string | null
+          non_renewal_requested_at?: string | null
           notes?: string | null
           paid_at?: string | null
+          paid_through_at?: string | null
+          payment_status?: string
+          payment_type?: string
+          paystack_customer_code?: string | null
+          paystack_environment?: string
+          paystack_plan_code?: string | null
           paystack_reference?: string | null
+          paystack_subscription_code?: string | null
           price_amount?: number | null
           price_label?: string | null
           pricing_option_id?: string | null
+          product_type?: string
+          quantity?: number | null
+          renewal_status?: string
+          service_status?: string | null
           status?: Database["public"]["Enums"]["tool_order_status"]
+          subscription_disabled_at?: string | null
+          subscription_status?: string
           tool_slug: string
+          unit_amount?: number | null
           updated_at?: string
           user_id: string
+          verified_total?: number | null
           warning_days?: number
         }
         Update: {
+          access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          billing_period?: string | null
           created_at?: string
           currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           duration_days?: number | null
           expires_at?: string | null
+          fulfilment_status?: string
           grace_days?: number
           id?: string
+          next_payment_at?: string | null
+          non_renewal_requested_at?: string | null
           notes?: string | null
           paid_at?: string | null
+          paid_through_at?: string | null
+          payment_status?: string
+          payment_type?: string
+          paystack_customer_code?: string | null
+          paystack_environment?: string
+          paystack_plan_code?: string | null
           paystack_reference?: string | null
+          paystack_subscription_code?: string | null
           price_amount?: number | null
           price_label?: string | null
           pricing_option_id?: string | null
+          product_type?: string
+          quantity?: number | null
+          renewal_status?: string
+          service_status?: string | null
           status?: Database["public"]["Enums"]["tool_order_status"]
+          subscription_disabled_at?: string | null
+          subscription_status?: string
           tool_slug?: string
+          unit_amount?: number | null
           updated_at?: string
           user_id?: string
+          verified_total?: number | null
           warning_days?: number
         }
         Relationships: [
@@ -625,11 +843,77 @@ export type Database = {
           },
         ]
       }
+      tool_payments: {
+        Row: {
+          amount: number | null
+          classification: string
+          created_at: string
+          currency: string
+          id: string
+          order_id: string | null
+          paid_at: string | null
+          payment_status: string
+          payment_type: string
+          paystack_environment: string
+          paystack_invoice_code: string | null
+          paystack_reference: string | null
+          paystack_transaction_id: string | null
+          tool_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          classification?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          order_id?: string | null
+          paid_at?: string | null
+          payment_status?: string
+          payment_type?: string
+          paystack_environment?: string
+          paystack_invoice_code?: string | null
+          paystack_reference?: string | null
+          paystack_transaction_id?: string | null
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          classification?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          order_id?: string | null
+          paid_at?: string | null
+          payment_status?: string
+          payment_type?: string
+          paystack_environment?: string
+          paystack_invoice_code?: string | null
+          paystack_reference?: string | null
+          paystack_transaction_id?: string | null
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_pricing: {
         Row: {
           access_type: string
           amount: number | null
           badge: string | null
+          billing_period: string | null
           contact_admin: boolean
           created_at: string
           currency: string
@@ -650,6 +934,7 @@ export type Database = {
           access_type?: string
           amount?: number | null
           badge?: string | null
+          billing_period?: string | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
@@ -670,6 +955,7 @@ export type Database = {
           access_type?: string
           amount?: number | null
           badge?: string | null
+          billing_period?: string | null
           contact_admin?: boolean
           created_at?: string
           currency?: string
