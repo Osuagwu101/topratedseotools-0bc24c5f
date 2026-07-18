@@ -101,9 +101,11 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
     const supabase = publicClient();
     const { data, error } = await supabase
       .from("tool_settings")
-      .select("tool_slug, enabled, access_level");
+      .select(
+        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials",
+      );
     if (error) throw new Error(error.message);
-    return { settings: (data ?? []) as ToolSetting[] };
+    return { settings: (data ?? []) as unknown as ToolSetting[] };
   },
 );
 
