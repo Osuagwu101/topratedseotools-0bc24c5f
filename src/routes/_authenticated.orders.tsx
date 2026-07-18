@@ -139,6 +139,13 @@ function MyOrdersPage() {
     return map;
   }, [accessData.access]);
 
+  const settingBySlug = useMemo(() => {
+    const map = new Map<string, ToolSetting>();
+    for (const s of settingsData.settings) map.set(s.tool_slug, s);
+    return map;
+  }, [settingsData.settings]);
+
+
   const orders = ordersData.orders.map((o) => {
     const s: ToolOrderStatus =
       o.status === "approved" && o.expires_at && new Date(o.expires_at).getTime() < now
