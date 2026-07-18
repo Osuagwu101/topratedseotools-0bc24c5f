@@ -95,9 +95,29 @@ function AdminPricingPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(pricingQuery);
+  const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const upsert = useServerFn(upsertToolPricing);
   const remove = useServerFn(deleteToolPricing);
+  const upsertSetting = useServerFn(adminUpsertToolSetting);
   const [busy, setBusy] = useState<string | null>(null);
+  const settingsBySlug = new Map<string, ToolSetting>(
+    settingsData.settings.map((s) => [s.tool_slug, s]),
+  );
+
+  async function toggleAccess(slug: string, field: "shared_access_enabled" | "private_access_enabled", value: boolean) {
+    const key = `${slug}-${field}`;
+    setBusy(key);
+    try {
+      await upsertSetting({ data: { tool_slug: slug, [field]: value } });
+      toast.success(value ? "Access enabled" : "Access disabled — existing subscribers unaffected");
+      await qc.invalidateQueries({ queryKey: ["tool-settings"] });
+      router.invalidate();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (!isAdmin) {
     return (
