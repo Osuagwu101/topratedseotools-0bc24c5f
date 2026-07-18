@@ -25,17 +25,22 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Rocket,
+  Zap,
 } from "lucide-react";
 import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { getTool } from "@/lib/tools-data";
+import { getTool, type Tool } from "@/lib/tools-data";
 import {
   listMyOrders,
   cancelMyOrder,
   getMyAccess,
+  listToolSettings,
   type ToolOrderStatus,
+  type ToolSetting,
 } from "@/lib/access.functions";
+import { launchTool } from "@/lib/tool-launcher";
 import { verifyPaystackPayment } from "@/lib/paystack.functions";
 
 const ordersQuery = queryOptions({
@@ -45,6 +50,10 @@ const ordersQuery = queryOptions({
 const accessQuery = queryOptions({
   queryKey: ["my-access"],
   queryFn: () => getMyAccess(),
+});
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
 });
 
 const searchSchema = z
