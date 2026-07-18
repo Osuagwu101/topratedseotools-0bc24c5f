@@ -12,7 +12,6 @@ import logoAsset from "@/assets/logo.png.asset.json";
 const NAV_LINKS = [
   { to: "/tools", label: "Tools" },
   { to: "/pricing", label: "Pricing" },
-  { to: "/blog", label: "Blog" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ] as const;
