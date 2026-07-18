@@ -36,6 +36,7 @@ export interface PostSummary {
   slug: string;
   excerpt: string | null;
   featured_image: string | null;
+  featured_image_alt?: string | null;
   category_id: string | null;
   author_id: string | null;
   status: PostStatus;
