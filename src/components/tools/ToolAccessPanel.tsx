@@ -34,6 +34,8 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
   auth_provider: null,
   launch_mode: "new_tab",
   display_manual_credentials: true,
+  shared_access_enabled: true,
+  private_access_enabled: true,
 };
 
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
