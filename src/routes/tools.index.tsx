@@ -17,10 +17,10 @@ export const Route = createFileRoute("/tools/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
   head: () => ({
     meta: [
-      { title: "All AI Tools — Top Rated SEO Tools" },
-      { name: "description", content: "Browse the full catalog of AI tools for writing, images, audio, video, code and data." },
-      { property: "og:title", content: "All AI Tools — Top Rated SEO Tools" },
-      { property: "og:description", content: "Browse the full catalog of AI tools." },
+      { title: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
+      { name: "description", content: "Every tool is subscribed to separately. Explore premium SEO, AI, writing, research, design, and productivity tools and pay only for the ones you need." },
+      { property: "og:title", content: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
+      { property: "og:description", content: "Every tool is subscribed to separately — pay only for the tools you need." },
     ],
   }),
   component: ToolsDirectory,
