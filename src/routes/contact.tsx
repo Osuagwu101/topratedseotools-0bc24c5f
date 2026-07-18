@@ -50,7 +50,8 @@ function ContactPage() {
         <div className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Contact us</h1>
           <p className="mt-3 text-muted-foreground">
-            Questions, feedback, partnership ideas — we read every message.
+            Need help with a tool, payment, subscription, or access issue? Contact the
+            TopRatedSEOTools support team through email or WhatsApp.
           </p>
         </div>
       </section>
@@ -60,7 +61,7 @@ function ContactPage() {
           <div className="rounded-xl border bg-card p-5 shadow-card">
             <Mail className="h-5 w-5 text-primary" />
             <div className="mt-3 font-semibold">Email</div>
-            <div className="text-sm text-muted-foreground">support@nexusai.app</div>
+            <div className="text-sm text-muted-foreground">support@topratedseotools.com</div>
           </div>
           <div className="rounded-xl border bg-card p-5 shadow-card">
             <MessageSquare className="h-5 w-5 text-primary" />
