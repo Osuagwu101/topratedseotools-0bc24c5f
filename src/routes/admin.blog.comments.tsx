@@ -8,7 +8,7 @@ import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { adminListComments, adminModerateComment } from "@/lib/blog.functions";
-import { formatDate } from "@/lib/blog-utils";
+import { formatDate } from "@/lib/blog-text";
 
 const q = queryOptions({ queryKey: ["admin", "blog", "comments"], queryFn: () => adminListComments() });
 

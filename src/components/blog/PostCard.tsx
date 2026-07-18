@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, Clock } from "lucide-react";
-import { formatDate } from "@/lib/blog-utils";
+import { formatDate } from "@/lib/blog-text";
 import type { PostSummary } from "@/lib/blog.functions";
 
 export function PostCard({ post, featured = false }: { post: PostSummary; featured?: boolean }) {
