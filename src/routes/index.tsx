@@ -15,9 +15,9 @@ const pricingQuery = queryOptions({
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: `${APP_NAME} — ${APP_TAGLINE}` },
+      { title: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { name: "description", content: APP_DESCRIPTION },
-      { property: "og:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
+      { property: "og:title", content: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { property: "og:description", content: APP_DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
