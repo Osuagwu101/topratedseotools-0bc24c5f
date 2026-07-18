@@ -272,15 +272,26 @@ function BlogPost() {
         </div>
 
         {post.featured_image && (
-          <img
-            src={post.featured_image}
-            alt={
-              ((post as unknown as { image_alts?: Record<string, string> }).image_alts?.[
-                post.featured_image
-              ]) || post.title
-            }
-            className="mt-6 aspect-[16/9] w-full rounded-2xl object-cover"
-          />
+          <figure className="mt-6">
+            <img
+              src={post.featured_image}
+              alt={
+                (post as unknown as { featured_image_alt?: string }).featured_image_alt ||
+                ((post as unknown as { image_alts?: Record<string, string> }).image_alts?.[
+                  post.featured_image
+                ]) ||
+                post.title
+              }
+              loading="eager"
+              decoding="async"
+              className="aspect-[16/9] w-full rounded-2xl object-cover"
+            />
+            {(post as unknown as { featured_image_credit?: string }).featured_image_credit && (
+              <figcaption className="mt-2 text-xs text-muted-foreground">
+                {(post as unknown as { featured_image_credit?: string }).featured_image_credit}
+              </figcaption>
+            )}
+          </figure>
         )}
 
         <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_16rem]">
