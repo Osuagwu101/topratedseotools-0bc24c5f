@@ -266,7 +266,13 @@ function MyOrdersPage() {
                     </div>
                   )}
 
-                  {access && <CredentialCard access={access} />}
+                  {access && tool && (
+                    <CredentialCard
+                      access={access}
+                      tool={tool}
+                      setting={settingBySlug.get(o.tool_slug)}
+                    />
+                  )}
                 </li>
               );
             })}
