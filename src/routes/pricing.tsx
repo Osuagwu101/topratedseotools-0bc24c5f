@@ -11,6 +11,7 @@ import {
   type ToolPricingOption,
   type AccessType,
 } from "@/lib/tool-pricing.functions";
+import { listToolSettings, type ToolSetting } from "@/lib/access.functions";
 import {
   billingPeriodLabel,
   computeQuarterlySaving,
@@ -26,9 +27,16 @@ const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
 });
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
+});
 
 export const Route = createFileRoute("/pricing")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
+  loader: ({ context }) => {
+    context.queryClient.ensureQueryData(pricingQuery);
+    return context.queryClient.ensureQueryData(settingsQuery);
+  },
   head: () => ({
     meta: [
       { title: "Pricing — Top Rated SEO Tools" },
@@ -83,13 +91,23 @@ function bucketHasAny(b: AccessBucket): boolean {
 
 function PricingPage() {
   const { data } = useSuspenseQuery(pricingQuery);
+  const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const [q, setQ] = useState("");
+
+  const settingBySlug = useMemo(() => {
+    const m = new Map<string, ToolSetting>();
+    for (const s of settingsData.settings) m.set(s.tool_slug, s);
+    return m;
+  }, [settingsData.settings]);
 
   const grouped: GroupedTool[] = useMemo(() => {
     const map = new Map<string, GroupedTool>();
     for (const opt of data.options) {
-      // Only enabled plans on the public site.
       if (!opt.enabled) continue;
+      const s = settingBySlug.get(opt.tool_slug);
+      const access: AccessType = (opt.access_type as AccessType) ?? "shared";
+      if (s && access === "shared" && s.shared_access_enabled === false) continue;
+      if (s && access === "private" && s.private_access_enabled === false) continue;
       const g =
         map.get(opt.tool_slug) ??
         {
@@ -102,7 +120,6 @@ function PricingPage() {
       if (opt.contact_admin || opt.amount == null) {
         g.contact = true;
       } else {
-        const access: AccessType = (opt.access_type as AccessType) ?? "shared";
         placeIntoBucket(access === "private" ? g.private : g.shared, opt);
         g.hasAny = true;
       }
@@ -118,7 +135,7 @@ function PricingPage() {
           hasAny: false,
         },
     );
-  }, [data.options]);
+  }, [data.options, settingBySlug]);
 
   const filtered = useMemo(() => {
     if (!q) return grouped;

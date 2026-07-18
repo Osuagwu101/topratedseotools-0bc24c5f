@@ -16,11 +16,20 @@ import {
   type ToolPricingOption,
   type AccessType,
 } from "@/lib/tool-pricing.functions";
+import {
+  listToolSettings,
+  adminUpsertToolSetting,
+  type ToolSetting,
+} from "@/lib/access.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
+});
+const settingsQuery = queryOptions({
+  queryKey: ["tool-settings"],
+  queryFn: () => listToolSettings(),
 });
 
 export const Route = createFileRoute("/admin/pricing")({
@@ -36,6 +45,7 @@ export const Route = createFileRoute("/admin/pricing")({
     const [{ isAdmin }] = await Promise.all([
       getIsAdmin(),
       context.queryClient.ensureQueryData(pricingQuery),
+      context.queryClient.ensureQueryData(settingsQuery),
     ]);
     return { isAdmin };
   },
@@ -85,9 +95,29 @@ function AdminPricingPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(pricingQuery);
+  const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const upsert = useServerFn(upsertToolPricing);
   const remove = useServerFn(deleteToolPricing);
+  const upsertSetting = useServerFn(adminUpsertToolSetting);
   const [busy, setBusy] = useState<string | null>(null);
+  const settingsBySlug = new Map<string, ToolSetting>(
+    settingsData.settings.map((s) => [s.tool_slug, s]),
+  );
+
+  async function toggleAccess(slug: string, field: "shared_access_enabled" | "private_access_enabled", value: boolean) {
+    const key = `${slug}-${field}`;
+    setBusy(key);
+    try {
+      await upsertSetting({ data: { tool_slug: slug, [field]: value } });
+      toast.success(value ? "Access enabled" : "Access disabled — existing subscribers unaffected");
+      await qc.invalidateQueries({ queryKey: ["tool-settings"] });
+      router.invalidate();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (!isAdmin) {
     return (
@@ -186,6 +216,9 @@ function AdminPricingPage() {
           {TOOLS.map((t) => {
             const opts = byTool.get(t.slug) ?? [];
             const hasEnabled = opts.some((o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true));
+            const setting = settingsBySlug.get(t.slug);
+            const sharedOn = setting?.shared_access_enabled ?? true;
+            const privateOn = setting?.private_access_enabled ?? true;
             return (
               <div key={t.slug} className="rounded-2xl border bg-card p-5 shadow-card">
                 <div className="flex items-center justify-between gap-3">
@@ -212,6 +245,9 @@ function AdminPricingPage() {
                   onAdd={(period) =>
                     save(newDraft(t.slug, "shared", period, opts.length))
                   }
+                  masterEnabled={sharedOn}
+                  masterBusy={busy === `${t.slug}-shared_access_enabled`}
+                  onToggleMaster={(v) => toggleAccess(t.slug, "shared_access_enabled", v)}
                 />
 
                 <AccessGroup
@@ -226,6 +262,9 @@ function AdminPricingPage() {
                   onAdd={(period) =>
                     save(newDraft(t.slug, "private", period, opts.length))
                   }
+                  masterEnabled={privateOn}
+                  masterBusy={busy === `${t.slug}-private_access_enabled`}
+                  onToggleMaster={(v) => toggleAccess(t.slug, "private_access_enabled", v)}
                 />
               </div>
             );
@@ -275,6 +314,9 @@ function AccessGroup({
   onSave,
   onDelete,
   onAdd,
+  masterEnabled,
+  masterBusy,
+  onToggleMaster,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -285,16 +327,51 @@ function AccessGroup({
   onSave: (d: Draft) => void;
   onDelete: (id: string) => void;
   onAdd: (period: "monthly" | "quarterly" | "yearly" | "other") => void;
+  masterEnabled: boolean;
+  masterBusy: boolean;
+  onToggleMaster: (v: boolean) => void;
 }) {
   const periods: Array<"monthly" | "quarterly" | "yearly"> = ["monthly", "quarterly", "yearly"];
   const others = opts.filter((o) => periodOfDraft({ unit: o.unit ?? "" }) === "other");
 
   return (
-    <div className="mt-5 rounded-xl border bg-background/40 p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        {icon}
-        <span>{title}</span>
+    <div className={`mt-5 rounded-xl border p-4 ${masterEnabled ? "bg-background/40" : "bg-muted/30"}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          {icon}
+          <span>{title}</span>
+          {!masterEnabled ? (
+            <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Disabled
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">
+            {masterEnabled ? "Available for new purchases" : "Hidden from new purchases · existing subscribers unaffected"}
+          </span>
+          <button
+            type="button"
+            disabled={masterBusy}
+            onClick={() => onToggleMaster(!masterEnabled)}
+            aria-pressed={masterEnabled}
+            className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition disabled:opacity-50 ${
+              masterEnabled ? "bg-primary/80 border-primary" : "bg-muted border-input"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-background shadow transition ${
+                masterEnabled ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
       </div>
+      {!masterEnabled ? (
+        <p className="mb-3 rounded-md border border-dashed bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
+          {title} is turned off for {tool.slug}. New customers won't see these plans. Turn it back on to resume sales.
+        </p>
+      ) : null}
       <div className="space-y-3">
         {periods.map((p) => {
           const row = opts.find((o) => periodOfDraft({ unit: o.unit ?? "" }) === p);

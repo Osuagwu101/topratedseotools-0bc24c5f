@@ -143,7 +143,7 @@ function ToolPage() {
             isAuthenticated={session?.isAuthenticated ?? false}
           />
 
-          <SubscriptionCard slug={tool.slug} options={priceOptions} />
+          <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
         </div>
 
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
@@ -231,10 +231,14 @@ function bucketHas(b: AccessBucket): boolean {
 function SubscriptionCard({
   slug,
   options,
+  setting,
 }: {
   slug: string;
   options: ToolPricingOption[];
+  setting: { shared_access_enabled: boolean; private_access_enabled: boolean } | undefined;
 }) {
+  const sharedAllowed = setting?.shared_access_enabled ?? true;
+  const privateAllowed = setting?.private_access_enabled ?? true;
   const purchasable = options.filter(
     (o) => o.enabled && !o.contact_admin && o.amount != null,
   );
@@ -243,8 +247,8 @@ function SubscriptionCard({
   );
   const priv = bucketize(purchasable.filter((o) => o.access_type === "private"));
   const contactOnly = options.length > 0 && purchasable.length === 0;
-  const hasShared = bucketHas(shared);
-  const hasPrivate = bucketHas(priv);
+  const hasShared = sharedAllowed && bucketHas(shared);
+  const hasPrivate = privateAllowed && bucketHas(priv);
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">

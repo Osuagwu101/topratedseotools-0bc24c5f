@@ -37,6 +37,8 @@ export interface ToolSetting {
   auth_provider: string | null;
   launch_mode: LaunchMode;
   display_manual_credentials: boolean;
+  shared_access_enabled: boolean;
+  private_access_enabled: boolean;
 }
 
 
@@ -102,7 +104,7 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
     const { data, error } = await supabase
       .from("tool_settings")
       .select(
-        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials",
+        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled",
       );
     if (error) throw new Error(error.message);
     return { settings: (data ?? []) as unknown as ToolSetting[] };
@@ -193,17 +195,34 @@ export const createOrder = createServerFn({ method: "POST" })
     let price_amount: number | null = null;
     let price_label: string | null = null;
     let currency = "₦";
+    let chosenAccess: "shared" | "private" = "shared";
     if (data.pricing_option_id) {
       const { data: opt } = await context.supabase
         .from("tool_pricing")
-        .select("amount, label, currency, contact_admin, tool_slug")
+        .select("amount, label, currency, contact_admin, tool_slug, access_type, enabled")
         .eq("id", data.pricing_option_id)
         .maybeSingle();
       if (opt && opt.tool_slug === data.tool_slug) {
+        if (opt.enabled === false) throw new Error("This plan is no longer available.");
         price_amount = opt.contact_admin ? null : (opt.amount as number | null);
         price_label = opt.label as string | null;
         currency = (opt.currency as string) ?? "₦";
+        chosenAccess = ((opt.access_type as "shared" | "private" | null) ?? "shared");
       }
+    }
+
+    // Enforce tool-level Shared/Private access toggles at checkout time.
+    const { data: ts } = await context.supabase
+      .from("tool_settings")
+      .select("shared_access_enabled, private_access_enabled, enabled")
+      .eq("tool_slug", data.tool_slug)
+      .maybeSingle();
+    if (ts) {
+      if (ts.enabled === false) throw new Error("This tool is currently unavailable.");
+      if (chosenAccess === "shared" && ts.shared_access_enabled === false)
+        throw new Error("Shared Access is not available for this tool right now.");
+      if (chosenAccess === "private" && ts.private_access_enabled === false)
+        throw new Error("Private Access is not available for this tool right now.");
     }
 
     // Reject duplicate pending orders on the same tool.
@@ -269,6 +288,8 @@ const upsertSettingInput = z.object({
   auth_provider: z.string().trim().max(80).nullable().optional(),
   launch_mode: z.enum(["new_tab", "same_tab", "popup"]).optional(),
   display_manual_credentials: z.boolean().optional(),
+  shared_access_enabled: z.boolean().optional(),
+  private_access_enabled: z.boolean().optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -302,6 +323,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
       "auth_provider",
       "launch_mode",
       "display_manual_credentials",
+      "shared_access_enabled",
+      "private_access_enabled",
     ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
