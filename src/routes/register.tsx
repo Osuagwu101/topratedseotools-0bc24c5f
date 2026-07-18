@@ -9,7 +9,11 @@ export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
       { title: "Create your account — Top Rated SEO Tools" },
-      { name: "description", content: "Start your 7-day free trial of Top Rated SEO Tools." },
+      {
+        name: "description",
+        content:
+          "Create a free account to purchase and manage your individual tool subscriptions.",
+      },
     ],
   }),
   component: RegisterPage,
