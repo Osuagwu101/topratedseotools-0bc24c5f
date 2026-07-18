@@ -314,6 +314,9 @@ function AccessGroup({
   onSave,
   onDelete,
   onAdd,
+  masterEnabled,
+  masterBusy,
+  onToggleMaster,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -324,16 +327,51 @@ function AccessGroup({
   onSave: (d: Draft) => void;
   onDelete: (id: string) => void;
   onAdd: (period: "monthly" | "quarterly" | "yearly" | "other") => void;
+  masterEnabled: boolean;
+  masterBusy: boolean;
+  onToggleMaster: (v: boolean) => void;
 }) {
   const periods: Array<"monthly" | "quarterly" | "yearly"> = ["monthly", "quarterly", "yearly"];
   const others = opts.filter((o) => periodOfDraft({ unit: o.unit ?? "" }) === "other");
 
   return (
-    <div className="mt-5 rounded-xl border bg-background/40 p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        {icon}
-        <span>{title}</span>
+    <div className={`mt-5 rounded-xl border p-4 ${masterEnabled ? "bg-background/40" : "bg-muted/30"}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          {icon}
+          <span>{title}</span>
+          {!masterEnabled ? (
+            <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Disabled
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">
+            {masterEnabled ? "Available for new purchases" : "Hidden from new purchases · existing subscribers unaffected"}
+          </span>
+          <button
+            type="button"
+            disabled={masterBusy}
+            onClick={() => onToggleMaster(!masterEnabled)}
+            aria-pressed={masterEnabled}
+            className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition disabled:opacity-50 ${
+              masterEnabled ? "bg-primary/80 border-primary" : "bg-muted border-input"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-background shadow transition ${
+                masterEnabled ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
       </div>
+      {!masterEnabled ? (
+        <p className="mb-3 rounded-md border border-dashed bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
+          {title} is turned off for {tool.slug}. New customers won't see these plans. Turn it back on to resume sales.
+        </p>
+      ) : null}
       <div className="space-y-3">
         {periods.map((p) => {
           const row = opts.find((o) => periodOfDraft({ unit: o.unit ?? "" }) === p);
