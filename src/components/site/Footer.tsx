@@ -72,7 +72,7 @@ export function Footer() {
       <div className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
           <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
-          <span>Built for the AI era.</span>
+          <span>Individual tool subscriptions, one place to manage them.</span>
         </div>
       </div>
     </footer>
