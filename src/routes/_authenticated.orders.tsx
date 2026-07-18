@@ -97,6 +97,7 @@ function MyOrdersPage() {
   const router = useRouter();
   const { data: ordersData } = useSuspenseQuery(ordersQuery);
   const { data: accessData } = useSuspenseQuery(accessQuery);
+  const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const cancel = useServerFn(cancelMyOrder);
   const verify = useServerFn(verifyPaystackPayment);
   const [verifying, setVerifying] = useState(false);
