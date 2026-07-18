@@ -181,9 +181,10 @@ function Home() {
       {/* Pricing preview — per tool */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Pay per tool</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Premium tools without the forced bundle</h2>
           <p className="mt-3 text-muted-foreground">
-            No forced bundles. Each tool has its own transparent price.
+            Subscribe separately to the tools that support your work. Add or remove subscriptions as your
+            needs change, while managing everything from one account.
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
