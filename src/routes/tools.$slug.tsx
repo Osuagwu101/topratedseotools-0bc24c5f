@@ -309,7 +309,7 @@ function AccessSection({
       </div>
       <div className="mt-3 grid gap-3">
         {bucket.monthly ? (
-          <PlanTile slug={slug} opt={bucket.monthly} label="Monthly" accessTitle={title} />
+          <PlanTile slug={slug} opt={bucket.monthly} label="Monthly" />
         ) : null}
         {bucket.quarterly ? (
           <PlanTile
