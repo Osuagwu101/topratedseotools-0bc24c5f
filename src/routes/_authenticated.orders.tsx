@@ -230,7 +230,7 @@ function MyOrdersPage() {
                         <>
                           {tool && (
                             <Link
-                              to="/order/$slug"
+                              to="/order/$slug" search={{}}
                               params={{ slug: tool.slug }}
                               className="rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
                             >
@@ -250,7 +250,7 @@ function MyOrdersPage() {
                         o.effectiveStatus === "expired") &&
                         tool && (
                           <Link
-                            to="/order/$slug"
+                            to="/order/$slug" search={{}}
                             params={{ slug: tool.slug }}
                             className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
                           >
