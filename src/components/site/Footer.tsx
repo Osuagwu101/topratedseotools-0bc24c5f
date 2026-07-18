@@ -46,7 +46,7 @@ export function Footer() {
           </Link>
 
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            One subscription. Every AI tool you need. Built for creators, teams and builders.
+            Individual subscriptions to premium SEO, AI, writing, research, design, and productivity tools — managed in one place.
           </p>
         </div>
         {COLS.map((col) => (
