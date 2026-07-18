@@ -29,6 +29,11 @@ interface Props {
 const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
   enabled: true,
   access_level: "purchased",
+  one_click_auth_enabled: false,
+  official_login_url: null,
+  auth_provider: null,
+  launch_mode: "new_tab",
+  display_manual_credentials: true,
 };
 
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
