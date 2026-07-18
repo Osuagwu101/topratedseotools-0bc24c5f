@@ -5,7 +5,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
-import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/site-config";
+import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -15,9 +15,9 @@ const pricingQuery = queryOptions({
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: `${APP_NAME} — ${APP_TAGLINE}` },
+      { title: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { name: "description", content: APP_DESCRIPTION },
-      { property: "og:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
+      { property: "og:title", content: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { property: "og:description", content: APP_DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -50,24 +50,28 @@ const TESTIMONIALS = [
 
 const FAQ = [
   {
-    q: "How does the subscription work?",
-    a: "Pick any tool from the catalog, submit your subscription request, and the admin activates access as soon as your payment is confirmed. Each tool is priced individually.",
+    q: "How do subscriptions work?",
+    a: "Each tool is subscribed to separately. You can subscribe to one or several tools and manage all of them from the same dashboard.",
+  },
+  {
+    q: "Is there a free trial?",
+    a: "TopRatedSEOTools does not currently offer a general free trial. Creating an account is free, but access to premium tools requires an active subscription.",
   },
   {
     q: "Which payment methods are supported?",
-    a: "For now, payments are confirmed manually — bank transfer, Paystack link, or Flutterwave transfer. Automatic checkout is coming soon and will plug straight into the same flow.",
+    a: "Payments are processed securely through Paystack.",
   },
   {
-    q: "Can I subscribe to just one tool?",
-    a: "Yes. Every tool is priced separately. Buy Stealthwriter alone, or bundle it with Semrush and Grammarly — there is no forced package.",
+    q: "How do renewals work?",
+    a: "Eligible monthly and annual subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period.",
   },
   {
-    q: "How long does activation take?",
-    a: "Usually within minutes during business hours. You'll see the status change from Pending to Active on your subscriptions page.",
+    q: "Are all tools always available?",
+    a: "Some tools may require availability and pricing confirmation before purchase. We'll let you know as soon as your access is activated.",
   },
   {
-    q: "Do you offer refunds?",
-    a: "If a tool cannot be delivered, we refund in full. Once access is granted and used, refunds are handled case-by-case.",
+    q: "How do I get support?",
+    a: "Support is available through WhatsApp and email. Reach us any time via the Contact page.",
   },
 ];
 
@@ -88,31 +92,32 @@ function Home() {
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Premium SEO & AI tools — pay only for what you use
+              Premium software subscriptions, priced individually
             </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              All the <span className="text-gradient-primary">top-rated SEO & AI tools</span>, one place.
+              Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Stealthwriter, Phrasly, ChatGPT, QuillBot, Grammarly, CapCut, Semrush, Turnitin and more —
-              subscribed individually, delivered instantly, priced in ₦.
+              Choose from leading SEO, AI, writing, research, design, and productivity tools.
+              Each product has its own monthly and annual subscription, with clear pricing and fast
+              access after payment.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/tools"
+                to="/pricing"
                 className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90"
               >
-                Browse tools <ArrowRight className="h-4 w-4" />
+                Browse Individual Plans <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/pricing"
+                to="/tools"
                 className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted"
               >
-                See pricing
+                See How It Works
               </Link>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              No forced bundles · Instant activation · Cancel anytime
+              Clear per-tool pricing · Secure Paystack payments · Automatic activation when access is available · WhatsApp and email support
             </p>
           </div>
         </div>
@@ -158,9 +163,9 @@ function Home() {
       <section className="border-y bg-muted/30">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
           {[
-            { icon: Zap, title: "Instant delivery", body: "Access is unlocked in minutes once payment is confirmed. No waiting for shared logins." },
-            { icon: Shield, title: "Verified accounts", body: "Every account is genuine, fully-featured, and monitored — never a cracked or throwaway version." },
-            { icon: Users, title: "Human support", body: "Message us any time. We handle activation, renewals and account questions personally." },
+            { icon: Zap, title: "Pay per tool", body: "No forced software bundle. Choose only the tools you need and subscribe to each one separately." },
+            { icon: Shield, title: "One dashboard", body: "Manage every subscription, renewal, and access detail from one place — even when you subscribe to several tools." },
+            { icon: Users, title: "WhatsApp & email support", body: "Talk to a real person for activation, renewals, and account questions during business hours." },
           ].map((v) => (
             <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card">
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -176,9 +181,10 @@ function Home() {
       {/* Pricing preview — per tool */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Pay per tool</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Premium tools without the forced bundle</h2>
           <p className="mt-3 text-muted-foreground">
-            No forced bundles. Each tool has its own transparent price.
+            Subscribe separately to the tools that support your work. Add or remove subscriptions as your
+            needs change, while managing everything from one account.
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -277,10 +283,11 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-3xl border bg-gradient-primary p-10 text-center text-primary-foreground shadow-glow sm:p-16">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to get every premium SEO tool?
+            Ready to pick your first tool?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
-            Create an account, pick a tool, and start using it in minutes.
+            Create a free account, subscribe only to the tools you need, and manage every subscription
+            from one dashboard.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link

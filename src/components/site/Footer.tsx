@@ -46,7 +46,7 @@ export function Footer() {
           </Link>
 
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            One subscription. Every AI tool you need. Built for creators, teams and builders.
+            Individual subscriptions to premium SEO, AI, writing, research, design, and productivity tools — managed in one place.
           </p>
         </div>
         {COLS.map((col) => (
@@ -72,7 +72,7 @@ export function Footer() {
       <div className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
           <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
-          <span>Built for the AI era.</span>
+          <span>Individual tool subscriptions, one place to manage them.</span>
         </div>
       </div>
     </footer>

@@ -7,9 +7,17 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About — Top Rated SEO Tools" },
-      { name: "description", content: "Our mission: make every AI tool accessible behind one simple subscription." },
+      {
+        name: "description",
+        content:
+          "TopRatedSEOTools offers individual subscriptions to premium SEO, AI, writing, research, design, and productivity tools — managed from one dashboard.",
+      },
       { property: "og:title", content: "About — Top Rated SEO Tools" },
-      { property: "og:description", content: "Our mission: make every AI tool accessible behind one simple subscription." },
+      {
+        property: "og:description",
+        content:
+          "Individual premium tool subscriptions, managed in one place.",
+      },
     ],
   }),
   component: AboutPage,
@@ -21,10 +29,16 @@ function AboutPage() {
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Building the everything-app for AI
+            Individual premium tool subscriptions, managed in one place
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            {APP_NAME} is a home for the best AI tools — bundled behind one simple subscription so you can focus on the work, not on juggling accounts.
+            {APP_NAME} makes premium professional software easier to discover, subscribe to, and manage.
+            Instead of forcing customers into one large bundle, the platform offers separate
+            subscriptions for individual SEO, AI, writing, research, design, and productivity tools.
+          </p>
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            Customers can choose the specific tools they need, subscribe monthly or annually, and
+            manage their access and renewals from one dashboard.
           </p>
         </div>
       </section>
@@ -32,9 +46,21 @@ function AboutPage() {
       <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            { icon: Target, title: "Our mission", body: "Give every creator and team access to state-of-the-art AI without the sprawl of a dozen subscriptions." },
-            { icon: Heart, title: "Our values", body: "Simplicity, honesty, and craft. We build tools we're proud to use every day ourselves." },
-            { icon: Rocket, title: "Where we're going", body: "A single, opinionated workspace that grows with the AI landscape — with new tools rolled out every month." },
+            {
+              icon: Target,
+              title: "Our mission",
+              body: "Give professionals access to the specific premium tools they need — without paying for software they'll never use.",
+            },
+            {
+              icon: Heart,
+              title: "Our approach",
+              body: "Clear per-tool pricing, monthly and annual plans, and one place to manage every subscription and renewal.",
+            },
+            {
+              icon: Rocket,
+              title: "Where we're going",
+              body: "A growing catalogue of SEO, AI, writing, research, design, and productivity tools — added as demand grows.",
+            },
           ].map((v) => (
             <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card">
               <v.icon className="h-6 w-6 text-primary" />
@@ -46,13 +72,15 @@ function AboutPage() {
 
         <div className="mx-auto mt-16 max-w-3xl text-center">
           <Sparkles className="mx-auto h-8 w-8 text-primary" />
-          <h2 className="mt-4 text-2xl font-bold tracking-tight">Ready to try {APP_NAME}?</h2>
-          <p className="mt-2 text-muted-foreground">Start free — upgrade only when you're ready.</p>
+          <h2 className="mt-4 text-2xl font-bold tracking-tight">Choose only the tools you need</h2>
+          <p className="mt-2 text-muted-foreground">
+            Creating an account is free. Premium tool access requires an active subscription to that tool.
+          </p>
           <Link
-            to="/register"
+            to="/tools"
             className="mt-6 inline-flex items-center rounded-md bg-gradient-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
           >
-            Create your account
+            Browse Tools
           </Link>
         </div>
       </section>

@@ -9,7 +9,11 @@ export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
       { title: "Create your account — Top Rated SEO Tools" },
-      { name: "description", content: "Start your 7-day free trial of Top Rated SEO Tools." },
+      {
+        name: "description",
+        content:
+          "Create a free account to purchase and manage your individual tool subscriptions.",
+      },
     ],
   }),
   component: RegisterPage,
@@ -48,8 +52,8 @@ function RegisterPage() {
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle="Start your 7-day free trial. No card required."
+      title="Create your TopRatedSEOTools account"
+      subtitle="Create a free account to purchase and manage your individual tool subscriptions. Premium tool access requires an active subscription."
       footer={
         <>
           Already have an account?{" "}
@@ -92,7 +96,7 @@ function RegisterPage() {
           disabled={loading}
           className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
         >
-          {loading ? "Creating account..." : "Create account"}
+          {loading ? "Creating account..." : "Create Free Account"}
         </button>
       </form>
     </AuthShell>
