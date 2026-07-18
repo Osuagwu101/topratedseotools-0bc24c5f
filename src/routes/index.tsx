@@ -283,10 +283,11 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-3xl border bg-gradient-primary p-10 text-center text-primary-foreground shadow-glow sm:p-16">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to get every premium SEO tool?
+            Ready to pick your first tool?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
-            Create an account, pick a tool, and start using it in minutes.
+            Create a free account, subscribe only to the tools you need, and manage every subscription
+            from one dashboard.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
