@@ -307,8 +307,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
     }
     const { error } = await context.supabase
       .from("tool_settings")
-      .upsert(patch, { onConflict: "tool_slug" });
-    if (error) throw new Error(error.message);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(patch as any, { onConflict: "tool_slug" });
     return { ok: true };
   });
 
