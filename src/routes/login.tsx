@@ -52,7 +52,7 @@ function LoginPage() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle={`Sign in to your ${APP_NAME} account`}
+      subtitle="Sign in to manage your subscriptions, payments, and tool access."
       footer={
         <>
           Don't have an account?{" "}
