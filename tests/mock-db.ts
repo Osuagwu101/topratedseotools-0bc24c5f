@@ -139,6 +139,15 @@ class QueryBuilder {
   async maybeSingle() {
     return this.run();
   }
+  async single() {
+    return this.run();
+  }
+  order(_col: string, _opts?: any) {
+    return this;
+  }
+  limit(_n: number) {
+    return this;
+  }
   then<TResult1 = any, TResult2 = never>(
     onfulfilled?: (v: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>,
     onrejected?: (r: any) => TResult2 | PromiseLike<TResult2>,
