@@ -4,12 +4,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Palette, ShieldAlert, Tag } from "lucide-react";
+import { Check, MessageCircle, Palette, ShieldAlert, Tag } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import {
-  getActiveTheme,
   getIsAdmin,
+  getPublicSiteSettings,
   setActiveTheme,
+  setAdminWhatsappNumber,
   type ActiveTheme,
 } from "@/lib/site-settings.functions";
 
@@ -23,11 +24,11 @@ export const Route = createFileRoute("/admin/appearance")({
     ],
   }),
   loader: async () => {
-    const [{ isAdmin }, { activeTheme }] = await Promise.all([
+    const [{ isAdmin }, site] = await Promise.all([
       getIsAdmin(),
-      getActiveTheme(),
+      getPublicSiteSettings(),
     ]);
-    return { isAdmin, activeTheme };
+    return { isAdmin, activeTheme: site.activeTheme, adminWhatsappNumber: site.adminWhatsappNumber };
   },
   component: AdminAppearancePage,
   errorComponent: () => (
@@ -56,11 +57,14 @@ const THEMES: { id: ActiveTheme; label: string; description: string; swatches: s
 ];
 
 function AdminAppearancePage() {
-  const { isAdmin, activeTheme } = Route.useLoaderData();
+  const { isAdmin, activeTheme, adminWhatsappNumber } = Route.useLoaderData();
   const router = useRouter();
   const queryClient = useQueryClient();
   const setTheme = useServerFn(setActiveTheme);
+  const saveWa = useServerFn(setAdminWhatsappNumber);
   const [saving, setSaving] = useState<ActiveTheme | null>(null);
+  const [wa, setWa] = useState(adminWhatsappNumber ?? "");
+  const [savingWa, setSavingWa] = useState(false);
 
   if (!isAdmin) {
     return (
