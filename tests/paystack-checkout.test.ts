@@ -139,25 +139,22 @@ async function main() {
       assert(snap.access_type === "shared", "shared access");
       assert(snap.price_amount === 5000, "amount snapshotted from DB");
       assert(snap.paystack_environment === "test", "env snapshotted");
-      assert(snap.payment_type === "one_time", "one_time payment type");
+      assert(snap.payment_type === "subscription", "subscription payment type");
     });
   }
 
-  // ---- private access rejected ----
-  await test("Private Access rejected with clear message", async () => {
+  // ---- private access accepted (Phase 2) ----
+  await test("Private Access accepted with private snapshot", async () => {
     const db = new MockDb();
     const slug = seedTool(db, { private: true });
     const planId = seedPlan(db, { tool_slug: slug, access_type: "private" });
-    await expectError(
-      () =>
-        validateAndBuildOrderSnapshot(
-          db,
-          { userId: USER, tool_slug: slug, pricing_option_id: planId },
-          TEST_ENV,
-        ),
-      "private_disabled",
-      "private",
+    const snap = await validateAndBuildOrderSnapshot(
+      db,
+      { userId: USER, tool_slug: slug, pricing_option_id: planId },
+      TEST_ENV,
     );
+    assert(snap.access_type === "private", "private access");
+    assert(snap.payment_type === "subscription", "subscription payment type");
   });
 
   // ---- shared access disabled at tool level ----
