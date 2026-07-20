@@ -14,6 +14,7 @@ import { getIsAdmin } from "@/lib/site-settings.functions";
 import {
   adminListOrders,
   adminUpdateOrder,
+  adminFulfilPrivateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
 import { AdminNav } from "./admin.tools";
@@ -61,9 +62,12 @@ function AdminOrdersPage() {
   const { isAdmin } = Route.useLoaderData();
   const { data } = useSuspenseQuery(ordersQuery);
   const update = useServerFn(adminUpdateOrder);
+  const fulfil = useServerFn(adminFulfilPrivateOrder);
   const router = useRouter();
   const [filter, setFilter] = useState<ToolOrderStatus | "all">("pending");
   const [busy, setBusy] = useState<string | null>(null);
+  const [fulfilOpen, setFulfilOpen] = useState<string | null>(null);
+  const [fulfilText, setFulfilText] = useState("");
 
   if (!isAdmin) {
     return (
@@ -92,6 +96,25 @@ function AdminOrdersPage() {
       await router.invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitFulfil(id: string) {
+    if (!fulfilText.trim()) {
+      toast.error("Enter the private-account handover details first");
+      return;
+    }
+    setBusy(id);
+    try {
+      await fulfil({ data: { id, admin_notes: fulfilText.trim() } });
+      toast.success("Private access marked as fulfilled");
+      setFulfilOpen(null);
+      setFulfilText("");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fulfilment failed");
     } finally {
       setBusy(null);
     }
