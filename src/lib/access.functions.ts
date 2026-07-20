@@ -58,12 +58,25 @@ export interface ToolOrder {
   approved_at: string | null;
   paid_at: string | null;
   paystack_reference: string | null;
+  paystack_plan_code: string | null;
+  paystack_subscription_code: string | null;
+  paystack_customer_code: string | null;
+  paystack_environment: string | null;
   duration_days: number | null;
   grace_days: number | null;
   warning_days: number | null;
+  access_type: string | null;
+  billing_period: string | null;
+  payment_type: string | null;
+  subscription_status: string;
+  renewal_status: string;
+  fulfilment_status: string;
+  payment_status: string;
+  next_payment_at: string | null;
+  current_period_end: string | null;
+  subscription_disabled_at: string | null;
   created_at: string;
   updated_at: string;
-
 }
 
 function publicClient() {
