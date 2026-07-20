@@ -107,7 +107,9 @@ export function renewalText(kind: BillingKind): string {
 
 /** "₦5,000 per month" — a11y-friendly full price. */
 export function formatPlanPrice(
-  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin">,
+  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin"> & {
+    billing_period?: string | null;
+  },
 ): string {
   if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
   const suffix = billingSuffix(opt);
@@ -117,7 +119,9 @@ export function formatPlanPrice(
 
 /** Compact "₦5,000/month" for tight card layouts. */
 export function formatPlanPriceCompact(
-  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin">,
+  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin"> & {
+    billing_period?: string | null;
+  },
 ): string {
   if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
   const kind = normaliseBillingKind(getBillingKind(opt));
@@ -127,6 +131,7 @@ export function formatPlanPriceCompact(
   if (kind === "yearly") return `${money}/year`;
   return opt.unit ? `${money} / ${opt.unit}` : money;
 }
+
 
 export interface Saving {
   amount: number;
