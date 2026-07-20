@@ -477,3 +477,29 @@ export const adminUpdateOrder = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/**
+ * Admin — mark a private-access order as fulfilled after assigning a
+ * private account. `admin_notes` is displayed to the customer as their
+ * private-account handover.
+ */
+const fulfilInput = z.object({
+  id: z.string().uuid(),
+  admin_notes: z.string().min(1).max(2000),
+});
+export const adminFulfilPrivateOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => fulfilInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase
+      .from("tool_orders")
+      .update({
+        fulfilment_status: "fulfilled",
+        admin_notes: data.admin_notes,
+      })
+      .eq("id", data.id)
+      .eq("access_type", "private");
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
