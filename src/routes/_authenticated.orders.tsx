@@ -346,6 +346,33 @@ function MyOrdersPage() {
   );
 }
 
+function SubStatusBadge({ order }: { order: ToolOrder }) {
+  const items: { label: string; cls: string; Icon: typeof Repeat }[] = [];
+  if (order.status === "approved") {
+    if (order.subscription_status === "past_due") {
+      items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
+    }
+    if (order.renewal_status === "will_renew" && order.paystack_subscription_code) {
+      items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
+    } else if (order.renewal_status === "cancelled" || order.subscription_status === "non_renewing") {
+      items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+    }
+  }
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((i) => (
+        <span
+          key={i.label}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${i.cls}`}
+        >
+          <i.Icon className="h-3 w-3" /> {i.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CredentialCard({
   access,
   tool,
