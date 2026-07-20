@@ -108,9 +108,8 @@ function MyOrdersPage() {
     if (!ref || verifying) return;
     setVerifying(true);
     verify({ data: { reference: ref } })
-      .then((res) => {
-        if (res.ok) toast.success("Payment confirmed — your subscription is active.");
-        else toast.error(`Payment status: ${res.status}`);
+      .then(() => {
+        toast.success("Payment confirmed — your subscription is active.");
       })
       .catch((err) =>
         toast.error(err instanceof Error ? err.message : "Verification failed"),

@@ -45,7 +45,7 @@ async function paystack<T>(path: string, init?: RequestInit): Promise<T> {
 
 /**
  * Auth — start a Paystack transaction for a pending order the user owns.
- * Returns the hosted checkout URL. The order must belong to the caller.
+ * Server re-validates access, generates the reference, and controls price.
  */
 export const initializePaystackPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -53,11 +53,23 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     z.object({ order_id: z.string().uuid(), callback_url: z.string().url() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    // Load the order + user email
+    const {
+      detectCheckoutEnvironment,
+      validateAndBuildOrderSnapshot,
+      generatePaystackReference,
+      buildPaystackMetadata,
+      CheckoutError,
+    } = await import("@/lib/paystack-checkout");
+
+    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
+    if (!env) {
+      throw new Error("Payments are temporarily unavailable. Please contact support.");
+    }
+
     const { data: order, error } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, tool_slug, price_amount, currency, status, pricing_option_id, paystack_reference",
+        "id, user_id, tool_slug, pricing_option_id, status, paystack_reference",
       )
       .eq("id", data.order_id)
       .eq("user_id", context.userId)
@@ -65,27 +77,35 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found");
     if (order.status === "approved") throw new Error("This subscription is already active");
-    if (!order.price_amount) throw new Error("This order has no fixed price — contact admin");
 
-    // Pull duration/grace/warning from the chosen pricing option
-    let duration_days = 28;
-    let grace_days = 0;
-    let warning_days = 0;
-    if (order.pricing_option_id) {
-      const { data: opt } = await context.supabase
-        .from("tool_pricing")
-        .select("duration_days, grace_days, warning_days")
-        .eq("id", order.pricing_option_id)
-        .maybeSingle();
-      if (opt) {
-        duration_days = (opt.duration_days as number) ?? 28;
-        grace_days = (opt.grace_days as number) ?? 0;
-        warning_days = (opt.warning_days as number) ?? 0;
-      }
+    // Re-validate the plan on every init attempt so admins toggling access
+    // mid-flow cannot be bypassed by an old pending order.
+    let snapshot;
+    try {
+      snapshot = await validateAndBuildOrderSnapshot(
+        context.supabase,
+        {
+          userId: context.userId,
+          tool_slug: order.tool_slug as string,
+          pricing_option_id: order.pricing_option_id as string | null,
+        },
+        env,
+      );
+    } catch (err) {
+      if (err instanceof CheckoutError) throw new Error(err.message);
+      throw err;
     }
 
     const email = context.claims?.email ?? `${context.userId}@users.local`;
-    const reference = `TRST-${order.id.slice(0, 8)}-${Date.now()}`;
+    const reference = generatePaystackReference(order.id as string);
+    const metadata = buildPaystackMetadata({
+      order_id: order.id as string,
+      user_id: order.user_id as string,
+      tool_slug: snapshot.tool_slug,
+      pricing_option_id: snapshot.pricing_option_id,
+      access_type: snapshot.access_type,
+      billing_period: snapshot.billing_period,
+    });
 
     const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
       "/transaction/initialize",
@@ -93,27 +113,30 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         method: "POST",
         body: JSON.stringify({
           email,
-          amount: toKobo(order.price_amount as unknown as number),
+          amount: toKobo(snapshot.price_amount),
           currency: "NGN",
           reference,
           callback_url: data.callback_url,
-          metadata: {
-            order_id: order.id,
-            user_id: order.user_id,
-            tool_slug: order.tool_slug,
-          },
+          metadata,
         }),
       },
     );
 
-    // Snapshot terms + reference on the order
+    // Snapshot the server-generated reference + environment on the order.
     await context.supabase
       .from("tool_orders")
       .update({
         paystack_reference: init.reference,
-        duration_days,
-        grace_days,
-        warning_days,
+        access_type: snapshot.access_type,
+        billing_period: snapshot.billing_period,
+        price_amount: snapshot.price_amount,
+        currency: snapshot.currency,
+        duration_days: snapshot.duration_days,
+        grace_days: snapshot.grace_days,
+        warning_days: snapshot.warning_days,
+        payment_type: snapshot.payment_type,
+        product_type: snapshot.product_type,
+        paystack_environment: snapshot.paystack_environment,
       })
       .eq("id", order.id);
 
@@ -128,34 +151,65 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ reference: z.string().min(4).max(120) }).parse(input))
   .handler(async ({ data, context }) => {
+    const { detectCheckoutEnvironment, validatePaymentVerification, VERIFY_FAILURE_MESSAGE } =
+      await import("@/lib/paystack-checkout");
+
+    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
+    if (!env) throw new Error(VERIFY_FAILURE_MESSAGE);
+
     const tx = await paystack<{
       status: string;
       reference: string;
       amount: number;
+      currency: string;
       metadata: { order_id?: string; user_id?: string };
     }>(`/transaction/verify/${encodeURIComponent(data.reference)}`);
 
-    if (tx.status !== "success") {
-      return { ok: false, status: tx.status };
-    }
-
     const orderId = tx.metadata?.order_id;
-    if (!orderId) throw new Error("Missing order reference on transaction");
+    if (!orderId) throw new Error(VERIFY_FAILURE_MESSAGE);
 
-    // Load order (must belong to caller)
     const { data: order } = await context.supabase
       .from("tool_orders")
-      .select("id, user_id, status, paid_at, duration_days, grace_days, expires_at")
+      .select(
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days",
+      )
       .eq("id", orderId)
       .eq("user_id", context.userId)
       .maybeSingle();
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
     if (order.status === "approved") {
       return { ok: true, orderId, alreadyActive: true };
     }
 
-    // Approve via admin client to bypass RLS status transition constraints
+    // Check reference-reuse against other orders (bypass RLS to see globally).
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: refClash } = await supabaseAdmin
+      .from("tool_orders")
+      .select("id")
+      .eq("paystack_reference", tx.reference)
+      .neq("id", orderId)
+      .maybeSingle();
+
+    const verdict = validatePaymentVerification({
+      tx,
+      order: {
+        id: order.id as string,
+        user_id: order.user_id as string,
+        price_amount: (order.price_amount as number | null) ?? null,
+        currency: (order.currency as string | null) ?? null,
+        paystack_reference: (order.paystack_reference as string | null) ?? null,
+        paystack_environment: (order.paystack_environment as string | null) ?? null,
+      },
+      callerUserId: context.userId,
+      env,
+      otherOrderHasReference: !!refClash,
+    });
+
+    if (!verdict.ok) {
+      console.warn("[paystack-verify] rejected", { reason: verdict.reason, ref: tx.reference });
+      throw new Error(VERIFY_FAILURE_MESSAGE);
+    }
+
     const paidAt = new Date();
     const dur = (order.duration_days as number) ?? 28;
     const grace = (order.grace_days as number) ?? 0;
@@ -168,8 +222,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         approved_at: paidAt.toISOString(),
         paid_at: paidAt.toISOString(),
         expires_at: expiresAt.toISOString(),
+        paystack_reference: tx.reference,
+        paystack_environment: env,
       })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .neq("status", "approved");
 
     return { ok: true, orderId, alreadyActive: false };
   });
