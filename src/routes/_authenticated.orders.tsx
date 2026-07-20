@@ -27,6 +27,11 @@ import {
   KeyRound,
   Rocket,
   Zap,
+  Users,
+  Lock,
+  Repeat,
+  ShieldOff,
+  Hourglass,
 } from "lucide-react";
 import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -37,11 +42,12 @@ import {
   cancelMyOrder,
   getMyAccess,
   listToolSettings,
+  type ToolOrder,
   type ToolOrderStatus,
   type ToolSetting,
 } from "@/lib/access.functions";
 import { launchTool } from "@/lib/tool-launcher";
-import { verifyPaystackPayment } from "@/lib/paystack.functions";
+import { verifyPaystackPayment, disableOrderRenewal } from "@/lib/paystack.functions";
 
 const ordersQuery = queryOptions({
   queryKey: ["my-orders"],
@@ -100,6 +106,7 @@ function MyOrdersPage() {
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const cancel = useServerFn(cancelMyOrder);
   const verify = useServerFn(verifyPaystackPayment);
+  const disableRenewal = useServerFn(disableOrderRenewal);
   const [verifying, setVerifying] = useState(false);
 
   // If we came back from Paystack with a reference, verify once.
@@ -128,6 +135,19 @@ function MyOrdersPage() {
       router.invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not cancel");
+    }
+  }
+
+  async function onDisableRenewal(o: ToolOrder) {
+    if (!confirm(
+      "Disable auto-renewal? Your access stays active until the current period ends, but no further payments will be taken.",
+    )) return;
+    try {
+      await disableRenewal({ data: { order_id: o.id } });
+      toast.success("Auto-renewal disabled. Access stays active until the period ends.");
+      router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not disable renewal");
     }
   }
 
@@ -211,18 +231,38 @@ function MyOrdersPage() {
                           <Icon className="h-3 w-3" /> {meta.label}
                         </span>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {o.price_label && `${o.price_label} · `}
-                        {o.price_amount !== null
-                          ? `${o.currency}${o.price_amount.toLocaleString()}`
-                          : "Custom pricing"}
-                        {" · "}
-                        Ordered {new Date(o.created_at).toLocaleDateString()}
-                        {o.paid_at &&
-                          ` · Paid ${new Date(o.paid_at).toLocaleDateString()}`}
-                        {o.expires_at &&
-                          ` · Expires ${new Date(o.expires_at).toLocaleDateString()}`}
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {o.access_type ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            {o.access_type === "private" ? (
+                              <><Lock className="h-3 w-3" /> Private</>
+                            ) : (
+                              <><Users className="h-3 w-3" /> Shared</>
+                            )}
+                          </span>
+                        ) : null}
+                        {o.billing_period ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide capitalize">
+                            {o.billing_period}
+                          </span>
+                        ) : null}
+                        <span>
+                          {o.price_amount !== null
+                            ? `${o.currency}${o.price_amount.toLocaleString()}`
+                            : "Custom pricing"}
+                        </span>
+                        <span>· Ordered {new Date(o.created_at).toLocaleDateString()}</span>
+                        {o.paid_at && (
+                          <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>
+                        )}
+                        {o.next_payment_at && o.renewal_status === "will_renew" && (
+                          <span>· Next payment {new Date(o.next_payment_at).toLocaleDateString()}</span>
+                        )}
+                        {o.expires_at && (
+                          <span>· Access ends {new Date(o.expires_at).toLocaleDateString()}</span>
+                        )}
                       </div>
+                      <div className="mt-1"><SubStatusBadge order={o} /></div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {o.effectiveStatus === "pending" && (
@@ -244,6 +284,16 @@ function MyOrdersPage() {
                           </button>
                         </>
                       )}
+                      {o.effectiveStatus === "approved" &&
+                        o.renewal_status === "will_renew" &&
+                        !!o.paystack_subscription_code && (
+                          <button
+                            onClick={() => onDisableRenewal(o)}
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            <ShieldOff className="h-3 w-3" /> Disable renewal
+                          </button>
+                        )}
                       {(o.effectiveStatus === "rejected" ||
                         o.effectiveStatus === "cancelled" ||
                         o.effectiveStatus === "expired") &&
@@ -265,6 +315,20 @@ function MyOrdersPage() {
                     </div>
                   )}
 
+                  {o.effectiveStatus === "approved" &&
+                    o.access_type === "private" &&
+                    o.fulfilment_status !== "fulfilled" && (
+                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 p-3 text-xs">
+                        <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">Payment confirmed. Your Private Access account is being prepared.</div>
+                          <div className="text-muted-foreground">
+                            An admin will assign your dedicated account shortly. You'll see login details here once it's ready.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   {access && tool && (
                     <CredentialCard
                       access={access}
@@ -279,6 +343,33 @@ function MyOrdersPage() {
         )}
       </section>
     </SiteLayout>
+  );
+}
+
+function SubStatusBadge({ order }: { order: ToolOrder }) {
+  const items: { label: string; cls: string; Icon: typeof Repeat }[] = [];
+  if (order.status === "approved") {
+    if (order.subscription_status === "past_due") {
+      items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
+    }
+    if (order.renewal_status === "will_renew" && order.paystack_subscription_code) {
+      items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
+    } else if (order.renewal_status === "cancelled" || order.subscription_status === "non_renewing") {
+      items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+    }
+  }
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((i) => (
+        <span
+          key={i.label}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${i.cls}`}
+        >
+          <i.Icon className="h-3 w-3" /> {i.label}
+        </span>
+      ))}
+    </div>
   );
 }
 
