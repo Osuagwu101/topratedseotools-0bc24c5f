@@ -46,7 +46,7 @@ export interface OrderSnapshot {
   duration_days: number;
   grace_days: number;
   warning_days: number;
-  payment_type: "one_time";
+  payment_type: "subscription";
   product_type: "tool_subscription";
   paystack_environment: PaystackEnv;
 }
@@ -116,16 +116,16 @@ export async function validateAndBuildOrderSnapshot(
   }
 
   const access = ((opt.access_type as string) ?? "shared") as "shared" | "private";
-  if (access === "private") {
-    throw new CheckoutError(
-      "private_disabled",
-      "Private Access is not currently available for purchase.",
-    );
-  }
   if (access === "shared" && setting.shared_access_enabled === false) {
     throw new CheckoutError(
       "shared_disabled",
       "Shared Access is not available for this tool right now.",
+    );
+  }
+  if (access === "private" && setting.private_access_enabled === false) {
+    throw new CheckoutError(
+      "private_disabled",
+      "Private Access is not available for this tool right now.",
     );
   }
 
@@ -159,7 +159,7 @@ export async function validateAndBuildOrderSnapshot(
     duration_days: Number(opt.duration_days ?? 0),
     grace_days: Number(opt.grace_days ?? 0),
     warning_days: Number(opt.warning_days ?? 0),
-    payment_type: "one_time",
+    payment_type: "subscription",
     product_type: "tool_subscription",
     paystack_environment: env,
   };
