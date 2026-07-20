@@ -29,25 +29,31 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env.CRON_SECRET;
-        if (!expected) {
-          // Fail closed if the server is misconfigured. Do not leak details.
-          console.error("[auto-fulfil-private] CRON_SECRET is not configured");
-          return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
-            status: 401,
-            headers: { "content-type": "application/json" },
-          });
-        }
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        // Accept a match against either the env-configured CRON_SECRET or
+        // the service-role-only internal_secrets row that pg_cron uses.
+        // Both are secret; the endpoint has no other way in.
+        const envSecret = process.env.CRON_SECRET ?? "";
+        const { data: row } = await supabaseAdmin
+          .from("internal_secrets")
+          .select("value")
+          .eq("name", "cron_secret")
+          .maybeSingle();
+        const dbSecret = (row?.value as string | undefined) ?? "";
         const provided = request.headers.get("x-cron-secret") ?? "";
-        if (!provided || !safeEqual(provided, expected)) {
-          console.warn("[auto-fulfil-private] rejected request with missing/invalid secret");
+        const ok =
+          !!provided &&
+          ((!!envSecret && safeEqual(provided, envSecret)) ||
+            (!!dbSecret && safeEqual(provided, dbSecret)));
+        if (!ok) {
+          console.warn("[auto-fulfil-private] rejected: missing or invalid cron secret");
           return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
             status: 401,
             headers: { "content-type": "application/json" },
           });
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const now = new Date();
         const { data: due, error } = await supabaseAdmin
           .from("tool_orders")
