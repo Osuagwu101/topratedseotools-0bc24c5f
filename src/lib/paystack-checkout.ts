@@ -99,7 +99,7 @@ export async function validateAndBuildOrderSnapshot(
   const { data: opt, error: oErr } = await db
     .from("tool_pricing")
     .select(
-      "id, tool_slug, amount, label, currency, contact_admin, enabled, access_type, billing_period, duration_days, grace_days, warning_days",
+      "id, tool_slug, amount, label, currency, contact_admin, enabled, access_type, billing_period, unit, duration_days, grace_days, warning_days",
     )
     .eq("id", input.pricing_option_id)
     .maybeSingle();
@@ -129,7 +129,23 @@ export async function validateAndBuildOrderSnapshot(
     );
   }
 
-  const period = String(opt.billing_period ?? "").toLowerCase();
+  // Derive billing period: prefer the explicit column, fall back to unit for
+  // legacy rows saved before billing_period was added to the admin UI.
+  let period = String(opt.billing_period ?? "").toLowerCase();
+  if (!VALID_PERIODS.has(period as BillingPeriod)) {
+    const u = String(opt.unit ?? "").toLowerCase().trim();
+    if (u === "month" || u === "monthly" || u === "mo") period = "monthly";
+    else if (
+      u === "quarter" ||
+      u === "quarterly" ||
+      u === "3month" ||
+      u === "3months" ||
+      u === "3mo"
+    )
+      period = "quarterly";
+    else if (u === "year" || u === "yearly" || u === "annual" || u === "yr")
+      period = "yearly";
+  }
   if (!VALID_PERIODS.has(period as BillingPeriod)) {
     throw new CheckoutError(
       "bad_period",
@@ -147,6 +163,11 @@ export async function validateAndBuildOrderSnapshot(
     throw new CheckoutError("bad_currency", "This plan has an invalid currency.");
   }
 
+  // Derive duration_days from the period when not stored explicitly.
+  const durationFallback =
+    period === "monthly" ? 28 : period === "quarterly" ? 90 : 365;
+  const durationDays = Number(opt.duration_days ?? durationFallback) || durationFallback;
+
   return {
     user_id: input.userId,
     tool_slug: input.tool_slug,
@@ -156,7 +177,7 @@ export async function validateAndBuildOrderSnapshot(
     price_amount: amount,
     price_label: (opt.label as string | null) ?? null,
     currency,
-    duration_days: Number(opt.duration_days ?? 0),
+    duration_days: durationDays,
     grace_days: Number(opt.grace_days ?? 0),
     warning_days: Number(opt.warning_days ?? 0),
     payment_type: "recurring_subscription",
@@ -164,6 +185,7 @@ export async function validateAndBuildOrderSnapshot(
     paystack_environment: env,
   };
 }
+
 
 /** Server-controlled unique reference. Never trust a client-supplied ref. */
 export function generatePaystackReference(orderId: string, now: number = Date.now()): string {

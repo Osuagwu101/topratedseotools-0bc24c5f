@@ -23,7 +23,13 @@ import type { ToolPricingOption } from "@/lib/tool-pricing.functions";
  */
 export type BillingKind = "monthly" | "quarterly" | "yearly" | "annual" | "other";
 
-export function getBillingKind(opt: Pick<ToolPricingOption, "unit">): BillingKind {
+export function getBillingKind(
+  opt: { unit?: string | null; billing_period?: string | null },
+): BillingKind {
+  const bp = (opt.billing_period ?? "").toLowerCase().trim();
+  if (bp === "monthly") return "monthly";
+  if (bp === "quarterly") return "quarterly";
+  if (bp === "yearly" || bp === "annual") return "yearly";
   const u = (opt.unit ?? "").toLowerCase().trim();
   if (u === "month" || u === "monthly" || u === "mo") return "monthly";
   if (
@@ -38,6 +44,7 @@ export function getBillingKind(opt: Pick<ToolPricingOption, "unit">): BillingKin
   if (u === "year" || u === "annual" || u === "yearly" || u === "yr") return "yearly";
   return "other";
 }
+
 
 /** Normalised, comparable kind — folds legacy "annual" into "yearly". */
 export function normaliseBillingKind(k: BillingKind): "monthly" | "quarterly" | "yearly" | "other" {
@@ -67,13 +74,16 @@ export function formatCurrency(amount: number | null | undefined, currency = "�
 }
 
 /** "per month" / "every three months" / "per year" / "per check". */
-export function billingSuffix(opt: Pick<ToolPricingOption, "unit">): string {
+export function billingSuffix(
+  opt: { unit?: string | null; billing_period?: string | null },
+): string {
   const kind = normaliseBillingKind(getBillingKind(opt));
   if (kind === "monthly") return "per month";
   if (kind === "quarterly") return "every three months";
   if (kind === "yearly") return "per year";
   return opt.unit ? `per ${opt.unit}` : "";
 }
+
 
 /** Customer-facing "Billed …" line. */
 export function billingDescription(kind: BillingKind): string {
@@ -97,7 +107,9 @@ export function renewalText(kind: BillingKind): string {
 
 /** "₦5,000 per month" — a11y-friendly full price. */
 export function formatPlanPrice(
-  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin">,
+  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin"> & {
+    billing_period?: string | null;
+  },
 ): string {
   if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
   const suffix = billingSuffix(opt);
@@ -107,7 +119,9 @@ export function formatPlanPrice(
 
 /** Compact "₦5,000/month" for tight card layouts. */
 export function formatPlanPriceCompact(
-  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin">,
+  opt: Pick<ToolPricingOption, "amount" | "unit" | "currency" | "contact_admin"> & {
+    billing_period?: string | null;
+  },
 ): string {
   if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
   const kind = normaliseBillingKind(getBillingKind(opt));
@@ -117,6 +131,7 @@ export function formatPlanPriceCompact(
   if (kind === "yearly") return `${money}/year`;
   return opt.unit ? `${money} / ${opt.unit}` : money;
 }
+
 
 export interface Saving {
   amount: number;
