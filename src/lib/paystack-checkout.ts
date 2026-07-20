@@ -125,18 +125,19 @@ export async function validateAndBuildOrderSnapshot(
   }
 
   const access = ((opt.access_type as string) ?? "shared") as "shared" | "private";
-  if (access === "shared" && setting.shared_access_enabled === false) {
+  if (access === "shared" && effectiveSetting.shared_access_enabled === false) {
     throw new CheckoutError(
       "shared_disabled",
       "Shared Access is not available for this tool right now.",
     );
   }
-  if (access === "private" && setting.private_access_enabled === false) {
+  if (access === "private" && effectiveSetting.private_access_enabled === false) {
     throw new CheckoutError(
       "private_disabled",
       "Private Access is not available for this tool right now.",
     );
   }
+
 
   // Derive billing period: prefer the explicit column, fall back to unit for
   // legacy rows saved before billing_period was added to the admin UI.
