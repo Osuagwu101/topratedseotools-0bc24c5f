@@ -226,21 +226,20 @@ async function main() {
     );
   });
 
-  // ---- hidden / disabled tool ----
-  await test("Hidden tool (no tool_settings row) → rejected", async () => {
+  // ---- missing tool_settings row: defaults to purchasable (matches customer UI) ----
+  await test("Missing tool_settings row → defaults allow purchase", async () => {
     const db = new MockDb();
     const planId = seedPlan(db, { tool_slug: "ghost" });
-    await expectError(
-      () =>
-        validateAndBuildOrderSnapshot(
-          db,
-          { userId: USER, tool_slug: "ghost", pricing_option_id: planId },
-          TEST_ENV,
-        ),
-      "no_tool",
-      "no_tool",
+    const snap = await validateAndBuildOrderSnapshot(
+      db,
+      { userId: USER, tool_slug: "ghost", pricing_option_id: planId },
+      TEST_ENV,
     );
+    assert(snap.tool_slug === "ghost", "tool_slug preserved");
+    assert(snap.access_type === "shared", "access_type defaulted to shared");
+
   });
+
   await test("Temporarily unavailable tool (enabled=false) → rejected", async () => {
     const db = new MockDb();
     const slug = seedTool(db, { enabled: false });

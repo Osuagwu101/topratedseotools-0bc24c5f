@@ -85,16 +85,25 @@ export async function validateAndBuildOrderSnapshot(
     .eq("tool_slug", input.tool_slug)
     .maybeSingle();
   if (sErr) throw new CheckoutError("db_error", "Could not load tool. Please try again.", 500);
-  if (!setting) throw new CheckoutError("no_tool", "This tool is not available.");
-  if (setting.enabled === false) {
+  // Missing tool_settings row = tool is available with defaults (matches
+  // the customer-facing pages, which default to enabled/shared+private allowed
+  // when no admin override exists).
+  const effectiveSetting = setting ?? {
+    enabled: true,
+    access_level: "purchased",
+    shared_access_enabled: true,
+    private_access_enabled: true,
+  };
+  if (effectiveSetting.enabled === false) {
     throw new CheckoutError("tool_disabled", "This tool is temporarily unavailable.");
   }
-  if (setting.access_level && setting.access_level !== "purchased") {
+  if (effectiveSetting.access_level && effectiveSetting.access_level !== "purchased") {
     throw new CheckoutError(
       "not_purchasable",
       "This tool is not available for direct purchase.",
     );
   }
+
 
   const { data: opt, error: oErr } = await db
     .from("tool_pricing")
@@ -116,18 +125,19 @@ export async function validateAndBuildOrderSnapshot(
   }
 
   const access = ((opt.access_type as string) ?? "shared") as "shared" | "private";
-  if (access === "shared" && setting.shared_access_enabled === false) {
+  if (access === "shared" && effectiveSetting.shared_access_enabled === false) {
     throw new CheckoutError(
       "shared_disabled",
       "Shared Access is not available for this tool right now.",
     );
   }
-  if (access === "private" && setting.private_access_enabled === false) {
+  if (access === "private" && effectiveSetting.private_access_enabled === false) {
     throw new CheckoutError(
       "private_disabled",
       "Private Access is not available for this tool right now.",
     );
   }
+
 
   // Derive billing period: prefer the explicit column, fall back to unit for
   // legacy rows saved before billing_period was added to the admin UI.
