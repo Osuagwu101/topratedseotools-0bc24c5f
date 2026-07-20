@@ -315,6 +315,20 @@ function MyOrdersPage() {
                     </div>
                   )}
 
+                  {o.effectiveStatus === "approved" &&
+                    o.access_type === "private" &&
+                    o.fulfilment_status !== "fulfilled" && (
+                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 p-3 text-xs">
+                        <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">Payment confirmed. Your Private Access account is being prepared.</div>
+                          <div className="text-muted-foreground">
+                            An admin will assign your dedicated account shortly. You'll see login details here once it's ready.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   {access && tool && (
                     <CredentialCard
                       access={access}
