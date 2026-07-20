@@ -180,7 +180,7 @@ export async function handlePaystackWebhook(
   if (claimError || !claimed) return new Response("ok", { status: 200 });
 
   try {
-    await dispatchEvent({
+    const result = await dispatchEvent({
       supabaseAdmin,
       env,
       eventType,
@@ -192,6 +192,12 @@ export async function handlePaystackWebhook(
       customerCode,
       data,
     });
+
+    if (result && (result as any).alreadyFailed) {
+      // Handler already recorded the failure (e.g. unknown order for
+      // reconciliation). ACK 200 without overwriting the failed status.
+      return new Response("ok", { status: 200 });
+    }
 
     await supabaseAdmin
       .from("paystack_webhook_events")
@@ -272,16 +278,7 @@ async function handleChargeSuccess(i: DispatchInput) {
       .from("paystack_webhook_events")
       .update({ processing_status: "failed", last_error: "No matching tool order found" })
       .eq("id", i.eventId);
-    // Throw a benign marker so outer catch marks as failed AND we can still
-    // return 200. But we already set failed here; return normally so the
-    // outer wrapper marks it processed. Instead we bypass by ACKing via
-    // early return in caller. Simplest: overwrite outer to processed via
-    // returning a sentinel is complex; we throw a special string and the
-    // outer catch handles it, but that flips to 500. We want 200 with the
-    // failed row. So return normally; outer will overwrite to processed.
-    // Keep the failed message set here so admins can see it if they filter
-    // by last_error.
-    return;
+    return { alreadyFailed: true } as const;
   }
 
   const paidAt = new Date();
