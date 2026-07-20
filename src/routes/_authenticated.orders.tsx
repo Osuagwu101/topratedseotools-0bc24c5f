@@ -231,18 +231,38 @@ function MyOrdersPage() {
                           <Icon className="h-3 w-3" /> {meta.label}
                         </span>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {o.price_label && `${o.price_label} · `}
-                        {o.price_amount !== null
-                          ? `${o.currency}${o.price_amount.toLocaleString()}`
-                          : "Custom pricing"}
-                        {" · "}
-                        Ordered {new Date(o.created_at).toLocaleDateString()}
-                        {o.paid_at &&
-                          ` · Paid ${new Date(o.paid_at).toLocaleDateString()}`}
-                        {o.expires_at &&
-                          ` · Expires ${new Date(o.expires_at).toLocaleDateString()}`}
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {o.access_type ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            {o.access_type === "private" ? (
+                              <><Lock className="h-3 w-3" /> Private</>
+                            ) : (
+                              <><Users className="h-3 w-3" /> Shared</>
+                            )}
+                          </span>
+                        ) : null}
+                        {o.billing_period ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide capitalize">
+                            {o.billing_period}
+                          </span>
+                        ) : null}
+                        <span>
+                          {o.price_amount !== null
+                            ? `${o.currency}${o.price_amount.toLocaleString()}`
+                            : "Custom pricing"}
+                        </span>
+                        <span>· Ordered {new Date(o.created_at).toLocaleDateString()}</span>
+                        {o.paid_at && (
+                          <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>
+                        )}
+                        {o.next_payment_at && o.renewal_status === "will_renew" && (
+                          <span>· Next payment {new Date(o.next_payment_at).toLocaleDateString()}</span>
+                        )}
+                        {o.expires_at && (
+                          <span>· Access ends {new Date(o.expires_at).toLocaleDateString()}</span>
+                        )}
                       </div>
+                      <div className="mt-1"><SubStatusBadge order={o} /></div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {o.effectiveStatus === "pending" && (
@@ -264,6 +284,16 @@ function MyOrdersPage() {
                           </button>
                         </>
                       )}
+                      {o.effectiveStatus === "approved" &&
+                        o.renewal_status === "will_renew" &&
+                        !!o.paystack_subscription_code && (
+                          <button
+                            onClick={() => onDisableRenewal(o)}
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            <ShieldOff className="h-3 w-3" /> Disable renewal
+                          </button>
+                        )}
                       {(o.effectiveStatus === "rejected" ||
                         o.effectiveStatus === "cancelled" ||
                         o.effectiveStatus === "expired") &&
