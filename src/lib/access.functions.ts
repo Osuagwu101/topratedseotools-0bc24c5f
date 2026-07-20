@@ -124,22 +124,36 @@ export const getMyAccess = createServerFn({ method: "GET" })
     const nowIso = new Date().toISOString();
     const { data, error } = await context.supabase
       .from("tool_orders")
-      .select("id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days")
+      .select(
+        "id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days, access_type, fulfilment_status, admin_notes",
+      )
       .eq("user_id", context.userId)
       .eq("status", "approved")
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
     if (error) throw new Error(error.message);
 
-    const slugs = Array.from(new Set((data ?? []).map((r) => r.tool_slug as string)));
+    // Shared credentials only load for orders where the access_type is
+    // "shared" AND fulfilment_status is "fulfilled". Private orders never
+    // see the Shared vault; awaiting-fulfilment private orders show a
+    // pending banner instead.
+    const sharedSlugs = Array.from(
+      new Set(
+        (data ?? [])
+          .filter(
+            (r) =>
+              ((r.access_type as string) ?? "shared") === "shared" &&
+              ((r.fulfilment_status as string) ?? "fulfilled") !== "pending_fulfilment",
+          )
+          .map((r) => r.tool_slug as string),
+      ),
+    );
     const creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
-    if (slugs.length > 0) {
-      // tool_credentials is admin-only via RLS; use the service-role client to
-      // fetch just the rows the caller has already been shown to have paid for.
+    if (sharedSlugs.length > 0) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: rows } = await supabaseAdmin
         .from("tool_credentials")
         .select("tool_slug, login_email, login_password, login_url, login_notes")
-        .in("tool_slug", slugs);
+        .in("tool_slug", sharedSlugs);
       for (const s of rows ?? []) {
         creds[s.tool_slug as string] = {
           email: (s.login_email as string | null) ?? null,
@@ -150,19 +164,40 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }
     }
 
-
     return {
-      access: (data ?? []).map((r) => ({
-        order_id: r.id as string,
-        tool_slug: r.tool_slug as string,
-        expires_at: r.expires_at as string | null,
-        approved_at: r.approved_at as string | null,
-        paid_at: r.paid_at as string | null,
-        duration_days: (r.duration_days as number) ?? null,
-        grace_days: (r.grace_days as number) ?? 0,
-        warning_days: (r.warning_days as number) ?? 0,
-        credentials: creds[r.tool_slug as string] ?? null,
-      })),
+      access: (data ?? []).map((r) => {
+        const access = ((r.access_type as string) ?? "shared") as "shared" | "private";
+        const fulfilment = ((r.fulfilment_status as string) ?? "fulfilled") as
+          | "pending"
+          | "pending_fulfilment"
+          | "fulfilled";
+        // Private orders: expose admin_notes as the private-account details
+        // once fulfilment_status is "fulfilled". Never expose shared creds.
+        let credentials = null;
+        if (access === "shared" && fulfilment !== "pending_fulfilment") {
+          credentials = creds[r.tool_slug as string] ?? null;
+        } else if (access === "private" && fulfilment === "fulfilled" && r.admin_notes) {
+          credentials = {
+            email: null,
+            password: null,
+            login_url: null,
+            login_notes: r.admin_notes as string,
+          };
+        }
+        return {
+          order_id: r.id as string,
+          tool_slug: r.tool_slug as string,
+          access_type: access,
+          fulfilment_status: fulfilment,
+          expires_at: r.expires_at as string | null,
+          approved_at: r.approved_at as string | null,
+          paid_at: r.paid_at as string | null,
+          duration_days: (r.duration_days as number) ?? null,
+          grace_days: (r.grace_days as number) ?? 0,
+          warning_days: (r.warning_days as number) ?? 0,
+          credentials,
+        };
+      }),
     };
   });
 
