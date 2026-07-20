@@ -182,47 +182,33 @@ export const listMyOrders = createServerFn({ method: "GET" })
 
 const createOrderInput = z.object({
   tool_slug: z.string().min(1).max(120),
-  pricing_option_id: z.string().uuid().nullable().optional(),
+  pricing_option_id: z.string().uuid(),
   notes: z.string().max(1000).nullable().optional(),
 });
 
-/** Auth — user requests access to a tool. */
+/** Auth — user requests access to a tool. Server controls the price. */
 export const createOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => createOrderInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Snapshot pricing at time of order so future price edits don't rewrite history.
-    let price_amount: number | null = null;
-    let price_label: string | null = null;
-    let currency = "₦";
-    let chosenAccess: "shared" | "private" = "shared";
-    if (data.pricing_option_id) {
-      const { data: opt } = await context.supabase
-        .from("tool_pricing")
-        .select("amount, label, currency, contact_admin, tool_slug, access_type, enabled")
-        .eq("id", data.pricing_option_id)
-        .maybeSingle();
-      if (opt && opt.tool_slug === data.tool_slug) {
-        if (opt.enabled === false) throw new Error("This plan is no longer available.");
-        price_amount = opt.contact_admin ? null : (opt.amount as number | null);
-        price_label = opt.label as string | null;
-        currency = (opt.currency as string) ?? "₦";
-        chosenAccess = ((opt.access_type as "shared" | "private" | null) ?? "shared");
-      }
-    }
+    const { detectCheckoutEnvironment, validateAndBuildOrderSnapshot, CheckoutError } =
+      await import("@/lib/paystack-checkout");
+    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
 
-    // Enforce tool-level Shared/Private access toggles at checkout time.
-    const { data: ts } = await context.supabase
-      .from("tool_settings")
-      .select("shared_access_enabled, private_access_enabled, enabled")
-      .eq("tool_slug", data.tool_slug)
-      .maybeSingle();
-    if (ts) {
-      if (ts.enabled === false) throw new Error("This tool is currently unavailable.");
-      if (chosenAccess === "shared" && ts.shared_access_enabled === false)
-        throw new Error("Shared Access is not available for this tool right now.");
-      if (chosenAccess === "private" && ts.private_access_enabled === false)
-        throw new Error("Private Access is not available for this tool right now.");
+    let snapshot;
+    try {
+      snapshot = await validateAndBuildOrderSnapshot(
+        context.supabase,
+        {
+          userId: context.userId,
+          tool_slug: data.tool_slug,
+          pricing_option_id: data.pricing_option_id,
+        },
+        env,
+      );
+    } catch (err) {
+      if (err instanceof CheckoutError) throw new Error(err.message);
+      throw err;
     }
 
     // Reject duplicate pending orders on the same tool.
@@ -240,14 +226,22 @@ export const createOrder = createServerFn({ method: "POST" })
     const { data: inserted, error } = await context.supabase
       .from("tool_orders")
       .insert({
-        user_id: context.userId,
-        tool_slug: data.tool_slug,
-        pricing_option_id: data.pricing_option_id ?? null,
-        price_amount,
-        price_label,
-        currency,
+        user_id: snapshot.user_id,
+        tool_slug: snapshot.tool_slug,
+        pricing_option_id: snapshot.pricing_option_id,
+        price_amount: snapshot.price_amount,
+        price_label: snapshot.price_label,
+        currency: snapshot.currency,
         notes: data.notes ?? null,
         status: "pending",
+        access_type: snapshot.access_type,
+        billing_period: snapshot.billing_period,
+        duration_days: snapshot.duration_days,
+        grace_days: snapshot.grace_days,
+        warning_days: snapshot.warning_days,
+        payment_type: snapshot.payment_type,
+        product_type: snapshot.product_type,
+        paystack_environment: snapshot.paystack_environment,
       })
       .select("id")
       .single();
