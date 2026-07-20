@@ -46,8 +46,8 @@ export interface OrderSnapshot {
   duration_days: number;
   grace_days: number;
   warning_days: number;
-  payment_type: "subscription";
-  product_type: "tool_subscription";
+  payment_type: "recurring_subscription";
+  product_type: "subscription";
   paystack_environment: PaystackEnv;
 }
 
@@ -159,8 +159,8 @@ export async function validateAndBuildOrderSnapshot(
     duration_days: Number(opt.duration_days ?? 0),
     grace_days: Number(opt.grace_days ?? 0),
     warning_days: Number(opt.warning_days ?? 0),
-    payment_type: "subscription",
-    product_type: "tool_subscription",
+    payment_type: "recurring_subscription",
+    product_type: "subscription",
     paystack_environment: env,
   };
 }

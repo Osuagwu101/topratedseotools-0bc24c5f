@@ -15,6 +15,7 @@ import {
   adminListOrders,
   adminUpdateOrder,
   adminFulfilPrivateOrder,
+  adminReconcilePrivateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
 import { AdminNav } from "./admin.tools";
@@ -63,11 +64,14 @@ function AdminOrdersPage() {
   const { data } = useSuspenseQuery(ordersQuery);
   const update = useServerFn(adminUpdateOrder);
   const fulfil = useServerFn(adminFulfilPrivateOrder);
+  const reconcile = useServerFn(adminReconcilePrivateOrder);
   const router = useRouter();
   const [filter, setFilter] = useState<ToolOrderStatus | "all">("pending");
   const [busy, setBusy] = useState<string | null>(null);
   const [fulfilOpen, setFulfilOpen] = useState<string | null>(null);
   const [fulfilText, setFulfilText] = useState("");
+  const [reconcileOpen, setReconcileOpen] = useState<string | null>(null);
+  const [reconcileReason, setReconcileReason] = useState("");
 
   if (!isAdmin) {
     return (
@@ -117,7 +121,28 @@ function AdminOrdersPage() {
       toast.error(err instanceof Error ? err.message : "Fulfilment failed");
     } finally {
       setBusy(null);
+  }
+
+  async function submitReconcile(id: string, action: "confirm" | "not_fulfilled" | "cancel") {
+    setBusy(id);
+    try {
+      await reconcile({ data: { id, action, reason: reconcileReason.trim() || undefined } });
+      toast.success(
+        action === "confirm"
+          ? "Fulfilment confirmed"
+          : action === "not_fulfilled"
+            ? "Marked not fulfilled — access suspended"
+            : "Order cancelled",
+      );
+      setReconcileOpen(null);
+      setReconcileReason("");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reconciliation failed");
+    } finally {
+      setBusy(null);
     }
+  }
   }
 
   return (
@@ -183,9 +208,14 @@ function AdminOrdersPage() {
                             {(o as any).billing_period}
                           </span>
                         )}
-                        {(o as any).fulfilment_status === "pending_fulfilment" && (
+                        {(o as any).fulfilment_status === "pending" && (o as any).access_type === "private" && (
                           <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
                             Awaiting private fulfilment
+                          </span>
+                        )}
+                        {(o as any).auto_fulfilled_at && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            Auto-fulfilled
                           </span>
                         )}
                       </div>

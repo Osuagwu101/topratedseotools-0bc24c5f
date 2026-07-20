@@ -54,6 +54,7 @@ import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.cat
 import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai-generator'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
+import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
 import { Route as AdminBlogIdEditRouteImport } from './routes/admin.blog.$id.edit'
 
 const ToolsRoute = ToolsRouteImport.update({
@@ -282,6 +283,12 @@ const ApiPublicWebhooksPaystackRoute =
     path: '/api/public/webhooks/paystack',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksAutoFulfilPrivateRoute =
+  ApiPublicHooksAutoFulfilPrivateRouteImport.update({
+    id: '/api/public/hooks/auto-fulfil-private',
+    path: '/api/public/hooks/auto-fulfil-private',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminBlogIdEditRoute = AdminBlogIdEditRouteImport.update({
   id: '/$id/edit',
   path: '/$id/edit',
@@ -333,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
+  '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -377,6 +385,7 @@ export interface FileRoutesByTo {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
+  '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -426,6 +435,7 @@ export interface FileRoutesById {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
+  '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -475,6 +485,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog/'
     | '/admin/blog/$id/edit'
+    | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -519,6 +530,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog'
     | '/admin/blog/$id/edit'
+    | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -567,6 +579,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog/'
     | '/admin/blog/$id/edit'
+    | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -593,6 +606,7 @@ export interface RootRouteChildren {
   AdminPricingRoute: typeof AdminPricingRoute
   AdminToolsRoute: typeof AdminToolsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -913,6 +927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksPaystackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/auto-fulfil-private': {
+      id: '/api/public/hooks/auto-fulfil-private'
+      path: '/api/public/hooks/auto-fulfil-private'
+      fullPath: '/api/public/hooks/auto-fulfil-private'
+      preLoaderRoute: typeof ApiPublicHooksAutoFulfilPrivateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/blog/$id/edit': {
       id: '/admin/blog/$id/edit'
       path: '/$id/edit'
@@ -1028,6 +1049,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminPricingRoute: AdminPricingRoute,
   AdminToolsRoute: AdminToolsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport
