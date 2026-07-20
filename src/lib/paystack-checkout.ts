@@ -57,11 +57,8 @@ export interface OrderSnapshot {
  * The caller must supply an authenticated user id and a strict env value.
  */
 export async function validateAndBuildOrderSnapshot(
-  db: {
-    from: (t: string) => {
-      select: (c: string) => { eq: (col: string, val: unknown) => { maybeSingle: () => Promise<{ data: any; error: any }> } };
-    };
-  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
   input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined },
   env: PaystackEnv | null,
 ): Promise<OrderSnapshot> {
