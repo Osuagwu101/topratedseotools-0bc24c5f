@@ -235,8 +235,9 @@ async function main() {
       { userId: USER, tool_slug: "ghost", pricing_option_id: planId },
       TEST_ENV,
     );
-    assert.equal(snap.tool_slug, "ghost");
-    assert.equal(snap.access_type, "shared");
+    assert(snap.tool_slug === "ghost", "tool_slug preserved");
+    assert(snap.access_type === "shared", "access_type defaulted to shared");
+
   });
 
   await test("Temporarily unavailable tool (enabled=false) → rejected", async () => {
