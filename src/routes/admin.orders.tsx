@@ -117,6 +117,8 @@ function AdminOrdersPage() {
       setFulfilOpen(null);
       setFulfilText("");
       await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fulfilment failed");
     } finally {
       setBusy(null);
     }
