@@ -139,7 +139,7 @@ async function main() {
       assert(snap.access_type === "shared", "shared access");
       assert(snap.price_amount === 5000, "amount snapshotted from DB");
       assert(snap.paystack_environment === "test", "env snapshotted");
-      assert(snap.payment_type === "subscription", "subscription payment type");
+      assert(snap.payment_type === "recurring_subscription", "subscription payment type");
     });
   }
 
@@ -154,7 +154,7 @@ async function main() {
       TEST_ENV,
     );
     assert(snap.access_type === "private", "private access");
-    assert(snap.payment_type === "subscription", "subscription payment type");
+    assert(snap.payment_type === "recurring_subscription", "subscription payment type");
   });
 
   // ---- shared access disabled at tool level ----
