@@ -19,11 +19,13 @@ export interface ToolPricingOption {
   grace_days: number;
   warning_days: number;
   access_type: AccessType;
+  billing_period: "monthly" | "quarterly" | "yearly" | null;
   enabled: boolean;
   note: string | null;
   badge: string | null;
   paystack_plan_code: string | null;
 }
+
 
 
 
