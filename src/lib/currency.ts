@@ -23,7 +23,13 @@ import type { ToolPricingOption } from "@/lib/tool-pricing.functions";
  */
 export type BillingKind = "monthly" | "quarterly" | "yearly" | "annual" | "other";
 
-export function getBillingKind(opt: Pick<ToolPricingOption, "unit">): BillingKind {
+export function getBillingKind(
+  opt: { unit?: string | null; billing_period?: string | null },
+): BillingKind {
+  const bp = (opt.billing_period ?? "").toLowerCase().trim();
+  if (bp === "monthly") return "monthly";
+  if (bp === "quarterly") return "quarterly";
+  if (bp === "yearly" || bp === "annual") return "yearly";
   const u = (opt.unit ?? "").toLowerCase().trim();
   if (u === "month" || u === "monthly" || u === "mo") return "monthly";
   if (
@@ -38,6 +44,7 @@ export function getBillingKind(opt: Pick<ToolPricingOption, "unit">): BillingKin
   if (u === "year" || u === "annual" || u === "yearly" || u === "yr") return "yearly";
   return "other";
 }
+
 
 /** Normalised, comparable kind — folds legacy "annual" into "yearly". */
 export function normaliseBillingKind(k: BillingKind): "monthly" | "quarterly" | "yearly" | "other" {
