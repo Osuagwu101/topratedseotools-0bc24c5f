@@ -539,12 +539,14 @@ function PricingRow({
             grace_days: 0,
             warning_days: 0,
             access_type: d.access_type,
+            billing_period: null,
             enabled: d.enabled,
             note: d.note || null,
             badge: d.badge || null,
             paystack_plan_code: d.paystack_plan_code || null,
           })}
         </span>
+
         {!d.enabled ? (
           <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">Hidden from customers</span>
         ) : null}
