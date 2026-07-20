@@ -15,6 +15,7 @@ import {
   adminListOrders,
   adminUpdateOrder,
   adminFulfilPrivateOrder,
+  adminReconcilePrivateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
 import { AdminNav } from "./admin.tools";
@@ -63,11 +64,14 @@ function AdminOrdersPage() {
   const { data } = useSuspenseQuery(ordersQuery);
   const update = useServerFn(adminUpdateOrder);
   const fulfil = useServerFn(adminFulfilPrivateOrder);
+  const reconcile = useServerFn(adminReconcilePrivateOrder);
   const router = useRouter();
   const [filter, setFilter] = useState<ToolOrderStatus | "all">("pending");
   const [busy, setBusy] = useState<string | null>(null);
   const [fulfilOpen, setFulfilOpen] = useState<string | null>(null);
   const [fulfilText, setFulfilText] = useState("");
+  const [reconcileOpen, setReconcileOpen] = useState<string | null>(null);
+  const [reconcileReason, setReconcileReason] = useState("");
 
   if (!isAdmin) {
     return (
@@ -115,6 +119,27 @@ function AdminOrdersPage() {
       await router.invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Fulfilment failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitReconcile(id: string, action: "confirm" | "not_fulfilled" | "cancel") {
+    setBusy(id);
+    try {
+      await reconcile({ data: { id, action, reason: reconcileReason.trim() || undefined } });
+      toast.success(
+        action === "confirm"
+          ? "Fulfilment confirmed"
+          : action === "not_fulfilled"
+            ? "Marked not fulfilled — access suspended"
+            : "Order cancelled",
+      );
+      setReconcileOpen(null);
+      setReconcileReason("");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reconciliation failed");
     } finally {
       setBusy(null);
     }
@@ -183,9 +208,14 @@ function AdminOrdersPage() {
                             {(o as any).billing_period}
                           </span>
                         )}
-                        {(o as any).fulfilment_status === "pending_fulfilment" && (
+                        {(o as any).fulfilment_status === "pending" && (o as any).access_type === "private" && (
                           <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
                             Awaiting private fulfilment
+                          </span>
+                        )}
+                        {(o as any).auto_fulfilled_at && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            Auto-fulfilled
                           </span>
                         )}
                       </div>
@@ -280,7 +310,7 @@ function AdminOrdersPage() {
                     )}
                     {o.status === "approved" &&
                       (o as any).access_type === "private" &&
-                      (o as any).fulfilment_status === "pending_fulfilment" && (
+                      (o as any).fulfilment_status === "pending" && (
                         <button
                           onClick={() => {
                             setFulfilOpen(fulfilOpen === o.id ? null : o.id);
@@ -291,7 +321,63 @@ function AdminOrdersPage() {
                           Assign private account
                         </button>
                       )}
+                    {o.status === "approved" &&
+                      (o as any).access_type === "private" &&
+                      (o as any).auto_fulfilled_at && (
+                        <button
+                          onClick={() => {
+                            setReconcileOpen(reconcileOpen === o.id ? null : o.id);
+                            setReconcileReason("");
+                          }}
+                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          Reconcile
+                        </button>
+                      )}
                   </div>
+
+                  {reconcileOpen === o.id && (
+                    <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Reconciliation reason (optional)
+                      </label>
+                      <input
+                        value={reconcileReason}
+                        onChange={(e) => setReconcileReason(e.target.value)}
+                        placeholder="e.g. account could not be provisioned"
+                        className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => submitReconcile(o.id, "confirm")}
+                          disabled={isBusy}
+                          className="rounded-md bg-success px-3 py-1.5 text-xs font-medium text-success-foreground hover:opacity-90"
+                        >
+                          Confirm fulfilled
+                        </button>
+                        <button
+                          onClick={() => submitReconcile(o.id, "not_fulfilled")}
+                          disabled={isBusy}
+                          className="rounded-md border border-warning px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10"
+                        >
+                          Not fulfilled — suspend
+                        </button>
+                        <button
+                          onClick={() => submitReconcile(o.id, "cancel")}
+                          disabled={isBusy}
+                          className="rounded-md border border-destructive px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                        >
+                          Cancel order
+                        </button>
+                        <button
+                          onClick={() => { setReconcileOpen(null); setReconcileReason(""); }}
+                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {fulfilOpen === o.id && (
                     <div className="mt-4 rounded-lg border bg-muted/30 p-3">

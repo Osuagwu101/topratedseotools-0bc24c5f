@@ -6,11 +6,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type ActiveTheme = "theme-1" | "theme-2";
 
-/** Publicly readable — used by the root route to apply the theme site-wide. */
-export const getActiveTheme = createServerFn({ method: "GET" }).handler(async () => {
+function publicClient() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
   const url = process.env.SUPABASE_URL!;
-  const supabase = createClient<Database>(url, key, {
+  return createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
     global: {
       fetch: (input, init) => {
@@ -23,6 +22,25 @@ export const getActiveTheme = createServerFn({ method: "GET" }).handler(async ()
       },
     },
   });
+}
+
+/** Publicly readable — theme + admin WhatsApp number (used for private-access fulfilment CTAs). */
+export const getPublicSiteSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = publicClient();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("active_theme, admin_whatsapp_number")
+    .eq("id", true)
+    .maybeSingle();
+  return {
+    activeTheme: (data?.active_theme ?? "theme-1") as ActiveTheme,
+    adminWhatsappNumber: (data?.admin_whatsapp_number as string | null) ?? null,
+  };
+});
+
+/** Back-compat alias — used by root route. */
+export const getActiveTheme = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = publicClient();
   const { data } = await supabase
     .from("site_settings")
     .select("active_theme")
@@ -31,7 +49,6 @@ export const getActiveTheme = createServerFn({ method: "GET" }).handler(async ()
   return { activeTheme: (data?.active_theme ?? "theme-1") as ActiveTheme };
 });
 
-/** Admin-only: update the active theme. */
 export const setActiveTheme = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -55,7 +72,43 @@ export const setActiveTheme = createServerFn({ method: "POST" })
     return { ok: true, activeTheme: data.theme as ActiveTheme };
   });
 
-/** Returns whether the current authenticated user is an admin. */
+/**
+ * Admin — save the WhatsApp number used for Private Access fulfilment.
+ * Accepts international digits only (e.g. 2348012345678). Empty clears it.
+ */
+export const setAdminWhatsappNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        number: z
+          .string()
+          .trim()
+          .max(20)
+          .regex(/^\d{7,20}$|^$/, "Enter international digits only, e.g. 2348012345678")
+          .nullable()
+          .transform((v) => (v === "" ? null : v)),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: roleRow } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Forbidden");
+
+    const { error } = await context.supabase
+      .from("site_settings")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ admin_whatsapp_number: data.number, updated_by: context.userId } as any)
+      .eq("id", true);
+    if (error) throw new Error(error.message);
+    return { ok: true, adminWhatsappNumber: data.number };
+  });
+
 export const getIsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

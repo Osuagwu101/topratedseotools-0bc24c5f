@@ -75,6 +75,11 @@ export interface ToolOrder {
   next_payment_at: string | null;
   current_period_end: string | null;
   subscription_disabled_at: string | null;
+  fulfilment_deadline_at: string | null;
+  subscription_started_at: string | null;
+  auto_fulfilled_at: string | null;
+  fulfilled_at: string | null;
+  fulfilment_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -145,17 +150,14 @@ export const getMyAccess = createServerFn({ method: "GET" })
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
     if (error) throw new Error(error.message);
 
-    // Shared credentials only load for orders where the access_type is
-    // "shared" AND fulfilment_status is "fulfilled". Private orders never
-    // see the Shared vault; awaiting-fulfilment private orders show a
+    // Shared credentials only load for shared/fulfilled orders. Private orders
+    // never see the Shared vault; awaiting-fulfilment private orders show a
     // pending banner instead.
     const sharedSlugs = Array.from(
       new Set(
         (data ?? [])
           .filter(
-            (r) =>
-              ((r.access_type as string) ?? "shared") === "shared" &&
-              ((r.fulfilment_status as string) ?? "fulfilled") !== "pending_fulfilment",
+            (r) => ((r.access_type as string) ?? "shared") === "shared",
           )
           .map((r) => r.tool_slug as string),
       ),
@@ -180,16 +182,16 @@ export const getMyAccess = createServerFn({ method: "GET" })
     return {
       access: (data ?? []).map((r) => {
         const access = ((r.access_type as string) ?? "shared") as "shared" | "private";
-        const fulfilment = ((r.fulfilment_status as string) ?? "fulfilled") as
+        const fulfilment = ((r.fulfilment_status as string) ?? "not_required") as
+          | "not_required"
           | "pending"
-          | "pending_fulfilment"
-          | "fulfilled";
-        // Private orders: expose admin_notes as the private-account details
-        // once fulfilment_status is "fulfilled". Never expose shared creds.
+          | "active"
+          | "failed"
+          | "expired";
         let credentials = null;
-        if (access === "shared" && fulfilment !== "pending_fulfilment") {
+        if (access === "shared") {
           credentials = creds[r.tool_slug as string] ?? null;
-        } else if (access === "private" && fulfilment === "fulfilled" && r.admin_notes) {
+        } else if (access === "private" && fulfilment === "active" && r.admin_notes) {
           credentials = {
             email: null,
             password: null,
@@ -213,6 +215,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }),
     };
   });
+
 
 
 /** Auth — the current user's orders (all statuses). */
@@ -492,14 +495,89 @@ export const adminFulfilPrivateOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => fulfilInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    // Load duration to compute the subscription period from fulfilment time.
+    const { data: order } = await context.supabase
+      .from("tool_orders")
+      .select("id, duration_days, grace_days, access_type, fulfilment_status")
+      .eq("id", data.id)
+      .eq("access_type", "private")
+      .maybeSingle();
+    if (!order) throw new Error("Private order not found");
+    if (order.fulfilment_status !== "pending") {
+      // Idempotent: allow re-writing admin notes but don't re-start clock.
+      const { error } = await context.supabase
+        .from("tool_orders")
+        .update({ admin_notes: data.admin_notes })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+    const now = new Date();
+    const dur = (order.duration_days as number) ?? 28;
+    const grace = (order.grace_days as number) ?? 0;
+    const expires = new Date(now.getTime() + (dur + grace) * 86400_000);
+    const nextPayment = new Date(now.getTime() + dur * 86400_000);
     const { error } = await context.supabase
       .from("tool_orders")
       .update({
-        fulfilment_status: "fulfilled",
+        fulfilment_status: "active",
+        subscription_status: "active",
+        fulfilled_at: now.toISOString(),
+        fulfilment_marked_by: context.userId,
+        subscription_started_at: now.toISOString(),
+        current_period_start: now.toISOString(),
+        current_period_end: nextPayment.toISOString(),
+        paid_through_at: nextPayment.toISOString(),
+        next_payment_at: nextPayment.toISOString(),
+        expires_at: expires.toISOString(),
         admin_notes: data.admin_notes,
       })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Admin — reconcile an auto-fulfilled Private order after the 6-hour window.
+ * Actions:
+ *  - "confirm"      : accept the auto-fulfilment (no state change beyond audit)
+ *  - "not_fulfilled": suspend access, record reason
+ *  - "cancel"       : cancel the order (renewal stopped)
+ */
+const reconcileInput = z.object({
+  id: z.string().uuid(),
+  action: z.enum(["confirm", "not_fulfilled", "cancel"]),
+  reason: z.string().max(500).optional(),
+});
+export const adminReconcilePrivateOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => reconcileInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patch: Record<string, any> = {
+      fulfilment_reason: data.reason ?? null,
+      fulfilment_marked_by: context.userId,
+    };
+    if (data.action === "confirm") {
+      patch.fulfilment_status = "active";
+      patch.subscription_status = "active";
+    } else if (data.action === "not_fulfilled") {
+      patch.fulfilment_status = "failed";
+      patch.subscription_status = "suspended";
+    } else {
+      patch.status = "cancelled";
+      patch.subscription_status = "cancelled";
+      patch.renewal_status = "disabled";
+      patch.fulfilment_status = "failed";
+    }
+    const { error } = await context.supabase
+      .from("tool_orders")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
       .eq("id", data.id)
       .eq("access_type", "private");
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+

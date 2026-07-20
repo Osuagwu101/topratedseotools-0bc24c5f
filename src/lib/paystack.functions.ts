@@ -1,25 +1,6 @@
 /**
- * Paystack — subscription payment initialization, verification, and
- * Disable Renewal.
- *
- * Flow (recurring):
- *  1. User picks a plan → `createOrder` snapshots server-validated details
- *     into a `pending` `tool_orders` row.
- *  2. `initializePaystackPayment`:
- *       a. Reads env from `PAYSTACK_SECRET_KEY` prefix.
- *       b. Re-validates the plan and rebuilds the snapshot (admin can
- *          disable Shared/Private mid-flow).
- *       c. `ensurePlanFromSnapshot` reuses / creates a Paystack plan.
- *       d. Initializes a Paystack transaction with `plan: <plan_code>` so
- *          the first successful charge auto-creates a subscription.
- *       e. Persists the plan code + subscription lifecycle fields on the
- *          order (`subscription_status='initialized'`, `renewal_status='will_renew'`).
- *       f. Private access orders start `fulfilment_status='pending_fulfilment'`.
- *  3. Paystack redirects back to `/orders?reference=…`; the client calls
- *     `verifyPaystackPayment` as a fallback to the webhook.
- *  4. The webhook (`/api/public/webhooks/paystack`) is the authoritative
- *     path — it records renewals, subscription creation, failures, and
- *     Disable Renewal notifications.
+ * Paystack — subscription initialization, verification, Disable Renewal.
+ * Enum values match DB CHECK constraints (see paystack-webhook.ts header).
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -51,7 +32,12 @@ async function paystack<T>(path: string, init?: RequestInit): Promise<T> {
 
 function paystackApi() {
   return {
-    createPlan: async (input: { name: string; amount: number; interval: "monthly" | "quarterly" | "annually"; currency: "NGN" }) =>
+    createPlan: async (input: {
+      name: string;
+      amount: number;
+      interval: "monthly" | "quarterly" | "annually";
+      currency: "NGN";
+    }) =>
       paystack<{ plan_code: string }>("/plan", {
         method: "POST",
         body: JSON.stringify(input),
@@ -75,13 +61,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     const { ensurePlanFromSnapshot } = await import("@/lib/paystack-plans");
 
     const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
-    if (!env) {
-      throw new Error("Payments are temporarily unavailable. Please contact support.");
-    }
+    if (!env) throw new Error("Payments are temporarily unavailable. Please contact support.");
 
     const { data: order, error } = await context.supabase
       .from("tool_orders")
-      .select("id, user_id, tool_slug, pricing_option_id, status, paystack_reference")
+      .select("id, user_id, tool_slug, pricing_option_id, status")
       .eq("id", data.order_id)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -105,7 +89,6 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // Ensure a Paystack plan exists (reuse when possible) via admin client.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { plan_code } = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot);
 
@@ -136,7 +119,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       },
     );
 
-    const fulfilment = snapshot.access_type === "private" ? "pending_fulfilment" : "pending";
+    const fulfilment = snapshot.access_type === "private" ? "pending" : "not_required";
 
     await context.supabase
       .from("tool_orders")
@@ -150,11 +133,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         duration_days: snapshot.duration_days,
         grace_days: snapshot.grace_days,
         warning_days: snapshot.warning_days,
-        payment_type: "subscription",
+        payment_type: "recurring_subscription",
         product_type: snapshot.product_type,
         paystack_environment: snapshot.paystack_environment,
-        subscription_status: "initialized",
-        renewal_status: "will_renew",
+        subscription_status: "pending",
+        renewal_status: "enabled",
         fulfilment_status: fulfilment,
       })
       .eq("id", order.id);
@@ -162,11 +145,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
 
-/**
- * Fallback verify — used when the browser returns from Paystack before the
- * webhook fires. Idempotent; the webhook remains authoritative for the
- * subscription lifecycle.
- */
+/** Fallback verify — used when the browser returns from Paystack before the webhook fires. */
 export const verifyPaystackPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ reference: z.string().min(4).max(120) }).parse(input))
@@ -225,25 +204,44 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       otherOrderHasReference: !!refClash,
     });
 
-    if (!verdict.ok) {
-      console.warn("[paystack-verify] rejected", { reason: verdict.reason, ref: tx.reference });
-      throw new Error(VERIFY_FAILURE_MESSAGE);
-    }
+    if (!verdict.ok) throw new Error(VERIFY_FAILURE_MESSAGE);
 
     const paidAt = new Date();
     const dur = (order.duration_days as number) ?? 28;
     const grace = (order.grace_days as number) ?? 0;
+    const access = ((order.access_type as string) ?? "shared") as "shared" | "private";
+
+    if (access === "private") {
+      const deadline = new Date(paidAt.getTime() + 6 * 60 * 60 * 1000);
+      await supabaseAdmin
+        .from("tool_orders")
+        .update({
+          status: "approved",
+          approved_at: paidAt.toISOString(),
+          paid_at: paidAt.toISOString(),
+          paystack_reference: tx.reference,
+          paystack_environment: env,
+          paystack_customer_code: tx.customer?.customer_code ?? null,
+          subscription_status: "pending",
+          renewal_status: "enabled",
+          payment_status: "successful",
+          fulfilment_status: "pending",
+          fulfilment_deadline_at: deadline.toISOString(),
+        })
+        .eq("id", orderId)
+        .neq("status", "approved");
+      return { ok: true, orderId, alreadyActive: false, fulfilment: "pending" };
+    }
+
     const expiresAt = new Date(paidAt.getTime() + (dur + grace) * 86400_000);
     const nextPaymentAt = new Date(paidAt.getTime() + dur * 86400_000);
-    const access = (order.access_type as string) ?? "shared";
-    const fulfilment = access === "private" ? "pending_fulfilment" : "fulfilled";
-
     await supabaseAdmin
       .from("tool_orders")
       .update({
         status: "approved",
         approved_at: paidAt.toISOString(),
         paid_at: paidAt.toISOString(),
+        subscription_started_at: paidAt.toISOString(),
         paid_through_at: nextPaymentAt.toISOString(),
         current_period_start: paidAt.toISOString(),
         current_period_end: nextPaymentAt.toISOString(),
@@ -253,44 +251,37 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         paystack_environment: env,
         paystack_customer_code: tx.customer?.customer_code ?? null,
         subscription_status: "active",
-        renewal_status: "will_renew",
-        payment_status: "paid",
-        fulfilment_status: fulfilment,
+        renewal_status: "enabled",
+        payment_status: "successful",
+        fulfilment_status: "not_required",
       })
       .eq("id", orderId)
       .neq("status", "approved");
 
-    return { ok: true, orderId, alreadyActive: false, fulfilment };
+    return { ok: true, orderId, alreadyActive: false, fulfilment: "not_required" };
   });
 
-/**
- * Auth — user disables auto-renewal on an active subscription. Access stays
- * active until the paid period ends; no further Paystack charges are made.
- *
- * Paystack requires the subscription code + a per-subscription "email
- * token" to disable. We fetch the token from `/subscription/:code`.
- */
+/** Auth — user disables auto-renewal on an active subscription. */
 export const disableOrderRenewal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: order, error } = await context.supabase
       .from("tool_orders")
-      .select(
-        "id, user_id, paystack_subscription_code, subscription_status, renewal_status",
-      )
+      .select("id, user_id, paystack_subscription_code, subscription_status, renewal_status")
       .eq("id", data.order_id)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Subscription not found");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     if (!order.paystack_subscription_code) {
-      // Subscription hasn't been created yet by Paystack. Still record intent.
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       await supabaseAdmin
         .from("tool_orders")
         .update({
-          renewal_status: "non_renewing",
+          renewal_status: "disabled",
           subscription_status: "non_renewing",
           subscription_disabled_at: new Date().toISOString(),
           non_renewal_requested_at: new Date().toISOString(),
@@ -308,13 +299,11 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
       body: JSON.stringify({ code, token: sub.email_token }),
     });
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin
       .from("tool_orders")
       .update({
-        renewal_status: "non_renewing",
+        renewal_status: "disable_pending",
         subscription_status: "non_renewing",
-        subscription_disabled_at: new Date().toISOString(),
         non_renewal_requested_at: new Date().toISOString(),
       })
       .eq("id", order.id);

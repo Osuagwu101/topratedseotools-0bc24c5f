@@ -655,18 +655,21 @@ export type Database = {
       site_settings: {
         Row: {
           active_theme: string
+          admin_whatsapp_number: string | null
           id: boolean
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active_theme?: string
+          admin_whatsapp_number?: string | null
           id?: boolean
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active_theme?: string
+          admin_whatsapp_number?: string | null
           id?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -708,6 +711,7 @@ export type Database = {
           access_type: string | null
           admin_notes: string | null
           approved_at: string | null
+          auto_fulfilled_at: string | null
           billing_period: string | null
           created_at: string
           currency: string
@@ -715,6 +719,10 @@ export type Database = {
           current_period_start: string | null
           duration_days: number | null
           expires_at: string | null
+          fulfilled_at: string | null
+          fulfilment_deadline_at: string | null
+          fulfilment_marked_by: string | null
+          fulfilment_reason: string | null
           fulfilment_status: string
           grace_days: number
           id: string
@@ -739,6 +747,7 @@ export type Database = {
           service_status: string | null
           status: Database["public"]["Enums"]["tool_order_status"]
           subscription_disabled_at: string | null
+          subscription_started_at: string | null
           subscription_status: string
           tool_slug: string
           unit_amount: number | null
@@ -751,6 +760,7 @@ export type Database = {
           access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          auto_fulfilled_at?: string | null
           billing_period?: string | null
           created_at?: string
           currency?: string
@@ -758,6 +768,10 @@ export type Database = {
           current_period_start?: string | null
           duration_days?: number | null
           expires_at?: string | null
+          fulfilled_at?: string | null
+          fulfilment_deadline_at?: string | null
+          fulfilment_marked_by?: string | null
+          fulfilment_reason?: string | null
           fulfilment_status?: string
           grace_days?: number
           id?: string
@@ -782,6 +796,7 @@ export type Database = {
           service_status?: string | null
           status?: Database["public"]["Enums"]["tool_order_status"]
           subscription_disabled_at?: string | null
+          subscription_started_at?: string | null
           subscription_status?: string
           tool_slug: string
           unit_amount?: number | null
@@ -794,6 +809,7 @@ export type Database = {
           access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          auto_fulfilled_at?: string | null
           billing_period?: string | null
           created_at?: string
           currency?: string
@@ -801,6 +817,10 @@ export type Database = {
           current_period_start?: string | null
           duration_days?: number | null
           expires_at?: string | null
+          fulfilled_at?: string | null
+          fulfilment_deadline_at?: string | null
+          fulfilment_marked_by?: string | null
+          fulfilment_reason?: string | null
           fulfilment_status?: string
           grace_days?: number
           id?: string
@@ -825,6 +845,7 @@ export type Database = {
           service_status?: string | null
           status?: Database["public"]["Enums"]["tool_order_status"]
           subscription_disabled_at?: string | null
+          subscription_started_at?: string | null
           subscription_status?: string
           tool_slug?: string
           unit_amount?: number | null

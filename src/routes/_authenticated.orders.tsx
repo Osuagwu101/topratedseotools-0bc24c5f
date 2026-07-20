@@ -48,6 +48,7 @@ import {
 } from "@/lib/access.functions";
 import { launchTool } from "@/lib/tool-launcher";
 import { verifyPaystackPayment, disableOrderRenewal } from "@/lib/paystack.functions";
+import { getPublicSiteSettings } from "@/lib/site-settings.functions";
 
 const ordersQuery = queryOptions({
   queryKey: ["my-orders"],
@@ -60,6 +61,10 @@ const accessQuery = queryOptions({
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
+});
+const siteQuery = queryOptions({
+  queryKey: ["public-site-settings"],
+  queryFn: () => getPublicSiteSettings(),
 });
 
 const searchSchema = z
@@ -83,6 +88,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
       context.queryClient.ensureQueryData(ordersQuery),
       context.queryClient.ensureQueryData(accessQuery),
       context.queryClient.ensureQueryData(settingsQuery),
+      context.queryClient.ensureQueryData(siteQuery),
     ]),
   component: MyOrdersPage,
 });
@@ -104,6 +110,7 @@ function MyOrdersPage() {
   const { data: ordersData } = useSuspenseQuery(ordersQuery);
   const { data: accessData } = useSuspenseQuery(accessQuery);
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
+  const { data: siteData } = useSuspenseQuery(siteQuery);
   const cancel = useServerFn(cancelMyOrder);
   const verify = useServerFn(verifyPaystackPayment);
   const disableRenewal = useServerFn(disableOrderRenewal);
@@ -255,7 +262,7 @@ function MyOrdersPage() {
                         {o.paid_at && (
                           <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>
                         )}
-                        {o.next_payment_at && o.renewal_status === "will_renew" && (
+                        {o.next_payment_at && o.renewal_status === "enabled" && (
                           <span>· Next payment {new Date(o.next_payment_at).toLocaleDateString()}</span>
                         )}
                         {o.expires_at && (
@@ -285,7 +292,7 @@ function MyOrdersPage() {
                         </>
                       )}
                       {o.effectiveStatus === "approved" &&
-                        o.renewal_status === "will_renew" &&
+                        o.renewal_status === "enabled" &&
                         !!o.paystack_subscription_code && (
                           <button
                             onClick={() => onDisableRenewal(o)}
@@ -317,16 +324,12 @@ function MyOrdersPage() {
 
                   {o.effectiveStatus === "approved" &&
                     o.access_type === "private" &&
-                    o.fulfilment_status !== "fulfilled" && (
-                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 p-3 text-xs">
-                        <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">Payment confirmed. Your Private Access account is being prepared.</div>
-                          <div className="text-muted-foreground">
-                            An admin will assign your dedicated account shortly. You'll see login details here once it's ready.
-                          </div>
-                        </div>
-                      </div>
+                    o.fulfilment_status === "pending" && (
+                      <PrivatePendingBanner
+                        order={o}
+                        toolName={tool?.name ?? o.tool_slug}
+                        whatsapp={siteData.adminWhatsappNumber}
+                      />
                     )}
 
                   {access && tool && (
@@ -352,9 +355,13 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
     if (order.subscription_status === "past_due") {
       items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
     }
-    if (order.renewal_status === "will_renew" && order.paystack_subscription_code) {
+    if (order.renewal_status === "enabled" && order.paystack_subscription_code) {
       items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
-    } else if (order.renewal_status === "cancelled" || order.subscription_status === "non_renewing") {
+    } else if (
+      order.renewal_status === "disabled" ||
+      order.renewal_status === "disable_pending" ||
+      order.subscription_status === "non_renewing"
+    ) {
       items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
     }
   }
@@ -369,6 +376,64 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
           <i.Icon className="h-3 w-3" /> {i.label}
         </span>
       ))}
+    </div>
+  );
+}
+
+function PrivatePendingBanner({
+  order,
+  toolName,
+  whatsapp,
+}: {
+  order: ToolOrder;
+  toolName: string;
+  whatsapp: string | null;
+}) {
+  const periodLabel = (order.billing_period ?? "").toString().toUpperCase() || "—";
+  const message =
+    `Hello Admin, I have successfully paid for a Private Access subscription and would like my order to be fulfilled.\n\n` +
+    `Order Reference: ${order.paystack_reference ?? order.id}\n` +
+    `Tool: ${toolName}\n` +
+    `Access Type: Private Access\n` +
+    `Billing Period: ${periodLabel}\n` +
+    `Amount Paid: ₦${(order.price_amount ?? 0).toLocaleString()}\n` +
+    `Payment Status: Successful\n` +
+    `Fulfilment Status: Pending\n\n` +
+    `Please help me activate my Private Access order.`;
+  const waUrl = whatsapp
+    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}`
+    : null;
+  return (
+    <div className="mt-3 rounded-lg border border-dashed bg-muted/40 p-3 text-xs">
+      <div className="flex items-start gap-2">
+        <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="flex-1">
+          <div className="font-medium">Payment successful. Your Private Access order is pending fulfilment.</div>
+          <div className="mt-1 text-muted-foreground">
+            An admin will assign your dedicated account. If it isn't ready within 6 hours,
+            it will be auto-activated and your subscription period will start counting from that moment.
+          </div>
+          {order.fulfilment_deadline_at && (
+            <div className="mt-1 text-muted-foreground">
+              Auto-fulfilment by {new Date(order.fulfilment_deadline_at).toLocaleString()}.
+            </div>
+          )}
+          {waUrl ? (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-3 inline-flex items-center gap-2 rounded-md bg-success px-3 py-1.5 text-xs font-semibold text-success-foreground hover:opacity-90"
+            >
+              Contact Admin to Fulfil Order
+            </a>
+          ) : (
+            <div className="mt-2 text-xs text-muted-foreground italic">
+              Admin WhatsApp number not configured yet.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

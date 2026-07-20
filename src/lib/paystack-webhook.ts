@@ -1,21 +1,26 @@
 /**
- * Paystack webhook handler — recurring-billing aware.
+ * Paystack webhook handler — recurring-billing aware (Phase 3).
  *
- * Handled events (each one gets its own idempotency key so replays are safe):
+ * Enum values here MUST match the DB CHECK constraints:
+ *   payment_type       : recurring_subscription
+ *   payment_status     : pending | processing | successful | failed
+ *   subscription_status: pending | active | past_due | non_renewing | cancelled | expired | suspended
+ *   renewal_status     : not_applicable | enabled | disable_pending | disabled
+ *   fulfilment_status  : not_required | pending | active | failed | expired
+ *   classification     : initial | renewal | one_time | refund | reversal
+ *
+ * Handled events (each has its own idempotency key so replays are safe):
  *  - charge.success         — first payment OR renewal payment
  *  - subscription.create    — Paystack created a subscription for this order
  *  - subscription.disable   — auto-renewal was disabled
  *  - subscription.not_renew — subscription will not renew at period end
  *  - invoice.payment_failed — a renewal attempt failed
- *  - invoice.update / invoice.create — informational (recorded, no state change)
+ *  - invoice.update / invoice.create — informational
  *
- * Everything else is ACKed with 200 to stop retries.
- *
- * Renewal detection: charge.success arrives with `data.plan?.plan_code` on
- * every recurring charge. If the matched order is already approved AND its
- * paystack_plan_code matches, we treat the event as a renewal — insert a
- * new `tool_payments` row, extend `expires_at`, keep the subscription active.
- * If the order isn't approved yet, we treat it as a first payment.
+ * Private Access: first successful charge does NOT immediately grant access.
+ * The order enters a 6-hour fulfilment window (`fulfilment_status='pending'`,
+ * `fulfilment_deadline_at = paid_at + 6h`). Subscription-period timers only
+ * start once the admin marks fulfilled OR the cron auto-fulfils after 6h.
  */
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 
@@ -23,6 +28,7 @@ export type Env = "test" | "live";
 
 export interface WebhookDeps {
   secret: string | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any;
 }
 
@@ -57,22 +63,18 @@ const HANDLED_EVENTS = new Set([
   "invoice.create",
 ]);
 
+const PRIVATE_FULFILMENT_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 export async function handlePaystackWebhook(
   request: Request,
   deps: WebhookDeps,
 ): Promise<Response> {
   const { secret, supabaseAdmin } = deps;
 
-  if (!secret) {
-    console.error("[paystack-webhook] PAYSTACK_SECRET_KEY not configured");
-    return new Response("not configured", { status: 503 });
-  }
+  if (!secret) return new Response("not configured", { status: 503 });
 
   const env = detectEnvironmentStrict(secret);
-  if (!env) {
-    console.error("[paystack-webhook] unrecognised PAYSTACK_SECRET_KEY prefix");
-    return new Response("server configuration error", { status: 503 });
-  }
+  if (!env) return new Response("server configuration error", { status: 503 });
 
   const signature = request.headers.get("x-paystack-signature") ?? "";
   const raw = await request.text();
@@ -80,10 +82,10 @@ export async function handlePaystackWebhook(
   const sig = Buffer.from(signature);
   const exp = Buffer.from(expected);
   if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
-    console.warn("[paystack-webhook] invalid signature rejected");
     return new Response("invalid signature", { status: 401 });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let payload: any;
   try {
     payload = JSON.parse(raw);
@@ -106,15 +108,10 @@ export async function handlePaystackWebhook(
   const planCode: string | undefined = data?.plan?.plan_code ?? data.plan_code;
   const invoiceCode: string | undefined = data.invoice_code;
 
-  // Idempotency key: unique per (event, env, natural-id, status).
   const naturalId =
-    reference ??
-    invoiceCode ??
-    subscriptionCode ??
-    (orderId ? `order:${orderId}` : "");
-  if (!naturalId) {
-    return new Response("no identifier", { status: 400 });
-  }
+    reference ?? invoiceCode ?? subscriptionCode ?? (orderId ? `order:${orderId}` : "");
+  if (!naturalId) return new Response("no identifier", { status: 400 });
+
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
     env,
@@ -146,16 +143,11 @@ export async function handlePaystackWebhook(
       .select("id, processing_status, processing_attempts")
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
-    if (!existing) {
-      console.error("[paystack-webhook] insert failed", safeError(insertRes.error));
-      return new Response("db error", { status: 500 });
-    }
+    if (!existing) return new Response("db error", { status: 500 });
     if (existing.processing_status === "processed" || existing.processing_status === "skipped") {
       return new Response("ok", { status: 200 });
     }
-    if (existing.processing_status === "processing") {
-      return new Response("ok", { status: 200 });
-    }
+    if (existing.processing_status === "processing") return new Response("ok", { status: 200 });
     eventId = existing.id;
   }
   if (!eventId) return new Response("db error", { status: 500 });
@@ -169,10 +161,7 @@ export async function handlePaystackWebhook(
 
   const { data: claimed, error: claimError } = await supabaseAdmin
     .from("paystack_webhook_events")
-    .update({
-      processing_status: "processing",
-      processing_attempts: nextAttempts,
-    })
+    .update({ processing_status: "processing", processing_attempts: nextAttempts })
     .eq("id", eventId)
     .in("processing_status", ["pending", "failed"])
     .select("id")
@@ -193,9 +182,8 @@ export async function handlePaystackWebhook(
       data,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (result && (result as any).alreadyFailed) {
-      // Handler already recorded the failure (e.g. unknown order for
-      // reconciliation). ACK 200 without overwriting the failed status.
       return new Response("ok", { status: 200 });
     }
 
@@ -212,20 +200,14 @@ export async function handlePaystackWebhook(
   } catch (err) {
     await supabaseAdmin
       .from("paystack_webhook_events")
-      .update({
-        processing_status: "failed",
-        last_error: safeError(err),
-      })
+      .update({ processing_status: "failed", last_error: safeError(err) })
       .eq("id", eventId);
-    console.error("[paystack-webhook] processing failed", {
-      key: idempotencyKey.slice(0, 12),
-      error: safeError(err),
-    });
     return new Response("processing failed", { status: 500 });
   }
 }
 
 interface DispatchInput {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any;
   env: Env;
   eventType: string;
@@ -235,6 +217,7 @@ interface DispatchInput {
   planCode?: string;
   subscriptionCode?: string;
   customerCode?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
@@ -251,7 +234,7 @@ async function dispatchEvent(i: DispatchInput) {
       return handleInvoiceFailed(i);
     case "invoice.update":
     case "invoice.create":
-      return; // informational
+      return;
   }
 }
 
@@ -259,7 +242,7 @@ async function findOrder(i: DispatchInput) {
   const q = i.supabaseAdmin
     .from("tool_orders")
     .select(
-      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, price_amount, currency, paystack_environment",
+      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment",
     );
   const { data } = i.orderId
     ? await q.eq("id", i.orderId).maybeSingle()
@@ -284,6 +267,7 @@ async function handleChargeSuccess(i: DispatchInput) {
   const paidAt = new Date();
   const dur = (order.duration_days as number) ?? 28;
   const grace = (order.grace_days as number) ?? 0;
+  const access = ((order.access_type as string) ?? "shared") as "shared" | "private";
   const isRenewal =
     order.status === "approved" &&
     !!order.paystack_plan_code &&
@@ -302,10 +286,10 @@ async function handleChargeSuccess(i: DispatchInput) {
         user_id: order.user_id,
         tool_slug: order.tool_slug,
         amount: order.price_amount,
-        currency: order.currency ?? "₦",
-        payment_status: "paid",
-        payment_type: "subscription",
-        classification: isRenewal ? "renewal" : "first_payment",
+        currency: order.currency ?? "NGN",
+        payment_status: "successful",
+        payment_type: "recurring_subscription",
+        classification: isRenewal ? "renewal" : "initial",
         paystack_reference: i.reference,
         paystack_environment: i.env,
         paid_at: paidAt.toISOString(),
@@ -314,7 +298,8 @@ async function handleChargeSuccess(i: DispatchInput) {
   }
 
   if (isRenewal) {
-    // Extend from the later of current expires_at or now.
+    // Private renewals: keep existing assignment; extend from current period end.
+    // Shared renewals: extend as before.
     const base = Math.max(
       order.expires_at ? new Date(order.expires_at).getTime() : 0,
       order.current_period_end ? new Date(order.current_period_end).getTime() : 0,
@@ -331,37 +316,57 @@ async function handleChargeSuccess(i: DispatchInput) {
         next_payment_at: newNext.toISOString(),
         paid_through_at: newNext.toISOString(),
         subscription_status:
-          order.renewal_status === "non_renewing" ? "non_renewing" : "active",
-        payment_status: "paid",
+          order.renewal_status === "disabled" ? "non_renewing" : "active",
+        payment_status: "successful",
       })
       .eq("id", order.id);
     return;
   }
 
-  // First payment path
+  // First payment
   if (order.status !== "approved") {
+    if (access === "private") {
+      // Private: enter 6-hour fulfilment window. Do NOT set expires_at yet.
+      const deadline = new Date(paidAt.getTime() + PRIVATE_FULFILMENT_WINDOW_MS);
+      await i.supabaseAdmin
+        .from("tool_orders")
+        .update({
+          status: "approved",
+          approved_at: paidAt.toISOString(),
+          paid_at: paidAt.toISOString(),
+          paystack_reference: i.reference ?? null,
+          paystack_customer_code: i.customerCode ?? undefined,
+          subscription_status: "pending",
+          renewal_status: "enabled",
+          payment_status: "successful",
+          fulfilment_status: "pending",
+          fulfilment_deadline_at: deadline.toISOString(),
+        })
+        .eq("id", order.id)
+        .neq("status", "approved");
+      return;
+    }
+    // Shared: activate immediately.
     const newExpires = new Date(paidAt.getTime() + (dur + grace) * 86400_000);
     const newNext = new Date(paidAt.getTime() + dur * 86400_000);
-    const access = (order.access_type as string) ?? "shared";
-    const fulfilment = access === "private" ? "pending_fulfilment" : "fulfilled";
     await i.supabaseAdmin
       .from("tool_orders")
       .update({
         status: "approved",
         approved_at: paidAt.toISOString(),
         paid_at: paidAt.toISOString(),
+        subscription_started_at: paidAt.toISOString(),
         paid_through_at: newNext.toISOString(),
         current_period_start: paidAt.toISOString(),
         current_period_end: newNext.toISOString(),
         next_payment_at: newNext.toISOString(),
         expires_at: newExpires.toISOString(),
         paystack_reference: i.reference ?? null,
-        paystack_customer_code:
-          i.customerCode ?? (order.paystack_reference ? undefined : null),
+        paystack_customer_code: i.customerCode ?? undefined,
         subscription_status: "active",
-        renewal_status: order.renewal_status === "non_renewing" ? "non_renewing" : "will_renew",
-        payment_status: "paid",
-        fulfilment_status: fulfilment,
+        renewal_status: "enabled",
+        payment_status: "successful",
+        fulfilment_status: "not_required",
       })
       .eq("id", order.id)
       .neq("status", "approved");
@@ -369,13 +374,12 @@ async function handleChargeSuccess(i: DispatchInput) {
 }
 
 async function handleSubscriptionCreate(i: DispatchInput) {
-  // Match order via customer_code + plan_code (most recent). Falls back to
-  // reference stored on the order at init time.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let order: any = null;
   if (i.customerCode && i.planCode) {
     const { data } = await i.supabaseAdmin
       .from("tool_orders")
-      .select("id, paystack_subscription_code")
+      .select("id, paystack_subscription_code, subscription_status")
       .eq("paystack_customer_code", i.customerCode)
       .eq("paystack_plan_code", i.planCode)
       .order("created_at", { ascending: false })
@@ -386,7 +390,7 @@ async function handleSubscriptionCreate(i: DispatchInput) {
   if (!order && i.reference) {
     const { data } = await i.supabaseAdmin
       .from("tool_orders")
-      .select("id, paystack_subscription_code")
+      .select("id, paystack_subscription_code, subscription_status")
       .eq("paystack_reference", i.reference)
       .maybeSingle();
     order = data;
@@ -399,13 +403,11 @@ async function handleSubscriptionCreate(i: DispatchInput) {
     .update({
       paystack_subscription_code: i.subscriptionCode ?? order.paystack_subscription_code,
       paystack_customer_code: i.customerCode ?? undefined,
-      subscription_status: "active",
       next_payment_at: nextPaymentAt ?? undefined,
     })
     .eq("id", order.id);
 
   if (i.customerCode) {
-    // Save customer mapping (best-effort).
     const { data: existing } = await i.supabaseAdmin
       .from("paystack_customers")
       .select("id")
@@ -427,7 +429,7 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
   await i.supabaseAdmin
     .from("tool_orders")
     .update({
-      renewal_status: "non_renewing",
+      renewal_status: "disabled",
       subscription_status: "non_renewing",
       subscription_disabled_at: new Date().toISOString(),
     })
@@ -440,7 +442,6 @@ async function handleInvoiceFailed(i: DispatchInput) {
     .from("tool_orders")
     .update({
       subscription_status: "past_due",
-      renewal_status: "payment_failed",
       payment_status: "failed",
     })
     .eq("paystack_subscription_code", i.subscriptionCode);
