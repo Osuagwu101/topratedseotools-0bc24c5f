@@ -171,7 +171,24 @@ function AdminOrdersPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold">{tool?.name ?? o.tool_slug}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{tool?.name ?? o.tool_slug}</span>
+                        {(o as any).access_type && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            {(o as any).access_type}
+                          </span>
+                        )}
+                        {(o as any).billing_period && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide capitalize">
+                            {(o as any).billing_period}
+                          </span>
+                        )}
+                        {(o as any).fulfilment_status === "pending_fulfilment" && (
+                          <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
+                            Awaiting private fulfilment
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {o.price_label && `${o.price_label} · `}
                         {o.price_amount !== null
@@ -261,7 +278,50 @@ function AdminOrdersPage() {
                         </button>
                       </>
                     )}
+                    {o.status === "approved" &&
+                      (o as any).access_type === "private" &&
+                      (o as any).fulfilment_status === "pending_fulfilment" && (
+                        <button
+                          onClick={() => {
+                            setFulfilOpen(fulfilOpen === o.id ? null : o.id);
+                            setFulfilText(o.admin_notes ?? "");
+                          }}
+                          className="rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+                        >
+                          Assign private account
+                        </button>
+                      )}
                   </div>
+
+                  {fulfilOpen === o.id && (
+                    <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Private-account handover (shown to customer)
+                      </label>
+                      <textarea
+                        value={fulfilText}
+                        onChange={(e) => setFulfilText(e.target.value)}
+                        rows={4}
+                        placeholder={"Email: private-user@example.com\nPassword: ••••••\nAny setup notes…"}
+                        className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => submitFulfil(o.id)}
+                          disabled={isBusy}
+                          className="rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60"
+                        >
+                          Mark fulfilled
+                        </button>
+                        <button
+                          onClick={() => { setFulfilOpen(null); setFulfilText(""); }}
+                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}
