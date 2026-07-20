@@ -31,20 +31,22 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // Resolve the expected secret. Prefer env (CRON_SECRET) when set;
-        // otherwise fall back to the service-role-only internal_secrets row
-        // that the scheduled pg_cron job also reads from.
-        let expected = process.env.CRON_SECRET ?? "";
-        if (!expected) {
-          const { data: row } = await supabaseAdmin
-            .from("internal_secrets")
-            .select("value")
-            .eq("name", "cron_secret")
-            .maybeSingle();
-          expected = (row?.value as string | undefined) ?? "";
-        }
+        // Accept a match against either the env-configured CRON_SECRET or
+        // the service-role-only internal_secrets row that pg_cron uses.
+        // Both are secret; the endpoint has no other way in.
+        const envSecret = process.env.CRON_SECRET ?? "";
+        const { data: row } = await supabaseAdmin
+          .from("internal_secrets")
+          .select("value")
+          .eq("name", "cron_secret")
+          .maybeSingle();
+        const dbSecret = (row?.value as string | undefined) ?? "";
         const provided = request.headers.get("x-cron-secret") ?? "";
-        if (!expected || !provided || !safeEqual(provided, expected)) {
+        const ok =
+          !!provided &&
+          ((!!envSecret && safeEqual(provided, envSecret)) ||
+            (!!dbSecret && safeEqual(provided, dbSecret)));
+        if (!ok) {
           console.warn("[auto-fulfil-private] rejected: missing or invalid cron secret");
           return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
             status: 401,
