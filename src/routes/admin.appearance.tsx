@@ -92,6 +92,7 @@ function AdminAppearancePage() {
       toast.error(e instanceof Error ? e.message : "Failed to update theme");
     } finally {
       setSaving(null);
+    }
   }
 
   async function saveWhatsApp() {
@@ -107,7 +108,6 @@ function AdminAppearancePage() {
     } finally {
       setSavingWa(false);
     }
-  }
   }
 
   return (
