@@ -117,10 +117,9 @@ function AdminOrdersPage() {
       setFulfilOpen(null);
       setFulfilText("");
       await router.invalidate();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Fulfilment failed");
     } finally {
       setBusy(null);
+    }
   }
 
   async function submitReconcile(id: string, action: "confirm" | "not_fulfilled" | "cancel") {
@@ -142,7 +141,6 @@ function AdminOrdersPage() {
     } finally {
       setBusy(null);
     }
-  }
   }
 
   return (
