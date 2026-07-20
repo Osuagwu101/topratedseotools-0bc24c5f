@@ -74,13 +74,16 @@ export function formatCurrency(amount: number | null | undefined, currency = "â‚
 }
 
 /** "per month" / "every three months" / "per year" / "per check". */
-export function billingSuffix(opt: Pick<ToolPricingOption, "unit">): string {
+export function billingSuffix(
+  opt: { unit?: string | null; billing_period?: string | null },
+): string {
   const kind = normaliseBillingKind(getBillingKind(opt));
   if (kind === "monthly") return "per month";
   if (kind === "quarterly") return "every three months";
   if (kind === "yearly") return "per year";
   return opt.unit ? `per ${opt.unit}` : "";
 }
+
 
 /** Customer-facing "Billed â€¦" line. */
 export function billingDescription(kind: BillingKind): string {
