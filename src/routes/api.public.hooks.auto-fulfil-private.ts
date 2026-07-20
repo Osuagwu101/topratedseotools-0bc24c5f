@@ -2,23 +2,51 @@
  * Cron endpoint — auto-fulfil Private Access orders whose 6-hour window has
  * elapsed without admin action. Scheduled via pg_cron every 5 minutes.
  *
- * For each matching order:
- *   - subscription_started_at = fulfilment_deadline_at
- *   - fulfilment_status       = "active"
- *   - subscription_status     = "active"
- *   - auto_fulfilled_at       = now()
- *   - current_period_end / next_payment_at / expires_at derived from start
+ * SECURITY
+ * --------
+ * Although the URL sits under /api/public/* (which bypasses Lovable's edge
+ * auth), the handler requires a shared secret in the `x-cron-secret` header
+ * that must match the CRON_SECRET environment variable. Requests without a
+ * secret, with the wrong secret, or when the server is missing the secret
+ * are rejected with HTTP 401. The secret is never exposed to the browser —
+ * it is read from process.env inside the handler and injected server-side
+ * by the pg_cron schedule.
  *
- * The endpoint is under /api/public/* which bypasses auth; it's rate-limited
- * by pg_cron cadence and simply idempotent — running twice for the same row
- * is a no-op because the WHERE clause filters to `fulfilment_status='pending'`.
+ * The six-hour fulfilment rule is unchanged: rows are only processed when
+ * their `fulfilment_deadline_at` (set to purchase time + 6h) has elapsed.
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { timingSafeEqual } from "crypto";
+
+function safeEqual(a: string, b: string) {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const expected = process.env.CRON_SECRET;
+        if (!expected) {
+          // Fail closed if the server is misconfigured. Do not leak details.
+          console.error("[auto-fulfil-private] CRON_SECRET is not configured");
+          return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        const provided = request.headers.get("x-cron-secret") ?? "";
+        if (!provided || !safeEqual(provided, expected)) {
+          console.warn("[auto-fulfil-private] rejected request with missing/invalid secret");
+          return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const now = new Date();
         const { data: due, error } = await supabaseAdmin
@@ -28,7 +56,8 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
           .eq("fulfilment_status", "pending")
           .lte("fulfilment_deadline_at", now.toISOString());
         if (error) {
-          return new Response(JSON.stringify({ ok: false, error: error.message }), {
+          console.error("[auto-fulfil-private] query failed");
+          return new Response(JSON.stringify({ ok: false, error: "query_failed" }), {
             status: 500,
             headers: { "content-type": "application/json" },
           });
