@@ -27,6 +27,11 @@ import {
   KeyRound,
   Rocket,
   Zap,
+  Users,
+  Lock,
+  Repeat,
+  ShieldOff,
+  Hourglass,
 } from "lucide-react";
 import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -37,11 +42,12 @@ import {
   cancelMyOrder,
   getMyAccess,
   listToolSettings,
+  type ToolOrder,
   type ToolOrderStatus,
   type ToolSetting,
 } from "@/lib/access.functions";
 import { launchTool } from "@/lib/tool-launcher";
-import { verifyPaystackPayment } from "@/lib/paystack.functions";
+import { verifyPaystackPayment, disableOrderRenewal } from "@/lib/paystack.functions";
 
 const ordersQuery = queryOptions({
   queryKey: ["my-orders"],
@@ -100,6 +106,7 @@ function MyOrdersPage() {
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const cancel = useServerFn(cancelMyOrder);
   const verify = useServerFn(verifyPaystackPayment);
+  const disableRenewal = useServerFn(disableOrderRenewal);
   const [verifying, setVerifying] = useState(false);
 
   // If we came back from Paystack with a reference, verify once.
