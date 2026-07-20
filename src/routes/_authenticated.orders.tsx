@@ -138,6 +138,19 @@ function MyOrdersPage() {
     }
   }
 
+  async function onDisableRenewal(o: ToolOrder) {
+    if (!confirm(
+      "Disable auto-renewal? Your access stays active until the current period ends, but no further payments will be taken.",
+    )) return;
+    try {
+      await disableRenewal({ data: { order_id: o.id } });
+      toast.success("Auto-renewal disabled. Access stays active until the period ends.");
+      router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not disable renewal");
+    }
+  }
+
   const now = Date.now();
   const accessBySlug = useMemo(() => {
     const map = new Map<string, (typeof accessData.access)[number]>();
