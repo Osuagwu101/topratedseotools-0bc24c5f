@@ -310,7 +310,7 @@ function AdminOrdersPage() {
                     )}
                     {o.status === "approved" &&
                       (o as any).access_type === "private" &&
-                      (o as any).fulfilment_status === "pending_fulfilment" && (
+                      (o as any).fulfilment_status === "pending" && (
                         <button
                           onClick={() => {
                             setFulfilOpen(fulfilOpen === o.id ? null : o.id);
@@ -321,7 +321,63 @@ function AdminOrdersPage() {
                           Assign private account
                         </button>
                       )}
+                    {o.status === "approved" &&
+                      (o as any).access_type === "private" &&
+                      (o as any).auto_fulfilled_at && (
+                        <button
+                          onClick={() => {
+                            setReconcileOpen(reconcileOpen === o.id ? null : o.id);
+                            setReconcileReason("");
+                          }}
+                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          Reconcile
+                        </button>
+                      )}
                   </div>
+
+                  {reconcileOpen === o.id && (
+                    <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Reconciliation reason (optional)
+                      </label>
+                      <input
+                        value={reconcileReason}
+                        onChange={(e) => setReconcileReason(e.target.value)}
+                        placeholder="e.g. account could not be provisioned"
+                        className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
+                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => submitReconcile(o.id, "confirm")}
+                          disabled={isBusy}
+                          className="rounded-md bg-success px-3 py-1.5 text-xs font-medium text-success-foreground hover:opacity-90"
+                        >
+                          Confirm fulfilled
+                        </button>
+                        <button
+                          onClick={() => submitReconcile(o.id, "not_fulfilled")}
+                          disabled={isBusy}
+                          className="rounded-md border border-warning px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10"
+                        >
+                          Not fulfilled — suspend
+                        </button>
+                        <button
+                          onClick={() => submitReconcile(o.id, "cancel")}
+                          disabled={isBusy}
+                          className="rounded-md border border-destructive px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                        >
+                          Cancel order
+                        </button>
+                        <button
+                          onClick={() => { setReconcileOpen(null); setReconcileReason(""); }}
+                          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {fulfilOpen === o.id && (
                     <div className="mt-4 rounded-lg border bg-muted/30 p-3">
