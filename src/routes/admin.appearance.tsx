@@ -92,7 +92,22 @@ function AdminAppearancePage() {
       toast.error(e instanceof Error ? e.message : "Failed to update theme");
     } finally {
       setSaving(null);
+  }
+
+  async function saveWhatsApp() {
+    setSavingWa(true);
+    try {
+      const cleaned = wa.trim();
+      await saveWa({ data: { number: cleaned } });
+      toast.success(cleaned ? "WhatsApp number saved" : "WhatsApp number cleared");
+      await queryClient.invalidateQueries();
+      router.invalidate();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save WhatsApp number");
+    } finally {
+      setSavingWa(false);
     }
+  }
   }
 
   return (
@@ -155,6 +170,32 @@ function AdminAppearancePage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Private Access — Admin WhatsApp</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The number customers use to contact you when they buy Private Access.
+            Use international format with no plus sign, e.g. <code>2348012345678</code>.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input
+              value={wa}
+              onChange={(e) => setWa(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="2348012345678"
+              className="flex-1 min-w-[220px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <button
+              onClick={saveWhatsApp}
+              disabled={savingWa || wa === (adminWhatsappNumber ?? "")}
+              className="rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60"
+            >
+              {savingWa ? "Saving…" : "Save number"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
