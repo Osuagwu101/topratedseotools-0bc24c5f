@@ -336,12 +336,12 @@ function StatCard({ label, value, icon: Icon, tone }: {
   label: string; value: number | string; icon: typeof Users; tone: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-card">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-        <Icon className={`h-4 w-4 ${tone}`} />
+    <div className="rounded-xl border bg-card p-3 shadow-card">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${tone}`} />
       </div>
-      <div className="mt-3 text-2xl font-semibold">{value}</div>
+      <div className="mt-1.5 text-xl font-semibold leading-tight">{value}</div>
     </div>
   );
 }
