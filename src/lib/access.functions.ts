@@ -139,6 +139,69 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
 
 // ---------- USER ----------
 
+/**
+ * Migration cutoff: orders created strictly BEFORE this instant may fall back
+ * to the legacy `tool_credentials` vault when no active pool assignment exists.
+ * Orders created at or after this instant require a real pool assignment —
+ * they must never see legacy Shared credentials. This preserves genuine
+ * pre-pool access without letting new purchases bypass account capacity.
+ *
+ * Set to the timestamp of migration 20260721123048 (the account-pool launch).
+ */
+export const LEGACY_CREDENTIAL_CUTOFF_ISO = "2026-07-21T12:30:48.000Z";
+
+export interface ResolveCredentialsInput {
+  order: {
+    id: string;
+    tool_slug: string;
+    access_type: "shared" | "private";
+    fulfilment_status: "not_required" | "pending" | "active" | "failed" | "expired";
+    created_at: string;
+    admin_notes: string | null;
+  };
+  assignment: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
+  legacyCredential: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
+  cutoffIso?: string;
+}
+
+/**
+ * Pure decision for what credentials (if any) a customer sees for a given order.
+ *  - Private orders NEVER reveal credentials until fulfilment_status='active',
+ *    even if a private account was auto-reserved in the pool. This preserves
+ *    the WhatsApp/6-hour Admin fulfilment flow.
+ *  - Shared orders prefer the assigned pool account.
+ *  - Shared orders with no active assignment can only use the legacy vault
+ *    when the order was created before the account-pool launch. Newer orders
+ *    show `null` (UI renders "Awaiting account assignment").
+ */
+export function resolveOrderCredentials(
+  input: ResolveCredentialsInput,
+): { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null {
+  const { order, assignment, legacyCredential } = input;
+  const cutoff = input.cutoffIso ?? LEGACY_CREDENTIAL_CUTOFF_ISO;
+
+  if (order.access_type === "private") {
+    if (order.fulfilment_status !== "active") return null;
+    if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+      return assignment;
+    }
+    if (order.admin_notes) {
+      return { email: null, password: null, login_url: null, login_notes: order.admin_notes };
+    }
+    return null;
+  }
+
+  // Shared
+  if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+    return assignment;
+  }
+  // Legacy fallback only for genuinely pre-migration orders.
+  if (legacyCredential && order.created_at < cutoff) {
+    return legacyCredential;
+  }
+  return null;
+}
+
 /** Auth — returns the current user's active (approved, unexpired) tool slugs, with credentials. */
 export const getMyAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -147,26 +210,23 @@ export const getMyAccess = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days, access_type, fulfilment_status, admin_notes",
+        "id, tool_slug, expires_at, approved_at, paid_at, duration_days, grace_days, warning_days, access_type, fulfilment_status, admin_notes, created_at",
       )
       .eq("user_id", context.userId)
       .eq("status", "approved")
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
     if (error) throw new Error(error.message);
 
-    // Shared credentials only load for shared/fulfilled orders. Private orders
-    // never see the Shared vault; awaiting-fulfilment private orders show a
-    // pending banner instead.
+    // Legacy shared credentials only ever fetched for shared orders — and
+    // only actually shown to orders that predate the pool migration.
     const sharedSlugs = Array.from(
       new Set(
         (data ?? [])
-          .filter(
-            (r) => ((r.access_type as string) ?? "shared") === "shared",
-          )
+          .filter((r) => ((r.access_type as string) ?? "shared") === "shared")
           .map((r) => r.tool_slug as string),
       ),
     );
-    const creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    const legacyCreds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
     // Per-order account assignment (new pool). Keys by order_id.
     const assignedByOrder: Record<
       string,
@@ -200,15 +260,13 @@ export const getMyAccess = createServerFn({ method: "GET" })
         };
       }
     }
-    // Legacy fallback: tool_credentials is kept read-only for tools with
-    // no active assignment yet.
     if (sharedSlugs.length > 0) {
       const { data: rows } = await supabaseAdmin
         .from("tool_credentials")
         .select("tool_slug, login_email, login_password, login_url, login_notes")
         .in("tool_slug", sharedSlugs);
       for (const s of rows ?? []) {
-        creds[s.tool_slug as string] = {
+        legacyCreds[s.tool_slug as string] = {
           email: (s.login_email as string | null) ?? null,
           password: (s.login_password as string | null) ?? null,
           login_url: (s.login_url as string | null) ?? null,
@@ -226,20 +284,18 @@ export const getMyAccess = createServerFn({ method: "GET" })
           | "active"
           | "failed"
           | "expired";
-        let credentials = null;
-        const assigned = assignedByOrder[r.id as string];
-        if (assigned && (assigned.email || assigned.password || assigned.login_url || assigned.login_notes)) {
-          credentials = assigned;
-        } else if (access === "shared") {
-          credentials = creds[r.tool_slug as string] ?? null;
-        } else if (access === "private" && fulfilment === "active" && r.admin_notes) {
-          credentials = {
-            email: null,
-            password: null,
-            login_url: null,
-            login_notes: r.admin_notes as string,
-          };
-        }
+        const credentials = resolveOrderCredentials({
+          order: {
+            id: r.id as string,
+            tool_slug: r.tool_slug as string,
+            access_type: access,
+            fulfilment_status: fulfilment,
+            created_at: (r.created_at as string) ?? new Date().toISOString(),
+            admin_notes: (r.admin_notes as string | null) ?? null,
+          },
+          assignment: assignedByOrder[r.id as string] ?? null,
+          legacyCredential: legacyCreds[r.tool_slug as string] ?? null,
+        });
 
         return {
           order_id: r.id as string,
@@ -257,6 +313,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }),
     };
   });
+
 
 
 
