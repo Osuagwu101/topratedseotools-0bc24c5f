@@ -608,6 +608,20 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
       orderId: row.id,
       extraPayload: { disabled_at: new Date().toISOString(), source: i.eventType },
     });
+    // Load order so we can attribute the conversion.
+    const { data: full } = await i.supabaseAdmin
+      .from("tool_orders")
+      .select("id, user_id, tool_slug, price_amount, currency")
+      .eq("id", row.id)
+      .maybeSingle();
+    if (full) {
+      await fireWebhookConversion(i, full, {
+        kind: "renewal_disabled",
+        eventKey: `${row.id}:${Date.now()}`,
+        amount: Number(full.price_amount) || 0,
+        currency: (full.currency as string) ?? "NGN",
+      });
+    }
   }
 }
 
@@ -640,6 +654,19 @@ async function handleInvoiceFailed(i: DispatchInput) {
       eventKey: `renewal_failed:${failKey}`,
       extraPayload: { failed_at: new Date().toISOString() },
     });
+    const { data: full } = await i.supabaseAdmin
+      .from("tool_orders")
+      .select("id, user_id, tool_slug, price_amount, currency")
+      .eq("id", row.id)
+      .maybeSingle();
+    if (full) {
+      await fireWebhookConversion(i, full, {
+        kind: "renewal_failed",
+        eventKey: failKey,
+        amount: Number(full.price_amount) || 0,
+        currency: (full.currency as string) ?? "NGN",
+      });
+    }
   }
 }
 
