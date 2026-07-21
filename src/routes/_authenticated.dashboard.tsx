@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User } from "lucide-react";
+import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
 import { TOOLS, getTool } from "@/lib/tools-data";
+import { listMyOrders } from "@/lib/access.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -19,16 +20,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const { user } = Route.useRouteContext();
 
-  const { data: sub } = useQuery({
-    queryKey: ["subscription", user.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      return data;
-    },
+  const { data: ordersData } = useQuery({
+    queryKey: ["my-orders"],
+    queryFn: () => listMyOrders(),
   });
 
   const { data: favorites } = useQuery({
@@ -60,10 +54,27 @@ function Dashboard() {
     user.email?.split("@")[0] ??
     "there";
 
-  const plan = sub?.plan ?? "free";
-  const status = sub?.status ?? "inactive";
-  const renewal = sub?.current_period_end
-    ? new Date(sub.current_period_end).toLocaleDateString()
+  const now = Date.now();
+  const orders = ordersData?.orders ?? [];
+  const activeOrders = orders.filter(
+    (o) =>
+      o.status === "approved" &&
+      (!o.expires_at || new Date(o.expires_at).getTime() > now),
+  );
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const nextRenewalOrder = activeOrders
+    .filter((o) => o.next_payment_at || o.expires_at)
+    .sort((a, b) => {
+      const ax = new Date(a.next_payment_at ?? a.expires_at ?? 0).getTime();
+      const bx = new Date(b.next_payment_at ?? b.expires_at ?? 0).getTime();
+      return ax - bx;
+    })[0];
+  const nextRenewalDate = nextRenewalOrder
+    ? new Date(
+        nextRenewalOrder.next_payment_at ??
+          nextRenewalOrder.expires_at ??
+          Date.now(),
+      ).toLocaleDateString()
     : "—";
 
   const favTools = (favorites ?? [])
@@ -90,24 +101,76 @@ function Dashboard() {
               <Sparkles className="h-4 w-4" /> Explore tools
             </Link>
             <Link
-              to="/billing"
+              to="/orders"
               className="inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
             >
-              <CreditCard className="h-4 w-4" /> Billing
+              <CreditCard className="h-4 w-4" /> My subscriptions
             </Link>
           </div>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            icon={CreditCard}
-            label="Plan"
-            value={plan[0].toUpperCase() + plan.slice(1)}
-            hint={`Status: ${status}`}
+            icon={CheckCircle2}
+            label="Active subscriptions"
+            value={String(activeOrders.length)}
+            hint={pendingCount ? `${pendingCount} awaiting payment` : undefined}
           />
-          <StatCard icon={Clock} label="Next renewal" value={renewal} />
+          <StatCard icon={Clock} label="Next renewal" value={nextRenewalDate} />
           <StatCard icon={LayoutGrid} label="Available tools" value={String(TOOLS.length)} />
           <StatCard icon={Star} label="Favourites" value={String(favTools.length)} />
+        </div>
+
+        <div className="mt-10">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Your active tools</h2>
+            <Link to="/orders" className="text-xs font-medium text-primary hover:underline">
+              Manage subscriptions →
+            </Link>
+          </div>
+          {activeOrders.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-10 text-center">
+              <CheckCircle2 className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                No active subscriptions yet.{" "}
+                <Link to="/tools" className="text-primary hover:underline">
+                  Browse tools
+                </Link>{" "}
+                to purchase access.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {activeOrders.map((o) => {
+                const t = getTool(o.tool_slug);
+                if (!t) return null;
+                return (
+                  <Link
+                    key={o.id}
+                    to="/orders"
+                    className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
+                  >
+                    <ToolBrandMark tool={t} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{t.name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                        <span className="rounded-full bg-success/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-success">
+                          Active
+                        </span>
+                        {o.access_type ? (
+                          <span className="capitalize">{o.access_type}</span>
+                        ) : null}
+                        {o.billing_period ? (
+                          <span className="capitalize">· {o.billing_period}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
@@ -140,16 +203,16 @@ function Dashboard() {
                 <dd className="truncate font-medium">{user.email}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Plan</dt>
-                <dd className="font-medium capitalize">{plan}</dd>
+                <dt className="text-muted-foreground">Active tools</dt>
+                <dd className="font-medium">{activeOrders.length}</dd>
               </div>
             </dl>
             <div className="mt-5 flex flex-col gap-2">
               <Link to="/profile" className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted">
                 Profile settings
               </Link>
-              <Link to="/subscription" className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted">
-                Manage subscription
+              <Link to="/orders" className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted">
+                My subscriptions
               </Link>
             </div>
           </aside>
