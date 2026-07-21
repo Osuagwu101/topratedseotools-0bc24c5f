@@ -459,6 +459,14 @@ async function handleChargeSuccess(i: DispatchInput) {
         expiry_date: newExpires.toISOString(),
       },
     });
+    // Ask for a review after the customer has had time to use the tool.
+    // Idempotent per order — repeat webhooks / retries cannot duplicate.
+    try {
+      const { queueReviewRequest } = await import("@/lib/email/review-request");
+      await queueReviewRequest(i.supabaseAdmin, { orderId: order.id as string });
+    } catch (err) {
+      console.warn("[email] queueReviewRequest failed", err);
+    }
   }
 }
 

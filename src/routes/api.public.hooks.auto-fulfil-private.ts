@@ -70,6 +70,7 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
         }
         let processed = 0;
         const { queueOrderEmail } = await import("@/lib/email/order-emails");
+        const { queueReviewRequest } = await import("@/lib/email/review-request");
         for (const o of due ?? []) {
           const start = new Date(o.fulfilment_deadline_at as string);
           const dur = (o.duration_days as number) ?? 28;
@@ -101,6 +102,7 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
                 expiry_date: expires.toISOString(),
               },
             });
+            await queueReviewRequest(supabaseAdmin, { orderId: o.id as string });
           }
         }
 

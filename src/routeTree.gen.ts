@@ -31,6 +31,7 @@ import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
+import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
@@ -180,6 +181,11 @@ const AdminTransactionsRoute = AdminTransactionsRouteImport.update({
 const AdminToolsRoute = AdminToolsRouteImport.update({
   id: '/admin/tools',
   path: '/admin/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/admin/reviews',
+  path: '/admin/reviews',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminPricingRoute = AdminPricingRouteImport.update({
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -484,6 +491,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
@@ -549,6 +557,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -615,6 +624,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
+    | '/admin/reviews'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -675,6 +685,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
+    | '/admin/reviews'
     | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
@@ -739,6 +750,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
+    | '/admin/reviews'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -798,6 +810,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
+  AdminReviewsRoute: typeof AdminReviewsRoute
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -961,6 +974,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/tools'
       fullPath: '/admin/tools'
       preLoaderRoute: typeof AdminToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/admin/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/pricing': {
@@ -1400,6 +1420,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
+  AdminReviewsRoute: AdminReviewsRoute,
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,

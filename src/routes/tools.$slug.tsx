@@ -21,6 +21,7 @@ import {
 } from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { ReviewSection } from "@/components/reviews/ReviewSection";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -165,6 +166,10 @@ function ToolPage() {
             </ul>
           </div>
         ) : null}
+
+        <ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} />
+
+
 
         {related.length > 0 && (
           <>

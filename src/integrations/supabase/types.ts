@@ -1417,6 +1417,124 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_review_versions: {
+        Row: {
+          body: string
+          created_at: string
+          display_name: string | null
+          id: string
+          qualifying_order_id: string | null
+          rating: number
+          review_id: string
+          status: Database["public"]["Enums"]["review_status"]
+          submitted_at: string
+          title: string
+          tool_slug: string
+          user_id: string
+          version_no: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          qualifying_order_id?: string | null
+          rating: number
+          review_id: string
+          status: Database["public"]["Enums"]["review_status"]
+          submitted_at: string
+          title: string
+          tool_slug: string
+          user_id: string
+          version_no: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          qualifying_order_id?: string | null
+          rating?: number
+          review_id?: string
+          status?: Database["public"]["Enums"]["review_status"]
+          submitted_at?: string
+          title?: string
+          tool_slug?: string
+          user_id?: string
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_review_versions_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "tool_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_reviews: {
+        Row: {
+          body: string
+          created_at: string
+          display_name: string | null
+          id: string
+          moderation_note: string | null
+          qualifying_order_id: string | null
+          rating: number
+          status: Database["public"]["Enums"]["review_status"]
+          submitted_at: string
+          title: string
+          tool_slug: string
+          updated_at: string
+          user_id: string
+          verified_source: Database["public"]["Enums"]["review_source"]
+          version_no: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          moderation_note?: string | null
+          qualifying_order_id?: string | null
+          rating: number
+          status?: Database["public"]["Enums"]["review_status"]
+          submitted_at?: string
+          title: string
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+          verified_source: Database["public"]["Enums"]["review_source"]
+          version_no?: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          moderation_note?: string | null
+          qualifying_order_id?: string | null
+          rating?: number
+          status?: Database["public"]["Enums"]["review_status"]
+          submitted_at?: string
+          title?: string
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+          verified_source?: Database["public"]["Enums"]["review_source"]
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_reviews_qualifying_order_id_fkey"
+            columns: ["qualifying_order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_settings: {
         Row: {
           access_level: Database["public"]["Enums"]["tool_access_level"]
@@ -1588,6 +1706,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       blog_post_status: "draft" | "scheduled" | "published" | "archived"
+      review_source: "paystack" | "offline"
+      review_status: "pending" | "approved" | "rejected" | "hidden"
       tool_access_level: "public" | "logged_in" | "purchased"
       tool_order_status:
         | "pending"
@@ -1724,6 +1844,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       blog_post_status: ["draft", "scheduled", "published", "archived"],
+      review_source: ["paystack", "offline"],
+      review_status: ["pending", "approved", "rejected", "hidden"],
       tool_access_level: ["public", "logged_in", "purchased"],
       tool_order_status: [
         "pending",
