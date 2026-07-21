@@ -80,6 +80,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found");
+    const orderSafe = order;
     if (order.status === "approved") throw new Error("This subscription is already active");
 
     let snapshot;
@@ -522,6 +523,8 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Subscription not found");
+    const orderSafe = order;
+
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
