@@ -590,6 +590,159 @@ export type Database = {
         }
         Relationships: []
       }
+      email_messages: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_key: string
+          id: string
+          last_error: string | null
+          payload: Json
+          recipient: string
+          related_order_id: string | null
+          related_user_id: string | null
+          resend_message_id: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          subject: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_key: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          recipient: string
+          related_order_id?: string | null
+          related_user_id?: string | null
+          resend_message_id?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_key?: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          recipient?: string
+          related_order_id?: string | null
+          related_user_id?: string | null
+          resend_message_id?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_settings: {
+        Row: {
+          abandoned_delay_hours: number
+          created_at: string
+          enabled_types: Json
+          from_email: string
+          id: boolean
+          last_verified_at: string | null
+          production_sending: boolean
+          reply_to_email: string
+          resend_dns_records: Json | null
+          resend_domain_id: string | null
+          resend_domain_status: string
+          sender_name: string
+          sending_domain: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          abandoned_delay_hours?: number
+          created_at?: string
+          enabled_types?: Json
+          from_email?: string
+          id?: boolean
+          last_verified_at?: string | null
+          production_sending?: boolean
+          reply_to_email?: string
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
+          resend_domain_status?: string
+          sender_name?: string
+          sending_domain?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          abandoned_delay_hours?: number
+          created_at?: string
+          enabled_types?: Json
+          from_email?: string
+          id?: boolean
+          last_verified_at?: string | null
+          production_sending?: boolean
+          reply_to_email?: string
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
+          resend_domain_status?: string
+          sender_name?: string
+          sending_domain?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          html_body: string
+          id: string
+          is_system: boolean
+          key: string
+          name: string
+          subject: string
+          text_body: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          html_body: string
+          id?: string
+          is_system?: boolean
+          key: string
+          name: string
+          subject: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          html_body?: string
+          id?: string
+          is_system?: boolean
+          key?: string
+          name?: string
+          subject?: string
+          text_body?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       internal_secrets: {
         Row: {
           name: string
