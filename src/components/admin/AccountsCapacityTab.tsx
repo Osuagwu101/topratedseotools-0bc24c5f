@@ -44,10 +44,15 @@ const summaryQuery = (slug: string) =>
 export function AccountsCapacityTab({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(accountsQuery(slug));
+  const { data: summaryData } = useSuspenseQuery(summaryQuery(slug));
   const [showNew, setShowNew] = useState(false);
   const accounts = data.accounts;
+  const summary = summaryData.summary;
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["tool-accounts", slug] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["tool-accounts", slug] });
+    qc.invalidateQueries({ queryKey: ["tool-account-summary", slug] });
+  };
   const shared = accounts.filter((a) => a.access_type === "shared");
   const priv = accounts.filter((a) => a.access_type === "private");
 
