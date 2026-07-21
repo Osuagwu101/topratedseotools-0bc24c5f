@@ -136,49 +136,33 @@ function ToolPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-2">
-          <ToolAccessPanel
-            tool={tool}
-            setting={setting}
-            isAuthenticated={session?.isAuthenticated ?? false}
-          />
+        {tool.pricingModel === "per_use" ? (
+          <PerUsePanel tool={tool} />
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <ToolAccessPanel
+              tool={tool}
+              setting={setting}
+              isAuthenticated={session?.isAuthenticated ?? false}
+            />
 
-          <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
-        </div>
+            <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
+          </div>
+        )}
 
-        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="text-lg font-semibold">What you can do</h2>
-          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {[
-              "Fast, high-quality output on the latest models",
-              "Templates and presets to get you started",
-              "Export, share and integrate with your workflow",
-              "Priority speed on paid plans",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="text-lg font-semibold">What you can do</h2>
-          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {[
-              "Fast, high-quality output on the latest models",
-              "Templates and presets to get you started",
-              "Export, share and integrate with your workflow",
-              "Priority speed on paid plans",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {tool.features && tool.features.length > 0 ? (
+          <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+            <h2 className="text-lg font-semibold">What you can do with {tool.name}</h2>
+            <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              {tool.features.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {related.length > 0 && (
           <>
