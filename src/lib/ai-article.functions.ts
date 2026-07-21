@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { estimateReadingTime, slugify } from "@/lib/blog-text";
 import { getProvider, providerCatalog } from "@/lib/ai-providers/registry";
+import { sanitizeGeminiModel, isValidGeminiModel } from "@/lib/ai-providers/google";
 import {
   detectToolSlugs,
   injectInternalLinks,
