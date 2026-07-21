@@ -28,6 +28,8 @@ export type ToolOrderStatus =
   | "expired";
 export type LaunchMode = "new_tab" | "same_tab" | "popup";
 
+export type AccessAuthorization = "confirmed" | "not_confirmed" | "not_applicable";
+
 export interface ToolSetting {
   tool_slug: string;
   enabled: boolean;
@@ -39,6 +41,8 @@ export interface ToolSetting {
   display_manual_credentials: boolean;
   shared_access_enabled: boolean;
   private_access_enabled: boolean;
+  shared_access_authorization: AccessAuthorization;
+  private_access_authorization: AccessAuthorization;
 }
 
 
