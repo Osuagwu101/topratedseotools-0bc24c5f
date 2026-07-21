@@ -55,10 +55,17 @@ type NavItem = {
 const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
-  { title: "Customers", to: "/admin/orders", icon: Users },
   { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
+];
+
+const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
+  { title: "All users", to: "/admin/customers" },
+  { title: "Active subscribers", to: "/admin/customers/active" },
+  { title: "All-time subscribers", to: "/admin/customers/all-time" },
+  { title: "Inactive / expired", to: "/admin/customers/inactive" },
+  { title: "New registrations", to: "/admin/customers/new" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -89,6 +96,9 @@ function AdminSidebar() {
   const navigate = useNavigate();
   const [toolsOpen, setToolsOpen] = useState(
     () => path.startsWith("/admin/tools"),
+  );
+  const [customersOpen, setCustomersOpen] = useState(
+    () => path.startsWith("/admin/customers"),
   );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -210,6 +220,41 @@ function AdminSidebar() {
                   </>
                 )}
               </SidebarMenuItem>
+
+              {/* Customers — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/customers")}
+                  tooltip="Customers"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/customers" });
+                    else setCustomersOpen((v) => !v);
+                  }}
+                >
+                  <Users />
+                  <span>Customers</span>
+                  {!collapsed &&
+                    (customersOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && customersOpen && (
+                  <SidebarMenuSub>
+                    {CUSTOMER_SUBNAV.map((s) => (
+                      <SidebarMenuSubItem key={s.to}>
+                        <SidebarMenuSubButton asChild isActive={path === s.to}>
+                          <Link to={s.to}>
+                            <span>{s.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
 
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>
