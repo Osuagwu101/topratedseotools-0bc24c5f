@@ -45,6 +45,8 @@ export interface AdminOverview {
     allTime: number;
     recurring: number;
     oneTime: number;
+    online: number;
+    offline: number;
     successfulPayments: number;
     failedPayments: number;
     refunds: number;
