@@ -67,20 +67,29 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
       }
     } catch {}
 
-    // Awaiting assignment (no active account_assignment row for approved order)
+    // Awaiting assignment — approved orders with no active pool assignment
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { data: orders } = await (supabaseAdmin as any)
         .from("tool_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "approved")
-        .eq("assignment_status", "awaiting");
-      if ((count ?? 0) > 0) {
-        attention.push({
-          id: "awaiting-assignment",
-          label: "Customers awaiting account assignment",
-          count: count ?? 0,
-          href: "/admin/awaiting-assignments",
-        });
+        .select("id")
+        .eq("status", "approved");
+      const orderIds = (orders ?? []).map((o: any) => o.id);
+      if (orderIds.length) {
+        const { data: assigned } = await (supabaseAdmin as any)
+          .from("tool_account_assignments")
+          .select("order_id")
+          .in("order_id", orderIds)
+          .eq("status", "active");
+        const assignedIds = new Set((assigned ?? []).map((a: any) => a.order_id));
+        const awaiting = orderIds.filter((id: string) => !assignedIds.has(id)).length;
+        if (awaiting > 0) {
+          attention.push({
+            id: "awaiting-assignment",
+            label: "Customers awaiting account assignment",
+            count: awaiting,
+            href: "/admin/awaiting-assignments",
+          });
+        }
       }
     } catch {}
 
