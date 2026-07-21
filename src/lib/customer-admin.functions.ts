@@ -446,7 +446,7 @@ export interface CustomerDetail {
     at: string;
     adminId: string | null;
     orderId: string | null;
-    details: Record<string, unknown> | null;
+    details: string | null;
   }>;
 }
 
