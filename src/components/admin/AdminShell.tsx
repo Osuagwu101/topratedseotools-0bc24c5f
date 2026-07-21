@@ -180,6 +180,23 @@ function AdminSidebar() {
     }
   }
 
+  const [healthBadge, setHealthBadge] = useState<{ unresolved: number; awaiting: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const mod = await import("@/lib/access-health.functions");
+        const res = await mod.getAccessHealthBadgeCounts();
+        if (!cancelled) setHealthBadge({ unresolved: res.unresolved, awaiting: res.awaiting });
+      } catch {
+        /* non-admin or transient — hide the badges */
+      }
+    }
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
