@@ -202,7 +202,11 @@ function PricingPage() {
               },
               {
                 q: "How do I pay for a tool?",
-                a: "Choose Shared or Private access, pick your billing period, and pay securely via Paystack. Access is granted the moment payment is confirmed — no admin approval needed.",
+                a: "Choose Shared or Private Access, pick your billing period, and pay securely via Paystack. Shared Access is activated after payment confirmation, subject to availability. Private Access orders are marked pending fulfilment after payment — contact Admin on WhatsApp to complete the account assignment (usually within six hours).",
+              },
+              {
+                q: "How does Turnitin work?",
+                a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no monthly, quarterly or yearly billing, no Shared or Private selection, and no automatic renewal. Message us with the number of checks you need and we'll send a payment link.",
               },
               {
                 q: "Why do some tools say 'Pricing confirmed on WhatsApp'?",
