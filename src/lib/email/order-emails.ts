@@ -8,6 +8,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { queueEmail } from "./queue";
+import type { TemplateVars } from "./templates";
+
 
 export type OrderEmailKind =
   | "payment_success"
@@ -22,8 +24,9 @@ export interface QueueOrderEmailInput {
   kind: OrderEmailKind;
   orderId: string;
   reference?: string | null;
-  extraPayload?: Record<string, unknown>;
+  extraPayload?: Record<string, string | number | null | undefined>;
 }
+
 
 /**
  * Best-effort — never throws. Looks up the customer + order and drops a
@@ -50,7 +53,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     if (!to) return;
     const name = (profile as { full_name?: string } | null)?.full_name ?? "there";
 
-    const basePayload: Record<string, unknown> = {
+    const basePayload: TemplateVars = {
       name,
       tool: order.tool_slug ?? "your tool",
       access_type: order.access_type ?? "shared",
@@ -59,8 +62,9 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
       currency: order.currency ?? "NGN",
       reference: i.reference ?? "",
       dashboard_url: "https://topratedseotools.com/dashboard",
-      ...(i.extraPayload ?? {}),
+      ...((i.extraPayload ?? {}) as TemplateVars),
     };
+
 
     const templateByKind: Record<OrderEmailKind, string> = {
       payment_success: "payment_success",
