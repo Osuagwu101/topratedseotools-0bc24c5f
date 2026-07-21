@@ -426,6 +426,15 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       },
     });
 
+    // Auto-assign a login account slot from the pool if capacity exists.
+    try {
+      const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
+      await tryAutoAssignAccount(supabaseAdmin, order.id as string);
+    } catch (e) {
+      console.warn("[account-pool] offline auto-assign failed", e);
+    }
+
+
     // Queue offline-payment confirmation.
     try {
       const { queueEmail } = await import("@/lib/email/queue");
