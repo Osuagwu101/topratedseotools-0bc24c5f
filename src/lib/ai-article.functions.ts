@@ -113,14 +113,14 @@ export const updateAiSettings = createServerFn({ method: "POST" })
     if (data.promo_tone !== undefined) payload.promo_tone = data.promo_tone;
     if (data.promo_enabled !== undefined) payload.promo_enabled = data.promo_enabled;
     if (existing) {
-      const { error } = await context.supabase
+      const { error } = await (context.supabase as any)
         .from("ai_generator_settings")
         .update(payload)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
       return { id: existing.id };
     }
-    const { data: inserted, error } = await context.supabase
+    const { data: inserted, error } = await (context.supabase as any)
       .from("ai_generator_settings")
       .insert(payload)
       .select("id")
