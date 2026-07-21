@@ -2,7 +2,9 @@
  * Executable tests for the marketing-consent gate on server-side conversions.
  * Run: bun tests/marketing-consent.test.ts
  */
+process.env.META_CAPI_ACCESS_TOKEN = "test-token";
 import { trackServerConversion } from "../src/lib/marketing/server-events";
+import { MockDb } from "./mock-db";
 import { MockDb } from "./mock-db";
 
 let passed = 0;
