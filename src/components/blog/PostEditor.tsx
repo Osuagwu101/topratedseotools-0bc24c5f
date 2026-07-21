@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Eye, Save, Send, History, Highlighter, Plus, Trash2 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import {
   adminCreatePost,
@@ -262,7 +261,6 @@ function EditorBody({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AdminNav />
             <Link
               to="/admin/blog"
               className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
