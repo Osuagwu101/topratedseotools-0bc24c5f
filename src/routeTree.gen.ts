@@ -41,6 +41,7 @@ import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
+import { Route as AdminAccessHealthRouteImport } from './routes/admin.access-health'
 import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated.transactions'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated.subscription'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
@@ -237,6 +238,11 @@ const AdminAppearanceRoute = AdminAppearanceRouteImport.update({
 const AdminAdminsRoute = AdminAdminsRouteImport.update({
   id: '/admin/admins',
   path: '/admin/admins',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccessHealthRoute = AdminAccessHealthRouteImport.update({
+  id: '/admin/access-health',
+  path: '/admin/access-health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTransactionsRoute =
@@ -458,6 +464,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/transactions': typeof AuthenticatedTransactionsRoute
+  '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -527,6 +534,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/transactions': typeof AuthenticatedTransactionsRoute
+  '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
@@ -596,6 +604,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/_authenticated/transactions': typeof AuthenticatedTransactionsRoute
+  '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -669,6 +678,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/subscription'
     | '/transactions'
+    | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -738,6 +748,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/subscription'
     | '/transactions'
+    | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/credentials'
@@ -806,6 +817,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/subscription'
     | '/_authenticated/transactions'
+    | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -872,6 +884,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  AdminAccessHealthRoute: typeof AdminAccessHealthRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAppearanceRoute: typeof AdminAppearanceRoute
   AdminBlogRoute: typeof AdminBlogRouteWithChildren
@@ -1115,6 +1128,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/admins'
       fullPath: '/admin/admins'
       preLoaderRoute: typeof AdminAdminsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/access-health': {
+      id: '/admin/access-health'
+      path: '/admin/access-health'
+      fullPath: '/admin/access-health'
+      preLoaderRoute: typeof AdminAccessHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/transactions': {
@@ -1545,6 +1565,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  AdminAccessHealthRoute: AdminAccessHealthRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAppearanceRoute: AdminAppearanceRoute,
   AdminBlogRoute: AdminBlogRouteWithChildren,
