@@ -427,20 +427,33 @@ function AdminSidebar() {
 
 
 
-              {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item)}
-                    tooltip={item.title}
-                  >
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {NAV.filter((n) => n.title !== "Dashboard").map((item) => {
+                const badgeCount =
+                  item.to === "/admin/access-health"
+                    ? healthBadge?.unresolved ?? 0
+                    : item.to === "/admin/awaiting-assignments"
+                      ? healthBadge?.awaiting ?? 0
+                      : 0;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item)}
+                      tooltip={item.title}
+                    >
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                        {!collapsed && badgeCount > 0 && (
+                          <span className="ml-auto inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
 
               {isSuperAdmin && (
                 <SidebarMenuItem>
