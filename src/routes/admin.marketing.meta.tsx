@@ -64,7 +64,7 @@ function MetaPage() {
           test_event_code: capi?.test_event_code ?? null,
         },
       });
-      toast.success("Pixel settings updated.");
+      toast.success("Pixel saved. Tracking starts after visitors accept Marketing consent.");
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -77,7 +77,7 @@ function MetaPage() {
     setBusy(true);
     try {
       const r = await test();
-      if (r.ok) toast.success("Test event sent.");
+      if (r.ok) toast.success("Pixel setup is ready.");
       else toast.error(r.error ?? "Test failed");
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
@@ -141,7 +141,7 @@ function MetaPage() {
               disabled={busy || !connected}
               className="rounded-md border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60"
             >
-              Send Test Event
+              Check Pixel
             </button>
           </div>
 
@@ -153,7 +153,7 @@ function MetaPage() {
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Last successful event</div>
+              <div className="text-xs text-muted-foreground">Last check</div>
               <div>
                 {meta?.last_event_at || capi?.last_event_at
                   ? new Date((capi?.last_event_at ?? meta?.last_event_at) as string).toLocaleString()
