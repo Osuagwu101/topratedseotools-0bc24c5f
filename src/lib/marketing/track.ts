@@ -3,7 +3,7 @@
  * is off, the call is a no-op. Safe to invoke from any component.
  */
 import { readConsent } from "./consent";
-import { readAttribution, getVisitorId } from "./attribution";
+import { readAttribution, getVisitorId, peekVisitorId } from "./attribution";
 import type { GtmEventName } from "./config";
 
 type Dict = Record<string, unknown>;
