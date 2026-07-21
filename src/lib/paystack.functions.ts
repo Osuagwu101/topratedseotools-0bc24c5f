@@ -286,31 +286,81 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     // Idempotently record this successful charge in tool_payments so the
     // admin revenue dashboard reflects it even when the webhook is delayed
     // or never delivered (e.g. checkout completed via the browser return).
+    // If an "initiated" row exists for this reference (created at init time),
+    // update it in place so we keep a single canonical transaction record.
     if (tx.reference) {
       const { data: dupPay } = await supabaseAdmin
         .from("tool_payments")
-        .select("id")
+        .select("id, payment_status")
         .eq("paystack_reference", tx.reference)
         .maybeSingle();
-      if (!dupPay) {
+      const paystackChannel = (tx as unknown as { channel?: string }).channel ?? null;
+      const paystackId = (tx as unknown as { id?: string | number }).id;
+      if (dupPay) {
+        if (dupPay.payment_status !== "successful") {
+          await supabaseAdmin
+            .from("tool_payments")
+            .update({
+              payment_status: "successful",
+              paid_at: paidAt.toISOString(),
+              paystack_status: "success",
+              paystack_last_checked_at: paidAt.toISOString(),
+              paystack_transaction_id: paystackId ? String(paystackId) : null,
+              payment_channel: paystackChannel,
+              last_status_change_at: paidAt.toISOString(),
+            } as never)
+            .eq("id", dupPay.id);
+          await supabaseAdmin.from("tool_payment_status_history").insert({
+            payment_id: dupPay.id,
+            from_status: dupPay.payment_status,
+            to_status: "successful",
+            source: "verify",
+            paystack_status: "success",
+            note: "Customer returned from Paystack — verified successful",
+            created_by: context.userId,
+          } as never);
+        }
+      } else {
         const { data: orderFull } = await supabaseAdmin
           .from("tool_orders")
-          .select("tool_slug")
+          .select("tool_slug, access_type, billing_period")
           .eq("id", order.id)
           .maybeSingle();
-        await supabaseAdmin.from("tool_payments").insert({
-          order_id: order.id,
-          user_id: order.user_id,
-          tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
-          amount: (order.price_amount as number | null) ?? tx.amount / 100,
-          currency: (order.currency as string | null) ?? "NGN",
-          payment_status: "successful",
-          payment_type: isOneTime ? "one_time" : "recurring_subscription",
-          classification: isOneTime ? "one_time" : "initial",
-          paystack_reference: tx.reference,
-          paystack_environment: env,
-          paid_at: paidAt.toISOString(),
-        });
+        const { data: inserted } = await supabaseAdmin
+          .from("tool_payments")
+          .insert({
+            order_id: order.id,
+            user_id: order.user_id,
+            tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
+            amount: (order.price_amount as number | null) ?? tx.amount / 100,
+            currency: (order.currency as string | null) ?? "NGN",
+            payment_status: "successful",
+            payment_type: isOneTime ? "one_time" : "recurring_subscription",
+            classification: isOneTime ? "one_time" : "initial",
+            paystack_reference: tx.reference,
+            paystack_environment: env,
+            paystack_status: "success",
+            paystack_transaction_id: paystackId ? String(paystackId) : null,
+            paystack_last_checked_at: paidAt.toISOString(),
+            payment_channel: paystackChannel,
+            access_type: orderFull?.access_type ?? null,
+            billing_period: orderFull?.billing_period ?? null,
+            paid_at: paidAt.toISOString(),
+            last_status_change_at: paidAt.toISOString(),
+          } as never)
+          .select("id")
+          .maybeSingle();
+        if (inserted?.id) {
+          await supabaseAdmin.from("tool_payment_status_history").insert({
+            payment_id: inserted.id,
+            from_status: null,
+            to_status: "successful",
+            source: "verify",
+            paystack_status: "success",
+            note: "Verified successful on customer return",
+            created_by: context.userId,
+          } as never);
+        }
       }
     }
 
