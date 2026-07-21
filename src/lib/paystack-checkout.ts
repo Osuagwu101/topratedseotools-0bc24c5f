@@ -34,6 +34,8 @@ export class CheckoutError extends Error {
 const VALID_PERIODS = new Set(["monthly", "quarterly", "yearly"] as const);
 export type BillingPeriod = "monthly" | "quarterly" | "yearly";
 
+export type PaymentType = "one_time" | "recurring_subscription";
+
 export interface OrderSnapshot {
   user_id: string;
   tool_slug: string;
@@ -46,7 +48,7 @@ export interface OrderSnapshot {
   duration_days: number;
   grace_days: number;
   warning_days: number;
-  payment_type: "recurring_subscription";
+  payment_type: PaymentType;
   product_type: "subscription";
   paystack_environment: PaystackEnv;
 }
@@ -59,7 +61,7 @@ export interface OrderSnapshot {
 export async function validateAndBuildOrderSnapshot(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
-  input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined },
+  input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined; payment_type?: PaymentType },
   env: PaystackEnv | null,
 ): Promise<OrderSnapshot> {
   if (!input.userId) {
@@ -178,6 +180,9 @@ export async function validateAndBuildOrderSnapshot(
     period === "monthly" ? 28 : period === "quarterly" ? 90 : 365;
   const durationDays = Number(opt.duration_days ?? durationFallback) || durationFallback;
 
+  const paymentType: PaymentType =
+    input.payment_type === "one_time" ? "one_time" : "recurring_subscription";
+
   return {
     user_id: input.userId,
     tool_slug: input.tool_slug,
@@ -190,7 +195,7 @@ export async function validateAndBuildOrderSnapshot(
     duration_days: durationDays,
     grace_days: Number(opt.grace_days ?? 0),
     warning_days: Number(opt.warning_days ?? 0),
-    payment_type: "recurring_subscription",
+    payment_type: paymentType,
     product_type: "subscription",
     paystack_environment: env,
   };

@@ -242,7 +242,7 @@ async function findOrder(i: DispatchInput) {
   const q = i.supabaseAdmin
     .from("tool_orders")
     .select(
-      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment",
+      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type",
     );
   const { data } = i.orderId
     ? await q.eq("id", i.orderId).maybeSingle()
@@ -268,7 +268,9 @@ async function handleChargeSuccess(i: DispatchInput) {
   const dur = (order.duration_days as number) ?? 28;
   const grace = (order.grace_days as number) ?? 0;
   const access = ((order.access_type as string) ?? "shared") as "shared" | "private";
+  const isOneTime = (order.payment_type as string) === "one_time";
   const isRenewal =
+    !isOneTime &&
     order.status === "approved" &&
     !!order.paystack_plan_code &&
     (order.paystack_plan_code === i.planCode || !!order.paystack_subscription_code);
@@ -288,8 +290,8 @@ async function handleChargeSuccess(i: DispatchInput) {
         amount: order.price_amount,
         currency: order.currency ?? "NGN",
         payment_status: "successful",
-        payment_type: "recurring_subscription",
-        classification: isRenewal ? "renewal" : "initial",
+        payment_type: isOneTime ? "one_time" : "recurring_subscription",
+        classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
         paystack_reference: i.reference,
         paystack_environment: i.env,
         paid_at: paidAt.toISOString(),
@@ -298,8 +300,6 @@ async function handleChargeSuccess(i: DispatchInput) {
   }
 
   if (isRenewal) {
-    // Private renewals: keep existing assignment; extend from current period end.
-    // Shared renewals: extend as before.
     const base = Math.max(
       order.expires_at ? new Date(order.expires_at).getTime() : 0,
       order.current_period_end ? new Date(order.current_period_end).getTime() : 0,
@@ -325,6 +325,7 @@ async function handleChargeSuccess(i: DispatchInput) {
 
   // First payment
   if (order.status !== "approved") {
+    const renewalStatus = isOneTime ? "not_applicable" : "enabled";
     if (access === "private") {
       // Private: enter 6-hour fulfilment window. Do NOT set expires_at yet.
       const deadline = new Date(paidAt.getTime() + PRIVATE_FULFILMENT_WINDOW_MS);
@@ -337,7 +338,7 @@ async function handleChargeSuccess(i: DispatchInput) {
           paystack_reference: i.reference ?? null,
           paystack_customer_code: i.customerCode ?? undefined,
           subscription_status: "pending",
-          renewal_status: "enabled",
+          renewal_status: renewalStatus,
           payment_status: "successful",
           fulfilment_status: "pending",
           fulfilment_deadline_at: deadline.toISOString(),
@@ -356,15 +357,15 @@ async function handleChargeSuccess(i: DispatchInput) {
         approved_at: paidAt.toISOString(),
         paid_at: paidAt.toISOString(),
         subscription_started_at: paidAt.toISOString(),
-        paid_through_at: newNext.toISOString(),
+        paid_through_at: isOneTime ? null : newNext.toISOString(),
         current_period_start: paidAt.toISOString(),
-        current_period_end: newNext.toISOString(),
-        next_payment_at: newNext.toISOString(),
+        current_period_end: isOneTime ? null : newNext.toISOString(),
+        next_payment_at: isOneTime ? null : newNext.toISOString(),
         expires_at: newExpires.toISOString(),
         paystack_reference: i.reference ?? null,
         paystack_customer_code: i.customerCode ?? undefined,
-        subscription_status: "active",
-        renewal_status: "enabled",
+        subscription_status: isOneTime ? "non_renewing" : "active",
+        renewal_status: renewalStatus,
         payment_status: "successful",
         fulfilment_status: "not_required",
       })
