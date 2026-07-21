@@ -55,6 +55,7 @@ function safeError(err: unknown): string {
 
 const HANDLED_EVENTS = new Set([
   "charge.success",
+  "charge.failed",
   "subscription.create",
   "subscription.disable",
   "subscription.not_renew",
@@ -225,6 +226,8 @@ async function dispatchEvent(i: DispatchInput) {
   switch (i.eventType) {
     case "charge.success":
       return handleChargeSuccess(i);
+    case "charge.failed":
+      return handleChargeFailed(i);
     case "subscription.create":
       return handleSubscriptionCreate(i);
     case "subscription.disable":
