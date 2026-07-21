@@ -125,7 +125,11 @@ function OrderPage() {
           notes: notes || null,
         },
       });
-      const callback = `${window.location.origin}/orders?verify=1`;
+      // Paystack unconditionally appends `?trxref=…&reference=…` to the callback,
+      // so the callback URL must NOT already contain a query string or the
+      // browser lands on a malformed `/orders?verify=1?trxref=…` URL and the
+      // route's validateSearch throws "This page didn't load".
+      const callback = `${window.location.origin}/orders`;
       const { authorization_url } = await initPay({
         data: { order_id: orderId, callback_url: callback, payment_type: payMode },
       });
