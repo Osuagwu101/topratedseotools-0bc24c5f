@@ -49,6 +49,7 @@ import {
 import { launchTool } from "@/lib/tool-launcher";
 import { verifyPaystackPayment, disableOrderRenewal } from "@/lib/paystack.functions";
 import { getPublicSiteSettings } from "@/lib/site-settings.functions";
+import { trackPurchase } from "@/lib/marketing/track";
 
 const ordersQuery = queryOptions({
   queryKey: ["my-orders"],
@@ -122,7 +123,19 @@ function MyOrdersPage() {
     if (!ref || verifying) return;
     setVerifying(true);
     verify({ data: { reference: ref } })
-      .then(() => {
+      .then((result) => {
+        if (result.purchase) {
+          const tool = result.purchase.tool_slug ? getTool(result.purchase.tool_slug) : null;
+          trackPurchase({
+            order_id: result.purchase.order_id,
+            slug: result.purchase.tool_slug,
+            name: tool?.name ?? result.purchase.tool_slug,
+            amount: result.purchase.amount,
+            currency: result.purchase.currency,
+            reference: result.purchase.reference,
+            event_id: result.purchase.event_id,
+          });
+        }
         toast.success("Payment confirmed — your subscription is active.");
       })
       .catch((err) =>
