@@ -560,7 +560,7 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
         at: a.created_at,
         adminId: a.admin_id,
         orderId: a.order_id,
-        details: a.details,
+        details: a.details ? JSON.stringify(a.details) : null,
       })),
     };
   });
