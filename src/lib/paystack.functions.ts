@@ -281,7 +281,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
-    const orderSafeEarly = order;
+    const orderSafe = order;
     if (order.status === "approved") {
       return { ok: true, orderId, alreadyActive: true };
     }
