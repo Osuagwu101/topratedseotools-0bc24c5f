@@ -139,6 +139,9 @@ function AdminSidebar() {
   const [marketingOpen, setMarketingOpen] = useState(
     () => path.startsWith("/admin/marketing"),
   );
+  const [reviewsOpen, setReviewsOpen] = useState(
+    () => path.startsWith("/admin/reviews"),
+  );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   useEffect(() => {
