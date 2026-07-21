@@ -38,7 +38,6 @@ function loadPixel(pixelId: string) {
   })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
   /* eslint-enable */
   w.fbq?.("init", pixelId);
-  w.fbq?.("track", "PageView");
   flushPendingFbqEvents();
 }
 

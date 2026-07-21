@@ -70,6 +70,7 @@ export function MarketingProvider() {
       captureAttributionFromUrl();
       persistAttributionIfConsented();
       linkIfConsentedAndSignedIn();
+      setTimeout(() => trackPageView(), 200);
     });
   }, []);
 
