@@ -328,14 +328,14 @@ function AdminSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={path.startsWith("/admin/marketing")}
-                  tooltip="Marketing"
+                  tooltip="Integrations"
                   onClick={() => {
                     if (collapsed) navigate({ to: "/admin/marketing" });
                     else setMarketingOpen((v) => !v);
                   }}
                 >
                   <Megaphone />
-                  <span>Marketing</span>
+                  <span>Integrations</span>
                   {!collapsed &&
                     (marketingOpen ? (
                       <ChevronDown className="ml-auto h-4 w-4" />
