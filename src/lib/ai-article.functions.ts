@@ -64,6 +64,25 @@ export const updateAiSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => settingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+
+    // Sanitize + validate the model against the provider's allowlist so no
+    // malformed value (URL, quotes, whitespace, `models/` or `google/` prefix)
+    // ever reaches the API.
+    let model = String(data.model ?? "").trim();
+    if (data.provider === "google") {
+      const clean = sanitizeGeminiModel(model);
+      if (!clean || !isValidGeminiModel(clean)) {
+        throw new Error(
+          `Invalid Gemini model "${data.model}". Pick a supported model from the list.`,
+        );
+      }
+      model = clean;
+    } else {
+      // Basic hygiene for other providers.
+      model = model.replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, "");
+      if (!model) throw new Error("Model is required.");
+    }
+
     const { data: existing } = await context.supabase
       .from("ai_generator_settings")
       .select("id")
@@ -71,7 +90,7 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       .maybeSingle();
     const payload = {
       provider: data.provider,
-      model: data.model,
+      model,
       default_language: data.default_language,
       default_country: data.default_country ?? null,
       default_tone: data.default_tone,
