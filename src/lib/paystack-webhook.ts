@@ -390,6 +390,12 @@ async function handleChargeSuccess(i: DispatchInput) {
         expiry_date: newExpires.toISOString(),
       },
     });
+    await fireWebhookConversion(i, order, {
+      kind: "renewal_success",
+      eventKey: renewalKey,
+      amount: Number(order.price_amount) || 0,
+      currency: (order.currency as string) ?? "NGN",
+    });
     return;
   }
 
@@ -422,6 +428,12 @@ async function handleChargeSuccess(i: DispatchInput) {
         orderId: order.id as string,
         reference: i.reference ?? null,
         extraPayload: { fulfil_by: deadline.toISOString() },
+      });
+      await fireWebhookConversion(i, order, {
+        kind: "subscription_start",
+        eventKey: order.id as string,
+        amount: Number(order.price_amount) || 0,
+        currency: (order.currency as string) ?? "NGN",
       });
       return;
     }
@@ -459,6 +471,12 @@ async function handleChargeSuccess(i: DispatchInput) {
         expiry_date: newExpires.toISOString(),
       },
     });
+    await fireWebhookConversion(i, order, {
+      kind: isOneTime ? "purchase" : "subscription_start",
+      eventKey: order.id as string,
+      amount: Number(order.price_amount) || 0,
+      currency: (order.currency as string) ?? "NGN",
+    });
     // Ask for a review after the customer has had time to use the tool.
     // Idempotent per order — repeat webhooks / retries cannot duplicate.
     try {
@@ -467,6 +485,51 @@ async function handleChargeSuccess(i: DispatchInput) {
     } catch (err) {
       console.warn("[email] queueReviewRequest failed", err);
     }
+  }
+}
+
+
+/** Fire Meta CAPI event via the marketing pipeline (idempotent by event_id). */
+async function fireWebhookConversion(
+  i: DispatchInput,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any,
+  args: {
+    kind:
+      | "purchase"
+      | "subscription_start"
+      | "renewal_success"
+      | "renewal_failed"
+      | "renewal_disabled"
+      | "private_fulfilment"
+      | "refund";
+    eventKey: string;
+    amount: number;
+    currency: string;
+  },
+) {
+  try {
+    const { trackServerConversion, buildEventId } = await import(
+      "@/lib/marketing/server-events"
+    );
+    const { data: prof } = await i.supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("id", order.user_id)
+      .maybeSingle();
+    await trackServerConversion(i.supabaseAdmin, {
+      kind: args.kind,
+      event_id: buildEventId(args.kind, args.eventKey),
+      order_id: order.id as string,
+      user_id: order.user_id as string,
+      tool_slug: order.tool_slug as string,
+      amount: args.amount,
+      currency: args.currency,
+      email: (prof as { email?: string } | null)?.email ?? null,
+      custom: { source: "webhook", paystack_reference: i.reference ?? null },
+    });
+  } catch (err) {
+    console.warn("[marketing] webhook conversion failed", err);
   }
 }
 
