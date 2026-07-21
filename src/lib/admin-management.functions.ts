@@ -16,6 +16,10 @@ export function normalizeAdminEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+export function assertEmailCanBecomeNewAdmin(existingCustomer: unknown) {
+  if (existingCustomer) throw new Error(CUSTOMER_EMAIL_ADMIN_REJECTION);
+}
+
 async function assertSuperAdmin(userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
@@ -120,7 +124,7 @@ export const createAdmin = createServerFn({ method: "POST" })
       .eq("email", data.email)
       .maybeSingle();
     if (existingCustomerError) throw new Error(existingCustomerError.message);
-    if (existingCustomer) throw new Error(CUSTOMER_EMAIL_ADMIN_REJECTION);
+    assertEmailCanBecomeNewAdmin(existingCustomer);
 
     const { data: invited, error: inviteErr } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
