@@ -406,6 +406,23 @@ export const generateArticle = createServerFn({ method: "POST" })
       );
     }
 
+    const s: any = settings;
+    const brandName = String(s.brand_name ?? "Top Rated SEO Tools").trim() || "Top Rated SEO Tools";
+    const brandUrl = String(s.brand_url ?? "https://topratedseotools.lovable.app").trim() || "https://topratedseotools.lovable.app";
+    const brandDescription = String(
+      s.brand_description ??
+        "Affordable access to premium SEO, AI, writing, research and productivity tools with Shared and Private Access plans (monthly, quarterly, yearly) via secure Paystack payments and a simple customer dashboard.",
+    );
+    const promoPosition = Number.isFinite(s.promo_position) ? Number(s.promo_position) : 1;
+    const promoTone = String(s.promo_tone ?? "Natural, professional and persuasive");
+    const promoEnabled = s.promo_enabled !== false;
+    const relevanceText = [
+      data.keyword,
+      ...(data.secondary_keywords ?? []),
+      data.writing_style ?? "",
+    ].join(" ");
+    const brandRelevant = isPromoRelevant(relevanceText);
+
     const opts = {
       keyword: data.keyword.trim(),
       secondary: data.secondary_keywords?.filter(Boolean) ?? [],
@@ -426,6 +443,15 @@ export const generateArticle = createServerFn({ method: "POST" })
       includeCaseStudies: data.include_case_studies ?? false,
       includeFaq: data.include_faq ?? true,
       includeConclusion: data.include_conclusion ?? true,
+      brand: {
+        enabled: promoEnabled,
+        name: brandName,
+        url: brandUrl,
+        description: brandDescription,
+        position: promoPosition,
+        tone: promoTone,
+        relevant: brandRelevant,
+      },
     };
 
     let raw: string;
