@@ -1,0 +1,109 @@
+/**
+ * Loads Meta Pixel + Google Tag Manager scripts once, on customer-facing pages,
+ * only after the visitor accepts the Marketing consent category. Never renders
+ * on admin routes.
+ */
+import { useEffect, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { readConsent, onConsentChange } from "@/lib/marketing/consent";
+
+type Config = {
+  pixelId: string | null;
+  gtmId: string | null;
+  pixelEnabled: boolean;
+  gtmEnabled: boolean;
+  paused: boolean;
+};
+
+async function fetchConfig(): Promise<Config> {
+  // Anonymous read of public IDs — no service role needed because these are
+  // public IDs already visible in the loaded scripts. RLS blocks anon direct
+  // reads, so we hit a tiny anon-callable endpoint via a public function.
+  try {
+    const { data: integrations } = await supabase
+      .from("marketing_integrations")
+      .select("provider, enabled, public_id");
+    const { data: settings } = await supabase
+      .from("site_settings")
+      .select("marketing_pause")
+      .eq("id", true)
+      .maybeSingle();
+    const meta = (integrations ?? []).find((i) => i.provider === "meta_pixel");
+    const gtm = (integrations ?? []).find((i) => i.provider === "gtm");
+    return {
+      pixelId: (meta?.public_id as string | null) ?? null,
+      pixelEnabled: !!meta?.enabled,
+      gtmId: (gtm?.public_id as string | null) ?? null,
+      gtmEnabled: !!gtm?.enabled,
+      paused: !!(settings as { marketing_pause?: boolean } | null)?.marketing_pause,
+    };
+  } catch {
+    return { pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false };
+  }
+}
+
+function loadPixel(pixelId: string) {
+  const w = window as unknown as {
+    fbq?: (...args: unknown[]) => void;
+    _fbq?: unknown;
+    __pixelLoaded?: boolean;
+  };
+  if (w.__pixelLoaded) return;
+  w.__pixelLoaded = true;
+  /* eslint-disable */
+  // Meta's snippet, minimally trimmed.
+  (function (f: any, b: Document, e: string, v: string) {
+    let n: any, t: any, s: any;
+    if (f.fbq) return;
+    n = f.fbq = function () {
+      n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+    };
+    if (!f._fbq) f._fbq = n;
+    n.push = n;
+    n.loaded = !0;
+    n.version = "2.0";
+    n.queue = [];
+    t = b.createElement(e);
+    t.async = !0;
+    t.src = v;
+    s = b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t, s);
+  })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+  /* eslint-enable */
+  w.fbq?.("init", pixelId);
+  w.fbq?.("track", "PageView");
+}
+
+function loadGtm(id: string) {
+  const w = window as unknown as { __gtmLoaded?: boolean; dataLayer?: unknown[] };
+  if (w.__gtmLoaded) return;
+  w.__gtmLoaded = true;
+  w.dataLayer = w.dataLayer ?? [];
+  w.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(id)}`;
+  document.head.appendChild(s);
+}
+
+export function MarketingTags() {
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  const [config, setConfig] = useState<Config | null>(null);
+  const [consent, setConsent] = useState(() => readConsent());
+  const isAdminPage = path.startsWith("/admin");
+
+  useEffect(() => {
+    fetchConfig().then(setConfig);
+    const off = onConsentChange(setConsent);
+    return off;
+  }, []);
+
+  useEffect(() => {
+    if (isAdminPage || !config || config.paused || !consent.marketing) return;
+    if (config.pixelEnabled && config.pixelId) loadPixel(config.pixelId);
+    if (config.gtmEnabled && config.gtmId) loadGtm(config.gtmId);
+  }, [config, consent.marketing, isAdminPage]);
+
+  return null;
+}
