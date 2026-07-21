@@ -397,6 +397,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    const orderSafe = order!;
     // Helper — best-effort recipient lookup for post-payment emails.
     async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
       try {
