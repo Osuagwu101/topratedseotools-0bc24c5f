@@ -65,7 +65,7 @@ export const listAdmins = createServerFn({ method: "GET" })
         .from("user_roles")
         .select("id, user_id, is_active, is_super_admin, created_at")
         .eq("role", "admin")
-        .in("id", ids);
+        .in("user_id", ids);
       roles = Object.fromEntries((rows ?? []).map((r) => [r.user_id, r]));
     }
 
