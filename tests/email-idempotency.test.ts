@@ -1,25 +1,31 @@
 /**
- * Verifies email-queue idempotency and abandoned-checkout cancellation rules.
+ * Email idempotency + retry + safety tests.
+ * Run: bun tests/email-idempotency.test.ts
  *
- * Covers:
- *  1. One initial payment → one payment_success row (dedup on event_key)
- *  2. Callback + webhook trying to send the "same" success → still one row
- *  3. Two separate renewals (different references) → two rows
- *  4. Replaying the same renewal reference → still one row
- *  5. A failed renewal (own reference) queues its own row
- *  6. Abandoned checkout is queued once
- *  7. Completed order cancels the abandoned reminder at dispatch time
- *  8. Offline confirmation queues by paymentId
- *  9. Failed Resend requests reschedule as `retrying`
- * 10. Customer invite payload contains no plain-text password field
+ * No live Resend calls. No real DB. Uses the same in-memory mock as the
+ * Paystack tests, seeded with an `email_settings` row so `queueEmail`
+ * inserts, then verifies the unique event_key dedup behaviour.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { MockDb } from "./mock-db";
 import { queueEmail, dispatchOne } from "../src/lib/email/queue";
 
+let passed = 0;
+let failed = 0;
+const failures: string[] = [];
+
+function assert(cond: any, msg: string) {
+  if (cond) passed++;
+  else {
+    failed++;
+    failures.push(msg);
+    console.error("FAIL:", msg);
+  }
+}
+
 const EMAIL = "user@example.com";
 
-function makeAdmin() {
+function makeDb(): MockDb {
   const db = new MockDb({ uniqueColumns: { email_messages: ["event_key"] } });
   db.seed("email_settings", [
     {
@@ -30,112 +36,87 @@ function makeAdmin() {
       sending_domain: "topratedseotools.com",
       abandoned_delay_hours: 24,
       enabled_types: {},
-      production_sending: false, // domain not verified → dispatchOne cancels sends
+      production_sending: false, // domain not verified → dispatchOne cancels
       resend_domain_status: "unconfigured",
     },
   ]);
   db.seed("email_templates", [
-    { key: "payment_success", subject: "Success", html_body: "hi", enabled: true },
-    { key: "payment_failed", subject: "Failed", html_body: "hi", enabled: true },
-    { key: "private_pending", subject: "Pending", html_body: "hi", enabled: true },
-    { key: "private_fulfilled", subject: "Fulfilled", html_body: "hi", enabled: true },
-    { key: "renewal_success", subject: "Renewed", html_body: "hi", enabled: true },
-    { key: "renewal_failed", subject: "Renewal failed", html_body: "hi", enabled: true },
-    { key: "renewal_disabled", subject: "Renewal off", html_body: "hi", enabled: true },
-    { key: "abandoned_checkout", subject: "Come back", html_body: "hi", enabled: true },
-    { key: "offline_confirmed", subject: "Offline", html_body: "hi", enabled: true },
-    { key: "customer_invite", subject: "Welcome", html_body: "hi", enabled: true },
-  ]);
+    "payment_success",
+    "payment_failed",
+    "private_pending",
+    "private_fulfilled",
+    "renewal_success",
+    "renewal_failed",
+    "renewal_disabled",
+    "abandoned_checkout",
+    "offline_confirmed",
+    "customer_invite",
+  ].map((key) => ({ key, subject: key, html_body: "<p>{{name}}</p>", enabled: true })));
   return db;
 }
 
-describe("Email idempotency", () => {
-  let db: MockDb;
-  beforeEach(() => {
-    db = makeAdmin();
-  });
-
-  it("1. One initial payment sends one success email (event_key dedup)", async () => {
+async function main() {
+  // 1. One initial payment sends one success email.
+  {
+    const db = makeDb();
     const key = "payment_success:order-1";
-    await queueEmail(db as any, {
-      eventKey: key,
-      templateKey: "payment_success",
-      recipient: EMAIL,
-    });
-    await queueEmail(db as any, {
-      eventKey: key,
-      templateKey: "payment_success",
-      recipient: EMAIL,
-    });
-    expect(db.all("email_messages")).toHaveLength(1);
-  });
+    await queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL });
+    await queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL });
+    assert(db.all("email_messages").length === 1, "T1: single payment_success row for same event_key");
+  }
 
-  it("2. Callback and webhook do not send duplicate emails", async () => {
+  // 2. Callback + webhook race — still one row.
+  {
+    const db = makeDb();
     const key = "payment_success:order-42";
-    // Simulate callback + webhook racing — both use the same event_key.
     const [a, b] = await Promise.all([
-      queueEmail(db as any, {
-        eventKey: key,
-        templateKey: "payment_success",
-        recipient: EMAIL,
-      }),
-      queueEmail(db as any, {
-        eventKey: key,
-        templateKey: "payment_success",
-        recipient: EMAIL,
-      }),
+      queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL }),
+      queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL }),
     ]);
-    // Exactly one of them was queued.
-    expect([a.queued, b.queued].filter(Boolean)).toHaveLength(1);
-    expect(db.all("email_messages")).toHaveLength(1);
-  });
+    const queuedCount = [a.queued, b.queued].filter(Boolean).length;
+    assert(queuedCount === 1, `T2: exactly one queue insert on race, got ${queuedCount}`);
+    assert(db.all("email_messages").length === 1, "T2: one email_messages row after race");
+  }
 
-  it("3. Two separate renewals send two separate emails", async () => {
-    await queueEmail(db as any, {
-      eventKey: "renewal_success:REF-JAN",
-      templateKey: "renewal_success",
-      recipient: EMAIL,
-    });
-    await queueEmail(db as any, {
-      eventKey: "renewal_success:REF-FEB",
-      templateKey: "renewal_success",
-      recipient: EMAIL,
-    });
-    expect(db.all("email_messages")).toHaveLength(2);
-  });
+  // 3. Two separate renewals → two rows.
+  {
+    const db = makeDb();
+    await queueEmail(db as any, { eventKey: "renewal_success:REF-JAN", templateKey: "renewal_success", recipient: EMAIL });
+    await queueEmail(db as any, { eventKey: "renewal_success:REF-FEB", templateKey: "renewal_success", recipient: EMAIL });
+    assert(db.all("email_messages").length === 2, "T3: two renewals → two rows");
+  }
 
-  it("4. Replaying the same renewal sends no duplicate", async () => {
+  // 4. Replay same renewal → no duplicate.
+  {
+    const db = makeDb();
     const key = "renewal_success:REF-JAN";
-    await queueEmail(db as any, { eventKey: key, templateKey: "renewal_success", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: key, templateKey: "renewal_success", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: key, templateKey: "renewal_success", recipient: EMAIL });
-    expect(db.all("email_messages")).toHaveLength(1);
-  });
+    for (let i = 0; i < 3; i++) {
+      await queueEmail(db as any, { eventKey: key, templateKey: "renewal_success", recipient: EMAIL });
+    }
+    assert(db.all("email_messages").length === 1, "T4: replay same renewal → one row");
+  }
 
-  it("5. A failed renewal sends one email for that failure", async () => {
-    await queueEmail(db as any, {
-      eventKey: "renewal_failed:INV-99",
-      templateKey: "renewal_failed",
-      recipient: EMAIL,
-    });
-    await queueEmail(db as any, {
-      eventKey: "renewal_failed:INV-99",
-      templateKey: "renewal_failed",
-      recipient: EMAIL,
-    });
+  // 5. A failed renewal sends one email for that failure.
+  {
+    const db = makeDb();
+    await queueEmail(db as any, { eventKey: "renewal_failed:INV-99", templateKey: "renewal_failed", recipient: EMAIL });
+    await queueEmail(db as any, { eventKey: "renewal_failed:INV-99", templateKey: "renewal_failed", recipient: EMAIL });
     const rows = db.all("email_messages");
-    expect(rows).toHaveLength(1);
-    expect(rows[0].template_key).toBe("renewal_failed");
-  });
+    assert(rows.length === 1 && rows[0].template_key === "renewal_failed", "T5: renewal_failed dedup by invoice code");
+  }
 
-  it("6. Abandoned checkout is queued once", async () => {
+  // 6. Abandoned checkout queued once.
+  {
+    const db = makeDb();
     const key = "abandoned_checkout:order-77";
     await queueEmail(db as any, { eventKey: key, templateKey: "abandoned_checkout", recipient: EMAIL });
     await queueEmail(db as any, { eventKey: key, templateKey: "abandoned_checkout", recipient: EMAIL });
-    expect(db.all("email_messages").filter((r) => r.template_key === "abandoned_checkout")).toHaveLength(1);
-  });
+    assert(db.all("email_messages").length === 1, "T6: abandoned checkout queued once");
+  }
 
-  it("7. Completed orders do not receive abandoned reminders (dispatch cancels)", async () => {
+  // 7. Completed order cancels the abandoned reminder at dispatch.
+  {
+    const db = makeDb();
     const orderId = "order-88";
     db.seed("tool_orders", [{ id: orderId, status: "approved", payment_status: "successful" }]);
     const res = await queueEmail(db as any, {
@@ -144,34 +125,27 @@ describe("Email idempotency", () => {
       recipient: EMAIL,
       relatedOrderId: orderId,
     });
-    // Force dispatch (queueEmail already tries inline, but re-run to assert).
     if (res.id) await dispatchOne(db as any, res.id);
     const row = db.all("email_messages")[0];
-    expect(row.status).toBe("cancelled");
-    expect(row.last_error).toBe("order_no_longer_pending");
-  });
+    assert(row.status === "cancelled" && row.last_error === "order_no_longer_pending",
+      `T7: completed order cancels reminder (status=${row.status}, err=${row.last_error})`);
+  }
 
-  it("8. Offline payments queue by paymentId key", async () => {
-    await queueEmail(db as any, {
-      eventKey: "offline_payment:pay-abc",
-      templateKey: "offline_confirmed",
-      recipient: EMAIL,
-    });
-    await queueEmail(db as any, {
-      eventKey: "offline_payment:pay-abc",
-      templateKey: "offline_confirmed",
-      recipient: EMAIL,
-    });
-    expect(db.all("email_messages")).toHaveLength(1);
-  });
+  // 8. Offline payments keyed by paymentId.
+  {
+    const db = makeDb();
+    await queueEmail(db as any, { eventKey: "offline_payment:pay-abc", templateKey: "offline_confirmed", recipient: EMAIL });
+    await queueEmail(db as any, { eventKey: "offline_payment:pay-abc", templateKey: "offline_confirmed", recipient: EMAIL });
+    assert(db.all("email_messages").length === 1, "T8: offline_payment dedup by paymentId");
+  }
 
-  it("9. Failed Resend requests reschedule as retrying (safe retry)", async () => {
-    // Enable production_sending so dispatch calls Resend; leave RESEND_API_KEY unset
-    // so isResendConfigured() returns false → scheduleRetry() path.
-    const settings = db.all("email_settings")[0];
-    settings.production_sending = true;
+  // 9. Failed Resend → retrying (safe automatic retry).
+  {
+    const db = makeDb();
+    // Turn on production_sending; leave RESEND_API_KEY unset so isResendConfigured()
+    // returns false and dispatchOne takes the scheduleRetry() path.
+    db.all("email_settings")[0].production_sending = true;
     delete process.env.RESEND_API_KEY;
-
     const res = await queueEmail(db as any, {
       eventKey: "renewal_failed:RETRY-1",
       templateKey: "renewal_failed",
@@ -179,12 +153,14 @@ describe("Email idempotency", () => {
     });
     if (res.id) await dispatchOne(db as any, res.id);
     const row = db.all("email_messages")[0];
-    expect(row.status).toBe("retrying");
-    expect(row.attempts).toBeGreaterThanOrEqual(1);
-    expect(new Date(row.scheduled_for).getTime()).toBeGreaterThan(Date.now());
-  });
+    assert(row.status === "retrying", `T9: failed send scheduled retry (status=${row.status})`);
+    assert((row.attempts ?? 0) >= 1, "T9: attempts incremented");
+    assert(new Date(row.scheduled_for).getTime() > Date.now(), "T9: scheduled_for pushed into the future");
+  }
 
-  it("10. Customer invite payload contains no plain-text password", async () => {
+  // 10. Customer invite payload has no plain-text password.
+  {
+    const db = makeDb();
     // Mirror the exact payload built in customer-admin.functions.ts.
     const payload = { name: "Jane", setup_url: "https://topratedseotools.com/login" };
     await queueEmail(db as any, {
@@ -194,8 +170,42 @@ describe("Email idempotency", () => {
       payload,
     });
     const row = db.all("email_messages")[0];
-    const raw = JSON.stringify(row);
-    expect(raw.toLowerCase()).not.toContain("password");
-    expect(raw.toLowerCase()).not.toContain("temp_password");
-  });
+    const raw = JSON.stringify(row).toLowerCase();
+    assert(!raw.includes("password"), "T10: invite row has no 'password' field");
+    assert(!raw.includes("temp_password"), "T10: invite row has no 'temp_password'");
+  }
+
+  // 11. API keys not exposed to browser (source check).
+  {
+    const fs = await import("fs");
+    const path = await import("path");
+    const bad: string[] = [];
+    const scan = (dir: string) => {
+      for (const name of fs.readdirSync(dir)) {
+        const p = path.join(dir, name);
+        const st = fs.statSync(p);
+        if (st.isDirectory()) {
+          if (name === "node_modules" || name.startsWith(".")) continue;
+          scan(p);
+        } else if (/\.(tsx?|jsx?)$/.test(name)) {
+          const body = fs.readFileSync(p, "utf8");
+          if (/import\.meta\.env\.[A-Z0-9_]*RESEND[A-Z0-9_]*/i.test(body)) bad.push(p);
+          if (/VITE_RESEND/i.test(body)) bad.push(p);
+        }
+      }
+    };
+    scan("src");
+    assert(bad.length === 0, `T11: no browser bundle references RESEND (offenders: ${bad.join(", ")})`);
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed > 0) {
+    console.error("Failures:\n" + failures.map((f) => "  - " + f).join("\n"));
+    process.exit(1);
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
