@@ -1426,7 +1426,9 @@ export type Database = {
           launch_mode: string
           official_login_url: string | null
           one_click_auth_enabled: boolean
+          private_access_authorization: string
           private_access_enabled: boolean
+          shared_access_authorization: string
           shared_access_enabled: boolean
           tool_slug: string
           updated_at: string
@@ -1439,7 +1441,9 @@ export type Database = {
           launch_mode?: string
           official_login_url?: string | null
           one_click_auth_enabled?: boolean
+          private_access_authorization?: string
           private_access_enabled?: boolean
+          shared_access_authorization?: string
           shared_access_enabled?: boolean
           tool_slug: string
           updated_at?: string
@@ -1452,7 +1456,9 @@ export type Database = {
           launch_mode?: string
           official_login_url?: string | null
           one_click_auth_enabled?: boolean
+          private_access_authorization?: string
           private_access_enabled?: boolean
+          shared_access_authorization?: string
           shared_access_enabled?: boolean
           tool_slug?: string
           updated_at?: string

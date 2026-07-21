@@ -28,6 +28,8 @@ export type ToolOrderStatus =
   | "expired";
 export type LaunchMode = "new_tab" | "same_tab" | "popup";
 
+export type AccessAuthorization = "confirmed" | "not_confirmed" | "not_applicable";
+
 export interface ToolSetting {
   tool_slug: string;
   enabled: boolean;
@@ -39,6 +41,8 @@ export interface ToolSetting {
   display_manual_credentials: boolean;
   shared_access_enabled: boolean;
   private_access_enabled: boolean;
+  shared_access_authorization: AccessAuthorization;
+  private_access_authorization: AccessAuthorization;
 }
 
 
@@ -122,7 +126,7 @@ export const listToolSettings = createServerFn({ method: "GET" }).handler(
     const { data, error } = await supabase
       .from("tool_settings")
       .select(
-        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled",
+        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
       );
     if (error) throw new Error(error.message);
     return { settings: (data ?? []) as unknown as ToolSetting[] };
@@ -335,6 +339,8 @@ const upsertSettingInput = z.object({
   display_manual_credentials: z.boolean().optional(),
   shared_access_enabled: z.boolean().optional(),
   private_access_enabled: z.boolean().optional(),
+  shared_access_authorization: z.enum(["confirmed", "not_confirmed", "not_applicable"]).optional(),
+  private_access_authorization: z.enum(["confirmed", "not_confirmed", "not_applicable"]).optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -370,6 +376,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
       "display_manual_credentials",
       "shared_access_enabled",
       "private_access_enabled",
+      "shared_access_authorization",
+      "private_access_authorization",
     ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }

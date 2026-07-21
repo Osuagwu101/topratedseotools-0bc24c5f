@@ -221,10 +221,21 @@ function SubscriptionCard({
 }: {
   slug: string;
   options: ToolPricingOption[];
-  setting: { shared_access_enabled: boolean; private_access_enabled: boolean } | undefined;
+  setting:
+    | {
+        shared_access_enabled: boolean;
+        private_access_enabled: boolean;
+        shared_access_authorization?: string;
+        private_access_authorization?: string;
+      }
+    | undefined;
 }) {
-  const sharedAllowed = setting?.shared_access_enabled ?? true;
-  const privateAllowed = setting?.private_access_enabled ?? true;
+  const sharedAllowed =
+    (setting?.shared_access_enabled ?? true) &&
+    (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
+  const privateAllowed =
+    (setting?.private_access_enabled ?? true) &&
+    (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const purchasable = options.filter(
     (o) => o.enabled && !o.contact_admin && o.amount != null,
   );

@@ -467,7 +467,84 @@ async function main() {
     assert(snap.duration_days === 28 && snap.grace_days === 2, "duration/grace preserved");
   });
 
-  console.log(`\n${passed} passed, ${failed} failed`);
+  // ---- Authorization gate ----
+  await test("Shared authorization=confirmed → purchase allowed", async () => {
+    const db = new MockDb();
+    const slug = seedTool(db);
+    // seedTool doesn't set authorization; missing column defaults to
+    // "confirmed" in production, and the checkout coalesces the same way.
+    const planId = seedPlan(db, { tool_slug: slug, access_type: "shared" });
+    const snap = await validateAndBuildOrderSnapshot(
+      db,
+      { userId: USER, tool_slug: slug, pricing_option_id: planId },
+      TEST_ENV,
+    );
+    assert(snap.access_type === "shared", "shared snapshot ok");
+  });
+
+  await test("Shared authorization=not_confirmed → blocks purchase", async () => {
+    const db = new MockDb();
+    const slug = seedTool(db);
+    // Overwrite the seeded row's authorization directly.
+    db.all("tool_settings")[0].shared_access_authorization = "not_confirmed";
+    const planId = seedPlan(db, { tool_slug: slug, access_type: "shared" });
+    await expectError(
+      () =>
+        validateAndBuildOrderSnapshot(
+          db,
+          { userId: USER, tool_slug: slug, pricing_option_id: planId },
+          TEST_ENV,
+        ),
+      "shared_not_authorized",
+      "shared not authorized",
+    );
+  });
+
+  await test("Private authorization=confirmed → purchase allowed", async () => {
+    const db = new MockDb();
+    const slug = seedTool(db);
+    const planId = seedPlan(db, { tool_slug: slug, access_type: "private" });
+    const snap = await validateAndBuildOrderSnapshot(
+      db,
+      { userId: USER, tool_slug: slug, pricing_option_id: planId },
+      TEST_ENV,
+    );
+    assert(snap.access_type === "private", "private snapshot ok");
+  });
+
+  await test("Private authorization=not_confirmed → blocks purchase", async () => {
+    const db = new MockDb();
+    const slug = seedTool(db);
+    db.all("tool_settings")[0].private_access_authorization = "not_confirmed";
+    const planId = seedPlan(db, { tool_slug: slug, access_type: "private" });
+    await expectError(
+      () =>
+        validateAndBuildOrderSnapshot(
+          db,
+          { userId: USER, tool_slug: slug, pricing_option_id: planId },
+          TEST_ENV,
+        ),
+      "private_not_authorized",
+      "private not authorized",
+    );
+  });
+
+  // ---- Turnitin subscription block ----
+  await test("Turnitin subscription checkout is rejected outright", async () => {
+    const db = new MockDb();
+    const slug = seedTool(db, { slug: "turnitin" });
+    const planId = seedPlan(db, { tool_slug: slug, access_type: "shared" });
+    await expectError(
+      () =>
+        validateAndBuildOrderSnapshot(
+          db,
+          { userId: USER, tool_slug: slug, pricing_option_id: planId },
+          TEST_ENV,
+        ),
+      "turnitin_per_use_only",
+      "turnitin blocked",
+    );
+  });
   if (failed > 0) {
     console.error("\nFailures:");
     for (const f of failures) console.error("  -", f);

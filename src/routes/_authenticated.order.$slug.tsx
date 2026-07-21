@@ -64,19 +64,28 @@ function OrderPage() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const setting = settings.settings.find((s) => s.tool_slug === slug);
-  const sharedAllowed = setting?.shared_access_enabled ?? true;
-  const privateAllowed = setting?.private_access_enabled ?? true;
+  const sharedAllowed =
+    (setting?.shared_access_enabled ?? true) &&
+    (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
+  const privateAllowed =
+    (setting?.private_access_enabled ?? true) &&
+    (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
-  const options = pricing.options.filter((o) => {
-    if (o.tool_slug !== slug) return false;
-    if (!o.enabled || o.contact_admin) return false;
-    const access = (o.access_type as AccessType) ?? "shared";
-    if (access === "shared" && !sharedAllowed) return false;
-    if (access === "private" && !privateAllowed) return false;
-    return true;
-  });
+  // Turnitin (and any future per-use tool) has no subscription checkout —
+  // block any old/direct link from opening the subscription flow.
+  const perUseBlocked = tool?.pricingModel === "per_use";
+  const options = perUseBlocked
+    ? []
+    : pricing.options.filter((o) => {
+        if (o.tool_slug !== slug) return false;
+        if (!o.enabled || o.contact_admin) return false;
+        const access = (o.access_type as AccessType) ?? "shared";
+        if (access === "shared" && !sharedAllowed) return false;
+        if (access === "private" && !privateAllowed) return false;
+        return true;
+      });
 
   const initialId =
     (preselected && options.find((o) => o.id === preselected)?.id) ??
@@ -99,6 +108,29 @@ function OrderPage() {
             ← All tools
           </Link>
         </div>
+      </SiteLayout>
+    );
+  }
+
+  if (perUseBlocked && tool) {
+    return (
+      <SiteLayout>
+        <section className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
+          <h1 className="text-2xl font-semibold">This tool is per-{tool.perUse?.unit ?? "use"}, not a subscription</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {tool.name} is a pay-per-{tool.perUse?.unit ?? "use"} service. There
+            is no monthly, quarterly or yearly billing, no Shared or Private
+            selection, and no automatic renewal. Any old subscription link for
+            this tool has been retired.
+          </p>
+          <Link
+            to="/tools/$slug"
+            params={{ slug }}
+            className="mt-6 inline-flex items-center justify-center rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            Go to the {tool.name} page
+          </Link>
+        </section>
       </SiteLayout>
     );
   }
