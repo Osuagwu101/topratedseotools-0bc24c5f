@@ -96,19 +96,32 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
         <StateBlock
           icon={Lock}
           title="Subscribe to unlock"
-          body="This is a premium tool. Purchase access below — the admin activates it as soon as payment is confirmed."
+          body="This is a premium tool. Choose Shared or Private Access, then complete payment to request activation."
         >
           <ul className="mt-4 grid gap-2 text-sm">
-            {[
-              "Instant activation once payment is confirmed",
-              "Full features, no shared limits",
-              "Cancel or downgrade anytime",
-              "Priority support from our team",
-            ].map((b) => (
-              <li key={b} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {b}
-              </li>
-            ))}
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                <strong>Shared Access:</strong> access is activated after payment
+                confirmation, subject to availability.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                <strong>Private Access:</strong> after payment confirmation your
+                order is marked pending fulfilment. Contact Admin on WhatsApp to
+                complete the account assignment.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>Private orders are fulfilled within about six hours.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>Cancel or change your billing period at renewal.</span>
+            </li>
           </ul>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link

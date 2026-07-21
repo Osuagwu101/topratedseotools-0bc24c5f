@@ -1,6 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock } from "lucide-react";
+import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
+import type { Tool } from "@/lib/tools-data";
+import { getPublicSiteSettings } from "@/lib/site-settings.functions";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
@@ -136,49 +138,33 @@ function ToolPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-2">
-          <ToolAccessPanel
-            tool={tool}
-            setting={setting}
-            isAuthenticated={session?.isAuthenticated ?? false}
-          />
+        {tool.pricingModel === "per_use" ? (
+          <PerUsePanel tool={tool} />
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <ToolAccessPanel
+              tool={tool}
+              setting={setting}
+              isAuthenticated={session?.isAuthenticated ?? false}
+            />
 
-          <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
-        </div>
+            <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />
+          </div>
+        )}
 
-        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="text-lg font-semibold">What you can do</h2>
-          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {[
-              "Fast, high-quality output on the latest models",
-              "Templates and presets to get you started",
-              "Export, share and integrate with your workflow",
-              "Priority speed on paid plans",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="text-lg font-semibold">What you can do</h2>
-          <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {[
-              "Fast, high-quality output on the latest models",
-              "Templates and presets to get you started",
-              "Export, share and integrate with your workflow",
-              "Priority speed on paid plans",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {tool.features && tool.features.length > 0 ? (
+          <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
+            <h2 className="text-lg font-semibold">What you can do with {tool.name}</h2>
+            <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              {tool.features.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {related.length > 0 && (
           <>
@@ -445,3 +431,105 @@ function PlanTile({
     </div>
   );
 }
+
+/**
+ * Per-use pricing panel — used for pay-per-check tools like Turnitin.
+ * The public quantity-based checkout is not wired up yet, so we do NOT
+ * expose a subscription checkout. We show the price, let the customer
+ * choose a quantity to see the total, and direct them to WhatsApp to
+ * place the order.
+ */
+function PerUsePanel({ tool }: { tool: Tool }) {
+  const perUse = tool.perUse!;
+  const { data: siteSettings } = useQuery({
+    queryKey: ["public-site-settings"],
+    queryFn: () => getPublicSiteSettings(),
+    staleTime: 5 * 60_000,
+  });
+  const whatsapp = (siteSettings?.adminWhatsappNumber ?? "").replace(/\D/g, "");
+  const currency = perUse.currency || "₦";
+  const perUnit = formatCurrency(perUse.amount, currency);
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Tag className="h-4 w-4 text-primary" /> {perUnit} per {perUse.unit}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {tool.name} is a one-time, pay-per-{perUse.unit} service. You choose how
+        many {perUse.unit}s you need and pay the total once — there is no
+        monthly, quarterly or yearly billing, no Shared or Private Access
+        selection, and no automatic renewal.
+      </p>
+
+      <QuantityCalculator perUse={perUse} />
+
+      <div className="mt-5 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+        Online per-{perUse.unit} checkout is being finalised. To place an order
+        now, message us on WhatsApp with the number of {perUse.unit}s you need
+        and the documents you want submitted, and we will send you a payment
+        link and return the reports.
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {whatsapp ? (
+          <a
+            href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
+              `Hello, I would like to order ${tool.name}. Please send me a payment link.`,
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            <MessageCircle className="h-4 w-4" /> Order on WhatsApp
+          </a>
+        ) : (
+          <Link
+            to="/contact"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            <MessageCircle className="h-4 w-4" /> Contact us to order
+          </Link>
+        )}
+        <span className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-2 text-xs text-muted-foreground">
+          <ShieldAlert className="h-3.5 w-3.5" /> No auto-renewal
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function QuantityCalculator({
+  perUse,
+}: {
+  perUse: NonNullable<Tool["perUse"]>;
+}) {
+  const currency = perUse.currency || "₦";
+  const [qty, setQty] = useStateNumber(1);
+  const total = Math.max(0, qty) * perUse.amount;
+  return (
+    <div className="mt-4 rounded-lg border bg-background/40 p-4">
+      <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Number of {perUse.unit}s
+      </label>
+      <div className="mt-2 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          value={qty}
+          onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+          className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <div className="text-sm text-muted-foreground">
+          × {formatCurrency(perUse.amount, currency)} ={" "}
+          <span className="text-base font-bold text-foreground">
+            {formatCurrency(total, currency)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Small local hook so we don't import React namespace just for one useState.
+import { useState as useStateNumber } from "react";

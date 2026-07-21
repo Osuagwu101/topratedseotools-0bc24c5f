@@ -180,6 +180,9 @@ function PricingPage() {
           {filtered.map((g) => {
             const tool = getTool(g.slug);
             if (!tool) return null;
+            if (tool.pricingModel === "per_use") {
+              return <PerUseCard key={g.slug} tool={tool} />;
+            }
             return <ToolPricingCard key={g.slug} group={g} tool={tool} />;
           })}
         </div>
@@ -202,7 +205,11 @@ function PricingPage() {
               },
               {
                 q: "How do I pay for a tool?",
-                a: "Choose Shared or Private access, pick your billing period, and pay securely via Paystack. Access is granted the moment payment is confirmed — no admin approval needed.",
+                a: "Choose Shared or Private Access, pick your billing period, and pay securely via Paystack. Shared Access is activated after payment confirmation, subject to availability. Private Access orders are marked pending fulfilment after payment — contact Admin on WhatsApp to complete the account assignment (usually within six hours).",
+              },
+              {
+                q: "How does Turnitin work?",
+                a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no monthly, quarterly or yearly billing, no Shared or Private selection, and no automatic renewal. Message us with the number of checks you need and we'll send a payment link.",
               },
               {
                 q: "Why do some tools say 'Pricing confirmed on WhatsApp'?",
@@ -441,3 +448,47 @@ function PlanLine({
 
 // Silence "unused" warning for the shared label helper in some builds.
 void billingPeriodLabel;
+
+function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
+  const perUse = tool.perUse!;
+  const currency = perUse.currency || "₦";
+  return (
+    <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40">
+      <div className="flex items-center gap-3">
+        <ToolBrandMark tool={tool} size="sm" />
+        <div className="min-w-0">
+          <div className="truncate font-semibold">{tool.name}</div>
+          <div className="truncate text-xs text-muted-foreground">{tool.category}</div>
+        </div>
+      </div>
+      <div className="mt-5 flex-1 rounded-lg border bg-background/40 p-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Per-{perUse.unit} pricing
+        </div>
+        <div className="mt-1 text-lg font-bold">
+          {formatCurrency(perUse.amount, currency)} per {perUse.unit}
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          One-time payment. No Monthly, Quarterly or Yearly billing. No Shared or
+          Private selection. No automatic renewal.
+        </p>
+      </div>
+      <div className="mt-5 flex gap-2">
+        <Link
+          to="/tools/$slug"
+          params={{ slug: tool.slug }}
+          className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted"
+        >
+          Learn more
+        </Link>
+        <Link
+          to="/tools/$slug"
+          params={{ slug: tool.slug }}
+          className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90"
+        >
+          Order per {perUse.unit}
+        </Link>
+      </div>
+    </div>
+  );
+}

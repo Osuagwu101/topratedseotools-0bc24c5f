@@ -63,11 +63,19 @@ const FAQ = [
   },
   {
     q: "How do renewals work?",
-    a: "Eligible monthly and annual subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period.",
+    a: "Eligible monthly, quarterly and yearly subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period. Pay-per-use tools such as Turnitin do not renew.",
   },
   {
-    q: "Are all tools always available?",
-    a: "Some tools may require availability and pricing confirmation before purchase. We'll let you know as soon as your access is activated.",
+    q: "How is Shared Access activated?",
+    a: "Shared Access is activated after payment confirmation, subject to availability.",
+  },
+  {
+    q: "How is Private Access activated?",
+    a: "After payment confirmation, your Private Access order will be marked as pending fulfilment. Contact Admin through WhatsApp to complete the account assignment — usually within six hours.",
+  },
+  {
+    q: "How does Turnitin work?",
+    a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no monthly, quarterly or yearly billing and no automatic renewal. Message us with the number of checks you need and we'll send a payment link.",
   },
   {
     q: "How do I get support?",
@@ -80,12 +88,15 @@ function Home() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
 
   const showcase = TOOLS.slice(0, 8).map((t) => {
+    if (t.pricingModel === "per_use" && t.perUse) {
+      return { tool: t, price: null, perUseLabel: `₦${t.perUse.amount.toLocaleString("en-NG")} / ${t.perUse.unit}` };
+    }
     const enabled = pricing.options.filter((o) => o.tool_slug === t.slug && o.enabled);
     const paid = enabled.filter((o) => !o.contact_admin && o.amount != null);
     const primary =
       paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
       enabled[0];
-    return { tool: t, price: primary };
+    return { tool: t, price: primary, perUseLabel: null as string | null };
   });
 
 
@@ -193,7 +204,7 @@ function Home() {
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {showcase.map(({ tool, price }) => (
+          {showcase.map(({ tool, price, perUseLabel }) => (
             <Link
               key={tool.slug}
               to="/tools/$slug"
@@ -211,7 +222,12 @@ function Home() {
                 {tool.tagline}
               </div>
               <div className="mt-4 border-t pt-3">
-                {price ? (
+                {perUseLabel ? (
+                  <>
+                    <div className="text-lg font-bold">{perUseLabel}</div>
+                    <div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div>
+                  </>
+                ) : price ? (
                   <div className={price.contact_admin ? "text-sm font-medium text-primary" : "text-lg font-bold"}>
                     {formatPrice(price)}
                   </div>
