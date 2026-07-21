@@ -44,6 +44,16 @@ export interface Tool {
   category: ToolCategory;
   access: "free" | "pro";
   featured?: boolean;
+  /** Tool-specific feature bullets shown on the product page. Keep truthful and concrete. */
+  features?: string[];
+  /** Pay-per-use tools do not follow the Shared/Private + Monthly/Quarterly/Yearly model. */
+  pricingModel?: "subscription" | "per_use";
+  /** Only relevant when pricingModel === "per_use". */
+  perUse?: {
+    unit: string;          // e.g. "check"
+    amount: number;        // NGN per unit
+    currency?: string;     // default "₦"
+  };
 }
 
 export const CATEGORIES: ToolCategory[] = [
