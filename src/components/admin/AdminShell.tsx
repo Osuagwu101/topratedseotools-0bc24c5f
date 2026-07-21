@@ -84,11 +84,9 @@ const BLOG_SUBNAV: { title: string; to: string; exact?: boolean }[] = [
 ];
 
 const MARKETING_SUBNAV: { title: string; to: string }[] = [
-  { title: "Overview", to: "/admin/marketing" },
-  { title: "Meta (Facebook / Instagram)", to: "/admin/marketing/meta" },
+  { title: "All Integrations", to: "/admin/marketing" },
+  { title: "Facebook Pixel + Conversions API", to: "/admin/marketing/meta" },
   { title: "Google Tag Manager", to: "/admin/marketing/gtm" },
-  { title: "Analytics", to: "/admin/marketing/analytics" },
-  { title: "Event history", to: "/admin/marketing/events" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -330,14 +328,14 @@ function AdminSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={path.startsWith("/admin/marketing")}
-                  tooltip="Marketing"
+                  tooltip="Integrations"
                   onClick={() => {
                     if (collapsed) navigate({ to: "/admin/marketing" });
                     else setMarketingOpen((v) => !v);
                   }}
                 >
                   <Megaphone />
-                  <span>Marketing</span>
+                  <span>Integrations</span>
                   {!collapsed &&
                     (marketingOpen ? (
                       <ChevronDown className="ml-auto h-4 w-4" />
