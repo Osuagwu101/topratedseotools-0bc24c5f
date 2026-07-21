@@ -34,24 +34,27 @@ export function computeAccessWindow(input: {
  * non-empty reference note counts as a possible duplicate.
  */
 export interface OfflinePaymentLike {
+  id?: string;
   user_id: string;
   tool_slug: string;
-  amount: number;
-  paid_at: string;
+  amount: number | null;
+  paid_at: string | null;
   reference_note?: string | null;
-  source?: string;
+  source?: string | null;
 }
 export function findOfflineDuplicates<T extends OfflinePaymentLike>(
   existing: T[],
   candidate: OfflinePaymentLike,
 ): T[] {
   const day = 24 * 3600_000;
-  const cAt = new Date(candidate.paid_at).getTime();
+  const cAt = candidate.paid_at ? new Date(candidate.paid_at).getTime() : NaN;
   const cRef = (candidate.reference_note ?? "").trim().toLowerCase();
   return existing.filter((r) => {
     if (r.user_id !== candidate.user_id || r.tool_slug !== candidate.tool_slug) return false;
-    if (Number(r.amount) !== Number(candidate.amount)) return false;
-    const sameDay = Math.abs(new Date(r.paid_at).getTime() - cAt) <= day;
+    if (Number(r.amount ?? 0) !== Number(candidate.amount ?? 0)) return false;
+    const rAt = r.paid_at ? new Date(r.paid_at).getTime() : NaN;
+    const sameDay =
+      Number.isFinite(rAt) && Number.isFinite(cAt) && Math.abs(rAt - cAt) <= day;
     const sameRef =
       cRef.length > 0 && (r.reference_note ?? "").trim().toLowerCase() === cRef;
     return sameDay || sameRef;
