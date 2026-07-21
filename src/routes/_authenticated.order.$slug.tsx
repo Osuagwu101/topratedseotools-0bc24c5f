@@ -344,8 +344,11 @@ function OrderPage() {
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
             <div>
               You'll be redirected to <strong>Paystack</strong> to pay securely.
-              Access unlocks the moment your payment is confirmed — no admin
-              approval needed.
+              <strong> Shared Access</strong> is activated after payment
+              confirmation, subject to availability.
+              <strong> Private Access</strong> orders are marked pending
+              fulfilment after payment — contact Admin on WhatsApp to complete
+              the account assignment (usually within six hours).
             </div>
           </div>
 
