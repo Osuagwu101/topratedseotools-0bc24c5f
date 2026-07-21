@@ -373,6 +373,53 @@ function AdminSidebar() {
                 )}
               </SidebarMenuItem>
 
+              {/* Reviews — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/reviews")}
+                  tooltip="Reviews"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/reviews" });
+                    else setReviewsOpen((v) => !v);
+                  }}
+                >
+                  <Star />
+                  <span>Reviews</span>
+                  {!collapsed &&
+                    (reviewsOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && reviewsOpen && (
+                  <SidebarMenuSub>
+                    {REVIEWS_SUBNAV.map((s) => {
+                      const activeStatus =
+                        (reviewsSearch.status as string | undefined) ?? "pending";
+                      const activeMin = Number(reviewsSearch.min_rating ?? 0);
+                      const wantMin = Number(s.search.min_rating ?? 0);
+                      const isOnReviews = path === "/admin/reviews";
+                      const isActiveSub =
+                        isOnReviews &&
+                        activeStatus === s.search.status &&
+                        activeMin === wantMin;
+                      return (
+                        <SidebarMenuSubItem key={s.title}>
+                          <SidebarMenuSubButton asChild isActive={isActiveSub}>
+                            <Link to="/admin/reviews" search={s.search}>
+                              <span>{s.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+
+
 
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>
