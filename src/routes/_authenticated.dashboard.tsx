@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink } from "lucide-react";
+import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
 import { TOOLS, getTool } from "@/lib/tools-data";
 import { listMyOrders } from "@/lib/access.functions";
+import { listMyReviewEligibility } from "@/lib/reviews.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
