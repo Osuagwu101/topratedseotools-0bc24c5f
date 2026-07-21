@@ -301,6 +301,18 @@ function MyOrdersPage() {
                             <ShieldOff className="h-3 w-3" /> Disable renewal
                           </button>
                         )}
+                      {o.effectiveStatus === "approved" &&
+                        (o.payment_type === "one_time" ||
+                          o.renewal_status === "not_applicable") &&
+                        tool && (
+                          <Link
+                            to="/order/$slug" search={{}}
+                            params={{ slug: tool.slug }}
+                            className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            Renew access
+                          </Link>
+                        )}
                       {(o.effectiveStatus === "rejected" ||
                         o.effectiveStatus === "cancelled" ||
                         o.effectiveStatus === "expired") &&
