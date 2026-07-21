@@ -22,8 +22,21 @@ import {
 } from "@/lib/reviews.functions";
 import { TOOLS } from "@/lib/tools-data";
 
+type ReviewsSearch = { status?: ReviewStatus | "all"; min_rating?: number; tool_slug?: string };
+
 export const Route = createFileRoute("/admin/reviews")({
   head: () => ({ meta: [{ title: "Reviews — Admin" }] }),
+  validateSearch: (s: Record<string, unknown>): ReviewsSearch => {
+    const allowed: (ReviewStatus | "all")[] = ["pending", "approved", "rejected", "hidden", "all"];
+    const status = allowed.includes(s.status as ReviewStatus | "all") ? (s.status as ReviewStatus | "all") : undefined;
+    const min_rating = typeof s.min_rating === "number" && s.min_rating >= 0 && s.min_rating <= 5
+      ? s.min_rating
+      : typeof s.min_rating === "string" && !Number.isNaN(Number(s.min_rating))
+        ? Number(s.min_rating)
+        : undefined;
+    const tool_slug = typeof s.tool_slug === "string" ? s.tool_slug : undefined;
+    return { status, min_rating, tool_slug };
+  },
   component: () => (
     <AdminShell>
       <ReviewsPage />
