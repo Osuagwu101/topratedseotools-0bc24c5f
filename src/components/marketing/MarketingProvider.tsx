@@ -1,14 +1,17 @@
 /**
- * Runs on every route change (customer-facing pages only):
- *  - captures UTM / fbclid / gclid to localStorage (temp, consent-safe)
- *  - persists visitor attribution SERVER-SIDE only after Marketing consent
- *  - fires page_view when marketing consent allows
- *  - links attribution + consent record to the user once they sign in
- *    (again, only after consent has been granted)
+ * Runs on every route change (customer-facing pages only).
+ *
+ * STRICT OPT-IN: no marketing attribution is captured, stored on the device,
+ * persisted to the server, linked to the visitor/user, or sent as a marketing
+ * event until the visitor has accepted Marketing consent. When consent is
+ * granted, capture begins going forward — earlier campaign values are not
+ * reconstructed. When consent is later withdrawn, capture stops and no
+ * further attribution is stored, but previously stored records are left
+ * untouched.
  */
 import { useEffect } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { captureAttributionFromUrl, getVisitorId, readAttribution } from "@/lib/marketing/attribution";
+import { captureAttributionFromUrl, peekVisitorId, readAttribution } from "@/lib/marketing/attribution";
 import { trackPageView } from "@/lib/marketing/track";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
 import {
@@ -21,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 function persistAttributionIfConsented() {
   if (!readConsent().marketing) return;
   const stored = readAttribution();
+  if (!stored.visitor_id) return;
   if (!stored.first_touch && !stored.last_touch) return;
   upsertVisitorAttribution({
     data: {
@@ -35,8 +39,8 @@ async function linkIfConsentedAndSignedIn() {
   if (!readConsent().marketing) return;
   const { data } = await supabase.auth.getUser();
   if (!data.user) return;
-  const stored = readAttribution();
-  const vid = stored.visitor_id ?? getVisitorId();
+  const vid = peekVisitorId();
+  if (!vid) return;
   linkAttributionToUser({ data: { visitor_id: vid } }).catch(() => {});
   linkConsentToUser({ data: { visitor_id: vid } }).catch(() => {});
 }
@@ -45,23 +49,25 @@ export function MarketingProvider() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const isAdminPage = path.startsWith("/admin");
 
-  // Route change: always capture attribution to localStorage (client-only,
-  // consent-safe). Only persist server-side and fire page_view when consent
-  // is granted.
+  // Route change: only capture attribution (and only fire page_view) when
+  // marketing consent has been granted. Before consent, this is a full no-op:
+  // nothing is written to localStorage, cookies, or the database.
   useEffect(() => {
     if (isAdminPage) return;
+    if (!readConsent().marketing) return;
     captureAttributionFromUrl();
     persistAttributionIfConsented();
     const t = setTimeout(() => trackPageView(), 200);
     return () => clearTimeout(t);
   }, [path, isAdminPage]);
 
-  // When consent changes to marketing=true, flush stored attribution + link
-  // to the signed-in user. When it flips off, do nothing further; future
-  // events are automatically skipped because tracking helpers re-check.
+  // When consent flips to marketing=true, start capture from the current URL
+  // going forward. Do not reconstruct pre-consent activity. When it flips
+  // off, do nothing (previously stored records are left untouched).
   useEffect(() => {
     return onConsentChange((c) => {
       if (!c.marketing) return;
+      captureAttributionFromUrl();
       persistAttributionIfConsented();
       linkIfConsentedAndSignedIn();
     });
