@@ -278,6 +278,7 @@ export interface ToolAccountSummary {
   available: number;
   awaiting: number;
   expiringSoon: number;
+  needsReview: number;
 }
 
 export function summariseByTool(
@@ -294,6 +295,7 @@ export function summariseByTool(
         tool_slug: slug,
         totalAccounts: 0, healthy: 0, almostFull: 0, full: 0, unhealthy: 0,
         totalCapacity: 0, assigned: 0, available: 0, awaiting: 0, expiringSoon: 0,
+        needsReview: 0,
       };
       bySlug.set(slug, s);
     }
@@ -311,6 +313,7 @@ export function summariseByTool(
     else if (h === "full") s.full++;
     else s.unhealthy++;
     if (isExpiringSoon(a, settings, now)) s.expiringSoon++;
+    if (a.needs_capacity_review) s.needsReview++;
   }
   for (const o of awaitingOrders) {
     ensure(o.tool_slug).awaiting++;
