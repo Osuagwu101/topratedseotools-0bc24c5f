@@ -30,6 +30,14 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
+import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
+import {
+  trackBeginCheckout,
+  trackPaymentMethodSelected,
+  trackPaystackOpened,
+  marketingContext,
+} from "@/lib/marketing/track";
+import { buildEventId } from "@/lib/marketing/config";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -157,6 +165,34 @@ function OrderPage() {
           notes: notes || null,
         },
       });
+      // Attach campaign attribution + fire begin_checkout before opening Paystack.
+      const ctx = marketingContext();
+      const snap = ctx.attribution.last_touch ?? ctx.attribution.first_touch ?? null;
+      try {
+        await attachOrderAttribution({
+          data: {
+            order_id: orderId,
+            visitor_id: ctx.visitor_id,
+            snapshot: snap,
+          },
+        });
+      } catch {
+        /* attribution attach is best-effort */
+      }
+      const price = chosen ? Number(chosen.price_amount ?? 0) : 0;
+      const kind = chosen ? normaliseBillingKind(getBillingKind(chosen)) : "monthly";
+      trackBeginCheckout({
+        order_id: orderId,
+        slug,
+        name: tool.name,
+        amount: price,
+        access_type: (chosen?.access_type as string) ?? "shared",
+        billing_period: kind,
+        payment_type: payMode,
+        event_id: buildEventId("checkout", orderId),
+      });
+      trackPaymentMethodSelected(payMode);
+      trackPaystackOpened(orderId);
       // Paystack unconditionally appends `?trxref=…&reference=…` to the callback,
       // so the callback URL must NOT already contain a query string or the
       // browser lands on a malformed `/orders?verify=1?trxref=…` URL and the
