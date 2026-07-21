@@ -188,10 +188,11 @@ export const adminListTransactions = createServerFn({ method: "POST" })
       );
     }
 
-    let out: AdminTransactionRow[] = (rows ?? []).map((r: TransactionRow) => {
-      const prof = profileMap.get(r.user_id) ?? { email: null, full_name: null };
+    let out: AdminTransactionRow[] = (rows ?? []).map((r: unknown) => {
+      const row = r as TransactionRow;
+      const prof = profileMap.get(row.user_id) ?? { email: null, full_name: null };
       return {
-        ...r,
+        ...row,
         customer_profile_email: prof.email,
         customer_profile_name: prof.full_name,
       };
@@ -317,7 +318,7 @@ export const adminRecheckPaystackTransaction = createServerFn({ method: "POST" }
       }
     }
 
-    await admin.from("tool_payments").update(patch).eq("id", tx.id);
+    await admin.from("tool_payments").update(patch as never).eq("id", tx.id);
 
     await admin.from("tool_payment_status_history").insert({
       payment_id: tx.id,
