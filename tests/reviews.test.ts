@@ -77,6 +77,35 @@ test("verified source: paystack default, offline when origin=offline", () => {
   assert(reviewSourceFor("offline") === "offline", "offline");
 });
 
+// ---------- Refund exclusion ----------
+
+test("refunded payment_status marks refund", () => {
+  assert(isRefundPayment({ payment_status: "refunded" }), "refunded");
+  assert(isRefundPayment({ payment_status: "reversed" }), "reversed");
+  assert(isRefundPayment({ payment_status: "successful", reconciliation_status: "refunded" }), "reconciliation");
+  assert(!isRefundPayment({ payment_status: "successful", reconciliation_status: "resolved" }), "clean");
+});
+
+test("refunded order removed from qualifying set", () => {
+  const orders = [{ id: "o1" }, { id: "o2" }, { id: "o3" }];
+  const kept = filterRefundedOrders(orders, new Set(["o2"]));
+  assert(kept.length === 2 && kept.every((o) => o.id !== "o2"), "excluded");
+});
+
+test("refunded first purchase → no eligibility", () => {
+  // Simulated: one qualifying order, but it's refunded → filter drops it → count 0.
+  const qualifying = filterRefundedOrders([{ id: "o1" }], new Set(["o1"]));
+  const g = deriveReviewGate({ qualifyingCount: qualifying.length, currentVersion: null });
+  assert(!g.canReview && !g.canEdit, "not eligible");
+});
+
+test("refunded repurchase does not unlock update", () => {
+  // Original purchase o1 valid (submitted review). Repurchase o2 refunded → still locked.
+  const kept = filterRefundedOrders([{ id: "o1" }, { id: "o2" }], new Set(["o2"]));
+  const g = deriveReviewGate({ qualifyingCount: kept.length, currentVersion: 1 });
+  assert(!g.canEdit, "still locked");
+});
+
 // ---------- Safety ----------
 
 test("blocks emails", () => {
