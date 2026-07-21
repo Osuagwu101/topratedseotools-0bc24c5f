@@ -16,6 +16,9 @@ export type Database = {
     Tables: {
       ai_generator_settings: {
         Row: {
+          brand_description: string
+          brand_name: string
+          brand_url: string
           brand_voice: string | null
           created_at: string
           default_audience: string
@@ -27,11 +30,17 @@ export type Database = {
           default_writing_style: string
           id: string
           model: string
+          promo_enabled: boolean
+          promo_position: number
+          promo_tone: string
           provider: string
           singleton: boolean
           updated_at: string
         }
         Insert: {
+          brand_description?: string
+          brand_name?: string
+          brand_url?: string
           brand_voice?: string | null
           created_at?: string
           default_audience?: string
@@ -43,11 +52,17 @@ export type Database = {
           default_writing_style?: string
           id?: string
           model?: string
+          promo_enabled?: boolean
+          promo_position?: number
+          promo_tone?: string
           provider?: string
           singleton?: boolean
           updated_at?: string
         }
         Update: {
+          brand_description?: string
+          brand_name?: string
+          brand_url?: string
           brand_voice?: string | null
           created_at?: string
           default_audience?: string
@@ -59,6 +74,9 @@ export type Database = {
           default_writing_style?: string
           id?: string
           model?: string
+          promo_enabled?: boolean
+          promo_position?: number
+          promo_tone?: string
           provider?: string
           singleton?: boolean
           updated_at?: string
