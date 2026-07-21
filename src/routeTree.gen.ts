@@ -38,6 +38,7 @@ import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
+import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated.transactions'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated.subscription'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
@@ -63,6 +64,7 @@ import { Route as AdminBlogCtasRouteImport } from './routes/admin.blog.ctas'
 import { Route as AdminBlogCommentsRouteImport } from './routes/admin.blog.comments'
 import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.categories'
 import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai-generator'
+import { Route as AuthenticatedReceiptReferenceRouteImport } from './routes/_authenticated.receipt.$reference'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
 import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
@@ -212,6 +214,12 @@ const AdminAdminsRoute = AdminAdminsRouteImport.update({
   path: '/admin/admins',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTransactionsRoute =
+  AuthenticatedTransactionsRouteImport.update({
+    id: '/transactions',
+    path: '/transactions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSubscriptionRoute =
   AuthenticatedSubscriptionRouteImport.update({
     id: '/subscription',
@@ -339,6 +347,12 @@ const AdminBlogAiGeneratorRoute = AdminBlogAiGeneratorRouteImport.update({
   path: '/ai-generator',
   getParentRoute: () => AdminBlogRoute,
 } as any)
+const AuthenticatedReceiptReferenceRoute =
+  AuthenticatedReceiptReferenceRouteImport.update({
+    id: '/receipt/$reference',
+    path: '/receipt/$reference',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedOrderSlugRoute = AuthenticatedOrderSlugRouteImport.update({
   id: '/order/$slug',
   path: '/order/$slug',
@@ -382,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -398,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -439,6 +455,7 @@ export interface FileRoutesByTo {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
@@ -452,6 +469,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -497,6 +515,7 @@ export interface FileRoutesById {
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
+  '/_authenticated/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -513,6 +532,7 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/_authenticated/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -558,6 +578,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
+    | '/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -574,6 +595,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/order/$slug'
+    | '/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -615,6 +637,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
+    | '/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/credentials'
@@ -628,6 +651,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/tools'
     | '/order/$slug'
+    | '/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -672,6 +696,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orders'
     | '/_authenticated/profile'
     | '/_authenticated/subscription'
+    | '/_authenticated/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -688,6 +713,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/_authenticated/order/$slug'
+    | '/_authenticated/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -946,6 +972,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/transactions': {
+      id: '/_authenticated/transactions'
+      path: '/transactions'
+      fullPath: '/transactions'
+      preLoaderRoute: typeof AuthenticatedTransactionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/subscription': {
       id: '/_authenticated/subscription'
       path: '/subscription'
@@ -1121,6 +1154,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBlogAiGeneratorRouteImport
       parentRoute: typeof AdminBlogRoute
     }
+    '/_authenticated/receipt/$reference': {
+      id: '/_authenticated/receipt/$reference'
+      path: '/receipt/$reference'
+      fullPath: '/receipt/$reference'
+      preLoaderRoute: typeof AuthenticatedReceiptReferenceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/order/$slug': {
       id: '/_authenticated/order/$slug'
       path: '/order/$slug'
@@ -1159,7 +1199,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
+  AuthenticatedTransactionsRoute: typeof AuthenticatedTransactionsRoute
   AuthenticatedOrderSlugRoute: typeof AuthenticatedOrderSlugRoute
+  AuthenticatedReceiptReferenceRoute: typeof AuthenticatedReceiptReferenceRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1169,7 +1211,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
+  AuthenticatedTransactionsRoute: AuthenticatedTransactionsRoute,
   AuthenticatedOrderSlugRoute: AuthenticatedOrderSlugRoute,
+  AuthenticatedReceiptReferenceRoute: AuthenticatedReceiptReferenceRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
