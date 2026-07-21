@@ -242,6 +242,12 @@ export const TOOLS: Tool[] = [
     domain: "canva.com",
     category: "Image",
     access: "pro",
+    features: [
+      "100M+ premium photos, videos, fonts and templates",
+      "Magic Studio AI tools and background remover",
+      "Brand kits and one-click resize across formats",
+      "Team folders and unlimited cloud storage on Pro",
+    ],
   },
   {
     slug: "midjourney",
