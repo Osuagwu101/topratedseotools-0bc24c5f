@@ -57,6 +57,12 @@ const settingsSchema = z.object({
   default_writing_style: z.string().min(1),
   default_length: z.string().min(1),
   brand_voice: z.string().nullable().optional(),
+  brand_name: z.string().trim().min(1).max(120).optional(),
+  brand_url: z.string().trim().url().max(300).optional(),
+  brand_description: z.string().trim().max(600).optional(),
+  promo_position: z.number().int().min(1).max(5).optional(),
+  promo_tone: z.string().trim().min(1).max(200).optional(),
+  promo_enabled: z.boolean().optional(),
 });
 
 export const updateAiSettings = createServerFn({ method: "POST" })
@@ -88,7 +94,7 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       .select("id")
       .limit(1)
       .maybeSingle();
-    const payload = {
+    const payload: Record<string, unknown> = {
       provider: data.provider,
       model,
       default_language: data.default_language,
@@ -100,15 +106,21 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       default_length: data.default_length,
       brand_voice: data.brand_voice ?? null,
     };
+    if (data.brand_name !== undefined) payload.brand_name = data.brand_name;
+    if (data.brand_url !== undefined) payload.brand_url = data.brand_url;
+    if (data.brand_description !== undefined) payload.brand_description = data.brand_description;
+    if (data.promo_position !== undefined) payload.promo_position = data.promo_position;
+    if (data.promo_tone !== undefined) payload.promo_tone = data.promo_tone;
+    if (data.promo_enabled !== undefined) payload.promo_enabled = data.promo_enabled;
     if (existing) {
-      const { error } = await context.supabase
+      const { error } = await (context.supabase as any)
         .from("ai_generator_settings")
         .update(payload)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
       return { id: existing.id };
     }
-    const { data: inserted, error } = await context.supabase
+    const { data: inserted, error } = await (context.supabase as any)
       .from("ai_generator_settings")
       .insert(payload)
       .select("id")
@@ -185,6 +197,23 @@ function buildSystemPrompt() {
   ].join(" ");
 }
 
+const PROMO_TRIGGER_TERMS = [
+  "seo tool", "seo tools", "group buy", "group-buy", "group buying",
+  "ai tool", "ai tools", "writing tool", "writing tools", "paraphras",
+  "plagiaris", "content tool", "marketing tool", "keyword research",
+  "backlink", "rank track", "research tool", "productivity tool",
+  "tool subscription", "subscription platform", "affordable software",
+  "affordable ai", "affordable seo", "best tools", "top tools",
+  "cheap tools", "shared access", "premium tool", "chatgpt", "quillbot",
+  "grammarly", "semrush", "ahrefs", "turnitin", "stealthwriter",
+  "phrasly", "capcut", "canva", "jasper", "copy.ai", "surfer",
+];
+
+function isPromoRelevant(text: string): boolean {
+  const t = text.toLowerCase();
+  return PROMO_TRIGGER_TERMS.some((k) => t.includes(k));
+}
+
 function buildUserPrompt(opts: {
   keyword: string;
   secondary: string[];
@@ -205,6 +234,15 @@ function buildUserPrompt(opts: {
   includeCaseStudies: boolean;
   includeFaq: boolean;
   includeConclusion: boolean;
+  brand: {
+    enabled: boolean;
+    name: string;
+    url: string;
+    description: string;
+    position: number;
+    tone: string;
+    relevant: boolean;
+  };
 }) {
   const req: string[] = [
     `Write an SEO-optimized article about: "${opts.keyword}".`,
@@ -217,6 +255,39 @@ function buildUserPrompt(opts: {
   if (opts.secondary.length)
     req.push(`Naturally weave in these secondary keywords: ${opts.secondary.join(", ")}.`);
   if (opts.brandVoice) req.push(`Brand voice: ${opts.brandVoice}.`);
+
+  if (opts.brand.enabled && opts.brand.relevant) {
+    const b = opts.brand;
+    req.push("");
+    req.push(`BRAND PROMOTION — ${b.name} (${b.url}):`);
+    req.push(
+      `- This topic is relevant to ${b.name}. Feature ${b.name} prominently and naturally in the article.`,
+    );
+    req.push(`- About the brand: ${b.description}`);
+    req.push(
+      `- Tone for the promotion: ${b.tone}. Do NOT make every paragraph sound like an advertisement.`,
+    );
+    req.push(
+      `- If the article is a listicle / "best of" / comparison, place ${b.name} at position ${b.position} by default. Use position 2 only if position ${b.position} is genuinely unsuitable given the article structure.`,
+    );
+    req.push(
+      `- Give ${b.name} a strong, detailed section covering the RELEVANT benefits (only mention what actually exists): access to premium SEO and AI tools, Shared and Private Access options, Monthly / Quarterly / Yearly plans, flexible pricing, secure Paystack payments, simple customer dashboard, reliable support, convenience for freelancers, marketers, students, agencies and business owners.`,
+    );
+    req.push(
+      `- Still cover other genuine alternatives fairly — this must read as a useful article, not an ad.`,
+    );
+    req.push(
+      `- End with a natural call-to-action linking to ${b.url} — e.g. "Explore affordable premium tool access through [${b.name}](${b.url})." Use the URL EXACTLY as given; do not invent another domain.`,
+    );
+    req.push(
+      `- Do NOT invent customer numbers, awards, reviews, unsupported performance claims, or services not listed above.`,
+    );
+  } else if (opts.brand.enabled && !opts.brand.relevant) {
+    req.push("");
+    req.push(
+      `BRAND: The topic is not clearly related to ${opts.brand.name}. Do NOT force the brand into the article; focus on the user's topic. A single, subtle mention with a link to ${opts.brand.url} is allowed only if it fits organically.`,
+    );
+  }
 
   req.push("");
   req.push("SEMANTIC SEO — CRITICAL:");
@@ -335,6 +406,23 @@ export const generateArticle = createServerFn({ method: "POST" })
       );
     }
 
+    const s: any = settings;
+    const brandName = String(s.brand_name ?? "Top Rated SEO Tools").trim() || "Top Rated SEO Tools";
+    const brandUrl = String(s.brand_url ?? "https://topratedseotools.lovable.app").trim() || "https://topratedseotools.lovable.app";
+    const brandDescription = String(
+      s.brand_description ??
+        "Affordable access to premium SEO, AI, writing, research and productivity tools with Shared and Private Access plans (monthly, quarterly, yearly) via secure Paystack payments and a simple customer dashboard.",
+    );
+    const promoPosition = Number.isFinite(s.promo_position) ? Number(s.promo_position) : 1;
+    const promoTone = String(s.promo_tone ?? "Natural, professional and persuasive");
+    const promoEnabled = s.promo_enabled !== false;
+    const relevanceText = [
+      data.keyword,
+      ...(data.secondary_keywords ?? []),
+      data.writing_style ?? "",
+    ].join(" ");
+    const brandRelevant = isPromoRelevant(relevanceText);
+
     const opts = {
       keyword: data.keyword.trim(),
       secondary: data.secondary_keywords?.filter(Boolean) ?? [],
@@ -355,6 +443,15 @@ export const generateArticle = createServerFn({ method: "POST" })
       includeCaseStudies: data.include_case_studies ?? false,
       includeFaq: data.include_faq ?? true,
       includeConclusion: data.include_conclusion ?? true,
+      brand: {
+        enabled: promoEnabled,
+        name: brandName,
+        url: brandUrl,
+        description: brandDescription,
+        position: promoPosition,
+        tone: promoTone,
+        relevant: brandRelevant,
+      },
     };
 
     let raw: string;
