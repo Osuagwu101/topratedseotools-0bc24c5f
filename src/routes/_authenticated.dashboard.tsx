@@ -183,6 +183,63 @@ function Dashboard() {
           )}
         </div>
 
+        <div className="mt-10">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">My reviews</h2>
+            <span className="text-xs text-muted-foreground">One review per tool. A repurchase unlocks one update.</span>
+          </div>
+          {reviewItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-10 text-center">
+              <MessageSquare className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                After a successful purchase you'll be able to leave a verified review here.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {reviewItems.map(({ eligibility: e, tool: t }) => {
+                let label = "Write a Review";
+                let updateAvailable = false;
+                if (e.review && e.canEdit) { label = "Update Your Review"; updateAvailable = true; }
+                else if (e.review) { label = "Review Submitted"; }
+                else if (!e.canReview) { label = "Not eligible yet"; }
+                const submitted = e.review?.submitted_at
+                  ? new Date(e.review.submitted_at).toLocaleDateString()
+                  : "—";
+                return (
+                  <Link
+                    key={t.slug}
+                    to="/tools/$slug"
+                    params={{ slug: t.slug }}
+                    hash="reviews"
+                    className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
+                  >
+                    <ToolBrandMark tool={t} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{t.name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                        {e.review ? (
+                          <span className="inline-flex items-center gap-0.5 font-semibold text-amber-600">
+                            {"★".repeat(e.review.rating)}
+                            <span className="text-muted-foreground">({e.review.status})</span>
+                          </span>
+                        ) : null}
+                        <span>· Submitted {submitted}</span>
+                        {updateAvailable ? (
+                          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
+                            Update available
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-primary group-hover:underline">{label} →</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <Section
