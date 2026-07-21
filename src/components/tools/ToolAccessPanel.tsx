@@ -112,7 +112,7 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
           </ul>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link
-              to="/order/$slug" search={{}}
+              to="/order/$slug"
               params={{ slug: tool.slug }}
               className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
             >

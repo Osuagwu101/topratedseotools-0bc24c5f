@@ -101,7 +101,8 @@ export const Route = createFileRoute("/admin/tools/$slug")({
 type Tab = "overview" | "access" | "pricing" | "credentials" | "orders";
 
 function AdminToolPage() {
-  const { tool } = Route.useLoaderData();
+  const { slug } = Route.useParams();
+  const tool = TOOLS.find((t) => t.slug === slug)!;
   const [tab, setTab] = useState<Tab>("overview");
 
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
