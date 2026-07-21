@@ -48,7 +48,13 @@ function paystackApi() {
 export const initializePaystackPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ order_id: z.string().uuid(), callback_url: z.string().url() }).parse(input),
+    z
+      .object({
+        order_id: z.string().uuid(),
+        callback_url: z.string().url(),
+        payment_type: z.enum(["one_time", "recurring_subscription"]).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const {
@@ -62,6 +68,9 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
 
     const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
     if (!env) throw new Error("Payments are temporarily unavailable. Please contact support.");
+
+    const paymentType = data.payment_type ?? "recurring_subscription";
+    const isRecurring = paymentType === "recurring_subscription";
 
     const { data: order, error } = await context.supabase
       .from("tool_orders")
@@ -81,6 +90,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
           userId: context.userId,
           tool_slug: order.tool_slug as string,
           pricing_option_id: order.pricing_option_id as string | null,
+          payment_type: paymentType,
         },
         env,
       );
@@ -89,34 +99,46 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       throw err;
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { plan_code } = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot);
+    let planCode: string | null = null;
+    if (isRecurring) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const res = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot);
+      planCode = res.plan_code;
+    }
 
     const email = context.claims?.email ?? `${context.userId}@users.local`;
     const reference = generatePaystackReference(order.id as string);
-    const metadata = buildPaystackMetadata({
-      order_id: order.id as string,
-      user_id: order.user_id as string,
-      tool_slug: snapshot.tool_slug,
-      pricing_option_id: snapshot.pricing_option_id,
-      access_type: snapshot.access_type,
-      billing_period: snapshot.billing_period,
-    });
+    const metadata = {
+      ...buildPaystackMetadata({
+        order_id: order.id as string,
+        user_id: order.user_id as string,
+        tool_slug: snapshot.tool_slug,
+        pricing_option_id: snapshot.pricing_option_id,
+        access_type: snapshot.access_type,
+        billing_period: snapshot.billing_period,
+      }),
+      payment_type: paymentType,
+    };
+
+    // Recurring: restrict to channels Paystack supports for subscriptions.
+    // One-time: omit `channels` so every one-time channel enabled on the
+    // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
+    const initBody: Record<string, unknown> = {
+      email,
+      amount: toKobo(snapshot.price_amount),
+      currency: "NGN",
+      reference,
+      callback_url: data.callback_url,
+      metadata,
+    };
+    if (isRecurring && planCode) {
+      initBody.plan = planCode;
+      initBody.channels = ["card", "direct_debit"];
+    }
 
     const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
       "/transaction/initialize",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          amount: toKobo(snapshot.price_amount),
-          currency: "NGN",
-          plan: plan_code,
-          reference,
-          callback_url: data.callback_url,
-          metadata,
-        }),
-      },
+      { method: "POST", body: JSON.stringify(initBody) },
     );
 
     const fulfilment = snapshot.access_type === "private" ? "pending" : "not_required";
@@ -125,7 +147,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .from("tool_orders")
       .update({
         paystack_reference: init.reference,
-        paystack_plan_code: plan_code,
+        paystack_plan_code: planCode,
         access_type: snapshot.access_type,
         billing_period: snapshot.billing_period,
         price_amount: snapshot.price_amount,
@@ -133,17 +155,18 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         duration_days: snapshot.duration_days,
         grace_days: snapshot.grace_days,
         warning_days: snapshot.warning_days,
-        payment_type: "recurring_subscription",
+        payment_type: paymentType,
         product_type: snapshot.product_type,
         paystack_environment: snapshot.paystack_environment,
         subscription_status: "pending",
-        renewal_status: "enabled",
+        renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
       })
       .eq("id", order.id);
 
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
+
 
 /** Fallback verify — used when the browser returns from Paystack before the webhook fires. */
 export const verifyPaystackPayment = createServerFn({ method: "POST" })
