@@ -55,10 +55,17 @@ type NavItem = {
 const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
-  { title: "Customers", to: "/admin/orders", icon: Users },
   { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
+];
+
+const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
+  { title: "All users", to: "/admin/customers" },
+  { title: "Active subscribers", to: "/admin/customers/active" },
+  { title: "All-time subscribers", to: "/admin/customers/all-time" },
+  { title: "Inactive / expired", to: "/admin/customers/inactive" },
+  { title: "New registrations", to: "/admin/customers/new" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
