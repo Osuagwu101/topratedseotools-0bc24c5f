@@ -79,7 +79,7 @@ export const listAdmins = createServerFn({ method: "GET" })
         userId: account.user_id,
         email: account.account_email,
         fullName: account.full_name,
-        isActive: roles[account.user_id]?.is_active !== false,
+        isActive: !!roles[account.user_id] && roles[account.user_id].is_active !== false,
         isSuperAdmin: !!roles[account.user_id]?.is_super_admin,
         createdAt: roles[account.user_id]?.created_at ?? account.created_at,
       })),
@@ -108,13 +108,35 @@ export const createAdmin = createServerFn({ method: "POST" })
     if (existingAdminError) throw new Error(existingAdminError.message);
 
     if (existingAdmin) {
-      const { error } = await supabaseAdmin
+      const { data: roleRow, error: roleLookupError } = await supabaseAdmin
         .from("user_roles")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ is_active: true } as any)
+        .select("id")
         .eq("user_id", existingAdmin.user_id)
-        .eq("role", "admin");
-      if (error) throw new Error(error.message);
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleLookupError) throw new Error(roleLookupError.message);
+
+      if (roleRow) {
+        const { error } = await supabaseAdmin
+          .from("user_roles")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .update({ is_active: true } as any)
+          .eq("id", roleRow.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabaseAdmin
+          .from("user_roles")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert({ user_id: existingAdmin.user_id, role: "admin", is_active: true, is_super_admin: false } as any);
+        if (error) throw new Error(error.message);
+      }
+
+      const { error: accountError } = await supabaseAdmin
+        .from("admin_accounts")
+        .update({ full_name: data.fullName ?? null } as any)
+        .eq("user_id", existingAdmin.user_id);
+      if (accountError) throw new Error(accountError.message);
+
       return { ok: true, userId: existingAdmin.user_id };
     }
 
@@ -167,12 +189,12 @@ export const setAdminActive = createServerFn({ method: "POST" })
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
-      .from("user_roles")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("user_roles")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .update({ is_active: data.isActive } as any)
       .eq("user_id", data.userId)
-      .eq("role", "admin");
-    if (error) throw new Error(error.message);
+        .eq("role", "admin");
+      if (error) throw new Error(error.message);
     return { ok: true };
   });
 
