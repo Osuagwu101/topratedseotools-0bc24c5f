@@ -164,6 +164,53 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       })
       .eq("id", order.id);
 
+    // Record an "initiated" payment row so a single transaction reference is
+    // tracked from checkout through verification, receipt delivery, and
+    // reconciliation. Every later webhook / verify / recheck upserts here.
+    {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: existing } = await supabaseAdmin
+        .from("tool_payments")
+        .select("id")
+        .eq("paystack_reference", init.reference)
+        .maybeSingle();
+      if (!existing) {
+        const { data: inserted } = await supabaseAdmin
+          .from("tool_payments")
+          .insert({
+            order_id: order.id,
+            user_id: order.user_id,
+            tool_slug: snapshot.tool_slug,
+            amount: snapshot.price_amount,
+            currency: snapshot.currency,
+            payment_status: "initiated",
+            payment_type: paymentType,
+            classification: isRecurring ? "initial" : "one_time",
+            paystack_reference: init.reference,
+            paystack_environment: snapshot.paystack_environment,
+            customer_email: email,
+            access_type: snapshot.access_type,
+            billing_period: snapshot.billing_period,
+            price_label: snapshot.price_label,
+            source: "paystack",
+            initiated_at: new Date().toISOString(),
+            last_status_change_at: new Date().toISOString(),
+          } as never)
+          .select("id")
+          .maybeSingle();
+        if (inserted?.id) {
+          await supabaseAdmin.from("tool_payment_status_history").insert({
+            payment_id: inserted.id,
+            from_status: null,
+            to_status: "initiated",
+            source: "checkout",
+            note: "Transaction initiated at Paystack",
+            created_by: context.userId,
+          } as never);
+        }
+      }
+    }
+
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
 
