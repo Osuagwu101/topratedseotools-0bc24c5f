@@ -38,6 +38,8 @@ function ContactPage() {
     const { error } = await supabase.from("contact_messages").insert(parsed.data);
     setLoading(false);
     if (error) return toast.error("Couldn't send your message. Please try again.");
+    const { trackContact } = await import("@/lib/marketing/track");
+    trackContact("form");
     toast.success("Thanks! We'll get back to you soon.");
     setName("");
     setEmail("");

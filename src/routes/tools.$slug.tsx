@@ -1,4 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { trackViewItem } from "@/lib/marketing/track";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
 import type { Tool } from "@/lib/tools-data";
@@ -104,6 +106,11 @@ function ToolPage() {
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
   const setting = settings.settings.find((s) => s.tool_slug === tool.slug);
   const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
+
+  useEffect(() => {
+    trackViewItem({ slug: tool.slug, name: tool.name, category: tool.category });
+  }, [tool.slug, tool.name, tool.category]);
+
 
   const badge =
     setting?.enabled === false
