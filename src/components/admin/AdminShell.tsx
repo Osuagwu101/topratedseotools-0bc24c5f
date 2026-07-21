@@ -89,6 +89,18 @@ const MARKETING_SUBNAV: { title: string; to: string }[] = [
   { title: "Google Tag Manager", to: "/admin/marketing/gtm" },
 ];
 
+type ReviewsSearch = { status: string; min_rating?: number };
+const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
+  { title: "Pending", search: { status: "pending" } },
+  { title: "Approved", search: { status: "approved" } },
+  { title: "Rejected", search: { status: "rejected" } },
+  { title: "Hidden", search: { status: "hidden" } },
+  { title: "All reviews", search: { status: "all" } },
+  { title: "Min rating 3+", search: { status: "all", min_rating: 3 } },
+  { title: "Min rating 4+", search: { status: "all", min_rating: 4 } },
+  { title: "Min rating 5", search: { status: "all", min_rating: 5 } },
+];
+
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <SiteLayout>
