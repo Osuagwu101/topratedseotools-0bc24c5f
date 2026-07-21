@@ -24,7 +24,9 @@ import {
   UserCog,
   Star,
   Megaphone,
+  Cog as CogIcon,
 } from "lucide-react";
+import { getMyAdminContext } from "@/lib/admin-permissions.functions";
 import { getAdminContext } from "@/lib/admin-management.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -148,13 +150,28 @@ function AdminSidebar() {
   const [reviewsOpen, setReviewsOpen] = useState(
     () => path.startsWith("/admin/reviews"),
   );
-  const [q, setQ] = useState("");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("admin.settings.open");
+      if (stored !== null) return stored === "1";
+    }
+    return path.startsWith("/admin/settings") || path.startsWith("/admin/access-health") || path.startsWith("/admin/awaiting-assignments");
+  });
   useEffect(() => {
-    getAdminContext()
-      .then((c) => setIsSuperAdmin(!!c.isSuperAdmin))
-      .catch(() => setIsSuperAdmin(false));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("admin.settings.open", settingsOpen ? "1" : "0");
+    }
+  }, [settingsOpen]);
+  const [q, setQ] = useState("");
+  const [myCtx, setMyCtx] = useState<{ isSuperAdmin: boolean; permissions: string[] } | null>(null);
+  useEffect(() => {
+    getMyAdminContext()
+      .then((c) => setMyCtx({ isSuperAdmin: !!c.isSuperAdmin, permissions: c.permissions ?? [] }))
+      .catch(() => setMyCtx({ isSuperAdmin: false, permissions: [] }));
   }, []);
+  const isSuperAdmin = !!myCtx?.isSuperAdmin;
+  const perms = myCtx?.permissions ?? [];
+  const can = (p: string) => isSuperAdmin || perms.includes(p);
 
   const filteredTools = useMemo(
     () =>
