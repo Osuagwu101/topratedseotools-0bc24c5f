@@ -2,7 +2,7 @@
  * Unit tests for the review eligibility gate and content safety.
  * Uses pure helpers so we don't need to mock the DB layer.
  */
-import { deriveReviewGate, isQualifyingOrder, reviewSourceFor } from "../src/lib/reviews.functions";
+import { deriveReviewGate, isQualifyingOrder, reviewSourceFor, filterRefundedOrders, isRefundPayment } from "../src/lib/reviews.functions";
 import { checkReviewSafety } from "../src/lib/reviews-safety";
 
 let passed = 0;
