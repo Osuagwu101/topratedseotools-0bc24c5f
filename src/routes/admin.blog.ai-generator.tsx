@@ -120,6 +120,14 @@ function AiGeneratorPage() {
     default_writing_style: s.default_writing_style,
     default_length: s.default_length,
     brand_voice: s.brand_voice ?? "",
+    brand_name: (s as any).brand_name ?? "Top Rated SEO Tools",
+    brand_url: (s as any).brand_url ?? "https://topratedseotools.lovable.app",
+    brand_description:
+      (s as any).brand_description ??
+      "Affordable access to premium SEO, AI, writing, research and productivity tools with Shared and Private Access plans (monthly, quarterly, yearly) via secure Paystack payments and a simple customer dashboard.",
+    promo_position: Number((s as any).promo_position ?? 1),
+    promo_tone: (s as any).promo_tone ?? "Natural, professional and persuasive",
+    promo_enabled: (s as any).promo_enabled !== false,
   });
 
   const providerCatalog = settingsData.catalog;
