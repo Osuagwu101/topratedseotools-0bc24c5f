@@ -8,13 +8,14 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
  * connected API key can call. Anything not in this list is rejected at save.
  */
 export const GOOGLE_GEMINI_MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast, recommended)" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (highest quality)" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (cheapest)" },
+  { id: "gemini-flash-latest", label: "Gemini Flash (latest, recommended)" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (latest, cheapest)" },
+  { id: "gemini-pro-latest", label: "Gemini Pro (latest, highest quality)" },
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (preview)" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
   { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
-  { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
-  { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
 ] as const;
 
 const VALID_IDS = new Set<string>(GOOGLE_GEMINI_MODELS.map((m) => m.id));
