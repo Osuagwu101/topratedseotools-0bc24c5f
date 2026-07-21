@@ -143,6 +143,8 @@ function DashboardBody({ data }: { data: Overview }) {
     { label: "All time", value: r.allTime },
     { label: "Recurring", value: r.recurring },
     { label: "One-time", value: r.oneTime },
+    { label: "Online (Paystack)", value: r.online },
+    { label: "Offline (manual)", value: r.offline },
   ];
 
   const trendData = data.trend.days.map((d, i) => ({
