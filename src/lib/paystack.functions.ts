@@ -491,6 +491,10 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         })
         .eq("id", orderId)
         .neq("status", "approved");
+      try {
+        const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
+        await tryAutoAssignAccount(supabaseAdmin, orderId);
+      } catch (e) { console.warn("[account-pool] private auto-assign failed", e); }
       await queuePostPayment("private_pending", {
         fulfil_by: deadline.toISOString(),
         contact_admin_line: "",
@@ -544,6 +548,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       })
       .eq("id", orderId)
       .neq("status", "approved");
+
+    try {
+      const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
+      await tryAutoAssignAccount(supabaseAdmin, orderId);
+    } catch (e) { console.warn("[account-pool] shared auto-assign failed", e); }
 
     await queuePostPayment("shared_success", {});
     await trackConversionFromServer({
