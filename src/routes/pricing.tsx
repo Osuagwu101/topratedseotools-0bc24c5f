@@ -108,6 +108,20 @@ function PricingPage() {
       const access: AccessType = (opt.access_type as AccessType) ?? "shared";
       if (s && access === "shared" && s.shared_access_enabled === false) continue;
       if (s && access === "private" && s.private_access_enabled === false) continue;
+      if (
+        s &&
+        access === "shared" &&
+        (s.shared_access_authorization ?? "confirmed") !== "confirmed"
+      )
+        continue;
+      if (
+        s &&
+        access === "private" &&
+        (s.private_access_authorization ?? "confirmed") !== "confirmed"
+      )
+        continue;
+      // Turnitin is per-check only; never surface its legacy subscription rows.
+      if (opt.tool_slug === "turnitin") continue;
       const g =
         map.get(opt.tool_slug) ??
         {
