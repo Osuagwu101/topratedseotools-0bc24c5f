@@ -385,6 +385,17 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
       }
     }
 
+    // Build account-label lookup so email payloads include a human-readable
+    // label without exposing any credentials.
+    const labelById = new Map<string, string>();
+    for (const a of accounts) labelById.set(a.id, a.label);
+
+    const siteUrl =
+      process.env.APP_URL ??
+      process.env.SITE_URL ??
+      "https://topratedseotools.com";
+    const adminLink = `${siteUrl.replace(/\/$/, "")}/admin/access-health`;
+
     let sent = 0;
     const { queueEmail } = await import("@/lib/email/queue");
     for (const alert of alerts) {
@@ -396,19 +407,29 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
         .is("resolved_at", null)
         .maybeSingle();
       if (existing) continue;
-      const subject = `[Access Health] ${alert.title}`;
+      const subject = `Access Alert: ${alert.title}`;
+      const accountLabel = alert.account_id
+        ? (labelById.get(alert.account_id) ?? "—")
+        : "—";
+      const accountLine = alert.account_id ? ` (${accountLabel})` : "";
+      const payload = {
+        subject,
+        title: alert.title,
+        body: alert.message,
+        level: alert.level,
+        tool_slug: alert.tool_slug,
+        account_label: accountLabel,
+        account_line: accountLine,
+        affected_customers: alert.affected_customers,
+        admin_link: adminLink,
+        raised_at: new Date().toISOString(),
+      };
       for (const recipient of settings.emailRecipients) {
         await queueEmail(supabaseAdmin, {
           eventKey: `admin_alert:${alert.key}:${recipient}`,
           templateKey: "admin_alert",
           recipient,
-          payload: {
-            subject,
-            title: alert.title,
-            body: alert.message,
-            level: alert.level,
-            tool_slug: alert.tool_slug,
-          },
+          payload,
         }).catch(() => undefined);
       }
       await tbl(supabaseAdmin, "admin_alert_log").insert({
@@ -421,3 +442,40 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
     }
     return { sent };
   });
+
+// -------- Sidebar badge counts (unresolved issues + awaiting) --------
+export const getAccessHealthBadgeCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [settings, accounts, awaiting] = await Promise.all([
+      loadAlertSettings(supabaseAdmin),
+      loadAllAccounts(supabaseAdmin),
+      loadAwaitingOrders(supabaseAdmin),
+    ]);
+    const alerts = buildAccountAlerts(accounts, awaiting, settings);
+    // Unresolved issues needing attention. Excludes info + almost_full
+    // capacity heads-up. Login/suspended count only when they affect
+    // customers.
+    const attentionKinds = new Set<string>([
+      "full",
+      "expired",
+      "login_problem",
+      "suspended",
+      "disabled_with_customers",
+      "customers_on_unhealthy_account",
+      "awaiting_assignment",
+      "needs_capacity_review",
+    ]);
+    const unresolved = alerts.filter(
+      (a) =>
+        a.level !== "info" &&
+        attentionKinds.has(a.kind) &&
+        (["login_problem", "suspended"].includes(a.kind)
+          ? a.affected_customers > 0
+          : true),
+    ).length;
+    return { unresolved, awaiting: awaiting.length };
+  });
+

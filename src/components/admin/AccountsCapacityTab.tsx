@@ -26,6 +26,8 @@ import {
   adminRecordHealthCheck,
   type ToolAccountWithUsage,
 } from "@/lib/account-pool.functions";
+import { getToolAccountSummary } from "@/lib/access-health.functions";
+import { Link } from "@tanstack/react-router";
 
 const accountsQuery = (slug: string) =>
   queryOptions({
@@ -33,13 +35,24 @@ const accountsQuery = (slug: string) =>
     queryFn: () => adminListAccountsForTool({ data: { tool_slug: slug } }),
   });
 
+const summaryQuery = (slug: string) =>
+  queryOptions({
+    queryKey: ["tool-account-summary", slug],
+    queryFn: () => getToolAccountSummary({ data: { tool_slug: slug } }),
+  });
+
 export function AccountsCapacityTab({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(accountsQuery(slug));
+  const { data: summaryData } = useSuspenseQuery(summaryQuery(slug));
   const [showNew, setShowNew] = useState(false);
   const accounts = data.accounts;
+  const summary = summaryData.summary;
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["tool-accounts", slug] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["tool-accounts", slug] });
+    qc.invalidateQueries({ queryKey: ["tool-account-summary", slug] });
+  };
   const shared = accounts.filter((a) => a.access_type === "shared");
   const priv = accounts.filter((a) => a.access_type === "private");
 
@@ -62,6 +75,10 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
         </button>
       </div>
 
+      {summary && <SummaryPanel slug={slug} summary={summary} />}
+
+
+
       {showNew && (
         <AccountForm
           slug={slug}
@@ -75,6 +92,68 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
     </div>
   );
 }
+
+type SummaryShape = NonNullable<Awaited<ReturnType<typeof getToolAccountSummary>>["summary"]>;
+
+function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }) {
+  const items: Array<{ label: string; value: number; tone?: string; to?: any; search?: any; hash?: string }> = [
+    { label: "Total accounts", value: summary.totalAccounts },
+    { label: "Healthy", value: summary.healthy, tone: "text-emerald-600" },
+    { label: "Almost full", value: summary.almostFull, tone: summary.almostFull > 0 ? "text-amber-600" : undefined },
+    { label: "Full", value: summary.full, tone: summary.full > 0 ? "text-red-600" : undefined },
+    { label: "Unhealthy", value: summary.unhealthy, tone: summary.unhealthy > 0 ? "text-red-600" : undefined },
+    { label: "Total capacity", value: summary.totalCapacity },
+    { label: "Active assignments", value: summary.assigned },
+    { label: "Available spaces", value: summary.available },
+    {
+      label: "Awaiting assignment",
+      value: summary.awaiting,
+      tone: summary.awaiting > 0 ? "text-amber-600" : undefined,
+      to: "/admin/awaiting-assignments" as const,
+    },
+    { label: "Expiring soon", value: summary.expiringSoon, tone: summary.expiringSoon > 0 ? "text-amber-600" : undefined },
+    {
+      label: "Needs capacity review",
+      value: (summary as any).needsReview ?? 0,
+      tone: ((summary as any).needsReview ?? 0) > 0 ? "text-amber-600" : undefined,
+    },
+  ];
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Capacity summary
+        </div>
+        <Link
+          to="/admin/access-health"
+          search={{ tool: slug } as any}
+          className="text-xs text-primary hover:underline"
+        >
+          Open in Access Health →
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {items.map((it) => {
+          const content = (
+            <div className="rounded-lg border bg-background p-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{it.label}</div>
+              <div className={`mt-0.5 text-lg font-semibold tabular-nums ${it.tone ?? ""}`}>{it.value}</div>
+            </div>
+          );
+          if (it.to) {
+            return (
+              <Link key={it.label} to={it.to} className="block hover:opacity-90">
+                {content}
+              </Link>
+            );
+          }
+          return <div key={it.label}>{content}</div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 function AccountGroup({
   title, accounts, onChange,

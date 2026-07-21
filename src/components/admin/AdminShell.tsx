@@ -180,6 +180,23 @@ function AdminSidebar() {
     }
   }
 
+  const [healthBadge, setHealthBadge] = useState<{ unresolved: number; awaiting: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const mod = await import("@/lib/access-health.functions");
+        const res = await mod.getAccessHealthBadgeCounts();
+        if (!cancelled) setHealthBadge({ unresolved: res.unresolved, awaiting: res.awaiting });
+      } catch {
+        /* non-admin or transient — hide the badges */
+      }
+    }
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
@@ -427,20 +444,33 @@ function AdminSidebar() {
 
 
 
-              {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item)}
-                    tooltip={item.title}
-                  >
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {NAV.filter((n) => n.title !== "Dashboard").map((item) => {
+                const badgeCount =
+                  item.to === "/admin/access-health"
+                    ? healthBadge?.unresolved ?? 0
+                    : item.to === "/admin/awaiting-assignments"
+                      ? healthBadge?.awaiting ?? 0
+                      : 0;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item)}
+                      tooltip={item.title}
+                    >
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                        {!collapsed && badgeCount > 0 && (
+                          <span className="ml-auto inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
 
               {isSuperAdmin && (
                 <SidebarMenuItem>
