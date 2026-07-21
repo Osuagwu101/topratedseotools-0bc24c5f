@@ -58,7 +58,7 @@ const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
-  { title: "Reviews", to: "/admin/reviews", icon: Star },
+  
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Email", to: "/admin/settings/email", icon: Cog },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
@@ -89,6 +89,18 @@ const MARKETING_SUBNAV: { title: string; to: string }[] = [
   { title: "Google Tag Manager", to: "/admin/marketing/gtm" },
 ];
 
+type ReviewsSearch = { status: string; min_rating?: number };
+const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
+  { title: "Pending", search: { status: "pending" } },
+  { title: "Approved", search: { status: "approved" } },
+  { title: "Rejected", search: { status: "rejected" } },
+  { title: "Hidden", search: { status: "hidden" } },
+  { title: "All reviews", search: { status: "all" } },
+  { title: "Min rating 3+", search: { status: "all", min_rating: 3 } },
+  { title: "Min rating 4+", search: { status: "all", min_rating: 4 } },
+  { title: "Min rating 5", search: { status: "all", min_rating: 5 } },
+];
+
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <SiteLayout>
@@ -112,6 +124,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const reviewsSearch = useRouterState({
+    select: (r) => (r.location.search ?? {}) as Record<string, unknown>,
+  });
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
@@ -126,6 +141,9 @@ function AdminSidebar() {
   );
   const [marketingOpen, setMarketingOpen] = useState(
     () => path.startsWith("/admin/marketing"),
+  );
+  const [reviewsOpen, setReviewsOpen] = useState(
+    () => path.startsWith("/admin/reviews"),
   );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -357,6 +375,53 @@ function AdminSidebar() {
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
+
+              {/* Reviews — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/reviews")}
+                  tooltip="Reviews"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/reviews" });
+                    else setReviewsOpen((v) => !v);
+                  }}
+                >
+                  <Star />
+                  <span>Reviews</span>
+                  {!collapsed &&
+                    (reviewsOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && reviewsOpen && (
+                  <SidebarMenuSub>
+                    {REVIEWS_SUBNAV.map((s) => {
+                      const activeStatus =
+                        (reviewsSearch.status as string | undefined) ?? "pending";
+                      const activeMin = Number(reviewsSearch.min_rating ?? 0);
+                      const wantMin = Number(s.search.min_rating ?? 0);
+                      const isOnReviews = path === "/admin/reviews";
+                      const isActiveSub =
+                        isOnReviews &&
+                        activeStatus === s.search.status &&
+                        activeMin === wantMin;
+                      return (
+                        <SidebarMenuSubItem key={s.title}>
+                          <SidebarMenuSubButton asChild isActive={isActiveSub}>
+                            <Link to="/admin/reviews" search={s.search}>
+                              <span>{s.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+
 
 
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (

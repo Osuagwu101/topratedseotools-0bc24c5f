@@ -22,8 +22,21 @@ import {
 } from "@/lib/reviews.functions";
 import { TOOLS } from "@/lib/tools-data";
 
+type ReviewsSearch = { status?: ReviewStatus | "all"; min_rating?: number; tool_slug?: string };
+
 export const Route = createFileRoute("/admin/reviews")({
   head: () => ({ meta: [{ title: "Reviews — Admin" }] }),
+  validateSearch: (s: Record<string, unknown>): ReviewsSearch => {
+    const allowed: (ReviewStatus | "all")[] = ["pending", "approved", "rejected", "hidden", "all"];
+    const status = allowed.includes(s.status as ReviewStatus | "all") ? (s.status as ReviewStatus | "all") : undefined;
+    const min_rating = typeof s.min_rating === "number" && s.min_rating >= 0 && s.min_rating <= 5
+      ? s.min_rating
+      : typeof s.min_rating === "string" && !Number.isNaN(Number(s.min_rating))
+        ? Number(s.min_rating)
+        : undefined;
+    const tool_slug = typeof s.tool_slug === "string" ? s.tool_slug : undefined;
+    return { status, min_rating, tool_slug };
+  },
   component: () => (
     <AdminShell>
       <ReviewsPage />
@@ -34,9 +47,17 @@ export const Route = createFileRoute("/admin/reviews")({
 const STATUSES: ReviewStatus[] = ["pending", "approved", "rejected", "hidden"];
 
 function ReviewsPage() {
-  const [status, setStatus] = useState<ReviewStatus | "all">("pending");
-  const [toolSlug, setToolSlug] = useState<string>("");
-  const [minRating, setMinRating] = useState<number>(0);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const status: ReviewStatus | "all" = search.status ?? "pending";
+  const toolSlug: string = search.tool_slug ?? "";
+  const minRating: number = search.min_rating ?? 0;
+  const setStatus = (v: ReviewStatus | "all") =>
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, status: v }) });
+  const setToolSlug = (v: string) =>
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, tool_slug: v || undefined }) });
+  const setMinRating = (v: number) =>
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, min_rating: v || undefined }) });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reviews", status, toolSlug, minRating],
