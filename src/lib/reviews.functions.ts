@@ -135,6 +135,29 @@ export function isQualifyingOrder(row: {
   return true;
 }
 
+/**
+ * Pure — refunded/reversed orders never qualify for review or unlock an update.
+ * `refundedOrderIds` is the set of order ids that have any tool_payments row
+ * with payment_status in ('refunded','reversed') or reconciliation_status='refunded'.
+ */
+export function filterRefundedOrders<T extends { id: string }>(
+  orders: T[],
+  refundedOrderIds: Set<string>,
+): T[] {
+  return orders.filter((o) => !refundedOrderIds.has(o.id));
+}
+
+/** Pure — a tool_payments row indicating a refund/reversal for eligibility purposes. */
+export function isRefundPayment(row: {
+  payment_status: string | null | undefined;
+  reconciliation_status?: string | null | undefined;
+}): boolean {
+  const st = (row.payment_status ?? "").toLowerCase();
+  if (st === "refunded" || st === "reversed") return true;
+  const rc = (row.reconciliation_status ?? "").toLowerCase();
+  return rc === "refunded";
+}
+
 export function reviewSourceFor(origin: string | null | undefined): ReviewSource {
   return (origin ?? "").toLowerCase() === "offline" ? "offline" : "paystack";
 }
