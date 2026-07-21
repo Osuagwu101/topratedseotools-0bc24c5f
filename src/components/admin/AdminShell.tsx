@@ -221,6 +221,41 @@ function AdminSidebar() {
                 )}
               </SidebarMenuItem>
 
+              {/* Customers — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/customers")}
+                  tooltip="Customers"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/customers" });
+                    else setCustomersOpen((v) => !v);
+                  }}
+                >
+                  <Users />
+                  <span>Customers</span>
+                  {!collapsed &&
+                    (customersOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && customersOpen && (
+                  <SidebarMenuSub>
+                    {CUSTOMER_SUBNAV.map((s) => (
+                      <SidebarMenuSubItem key={s.to}>
+                        <SidebarMenuSubButton asChild isActive={path === s.to}>
+                          <Link to={s.to}>
+                            <span>{s.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
