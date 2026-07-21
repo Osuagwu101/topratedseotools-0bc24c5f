@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Cog,
   UserCog,
+  Star,
 } from "lucide-react";
 import { getAdminContext } from "@/lib/admin-management.functions";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
+  { title: "Reviews", to: "/admin/reviews", icon: Star },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Email", to: "/admin/settings/email", icon: Cog },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
