@@ -124,7 +124,7 @@ function MyOrdersPage() {
     setVerifying(true);
     verify({ data: { reference: ref } })
       .then((result) => {
-        if (result.purchase) {
+        if ("purchase" in result && result.purchase) {
           const tool = result.purchase.tool_slug ? getTool(result.purchase.tool_slug) : null;
           trackPurchase({
             order_id: result.purchase.order_id,
