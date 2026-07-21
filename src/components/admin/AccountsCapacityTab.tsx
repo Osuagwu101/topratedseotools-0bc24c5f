@@ -26,11 +26,19 @@ import {
   adminRecordHealthCheck,
   type ToolAccountWithUsage,
 } from "@/lib/account-pool.functions";
+import { getToolAccountSummary } from "@/lib/access-health.functions";
+import { Link } from "@tanstack/react-router";
 
 const accountsQuery = (slug: string) =>
   queryOptions({
     queryKey: ["tool-accounts", slug],
     queryFn: () => adminListAccountsForTool({ data: { tool_slug: slug } }),
+  });
+
+const summaryQuery = (slug: string) =>
+  queryOptions({
+    queryKey: ["tool-account-summary", slug],
+    queryFn: () => getToolAccountSummary({ data: { tool_slug: slug } }),
   });
 
 export function AccountsCapacityTab({ slug }: { slug: string }) {
