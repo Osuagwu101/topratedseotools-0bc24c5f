@@ -281,6 +281,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
+    const orderSafeEarly = order;
     if (order.status === "approved") {
       return { ok: true, orderId, alreadyActive: true };
     }
@@ -398,7 +399,6 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
-    const orderSafe = order!;
     // Helper — best-effort recipient lookup for post-payment emails.
     async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
       try {
