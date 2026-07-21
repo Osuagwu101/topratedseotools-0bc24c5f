@@ -86,7 +86,7 @@ export async function tryAutoAssignAccount(
     // read back the existing row.
     if (String(error.code) === "23505") {
       const { data: existing } = await admin
-        .from("tool_account_assignments")
+        .from("tool_account_assignments" as any)
         .select("id")
         .eq("order_id", orderId)
         .eq("status", "active")
@@ -110,7 +110,7 @@ export const adminListAccountsForTool = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: accounts, error } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .select("*")
       .eq("tool_slug", data.tool_slug)
       .order("created_at", { ascending: true });
@@ -120,7 +120,7 @@ export const adminListAccountsForTool = createServerFn({ method: "GET" })
     let counts: Record<string, number> = {};
     if (ids.length) {
       const { data: assigns } = await supabaseAdmin
-        .from("tool_account_assignments")
+        .from("tool_account_assignments" as any)
         .select("account_id")
         .in("account_id", ids)
         .eq("status", "active");
@@ -149,7 +149,7 @@ export const adminListAllAccounts = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: accounts, error } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .select("*")
       .order("tool_slug", { ascending: true });
     if (error) throw new Error(error.message);
@@ -157,7 +157,7 @@ export const adminListAllAccounts = createServerFn({ method: "GET" })
     const counts: Record<string, number> = {};
     if (ids.length) {
       const { data: assigns } = await supabaseAdmin
-        .from("tool_account_assignments")
+        .from("tool_account_assignments" as any)
         .select("account_id")
         .in("account_id", ids)
         .eq("status", "active");
@@ -189,7 +189,7 @@ export const adminListAccountAssignments = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .select("id, user_id, order_id, status, assigned_at, released_at, released_reason")
       .eq("account_id", data.account_id)
       .order("assigned_at", { ascending: false })
@@ -256,7 +256,7 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
     // For updates, ensure new max_capacity isn't below active_count.
     if (data.id && data.max_capacity !== undefined) {
       const { count } = await supabaseAdmin
-        .from("tool_account_assignments")
+        .from("tool_account_assignments" as any)
         .select("id", { count: "exact", head: true })
         .eq("account_id", data.id)
         .eq("status", "active");
@@ -289,13 +289,13 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
 
     if (data.id) {
       const { data: updated, error } = await supabaseAdmin
-        .from("tool_accounts")
+        .from("tool_accounts" as any)
         .update(patch)
         .eq("id", data.id)
         .select()
         .maybeSingle();
       if (error) throw new Error(error.message);
-      await supabaseAdmin.from("tool_account_audit").insert({
+      await supabaseAdmin.from("tool_account_audit" as any).insert({
         account_id: data.id,
         action: "account_updated",
         actor: context.userId,
@@ -305,12 +305,12 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
     }
     patch.created_by = context.userId;
     const { data: inserted, error } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .insert(patch)
       .select()
       .single();
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit").insert({
+    await supabaseAdmin.from("tool_account_audit" as any).insert({
       account_id: inserted.id,
       action: "account_created",
       actor: context.userId,
@@ -325,7 +325,7 @@ export const adminDeleteAccount = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .select("id", { count: "exact", head: true })
       .eq("account_id", data.id)
       .eq("status", "active");
@@ -335,11 +335,11 @@ export const adminDeleteAccount = createServerFn({ method: "POST" })
       );
     }
     const { error } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit").insert({
+    await supabaseAdmin.from("tool_account_audit" as any).insert({
       account_id: null,
       action: "account_deleted",
       actor: context.userId,
@@ -374,7 +374,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
     if (!order) throw new Error("Order not found");
 
     const { data: target } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .select("*")
       .eq("id", data.new_account_id)
       .maybeSingle();
@@ -387,7 +387,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
 
     // Capacity check.
     const { count } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .select("id", { count: "exact", head: true })
       .eq("account_id", data.new_account_id)
       .eq("status", "active");
@@ -396,7 +396,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
 
     // Release the current active assignment for this order.
     const { data: current } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .select("id, account_id")
       .eq("order_id", data.order_id)
       .eq("status", "active")
@@ -405,7 +405,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
 
     if (current) {
       await supabaseAdmin
-        .from("tool_account_assignments")
+        .from("tool_account_assignments" as any)
         .update({
           status: "reassigned",
           released_at: new Date().toISOString(),
@@ -416,7 +416,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
 
     // Insert the new active assignment.
     const { data: inserted, error: insErr } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .insert({
         account_id: data.new_account_id,
         user_id: order.user_id,
@@ -430,7 +430,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
       .single();
     if (insErr) throw new Error(insErr.message);
 
-    await supabaseAdmin.from("tool_account_audit").insert({
+    await supabaseAdmin.from("tool_account_audit" as any).insert({
       account_id: data.new_account_id,
       from_account_id: oldAccountId,
       to_account_id: data.new_account_id,
@@ -470,7 +470,7 @@ export const adminRecordHealthCheck = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const nowIso = new Date().toISOString();
     const { error } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .update({
         status: data.result,
         last_health_check_at: nowIso,
@@ -479,7 +479,7 @@ export const adminRecordHealthCheck = createServerFn({ method: "POST" })
       })
       .eq("id", data.account_id);
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit").insert({
+    await supabaseAdmin.from("tool_account_audit" as any).insert({
       account_id: data.account_id,
       action: `health_check_${data.result}`,
       actor: context.userId,
@@ -511,14 +511,14 @@ export const getMyAssignedAccounts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: assigns } = await supabaseAdmin
-      .from("tool_account_assignments")
+      .from("tool_account_assignments" as any)
       .select("account_id, tool_slug, access_type")
       .eq("user_id", context.userId)
       .eq("status", "active");
     const ids = (assigns ?? []).map((a) => a.account_id as string);
     if (!ids.length) return { assignments: [] as MyAssignedAccount[] };
     const { data: accounts } = await supabaseAdmin
-      .from("tool_accounts")
+      .from("tool_accounts" as any)
       .select(
         "id, tool_slug, access_type, login_email, login_password, login_url, login_notes, one_click_login_url",
       )
