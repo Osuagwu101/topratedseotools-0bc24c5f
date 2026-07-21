@@ -153,13 +153,19 @@ export async function validateAndBuildOrderSnapshot(
     );
   }
   // Authorization gate — only "confirmed" access types are publicly purchasable.
-  if (access === "shared" && effectiveSetting.shared_access_authorization !== "confirmed") {
+  if (
+    access === "shared" &&
+    (effectiveSetting.shared_access_authorization ?? "confirmed") !== "confirmed"
+  ) {
     throw new CheckoutError(
       "shared_not_authorized",
       "Shared Access for this tool is not currently authorised for sale.",
     );
   }
-  if (access === "private" && effectiveSetting.private_access_authorization !== "confirmed") {
+  if (
+    access === "private" &&
+    (effectiveSetting.private_access_authorization ?? "confirmed") !== "confirmed"
+  ) {
     throw new CheckoutError(
       "private_not_authorized",
       "Private Access for this tool is not currently authorised for sale.",
