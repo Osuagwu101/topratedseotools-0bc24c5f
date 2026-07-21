@@ -283,7 +283,24 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
     const orderSafe = order;
     if (order.status === "approved") {
-      return { ok: true, orderId, alreadyActive: true };
+      const { data: orderFull } = await context.supabase
+        .from("tool_orders")
+        .select("tool_slug")
+        .eq("id", orderId)
+        .maybeSingle();
+      return {
+        ok: true,
+        orderId,
+        alreadyActive: true,
+        purchase: {
+          order_id: orderId,
+          tool_slug: (orderFull as { tool_slug?: string } | null)?.tool_slug ?? null,
+          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+          currency: (orderSafe.currency as string | null) ?? tx.currency ?? "NGN",
+          reference: tx.reference,
+          event_id: `purchase:${orderId}`,
+        },
+      };
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -487,7 +504,20 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
         currency: (orderSafe.currency as string | null) ?? "NGN",
       });
-      return { ok: true, orderId, alreadyActive: false, fulfilment: "pending" };
+      return {
+        ok: true,
+        orderId,
+        alreadyActive: false,
+        fulfilment: "pending",
+        purchase: {
+          order_id: orderSafe.id as string,
+          tool_slug: null,
+          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+          currency: (orderSafe.currency as string | null) ?? tx.currency ?? "NGN",
+          reference: tx.reference,
+          event_id: `subscription_start:${orderSafe.id as string}`,
+        },
+      };
     }
 
     const expiresAt = new Date(paidAt.getTime() + (dur + grace) * 86400_000);
@@ -525,7 +555,26 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
       currency: (orderSafe.currency as string | null) ?? "NGN",
     });
-    return { ok: true, orderId, alreadyActive: false, fulfilment: "not_required" };
+    const { data: orderFullForReturn } = await supabaseAdmin
+      .from("tool_orders")
+      .select("tool_slug")
+      .eq("id", orderSafe.id)
+      .maybeSingle();
+    const kind = isOneTime ? "purchase" : "subscription_start";
+    return {
+      ok: true,
+      orderId,
+      alreadyActive: false,
+      fulfilment: "not_required",
+      purchase: {
+        order_id: orderSafe.id as string,
+        tool_slug: (orderFullForReturn as { tool_slug?: string } | null)?.tool_slug ?? null,
+        amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+        currency: (orderSafe.currency as string | null) ?? tx.currency ?? "NGN",
+        reference: tx.reference,
+        event_id: `${kind}:${orderSafe.id as string}`,
+      },
+    };
   });
 
 /**

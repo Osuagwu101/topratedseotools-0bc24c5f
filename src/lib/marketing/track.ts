@@ -12,6 +12,7 @@ declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void;
     dataLayer?: unknown[];
+    __pendingFbqEvents?: Array<{ name: string; params: Dict; opts: { eventID?: string; custom?: boolean } }>;
   }
 }
 
@@ -35,13 +36,24 @@ export function fbqTrack(
   opts: { eventID?: string; custom?: boolean } = {},
 ) {
   if (typeof window === "undefined" || !marketingAllowed()) return;
-  if (typeof window.fbq !== "function") return;
+  if (typeof window.fbq !== "function") {
+    window.__pendingFbqEvents = window.__pendingFbqEvents ?? [];
+    window.__pendingFbqEvents.push({ name, params, opts });
+    return;
+  }
   const fn = opts.custom ? "trackCustom" : "track";
   if (opts.eventID) {
     window.fbq(fn, name, params, { eventID: opts.eventID });
   } else {
     window.fbq(fn, name, params);
   }
+}
+
+export function flushPendingFbqEvents() {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  const pending = window.__pendingFbqEvents ?? [];
+  window.__pendingFbqEvents = [];
+  for (const event of pending) fbqTrack(event.name, event.params, event.opts);
 }
 
 // ---------- High-level customer events ----------
@@ -131,6 +143,44 @@ export function trackBeginCheckout(o: {
       payment_type: o.payment_type,
     },
     { eventID: o.event_id },
+  );
+}
+
+export function trackPurchase(o: {
+  order_id: string;
+  slug?: string | null;
+  name?: string | null;
+  amount: number;
+  currency?: string | null;
+  event_id?: string;
+  reference?: string | null;
+}) {
+  const currency = o.currency ?? "NGN";
+  pushDataLayer("purchase", {
+    transaction_id: o.order_id,
+    value: o.amount,
+    currency,
+    paystack_reference: o.reference ?? undefined,
+    items: o.slug
+      ? [
+          {
+            item_id: o.slug,
+            item_name: o.name ?? o.slug,
+          },
+        ]
+      : undefined,
+  });
+  fbqTrack(
+    "Purchase",
+    {
+      content_ids: o.slug ? [o.slug] : undefined,
+      content_name: o.name ?? o.slug ?? undefined,
+      content_type: "product",
+      value: o.amount,
+      currency,
+      order_id: o.order_id,
+    },
+    o.event_id ? { eventID: o.event_id } : {},
   );
 }
 

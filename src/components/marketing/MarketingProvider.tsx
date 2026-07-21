@@ -12,8 +12,9 @@
 import { useEffect } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { captureAttributionFromUrl, peekVisitorId, readAttribution } from "@/lib/marketing/attribution";
-import { trackPageView } from "@/lib/marketing/track";
+import { trackPageView, trackViewItem } from "@/lib/marketing/track";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
+import { getTool } from "@/lib/tools-data";
 import {
   upsertVisitorAttribution,
   linkAttributionToUser,
@@ -33,6 +34,15 @@ function persistAttributionIfConsented() {
       last_touch: stored.last_touch,
     },
   }).catch(() => {});
+}
+
+function trackCurrentRoute(path: string) {
+  trackPageView();
+  const match = path.match(/^\/tools\/([^/?#]+)/);
+  if (!match) return;
+  const tool = getTool(decodeURIComponent(match[1]));
+  if (!tool) return;
+  trackViewItem({ slug: tool.slug, name: tool.name, category: tool.category });
 }
 
 async function linkIfConsentedAndSignedIn() {
@@ -57,7 +67,7 @@ export function MarketingProvider() {
     if (!readConsent().marketing) return;
     captureAttributionFromUrl();
     persistAttributionIfConsented();
-    const t = setTimeout(() => trackPageView(), 200);
+    const t = setTimeout(() => trackCurrentRoute(path), 400);
     return () => clearTimeout(t);
   }, [path, isAdminPage]);
 
@@ -70,6 +80,7 @@ export function MarketingProvider() {
       captureAttributionFromUrl();
       persistAttributionIfConsented();
       linkIfConsentedAndSignedIn();
+      setTimeout(() => trackCurrentRoute(window.location.pathname), 400);
     });
   }, []);
 

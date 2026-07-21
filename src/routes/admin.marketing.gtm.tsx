@@ -55,6 +55,7 @@ function GtmPage() {
     try {
       await save({ data: { enabled: on, container_id: id.trim() || null } });
       toast.success("GTM settings updated.");
+      window.dispatchEvent(new CustomEvent("marketing-config-updated"));
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
