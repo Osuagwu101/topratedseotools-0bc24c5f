@@ -54,6 +54,7 @@ import { Route as AdminCustomersNewRouteImport } from './routes/admin.customers.
 import { Route as AdminCustomersInactiveRouteImport } from './routes/admin.customers.inactive'
 import { Route as AdminCustomersAllTimeRouteImport } from './routes/admin.customers.all-time'
 import { Route as AdminCustomersActiveRouteImport } from './routes/admin.customers.active'
+import { Route as AdminCustomersUserIdRouteImport } from './routes/admin.customers.$userId'
 import { Route as AdminBlogTagsRouteImport } from './routes/admin.blog.tags'
 import { Route as AdminBlogSettingsRouteImport } from './routes/admin.blog.settings'
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
@@ -291,6 +292,11 @@ const AdminCustomersActiveRoute = AdminCustomersActiveRouteImport.update({
   path: '/active',
   getParentRoute: () => AdminCustomersRoute,
 } as any)
+const AdminCustomersUserIdRoute = AdminCustomersUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => AdminCustomersRoute,
+} as any)
 const AdminBlogTagsRoute = AdminBlogTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
@@ -391,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/customers/$userId': typeof AdminCustomersUserIdRoute
   '/admin/customers/active': typeof AdminCustomersActiveRoute
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/customers/$userId': typeof AdminCustomersUserIdRoute
   '/admin/customers/active': typeof AdminCustomersActiveRoute
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
@@ -502,6 +510,7 @@ export interface FileRoutesById {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/customers/$userId': typeof AdminCustomersUserIdRoute
   '/admin/customers/active': typeof AdminCustomersActiveRoute
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
@@ -561,6 +570,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/customers/$userId'
     | '/admin/customers/active'
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
@@ -613,6 +623,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/customers/$userId'
     | '/admin/customers/active'
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
@@ -671,6 +682,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/customers/$userId'
     | '/admin/customers/active'
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
@@ -1033,6 +1045,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersActiveRouteImport
       parentRoute: typeof AdminCustomersRoute
     }
+    '/admin/customers/$userId': {
+      id: '/admin/customers/$userId'
+      path: '/$userId'
+      fullPath: '/admin/customers/$userId'
+      preLoaderRoute: typeof AdminCustomersUserIdRouteImport
+      parentRoute: typeof AdminCustomersRoute
+    }
     '/admin/blog/tags': {
       id: '/admin/blog/tags'
       path: '/tags'
@@ -1196,6 +1215,7 @@ const AdminBlogRouteWithChildren = AdminBlogRoute._addFileChildren(
 )
 
 interface AdminCustomersRouteChildren {
+  AdminCustomersUserIdRoute: typeof AdminCustomersUserIdRoute
   AdminCustomersActiveRoute: typeof AdminCustomersActiveRoute
   AdminCustomersAllTimeRoute: typeof AdminCustomersAllTimeRoute
   AdminCustomersInactiveRoute: typeof AdminCustomersInactiveRoute
@@ -1204,6 +1224,7 @@ interface AdminCustomersRouteChildren {
 }
 
 const AdminCustomersRouteChildren: AdminCustomersRouteChildren = {
+  AdminCustomersUserIdRoute: AdminCustomersUserIdRoute,
   AdminCustomersActiveRoute: AdminCustomersActiveRoute,
   AdminCustomersAllTimeRoute: AdminCustomersAllTimeRoute,
   AdminCustomersInactiveRoute: AdminCustomersInactiveRoute,
