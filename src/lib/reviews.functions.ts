@@ -135,6 +135,29 @@ export function isQualifyingOrder(row: {
   return true;
 }
 
+/**
+ * Pure — refunded/reversed orders never qualify for review or unlock an update.
+ * `refundedOrderIds` is the set of order ids that have any tool_payments row
+ * with payment_status in ('refunded','reversed') or reconciliation_status='refunded'.
+ */
+export function filterRefundedOrders<T extends { id: string }>(
+  orders: T[],
+  refundedOrderIds: Set<string>,
+): T[] {
+  return orders.filter((o) => !refundedOrderIds.has(o.id));
+}
+
+/** Pure — a tool_payments row indicating a refund/reversal for eligibility purposes. */
+export function isRefundPayment(row: {
+  payment_status: string | null | undefined;
+  reconciliation_status?: string | null | undefined;
+}): boolean {
+  const st = (row.payment_status ?? "").toLowerCase();
+  if (st === "refunded" || st === "reversed") return true;
+  const rc = (row.reconciliation_status ?? "").toLowerCase();
+  return rc === "refunded";
+}
+
 export function reviewSourceFor(origin: string | null | undefined): ReviewSource {
   return (origin ?? "").toLowerCase() === "offline" ? "offline" : "paystack";
 }
@@ -181,8 +204,25 @@ async function fetchEligibility(
     .order("created_at", { ascending: false });
   if (oErr) throw new Error(oErr.message);
 
-  const qualifying = ((orders ?? []) as any[]).filter((r) =>
-    isQualifyingOrder(r as any),
+  const candidateIds = ((orders ?? []) as any[])
+    .filter((r) => isQualifyingOrder(r as any))
+    .map((r) => r.id as string);
+
+  // Exclude any order that has a refunded/reversed payment record.
+  let refundedIds = new Set<string>();
+  if (candidateIds.length > 0) {
+    const { data: pays } = await context.supabase
+      .from("tool_payments")
+      .select("order_id, payment_status, reconciliation_status")
+      .in("order_id", candidateIds);
+    for (const p of ((pays ?? []) as any[])) {
+      if (isRefundPayment(p) && p.order_id) refundedIds.add(p.order_id as string);
+    }
+  }
+
+  const qualifying = filterRefundedOrders(
+    ((orders ?? []) as any[]).filter((r) => isQualifyingOrder(r as any)),
+    refundedIds,
   ) as (QualifyingRow & { status?: string; cancelled_at?: string | null })[];
 
   const latest = qualifying[0] ?? null;
