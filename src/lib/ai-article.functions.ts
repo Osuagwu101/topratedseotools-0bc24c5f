@@ -57,6 +57,12 @@ const settingsSchema = z.object({
   default_writing_style: z.string().min(1),
   default_length: z.string().min(1),
   brand_voice: z.string().nullable().optional(),
+  brand_name: z.string().trim().min(1).max(120).optional(),
+  brand_url: z.string().trim().url().max(300).optional(),
+  brand_description: z.string().trim().max(600).optional(),
+  promo_position: z.number().int().min(1).max(5).optional(),
+  promo_tone: z.string().trim().min(1).max(200).optional(),
+  promo_enabled: z.boolean().optional(),
 });
 
 export const updateAiSettings = createServerFn({ method: "POST" })
@@ -88,7 +94,7 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       .select("id")
       .limit(1)
       .maybeSingle();
-    const payload = {
+    const payload: Record<string, unknown> = {
       provider: data.provider,
       model,
       default_language: data.default_language,
@@ -100,6 +106,12 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       default_length: data.default_length,
       brand_voice: data.brand_voice ?? null,
     };
+    if (data.brand_name !== undefined) payload.brand_name = data.brand_name;
+    if (data.brand_url !== undefined) payload.brand_url = data.brand_url;
+    if (data.brand_description !== undefined) payload.brand_description = data.brand_description;
+    if (data.promo_position !== undefined) payload.promo_position = data.promo_position;
+    if (data.promo_tone !== undefined) payload.promo_tone = data.promo_tone;
+    if (data.promo_enabled !== undefined) payload.promo_enabled = data.promo_enabled;
     if (existing) {
       const { error } = await context.supabase
         .from("ai_generator_settings")
