@@ -61,7 +61,7 @@ export interface OrderSnapshot {
 export async function validateAndBuildOrderSnapshot(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
-  input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined },
+  input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined; payment_type?: PaymentType },
   env: PaystackEnv | null,
 ): Promise<OrderSnapshot> {
   if (!input.userId) {
