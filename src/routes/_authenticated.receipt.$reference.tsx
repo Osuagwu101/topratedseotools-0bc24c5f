@@ -13,7 +13,7 @@ import {
 import { getTool } from "@/lib/tools-data";
 import { ArrowLeft, Copy, Receipt } from "lucide-react";
 import { toast } from "sonner";
-import { CONTACT_EMAIL, WHATSAPP_LINK, WHATSAPP_NUMBER } from "@/lib/site-config";
+const CONTACT_EMAIL = "support@topratedseotools.com";
 
 export const Route = createFileRoute("/_authenticated/receipt/$reference")({
   head: () => ({
@@ -134,7 +134,6 @@ function ReceiptPage() {
             <p className="font-semibold">Need help with this transaction?</p>
             <p className="text-muted-foreground">
               Email <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{" "}
-              or WhatsApp <a className="underline" href={WHATSAPP_LINK}>{WHATSAPP_NUMBER}</a>{" "}
               with the reference above.
             </p>
           </div>
