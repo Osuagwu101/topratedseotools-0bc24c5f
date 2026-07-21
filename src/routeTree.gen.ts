@@ -46,6 +46,7 @@ import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
+import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
 import { Route as AdminBlogTagsRouteImport } from './routes/admin.blog.tags'
 import { Route as AdminBlogSettingsRouteImport } from './routes/admin.blog.settings'
 import { Route as AdminBlogNewRouteImport } from './routes/admin.blog.new'
@@ -243,6 +244,11 @@ const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   path: '/author/$id',
   getParentRoute: () => BlogRoute,
 } as any)
+const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => AdminToolsRoute,
+} as any)
 const AdminBlogTagsRoute = AdminBlogTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
@@ -341,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -386,6 +393,7 @@ export interface FileRoutesByTo {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -437,6 +445,7 @@ export interface FileRoutesById {
   '/admin/blog/new': typeof AdminBlogNewRoute
   '/admin/blog/settings': typeof AdminBlogSettingsRoute
   '/admin/blog/tags': typeof AdminBlogTagsRoute
+  '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -488,6 +497,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -533,6 +543,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -583,6 +594,7 @@ export interface FileRouteTypes {
     | '/admin/blog/new'
     | '/admin/blog/settings'
     | '/admin/blog/tags'
+    | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -881,6 +893,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogAuthorIdRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/admin/tools/$slug': {
+      id: '/admin/tools/$slug'
+      path: '/$slug'
+      fullPath: '/admin/tools/$slug'
+      preLoaderRoute: typeof AdminToolsSlugRouteImport
+      parentRoute: typeof AdminToolsRoute
+    }
     '/admin/blog/tags': {
       id: '/admin/blog/tags'
       path: '/tags'
@@ -1044,10 +1063,12 @@ const AdminBlogRouteWithChildren = AdminBlogRoute._addFileChildren(
 )
 
 interface AdminToolsRouteChildren {
+  AdminToolsSlugRoute: typeof AdminToolsSlugRoute
   AdminToolsIndexRoute: typeof AdminToolsIndexRoute
 }
 
 const AdminToolsRouteChildren: AdminToolsRouteChildren = {
+  AdminToolsSlugRoute: AdminToolsSlugRoute,
   AdminToolsIndexRoute: AdminToolsIndexRoute,
 }
 
