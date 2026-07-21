@@ -24,8 +24,15 @@ export interface QueueOrderEmailInput {
   kind: OrderEmailKind;
   orderId: string;
   reference?: string | null;
+  /**
+   * Override the idempotency key. Use for renewal events where each renewal
+   * cycle needs its own send (e.g. `renewal_success:{reference}` or
+   * `renewal_success:{invoiceCode}`). Defaults to `${kind}:${orderId}`.
+   */
+  eventKey?: string;
   extraPayload?: Record<string, string | number | null | undefined>;
 }
+
 
 
 /**
@@ -77,7 +84,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     };
 
     await queueEmail(admin, {
-      eventKey: `${i.kind}:${i.orderId}`,
+      eventKey: i.eventKey ?? `${i.kind}:${i.orderId}`,
       templateKey: templateByKind[i.kind],
       recipient: to,
       relatedOrderId: order.id as string,
@@ -88,3 +95,4 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     console.warn("[email] queueOrderEmail failed", err);
   }
 }
+

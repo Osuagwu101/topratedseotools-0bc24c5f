@@ -255,7 +255,8 @@ export async function queueAbandonedReminders(admin: any): Promise<{ queued: num
     const p = pMap.get(o.user_id as string);
     if (!p?.email) continue;
     const res = await queueEmail(admin, {
-      eventKey: `abandoned:${o.id}`,
+      eventKey: `abandoned_checkout:${o.id}`,
+
       templateKey: "abandoned_checkout",
       recipient: p.email,
       relatedOrderId: o.id as string,

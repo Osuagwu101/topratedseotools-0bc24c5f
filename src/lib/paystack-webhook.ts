@@ -180,8 +180,10 @@ export async function handlePaystackWebhook(
       planCode,
       subscriptionCode,
       customerCode,
+      invoiceCode,
       data,
     });
+
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (result && (result as any).alreadyFailed) {
@@ -218,9 +220,11 @@ interface DispatchInput {
   planCode?: string;
   subscriptionCode?: string;
   customerCode?: string;
+  invoiceCode?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
+
 
 async function dispatchEvent(i: DispatchInput) {
   switch (i.eventType) {
@@ -372,10 +376,14 @@ async function handleChargeSuccess(i: DispatchInput) {
       })
       .eq("id", order.id);
     const { queueOrderEmail } = await import("@/lib/email/order-emails");
+    // Renewals need a per-cycle key so each renewal sends its own email.
+    const renewalKey =
+      i.reference ?? i.invoiceCode ?? `${order.id}:${paidAt.getTime()}`;
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "renewal_success",
       orderId: order.id as string,
       reference: i.reference ?? null,
+      eventKey: `renewal_success:${renewalKey}`,
       extraPayload: {
         renewed_at: paidAt.toISOString(),
         next_payment_at: newNext.toISOString(),
@@ -384,6 +392,7 @@ async function handleChargeSuccess(i: DispatchInput) {
     });
     return;
   }
+
 
   // First payment
   if (order.status !== "approved") {
@@ -540,15 +549,18 @@ async function handleInvoiceFailed(i: DispatchInput) {
     await upsertPaymentStatus(i, i.reference, "failed", "invoice.payment_failed");
   }
   const { queueOrderEmail } = await import("@/lib/email/order-emails");
+  const failKey = i.reference ?? i.invoiceCode ?? `${i.subscriptionCode}:${Date.now()}`;
   for (const row of (matched as { id: string }[] | null) ?? []) {
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "renewal_failed",
       orderId: row.id,
       reference: i.reference ?? null,
+      eventKey: `renewal_failed:${failKey}`,
       extraPayload: { failed_at: new Date().toISOString() },
     });
   }
 }
+
 
 async function handleChargeFailed(i: DispatchInput) {
   if (!i.reference) return;
