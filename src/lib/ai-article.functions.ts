@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { estimateReadingTime, slugify } from "@/lib/blog-text";
 import { getProvider, providerCatalog } from "@/lib/ai-providers/registry";
+import { sanitizeGeminiModel, isValidGeminiModel } from "@/lib/ai-providers/google";
 import {
   detectToolSlugs,
   injectInternalLinks,
@@ -63,6 +64,25 @@ export const updateAiSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => settingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+
+    // Sanitize + validate the model against the provider's allowlist so no
+    // malformed value (URL, quotes, whitespace, `models/` or `google/` prefix)
+    // ever reaches the API.
+    let model = String(data.model ?? "").trim();
+    if (data.provider === "google") {
+      const clean = sanitizeGeminiModel(model);
+      if (!clean || !isValidGeminiModel(clean)) {
+        throw new Error(
+          `Invalid Gemini model "${data.model}". Pick a supported model from the list.`,
+        );
+      }
+      model = clean;
+    } else {
+      // Basic hygiene for other providers.
+      model = model.replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, "");
+      if (!model) throw new Error("Model is required.");
+    }
+
     const { data: existing } = await context.supabase
       .from("ai_generator_settings")
       .select("id")
@@ -70,7 +90,7 @@ export const updateAiSettings = createServerFn({ method: "POST" })
       .maybeSingle();
     const payload = {
       provider: data.provider,
-      model: data.model,
+      model,
       default_language: data.default_language,
       default_country: data.default_country ?? null,
       default_tone: data.default_tone,
@@ -337,13 +357,35 @@ export const generateArticle = createServerFn({ method: "POST" })
       includeConclusion: data.include_conclusion ?? true,
     };
 
-    const raw = await provider.complete({
-      model: settings.model,
-      system: buildSystemPrompt(),
-      user: buildUserPrompt(opts),
-      temperature: 0.75,
-      maxTokens: 8000,
-    });
+    let raw: string;
+    try {
+      raw = await provider.complete({
+        model: settings.model,
+        system: buildSystemPrompt(),
+        user: buildUserPrompt(opts),
+        temperature: 0.75,
+        maxTokens: 8000,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[ai-article] provider.complete failed", {
+        provider: provider.id,
+        model: settings.model,
+        error: msg,
+      });
+      if (msg.startsWith("AI_PROVIDER_NOT_CONFIGURED")) {
+        throw new Error(
+          "The AI provider is not configured correctly. Please check the model settings or contact Admin.",
+        );
+      }
+      if (msg.startsWith("AI_RATE_LIMITED")) {
+        throw new Error("The AI provider is temporarily rate-limited. Please try again shortly.");
+      }
+      if (msg.startsWith("AI_PROVIDER_ERROR")) {
+        throw new Error("The AI provider could not generate the article right now. Please try again.");
+      }
+      throw new Error("The AI provider could not generate the article right now. Please try again.");
+    }
 
     const parsed = tryParseJson(raw) as Partial<GeneratedArticle> & {
       faq?: FaqItem[];
