@@ -27,7 +27,7 @@ import {
   Cog as CogIcon,
 } from "lucide-react";
 import { getMyAdminContext } from "@/lib/admin-permissions.functions";
-import { getAdminContext } from "@/lib/admin-management.functions";
+import { getMyAdminContext } from "@/lib/admin-permissions.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteLayout } from "@/components/site/SiteLayout";
