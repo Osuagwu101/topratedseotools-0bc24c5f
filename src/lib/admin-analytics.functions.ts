@@ -126,7 +126,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
         .eq("status", "approved"),
       admin
         .from("tool_orders")
-        .select("id, user_id, tool_slug, status, access_type, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, expires_at, created_at, updated_at, approved_at")
+        .select("id, user_id, tool_slug, status, access_type, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, expires_at, created_at, updated_at, approved_at")
         .order("created_at", { ascending: false })
         .limit(2000),
       admin
