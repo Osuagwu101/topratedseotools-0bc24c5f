@@ -515,6 +515,81 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_admin_audit: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          customer_id: string
+          details: Json | null
+          id: string
+          order_id: string | null
+          payment_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          customer_id: string
+          details?: Json | null
+          id?: string
+          order_id?: string | null
+          payment_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          customer_id?: string
+          details?: Json | null
+          id?: string
+          order_id?: string | null
+          payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_admin_audit_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_admin_audit_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "tool_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_admin_meta: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          phone: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          phone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          phone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       internal_secrets: {
         Row: {
           name: string
@@ -779,7 +854,11 @@ export type Database = {
           approved_at: string | null
           auto_fulfilled_at: string | null
           billing_period: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
+          created_by_admin: string | null
           currency: string
           current_period_end: string | null
           current_period_start: string | null
@@ -795,6 +874,7 @@ export type Database = {
           next_payment_at: string | null
           non_renewal_requested_at: string | null
           notes: string | null
+          origin: string
           paid_at: string | null
           paid_through_at: string | null
           payment_status: string
@@ -828,7 +908,11 @@ export type Database = {
           approved_at?: string | null
           auto_fulfilled_at?: string | null
           billing_period?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
+          created_by_admin?: string | null
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -844,6 +928,7 @@ export type Database = {
           next_payment_at?: string | null
           non_renewal_requested_at?: string | null
           notes?: string | null
+          origin?: string
           paid_at?: string | null
           paid_through_at?: string | null
           payment_status?: string
@@ -877,7 +962,11 @@ export type Database = {
           approved_at?: string | null
           auto_fulfilled_at?: string | null
           billing_period?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
+          created_by_admin?: string | null
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -893,6 +982,7 @@ export type Database = {
           next_payment_at?: string | null
           non_renewal_requested_at?: string | null
           notes?: string | null
+          origin?: string
           paid_at?: string | null
           paid_through_at?: string | null
           payment_status?: string
@@ -932,6 +1022,7 @@ export type Database = {
       }
       tool_payments: {
         Row: {
+          admin_note: string | null
           amount: number | null
           classification: string
           created_at: string
@@ -939,17 +1030,22 @@ export type Database = {
           id: string
           order_id: string | null
           paid_at: string | null
+          payment_method: string | null
           payment_status: string
           payment_type: string
           paystack_environment: string
           paystack_invoice_code: string | null
           paystack_reference: string | null
           paystack_transaction_id: string | null
+          recorded_by: string | null
+          reference_note: string | null
+          source: string
           tool_slug: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          admin_note?: string | null
           amount?: number | null
           classification?: string
           created_at?: string
@@ -957,17 +1053,22 @@ export type Database = {
           id?: string
           order_id?: string | null
           paid_at?: string | null
+          payment_method?: string | null
           payment_status?: string
           payment_type?: string
           paystack_environment?: string
           paystack_invoice_code?: string | null
           paystack_reference?: string | null
           paystack_transaction_id?: string | null
+          recorded_by?: string | null
+          reference_note?: string | null
+          source?: string
           tool_slug: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          admin_note?: string | null
           amount?: number | null
           classification?: string
           created_at?: string
@@ -975,12 +1076,16 @@ export type Database = {
           id?: string
           order_id?: string | null
           paid_at?: string | null
+          payment_method?: string | null
           payment_status?: string
           payment_type?: string
           paystack_environment?: string
           paystack_invoice_code?: string | null
           paystack_reference?: string | null
           paystack_transaction_id?: string | null
+          recorded_by?: string | null
+          reference_note?: string | null
+          source?: string
           tool_slug?: string
           updated_at?: string
           user_id?: string
