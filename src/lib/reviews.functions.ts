@@ -204,8 +204,25 @@ async function fetchEligibility(
     .order("created_at", { ascending: false });
   if (oErr) throw new Error(oErr.message);
 
-  const qualifying = ((orders ?? []) as any[]).filter((r) =>
-    isQualifyingOrder(r as any),
+  const candidateIds = ((orders ?? []) as any[])
+    .filter((r) => isQualifyingOrder(r as any))
+    .map((r) => r.id as string);
+
+  // Exclude any order that has a refunded/reversed payment record.
+  let refundedIds = new Set<string>();
+  if (candidateIds.length > 0) {
+    const { data: pays } = await context.supabase
+      .from("tool_payments")
+      .select("order_id, payment_status, reconciliation_status")
+      .in("order_id", candidateIds);
+    for (const p of ((pays ?? []) as any[])) {
+      if (isRefundPayment(p) && p.order_id) refundedIds.add(p.order_id as string);
+    }
+  }
+
+  const qualifying = filterRefundedOrders(
+    ((orders ?? []) as any[]).filter((r) => isQualifyingOrder(r as any)),
+    refundedIds,
   ) as (QualifyingRow & { status?: string; cancelled_at?: string | null })[];
 
   const latest = qualifying[0] ?? null;
