@@ -211,8 +211,41 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Schedule an abandoned-checkout reminder — the dispatcher will cancel it
+    // if the order is completed or fails before the delay elapses.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { queueEmail, getEmailSettings } = await import("@/lib/email/queue");
+      const settings = await getEmailSettings(supabaseAdmin);
+      const delayH = settings?.abandoned_delay_hours ?? 24;
+      const scheduled = new Date(Date.now() + delayH * 3600_000).toISOString();
+      const to = email;
+      if (to) {
+        await queueEmail(supabaseAdmin, {
+          eventKey: `abandoned:${order.id}`,
+          templateKey: "abandoned_checkout",
+          recipient: to,
+          relatedOrderId: order.id as string,
+          relatedUserId: order.user_id as string,
+          scheduledFor: scheduled,
+          payload: {
+            name: "there",
+            tool: snapshot.tool_slug,
+            amount: snapshot.price_amount,
+            currency: snapshot.currency,
+            access_type: snapshot.access_type,
+            billing_period: snapshot.billing_period,
+            resume_url: `https://topratedseotools.com/order/${snapshot.tool_slug}`,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn("[email] failed to schedule abandoned reminder", err);
+    }
+
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
+
 
 
 /** Fallback verify — used when the browser returns from Paystack before the webhook fires. */
