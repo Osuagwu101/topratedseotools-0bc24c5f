@@ -194,7 +194,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
@@ -233,6 +233,8 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const dur = (order.duration_days as number) ?? 28;
     const grace = (order.grace_days as number) ?? 0;
     const access = ((order.access_type as string) ?? "shared") as "shared" | "private";
+    const isOneTime = (order.payment_type as string) === "one_time";
+    const renewalStatus = isOneTime ? "not_applicable" : "enabled";
 
     if (access === "private") {
       const deadline = new Date(paidAt.getTime() + 6 * 60 * 60 * 1000);
@@ -246,7 +248,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
           paystack_environment: env,
           paystack_customer_code: tx.customer?.customer_code ?? null,
           subscription_status: "pending",
-          renewal_status: "enabled",
+          renewal_status: renewalStatus,
           payment_status: "successful",
           fulfilment_status: "pending",
           fulfilment_deadline_at: deadline.toISOString(),
@@ -265,16 +267,16 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         approved_at: paidAt.toISOString(),
         paid_at: paidAt.toISOString(),
         subscription_started_at: paidAt.toISOString(),
-        paid_through_at: nextPaymentAt.toISOString(),
+        paid_through_at: isOneTime ? null : nextPaymentAt.toISOString(),
         current_period_start: paidAt.toISOString(),
-        current_period_end: nextPaymentAt.toISOString(),
-        next_payment_at: nextPaymentAt.toISOString(),
+        current_period_end: isOneTime ? null : nextPaymentAt.toISOString(),
+        next_payment_at: isOneTime ? null : nextPaymentAt.toISOString(),
         expires_at: expiresAt.toISOString(),
         paystack_reference: tx.reference,
         paystack_environment: env,
         paystack_customer_code: tx.customer?.customer_code ?? null,
-        subscription_status: "active",
-        renewal_status: "enabled",
+        subscription_status: isOneTime ? "non_renewing" : "active",
+        renewal_status: renewalStatus,
         payment_status: "successful",
         fulfilment_status: "not_required",
       })
