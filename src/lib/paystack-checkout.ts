@@ -34,6 +34,8 @@ export class CheckoutError extends Error {
 const VALID_PERIODS = new Set(["monthly", "quarterly", "yearly"] as const);
 export type BillingPeriod = "monthly" | "quarterly" | "yearly";
 
+export type PaymentType = "one_time" | "recurring_subscription";
+
 export interface OrderSnapshot {
   user_id: string;
   tool_slug: string;
@@ -46,7 +48,7 @@ export interface OrderSnapshot {
   duration_days: number;
   grace_days: number;
   warning_days: number;
-  payment_type: "recurring_subscription";
+  payment_type: PaymentType;
   product_type: "subscription";
   paystack_environment: PaystackEnv;
 }
