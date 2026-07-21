@@ -56,7 +56,6 @@ const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
-  { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
 ];
@@ -67,6 +66,16 @@ const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
   { title: "All-time subscribers", to: "/admin/customers/all-time" },
   { title: "Inactive / expired", to: "/admin/customers/inactive" },
   { title: "New registrations", to: "/admin/customers/new" },
+];
+
+const BLOG_SUBNAV: { title: string; to: string; exact?: boolean }[] = [
+  { title: "Posts", to: "/admin/blog", exact: true },
+  { title: "AI Generator", to: "/admin/blog/ai-generator" },
+  { title: "Categories", to: "/admin/blog/categories" },
+  { title: "Tags", to: "/admin/blog/tags" },
+  { title: "Comments", to: "/admin/blog/comments" },
+  { title: "CTAs", to: "/admin/blog/ctas" },
+  { title: "Settings", to: "/admin/blog/settings" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
