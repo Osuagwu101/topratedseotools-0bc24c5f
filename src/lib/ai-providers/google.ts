@@ -52,7 +52,7 @@ export function isValidGeminiModel(raw: string): boolean {
 export const googleProvider: AIProvider = {
   id: "google",
   label: "Google Gemini (direct)",
-  defaultModel: "gemini-2.5-flash",
+  defaultModel: "gemini-flash-latest",
   models: GOOGLE_GEMINI_MODELS.map((m) => ({ id: m.id, label: m.label })),
   isConfigured: () => !!process.env.GOOGLE_GEMINI_API_KEY,
   async complete({ model, system, user, temperature, maxTokens }) {
