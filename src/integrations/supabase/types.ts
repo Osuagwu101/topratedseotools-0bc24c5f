@@ -21,6 +21,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           invited_by: string | null
+          role_key: string | null
           updated_at: string
           user_id: string
         }
@@ -30,6 +31,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           invited_by?: string | null
+          role_key?: string | null
           updated_at?: string
           user_id: string
         }
@@ -39,8 +41,54 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           invited_by?: string | null
+          role_key?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      admin_activity_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_role: string | null
+          actor_user_id: string | null
+          area: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          reference: string | null
+          success: boolean
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          area?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference?: string | null
+          success?: boolean
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          area?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference?: string | null
+          success?: boolean
+          target_id?: string | null
+          target_type?: string | null
         }
         Relationships: []
       }
@@ -71,6 +119,66 @@ export type Database = {
           resolved_at?: string | null
           sent_at?: string
           subject?: string
+        }
+        Relationships: []
+      }
+      admin_invitations: {
+        Row: {
+          accepted_at: string | null
+          auth_user_id: string | null
+          created_at: string
+          email: string
+          expires_at: string | null
+          id: string
+          invited_by: string | null
+          role_key: string | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role_key?: string | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role_key?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      admin_permissions: {
+        Row: {
+          granted: boolean
+          permission: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          granted: boolean
+          permission: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          granted?: boolean
+          permission?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -2144,6 +2252,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_effective_permission: {
+        Args: { _perm: string; _uid: string }
+        Returns: boolean
+      }
       assign_tool_account_for_order: {
         Args: { _order_id: string }
         Returns: string
