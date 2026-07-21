@@ -17,7 +17,7 @@ export const GOOGLE_GEMINI_MODELS = [
   { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
 ] as const;
 
-const VALID_IDS = new Set(GOOGLE_GEMINI_MODELS.map((m) => m.id));
+const VALID_IDS = new Set<string>(GOOGLE_GEMINI_MODELS.map((m) => m.id));
 
 /**
  * Normalize an admin-supplied model value. Strips whitespace, surrounding
