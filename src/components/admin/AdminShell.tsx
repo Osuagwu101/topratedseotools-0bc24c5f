@@ -110,6 +110,9 @@ function AdminSidebar() {
   const [customersOpen, setCustomersOpen] = useState(
     () => path.startsWith("/admin/customers"),
   );
+  const [blogOpen, setBlogOpen] = useState(
+    () => path.startsWith("/admin/blog"),
+  );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   useEffect(() => {
