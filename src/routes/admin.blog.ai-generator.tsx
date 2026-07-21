@@ -658,9 +658,78 @@ function AiGeneratorPage() {
               </Field>
             </div>
 
+            <div className="mt-2 rounded-xl border bg-muted/30 p-4">
+              <h3 className="text-sm font-semibold">Brand promotion</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                When the article topic is relevant (SEO / AI / writing / marketing tools, group buying,
+                subscription platforms, comparisons), the generator features this brand naturally and
+                prominently — usually in the position below.
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Brand name">
+                  <input
+                    value={prov.brand_name}
+                    onChange={(e) => setProv({ ...prov, brand_name: e.target.value })}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Website URL">
+                  <input
+                    value={prov.brand_url}
+                    onChange={(e) => setProv({ ...prov, brand_url: e.target.value })}
+                    placeholder="https://…"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Default promotional position" hint="1 = first in list articles">
+                  <select
+                    value={String(prov.promo_position)}
+                    onChange={(e) => setProv({ ...prov, promo_position: Number(e.target.value) })}
+                    className={inputCls}
+                  >
+                    {[1, 2, 3].map((n) => (
+                      <option key={n} value={n}>
+                        Position {n}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Promotional tone">
+                  <input
+                    value={prov.promo_tone}
+                    onChange={(e) => setProv({ ...prov, promo_tone: e.target.value })}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Short brand description" hint="Only mention features that exist on the platform">
+                  <textarea
+                    value={prov.brand_description}
+                    onChange={(e) => setProv({ ...prov, brand_description: e.target.value })}
+                    rows={3}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Enable brand promotion">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={prov.promo_enabled}
+                      onChange={(e) => setProv({ ...prov, promo_enabled: e.target.checked })}
+                    />
+                    <span>Feature the brand in relevant articles</span>
+                  </label>
+                </Field>
+              </div>
+            </div>
+
             <div>
               <button
-                onClick={() =>
+                onClick={() => {
+                  const url = prov.brand_url.trim();
+                  if (prov.promo_enabled && !/^https?:\/\/.+/i.test(url)) {
+                    toast.error("Brand URL must be a full http(s) URL");
+                    return;
+                  }
                   settingsMut.mutate({
                     data: {
                       id: s.id,
@@ -674,9 +743,15 @@ function AiGeneratorPage() {
                       default_writing_style: prov.default_writing_style,
                       default_length: prov.default_length,
                       brand_voice: prov.brand_voice || null,
+                      brand_name: prov.brand_name.trim() || "Top Rated SEO Tools",
+                      brand_url: url,
+                      brand_description: prov.brand_description.trim(),
+                      promo_position: prov.promo_position,
+                      promo_tone: prov.promo_tone.trim() || "Natural, professional and persuasive",
+                      promo_enabled: prov.promo_enabled,
                     },
-                  })
-                }
+                  });
+                }}
                 disabled={settingsMut.isPending}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >
@@ -685,6 +760,7 @@ function AiGeneratorPage() {
             </div>
           </div>
         )}
+
 
         {/* Result */}
         {result && (
