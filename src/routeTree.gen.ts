@@ -34,6 +34,7 @@ import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
+import { Route as AdminMarketingRouteImport } from './routes/admin.marketing'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials'
@@ -55,6 +56,10 @@ import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$sl
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
+import { Route as AdminMarketingMetaRouteImport } from './routes/admin.marketing.meta'
+import { Route as AdminMarketingGtmRouteImport } from './routes/admin.marketing.gtm'
+import { Route as AdminMarketingEventsRouteImport } from './routes/admin.marketing.events'
+import { Route as AdminMarketingAnalyticsRouteImport } from './routes/admin.marketing.analytics'
 import { Route as AdminCustomersNewRouteImport } from './routes/admin.customers.new'
 import { Route as AdminCustomersInactiveRouteImport } from './routes/admin.customers.inactive'
 import { Route as AdminCustomersAllTimeRouteImport } from './routes/admin.customers.all-time'
@@ -198,6 +203,11 @@ const AdminOrdersRoute = AdminOrdersRouteImport.update({
   path: '/admin/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMarketingRoute = AdminMarketingRouteImport.update({
+  id: '/admin/marketing',
+  path: '/admin/marketing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
@@ -305,6 +315,26 @@ const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
   id: '/admin/settings/email',
   path: '/admin/settings/email',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMarketingMetaRoute = AdminMarketingMetaRouteImport.update({
+  id: '/meta',
+  path: '/meta',
+  getParentRoute: () => AdminMarketingRoute,
+} as any)
+const AdminMarketingGtmRoute = AdminMarketingGtmRouteImport.update({
+  id: '/gtm',
+  path: '/gtm',
+  getParentRoute: () => AdminMarketingRoute,
+} as any)
+const AdminMarketingEventsRoute = AdminMarketingEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => AdminMarketingRoute,
+} as any)
+const AdminMarketingAnalyticsRoute = AdminMarketingAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminMarketingRoute,
 } as any)
 const AdminCustomersNewRoute = AdminCustomersNewRouteImport.update({
   id: '/new',
@@ -428,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/customers': typeof AdminCustomersRouteWithChildren
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -453,6 +484,10 @@ export interface FileRoutesByFullPath {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/marketing/analytics': typeof AdminMarketingAnalyticsRoute
+  '/admin/marketing/events': typeof AdminMarketingEventsRoute
+  '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
+  '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -489,6 +524,7 @@ export interface FileRoutesByTo {
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -513,6 +549,10 @@ export interface FileRoutesByTo {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/marketing/analytics': typeof AdminMarketingAnalyticsRoute
+  '/admin/marketing/events': typeof AdminMarketingEventsRoute
+  '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
+  '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -555,6 +595,7 @@ export interface FileRoutesById {
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/customers': typeof AdminCustomersRouteWithChildren
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -580,6 +621,10 @@ export interface FileRoutesById {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/marketing/analytics': typeof AdminMarketingAnalyticsRoute
+  '/admin/marketing/events': typeof AdminMarketingEventsRoute
+  '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
+  '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -622,6 +667,7 @@ export interface FileRouteTypes {
     | '/admin/credentials'
     | '/admin/customers'
     | '/admin/dashboard'
+    | '/admin/marketing'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
@@ -647,6 +693,10 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/marketing/analytics'
+    | '/admin/marketing/events'
+    | '/admin/marketing/gtm'
+    | '/admin/marketing/meta'
     | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
@@ -683,6 +733,7 @@ export interface FileRouteTypes {
     | '/admin/appearance'
     | '/admin/credentials'
     | '/admin/dashboard'
+    | '/admin/marketing'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
@@ -707,6 +758,10 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/marketing/analytics'
+    | '/admin/marketing/events'
+    | '/admin/marketing/gtm'
+    | '/admin/marketing/meta'
     | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
@@ -748,6 +803,7 @@ export interface FileRouteTypes {
     | '/admin/credentials'
     | '/admin/customers'
     | '/admin/dashboard'
+    | '/admin/marketing'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
@@ -773,6 +829,10 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/marketing/analytics'
+    | '/admin/marketing/events'
+    | '/admin/marketing/gtm'
+    | '/admin/marketing/meta'
     | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
@@ -808,6 +868,7 @@ export interface RootRouteChildren {
   AdminCredentialsRoute: typeof AdminCredentialsRoute
   AdminCustomersRoute: typeof AdminCustomersRouteWithChildren
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminMarketingRoute: typeof AdminMarketingRouteWithChildren
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
@@ -997,6 +1058,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/marketing': {
+      id: '/admin/marketing'
+      path: '/admin/marketing'
+      fullPath: '/admin/marketing'
+      preLoaderRoute: typeof AdminMarketingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/admin/dashboard'
@@ -1143,6 +1211,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/settings/email'
       preLoaderRoute: typeof AdminSettingsEmailRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/marketing/meta': {
+      id: '/admin/marketing/meta'
+      path: '/meta'
+      fullPath: '/admin/marketing/meta'
+      preLoaderRoute: typeof AdminMarketingMetaRouteImport
+      parentRoute: typeof AdminMarketingRoute
+    }
+    '/admin/marketing/gtm': {
+      id: '/admin/marketing/gtm'
+      path: '/gtm'
+      fullPath: '/admin/marketing/gtm'
+      preLoaderRoute: typeof AdminMarketingGtmRouteImport
+      parentRoute: typeof AdminMarketingRoute
+    }
+    '/admin/marketing/events': {
+      id: '/admin/marketing/events'
+      path: '/events'
+      fullPath: '/admin/marketing/events'
+      preLoaderRoute: typeof AdminMarketingEventsRouteImport
+      parentRoute: typeof AdminMarketingRoute
+    }
+    '/admin/marketing/analytics': {
+      id: '/admin/marketing/analytics'
+      path: '/analytics'
+      fullPath: '/admin/marketing/analytics'
+      preLoaderRoute: typeof AdminMarketingAnalyticsRouteImport
+      parentRoute: typeof AdminMarketingRoute
     }
     '/admin/customers/new': {
       id: '/admin/customers/new'
@@ -1383,6 +1479,24 @@ const AdminCustomersRouteWithChildren = AdminCustomersRoute._addFileChildren(
   AdminCustomersRouteChildren,
 )
 
+interface AdminMarketingRouteChildren {
+  AdminMarketingAnalyticsRoute: typeof AdminMarketingAnalyticsRoute
+  AdminMarketingEventsRoute: typeof AdminMarketingEventsRoute
+  AdminMarketingGtmRoute: typeof AdminMarketingGtmRoute
+  AdminMarketingMetaRoute: typeof AdminMarketingMetaRoute
+}
+
+const AdminMarketingRouteChildren: AdminMarketingRouteChildren = {
+  AdminMarketingAnalyticsRoute: AdminMarketingAnalyticsRoute,
+  AdminMarketingEventsRoute: AdminMarketingEventsRoute,
+  AdminMarketingGtmRoute: AdminMarketingGtmRoute,
+  AdminMarketingMetaRoute: AdminMarketingMetaRoute,
+}
+
+const AdminMarketingRouteWithChildren = AdminMarketingRoute._addFileChildren(
+  AdminMarketingRouteChildren,
+)
+
 interface AdminToolsRouteChildren {
   AdminToolsSlugRoute: typeof AdminToolsSlugRoute
   AdminToolsIndexRoute: typeof AdminToolsIndexRoute
@@ -1418,6 +1532,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCredentialsRoute: AdminCredentialsRoute,
   AdminCustomersRoute: AdminCustomersRouteWithChildren,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminMarketingRoute: AdminMarketingRouteWithChildren,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminReviewsRoute: AdminReviewsRoute,
