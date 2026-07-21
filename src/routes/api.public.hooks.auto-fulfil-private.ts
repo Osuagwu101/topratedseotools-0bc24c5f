@@ -69,6 +69,7 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
           });
         }
         let processed = 0;
+        const { queueOrderEmail } = await import("@/lib/email/order-emails");
         for (const o of due ?? []) {
           const start = new Date(o.fulfilment_deadline_at as string);
           const dur = (o.duration_days as number) ?? 28;
@@ -90,8 +91,19 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
             })
             .eq("id", o.id)
             .eq("fulfilment_status", "pending"); // race guard
-          if (!upErr) processed++;
+          if (!upErr) {
+            processed++;
+            await queueOrderEmail(supabaseAdmin, {
+              kind: "private_fulfilled",
+              orderId: o.id as string,
+              extraPayload: {
+                fulfilled_at: now.toISOString(),
+                expiry_date: expires.toISOString(),
+              },
+            });
+          }
         }
+
         return new Response(
           JSON.stringify({ ok: true, processed, checked: (due ?? []).length }),
           { headers: { "content-type": "application/json" } },

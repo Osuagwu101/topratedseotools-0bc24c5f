@@ -371,6 +371,17 @@ async function handleChargeSuccess(i: DispatchInput) {
         payment_status: "successful",
       })
       .eq("id", order.id);
+    const { queueOrderEmail } = await import("@/lib/email/order-emails");
+    await queueOrderEmail(i.supabaseAdmin, {
+      kind: "renewal_success",
+      orderId: order.id as string,
+      reference: i.reference ?? null,
+      extraPayload: {
+        renewed_at: paidAt.toISOString(),
+        next_payment_at: newNext.toISOString(),
+        expiry_date: newExpires.toISOString(),
+      },
+    });
     return;
   }
 
@@ -396,6 +407,13 @@ async function handleChargeSuccess(i: DispatchInput) {
         })
         .eq("id", order.id)
         .neq("status", "approved");
+      const { queueOrderEmail } = await import("@/lib/email/order-emails");
+      await queueOrderEmail(i.supabaseAdmin, {
+        kind: "private_pending",
+        orderId: order.id as string,
+        reference: i.reference ?? null,
+        extraPayload: { fulfil_by: deadline.toISOString() },
+      });
       return;
     }
     // Shared: activate immediately.
@@ -422,8 +440,19 @@ async function handleChargeSuccess(i: DispatchInput) {
       })
       .eq("id", order.id)
       .neq("status", "approved");
+    const { queueOrderEmail } = await import("@/lib/email/order-emails");
+    await queueOrderEmail(i.supabaseAdmin, {
+      kind: "payment_success",
+      orderId: order.id as string,
+      reference: i.reference ?? null,
+      extraPayload: {
+        start_date: paidAt.toISOString(),
+        expiry_date: newExpires.toISOString(),
+      },
+    });
   }
 }
+
 
 async function handleSubscriptionCreate(i: DispatchInput) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -478,27 +507,46 @@ async function handleSubscriptionCreate(i: DispatchInput) {
 
 async function handleSubscriptionDisabled(i: DispatchInput) {
   if (!i.subscriptionCode) return;
-  await i.supabaseAdmin
+  const { data: matched } = await i.supabaseAdmin
     .from("tool_orders")
     .update({
       renewal_status: "disabled",
       subscription_status: "non_renewing",
       subscription_disabled_at: new Date().toISOString(),
     })
-    .eq("paystack_subscription_code", i.subscriptionCode);
+    .eq("paystack_subscription_code", i.subscriptionCode)
+    .select("id");
+  const { queueOrderEmail } = await import("@/lib/email/order-emails");
+  for (const row of (matched as { id: string }[] | null) ?? []) {
+    await queueOrderEmail(i.supabaseAdmin, {
+      kind: "renewal_disabled",
+      orderId: row.id,
+      extraPayload: { disabled_at: new Date().toISOString(), source: i.eventType },
+    });
+  }
 }
 
 async function handleInvoiceFailed(i: DispatchInput) {
   if (!i.subscriptionCode) return;
-  await i.supabaseAdmin
+  const { data: matched } = await i.supabaseAdmin
     .from("tool_orders")
     .update({
       subscription_status: "past_due",
       payment_status: "failed",
     })
-    .eq("paystack_subscription_code", i.subscriptionCode);
+    .eq("paystack_subscription_code", i.subscriptionCode)
+    .select("id");
   if (i.reference) {
     await upsertPaymentStatus(i, i.reference, "failed", "invoice.payment_failed");
+  }
+  const { queueOrderEmail } = await import("@/lib/email/order-emails");
+  for (const row of (matched as { id: string }[] | null) ?? []) {
+    await queueOrderEmail(i.supabaseAdmin, {
+      kind: "renewal_failed",
+      orderId: row.id,
+      reference: i.reference ?? null,
+      extraPayload: { failed_at: new Date().toISOString() },
+    });
   }
 }
 
@@ -512,8 +560,19 @@ async function handleChargeFailed(i: DispatchInput) {
       .from("tool_orders")
       .update({ payment_status: "failed" })
       .eq("id", order.id);
+    const { queueOrderEmail } = await import("@/lib/email/order-emails");
+    await queueOrderEmail(i.supabaseAdmin, {
+      kind: "payment_failed",
+      orderId: order.id as string,
+      reference: i.reference,
+      extraPayload: {
+        failed_at: new Date().toISOString(),
+        retry_url: `https://topratedseotools.com/order/${order.tool_slug}`,
+      },
+    });
   }
 }
+
 
 /**
  * Upsert-by-reference payment status change (used by failure events).

@@ -559,5 +559,17 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
       })
       .eq("id", orderSafe.id);
 
+    try {
+      const { queueOrderEmail } = await import("@/lib/email/order-emails");
+      await queueOrderEmail(supabaseAdmin, {
+        kind: "renewal_disabled",
+        orderId: orderSafe.id as string,
+        extraPayload: { disabled_at: new Date().toISOString(), source: "customer" },
+      });
+    } catch (err) {
+      console.warn("[email] failed to queue renewal_disabled", err);
+    }
+
     return { ok: true };
   });
+
