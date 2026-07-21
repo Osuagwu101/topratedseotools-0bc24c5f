@@ -63,11 +63,19 @@ const FAQ = [
   },
   {
     q: "How do renewals work?",
-    a: "Eligible monthly and annual subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period.",
+    a: "Eligible monthly, quarterly and yearly subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period. Pay-per-use tools such as Turnitin do not renew.",
   },
   {
-    q: "Are all tools always available?",
-    a: "Some tools may require availability and pricing confirmation before purchase. We'll let you know as soon as your access is activated.",
+    q: "How is Shared Access activated?",
+    a: "Shared Access is activated after payment confirmation, subject to availability.",
+  },
+  {
+    q: "How is Private Access activated?",
+    a: "After payment confirmation, your Private Access order will be marked as pending fulfilment. Contact Admin through WhatsApp to complete the account assignment — usually within six hours.",
+  },
+  {
+    q: "How does Turnitin work?",
+    a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no monthly, quarterly or yearly billing and no automatic renewal. Message us with the number of checks you need and we'll send a payment link.",
   },
   {
     q: "How do I get support?",
