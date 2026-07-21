@@ -53,6 +53,7 @@ import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
+import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
 import { Route as AdminCustomersNewRouteImport } from './routes/admin.customers.new'
 import { Route as AdminCustomersInactiveRouteImport } from './routes/admin.customers.inactive'
 import { Route as AdminCustomersAllTimeRouteImport } from './routes/admin.customers.all-time'
@@ -294,6 +295,11 @@ const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
+  id: '/admin/settings/email',
+  path: '/admin/settings/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminCustomersNewRoute = AdminCustomersNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -440,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -498,6 +505,7 @@ export interface FileRoutesByTo {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -563,6 +571,7 @@ export interface FileRoutesById {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -628,6 +637,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -686,6 +696,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -750,6 +761,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -789,6 +801,7 @@ export interface RootRouteChildren {
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -1104,6 +1117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsSlugRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/email': {
+      id: '/admin/settings/email'
+      path: '/admin/settings/email'
+      fullPath: '/admin/settings/email'
+      preLoaderRoute: typeof AdminSettingsEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/customers/new': {
       id: '/admin/customers/new'
       path: '/new'
@@ -1383,6 +1403,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
