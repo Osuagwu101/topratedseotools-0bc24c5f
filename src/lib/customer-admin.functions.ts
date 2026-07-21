@@ -171,6 +171,25 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
       },
     });
 
+    // Queue the invitation email — never contains the password.
+    if (created) {
+      try {
+        const { queueEmail } = await import("@/lib/email/queue");
+        await queueEmail(supabaseAdmin, {
+          eventKey: `customer_invite:${userId}`,
+          templateKey: "customer_invite",
+          recipient: data.email,
+          relatedUserId: userId,
+          payload: {
+            name: data.fullName,
+            setup_url: "https://topratedseotools.com/login",
+          },
+        });
+      } catch (err) {
+        console.warn("[email] failed to queue customer_invite", err);
+      }
+    }
+
     return { userId, existed, created };
   });
 
@@ -406,6 +425,42 @@ export const adminAssignTool = createServerFn({ method: "POST" })
         end: endIso,
       },
     });
+
+    // Queue offline-payment confirmation.
+    try {
+      const { queueEmail } = await import("@/lib/email/queue");
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("email, full_name")
+        .eq("id", data.userId)
+        .maybeSingle();
+      const email = (prof as { email?: string } | null)?.email;
+      const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
+      if (email) {
+        await queueEmail(supabaseAdmin, {
+          eventKey: `offline_confirmed:${order.id}`,
+          templateKey: "offline_confirmed",
+          recipient: email,
+          relatedOrderId: order.id as string,
+          relatedUserId: data.userId,
+          payload: {
+            name,
+            tool: data.toolSlug,
+            access_type: data.accessType,
+            billing_period: data.billingPeriod,
+            amount: data.amount,
+            currency: "NGN",
+            payment_method: data.paymentMethod,
+            start_date: startIso,
+            expiry_date: endIso,
+            auto_renew: "No — one-time payment",
+            dashboard_url: "https://topratedseotools.com/dashboard",
+          },
+        });
+      }
+    } catch (err) {
+      console.warn("[email] failed to queue offline_confirmed", err);
+    }
 
     return { ok: true as const, orderId: order.id, paymentId: payment.id, expiresAt: endIso };
   });
