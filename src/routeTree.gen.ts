@@ -39,6 +39,7 @@ import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials'
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
+import { Route as AdminAwaitingAssignmentsRouteImport } from './routes/admin.awaiting-assignments'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AdminAccessHealthRouteImport } from './routes/admin.access-health'
@@ -230,6 +231,12 @@ const AdminBlogRoute = AdminBlogRouteImport.update({
   path: '/admin/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAwaitingAssignmentsRoute =
+  AdminAwaitingAssignmentsRouteImport.update({
+    id: '/admin/awaiting-assignments',
+    path: '/admin/awaiting-assignments',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminAppearanceRoute = AdminAppearanceRouteImport.update({
   id: '/admin/appearance',
   path: '/admin/appearance',
@@ -467,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/awaiting-assignments': typeof AdminAwaitingAssignmentsRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/customers': typeof AdminCustomersRouteWithChildren
@@ -537,6 +545,7 @@ export interface FileRoutesByTo {
   '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/awaiting-assignments': typeof AdminAwaitingAssignmentsRoute
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -607,6 +616,7 @@ export interface FileRoutesById {
   '/admin/access-health': typeof AdminAccessHealthRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
+  '/admin/awaiting-assignments': typeof AdminAwaitingAssignmentsRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/customers': typeof AdminCustomersRouteWithChildren
@@ -681,6 +691,7 @@ export interface FileRouteTypes {
     | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
+    | '/admin/awaiting-assignments'
     | '/admin/blog'
     | '/admin/credentials'
     | '/admin/customers'
@@ -751,6 +762,7 @@ export interface FileRouteTypes {
     | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
+    | '/admin/awaiting-assignments'
     | '/admin/credentials'
     | '/admin/dashboard'
     | '/admin/orders'
@@ -820,6 +832,7 @@ export interface FileRouteTypes {
     | '/admin/access-health'
     | '/admin/admins'
     | '/admin/appearance'
+    | '/admin/awaiting-assignments'
     | '/admin/blog'
     | '/admin/credentials'
     | '/admin/customers'
@@ -887,6 +900,7 @@ export interface RootRouteChildren {
   AdminAccessHealthRoute: typeof AdminAccessHealthRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAppearanceRoute: typeof AdminAppearanceRoute
+  AdminAwaitingAssignmentsRoute: typeof AdminAwaitingAssignmentsRoute
   AdminBlogRoute: typeof AdminBlogRouteWithChildren
   AdminCredentialsRoute: typeof AdminCredentialsRoute
   AdminCustomersRoute: typeof AdminCustomersRouteWithChildren
@@ -1114,6 +1128,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/blog'
       fullPath: '/admin/blog'
       preLoaderRoute: typeof AdminBlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/awaiting-assignments': {
+      id: '/admin/awaiting-assignments'
+      path: '/admin/awaiting-assignments'
+      fullPath: '/admin/awaiting-assignments'
+      preLoaderRoute: typeof AdminAwaitingAssignmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/appearance': {
@@ -1568,6 +1589,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAccessHealthRoute: AdminAccessHealthRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAppearanceRoute: AdminAppearanceRoute,
+  AdminAwaitingAssignmentsRoute: AdminAwaitingAssignmentsRoute,
   AdminBlogRoute: AdminBlogRouteWithChildren,
   AdminCredentialsRoute: AdminCredentialsRoute,
   AdminCustomersRoute: AdminCustomersRouteWithChildren,
