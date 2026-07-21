@@ -112,6 +112,29 @@ function OrderPage() {
     );
   }
 
+  if (perUseBlocked && tool) {
+    return (
+      <SiteLayout>
+        <section className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
+          <h1 className="text-2xl font-semibold">This tool is per-{tool.perUse?.unit ?? "use"}, not a subscription</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {tool.name} is a pay-per-{tool.perUse?.unit ?? "use"} service. There
+            is no monthly, quarterly or yearly billing, no Shared or Private
+            selection, and no automatic renewal. Any old subscription link for
+            this tool has been retired.
+          </p>
+          <Link
+            to="/tools/$slug"
+            params={{ slug }}
+            className="mt-6 inline-flex items-center justify-center rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            Go to the {tool.name} page
+          </Link>
+        </section>
+      </SiteLayout>
+    );
+  }
+
   const chosen = options.find((o) => o.id === selected) ?? null;
   const oneTimeBlocked = payMode === "one_time" && !oneTimeAcknowledged;
 
