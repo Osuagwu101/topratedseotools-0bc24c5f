@@ -57,7 +57,7 @@ export const adminUpdateEmailSettings = createServerFn({ method: "POST" })
   .inputValidator((input) => settingsInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
-    const patch: Record<string, unknown> = { ...data, updated_by: context.userId };
+    const patch = { ...data, updated_by: context.userId } as never;
     const { error } = await admin.from("email_settings").update(patch).eq("id", true);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -91,9 +91,9 @@ export const adminCreateEmailDomain = createServerFn({ method: "POST" })
           sending_domain: data.domain,
           resend_domain_id: created.id,
           resend_domain_status: created.status ?? "pending",
-          resend_dns_records: sanitizeDnsRecords(created.records),
+          resend_dns_records: sanitizeDnsRecords(created.records) as never,
           updated_by: context.userId,
-        })
+        } as never)
         .eq("id", true);
       return { ok: true, id: created.id, status: created.status, records: sanitizeDnsRecords(created.records) };
     } catch (e) {
@@ -117,9 +117,9 @@ export const adminRefreshEmailDomain = createServerFn({ method: "POST" })
       .from("email_settings")
       .update({
         resend_domain_status: dom.status ?? "unknown",
-        resend_dns_records: sanitizeDnsRecords(dom.records),
+        resend_dns_records: sanitizeDnsRecords(dom.records) as never,
         last_verified_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", true);
     return { ok: true, status: dom.status, records: sanitizeDnsRecords(dom.records) };
   });
@@ -137,9 +137,9 @@ export const adminVerifyEmailDomain = createServerFn({ method: "POST" })
       .from("email_settings")
       .update({
         resend_domain_status: dom.status ?? "unknown",
-        resend_dns_records: sanitizeDnsRecords(dom.records),
+        resend_dns_records: sanitizeDnsRecords(dom.records) as never,
         last_verified_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", true);
     return { ok: true, status: dom.status };
   });
