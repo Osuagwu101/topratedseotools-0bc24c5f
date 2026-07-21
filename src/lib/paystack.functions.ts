@@ -236,6 +236,37 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const isOneTime = (order.payment_type as string) === "one_time";
     const renewalStatus = isOneTime ? "not_applicable" : "enabled";
 
+    // Idempotently record this successful charge in tool_payments so the
+    // admin revenue dashboard reflects it even when the webhook is delayed
+    // or never delivered (e.g. checkout completed via the browser return).
+    if (tx.reference) {
+      const { data: dupPay } = await supabaseAdmin
+        .from("tool_payments")
+        .select("id")
+        .eq("paystack_reference", tx.reference)
+        .maybeSingle();
+      if (!dupPay) {
+        const { data: orderFull } = await supabaseAdmin
+          .from("tool_orders")
+          .select("tool_slug")
+          .eq("id", order.id)
+          .maybeSingle();
+        await supabaseAdmin.from("tool_payments").insert({
+          order_id: order.id,
+          user_id: order.user_id,
+          tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
+          amount: (order.price_amount as number | null) ?? tx.amount / 100,
+          currency: (order.currency as string | null) ?? "NGN",
+          payment_status: "successful",
+          payment_type: isOneTime ? "one_time" : "recurring_subscription",
+          classification: isOneTime ? "one_time" : "initial",
+          paystack_reference: tx.reference,
+          paystack_environment: env,
+          paid_at: paidAt.toISOString(),
+        });
+      }
+    }
+
     if (access === "private") {
       const deadline = new Date(paidAt.getTime() + 6 * 60 * 60 * 1000);
       await supabaseAdmin
