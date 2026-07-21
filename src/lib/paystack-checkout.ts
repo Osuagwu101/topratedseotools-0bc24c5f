@@ -77,13 +77,24 @@ export async function validateAndBuildOrderSnapshot(
   if (!input.tool_slug) {
     throw new CheckoutError("no_tool", "This tool is not available.");
   }
+  // Turnitin is a per-check, one-time-only product. Its subscription
+  // pricing rows are legacy history and must never create a subscription
+  // order — even via an old or hand-crafted /order/turnitin link.
+  if (input.tool_slug === "turnitin") {
+    throw new CheckoutError(
+      "turnitin_per_use_only",
+      "Turnitin is priced per check and cannot be purchased as a subscription. Please visit the Turnitin page to place a per-check order.",
+    );
+  }
   if (!input.pricing_option_id) {
     throw new CheckoutError("no_plan", "Please select a plan.");
   }
 
   const { data: setting, error: sErr } = await db
     .from("tool_settings")
-    .select("enabled, access_level, shared_access_enabled, private_access_enabled")
+    .select(
+      "enabled, access_level, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
+    )
     .eq("tool_slug", input.tool_slug)
     .maybeSingle();
   if (sErr) throw new CheckoutError("db_error", "Could not load tool. Please try again.", 500);
@@ -95,6 +106,8 @@ export async function validateAndBuildOrderSnapshot(
     access_level: "purchased",
     shared_access_enabled: true,
     private_access_enabled: true,
+    shared_access_authorization: "confirmed",
+    private_access_authorization: "confirmed",
   };
   if (effectiveSetting.enabled === false) {
     throw new CheckoutError("tool_disabled", "This tool is temporarily unavailable.");
@@ -137,6 +150,19 @@ export async function validateAndBuildOrderSnapshot(
     throw new CheckoutError(
       "private_disabled",
       "Private Access is not available for this tool right now.",
+    );
+  }
+  // Authorization gate — only "confirmed" access types are publicly purchasable.
+  if (access === "shared" && effectiveSetting.shared_access_authorization !== "confirmed") {
+    throw new CheckoutError(
+      "shared_not_authorized",
+      "Shared Access for this tool is not currently authorised for sale.",
+    );
+  }
+  if (access === "private" && effectiveSetting.private_access_authorization !== "confirmed") {
+    throw new CheckoutError(
+      "private_not_authorized",
+      "Private Access for this tool is not currently authorised for sale.",
     );
   }
 
