@@ -204,7 +204,7 @@ function Home() {
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {showcase.map(({ tool, price }) => (
+          {showcase.map(({ tool, price, perUseLabel }) => (
             <Link
               key={tool.slug}
               to="/tools/$slug"
@@ -222,7 +222,12 @@ function Home() {
                 {tool.tagline}
               </div>
               <div className="mt-4 border-t pt-3">
-                {price ? (
+                {perUseLabel ? (
+                  <>
+                    <div className="text-lg font-bold">{perUseLabel}</div>
+                    <div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div>
+                  </>
+                ) : price ? (
                   <div className={price.contact_admin ? "text-sm font-medium text-primary" : "text-lg font-bold"}>
                     {formatPrice(price)}
                   </div>
