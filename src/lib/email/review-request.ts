@@ -24,10 +24,23 @@ export async function queueReviewRequest(
   try {
     const { data: order } = await admin
       .from("tool_orders")
-      .select("id, user_id, tool_slug, access_type")
+      .select("id, user_id, tool_slug, access_type, status, cancelled_at")
       .eq("id", input.orderId)
       .maybeSingle();
     if (!order) return;
+    // Skip cancelled orders.
+    if (order.status === "cancelled" || order.cancelled_at) return;
+
+    // Skip refunded/reversed orders (both online and offline records).
+    const { data: pays } = await admin
+      .from("tool_payments")
+      .select("payment_status, reconciliation_status")
+      .eq("order_id", order.id);
+    for (const p of (pays ?? []) as Array<{ payment_status?: string | null; reconciliation_status?: string | null }>) {
+      const st = (p.payment_status ?? "").toLowerCase();
+      const rc = (p.reconciliation_status ?? "").toLowerCase();
+      if (st === "refunded" || st === "reversed" || rc === "refunded") return;
+    }
 
     const { data: profile } = await admin
       .from("profiles")
