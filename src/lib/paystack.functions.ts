@@ -107,11 +107,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     }
 
     const email = context.claims?.email ?? `${context.userId}@users.local`;
-    const reference = generatePaystackReference(order.id as string);
+    const reference = generatePaystackReference(orderSafe.id as string);
     const metadata = {
       ...buildPaystackMetadata({
-        order_id: order.id as string,
-        user_id: order.user_id as string,
+        order_id: orderSafe.id as string,
+        user_id: orderSafe.user_id as string,
         tool_slug: snapshot.tool_slug,
         pricing_option_id: snapshot.pricing_option_id,
         access_type: snapshot.access_type,
@@ -162,7 +162,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
       })
-      .eq("id", order.id);
+      .eq("id", orderSafe.id);
 
     // Record an "initiated" payment row so a single transaction reference is
     // tracked from checkout through verification, receipt delivery, and
@@ -178,8 +178,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         const { data: inserted } = await supabaseAdmin
           .from("tool_payments")
           .insert({
-            order_id: order.id,
-            user_id: order.user_id,
+            order_id: orderSafe.id,
+            user_id: orderSafe.user_id,
             tool_slug: snapshot.tool_slug,
             amount: snapshot.price_amount,
             currency: snapshot.currency,
@@ -222,11 +222,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       const to = email;
       if (to) {
         await queueEmail(supabaseAdmin, {
-          eventKey: `abandoned:${order.id}`,
+          eventKey: `abandoned:${orderSafe.id}`,
           templateKey: "abandoned_checkout",
           recipient: to,
-          relatedOrderId: order.id as string,
-          relatedUserId: order.user_id as string,
+          relatedOrderId: orderSafe.id as string,
+          relatedUserId: orderSafe.user_id as string,
           scheduledFor: scheduled,
           payload: {
             name: "there",
@@ -295,10 +295,10 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const verdict = validatePaymentVerification({
       tx,
       order: {
-        id: order.id as string,
-        user_id: order.user_id as string,
-        price_amount: (order.price_amount as number | null) ?? null,
-        currency: (order.currency as string | null) ?? null,
+        id: orderSafe.id as string,
+        user_id: orderSafe.user_id as string,
+        price_amount: (orderSafe.price_amount as number | null) ?? null,
+        currency: (orderSafe.currency as string | null) ?? null,
         paystack_reference: (order.paystack_reference as string | null) ?? null,
         paystack_environment: (order.paystack_environment as string | null) ?? null,
       },
@@ -357,16 +357,16 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         const { data: orderFull } = await supabaseAdmin
           .from("tool_orders")
           .select("tool_slug, access_type, billing_period")
-          .eq("id", order.id)
+          .eq("id", orderSafe.id)
           .maybeSingle();
         const { data: inserted } = await supabaseAdmin
           .from("tool_payments")
           .insert({
-            order_id: order.id,
-            user_id: order.user_id,
+            order_id: orderSafe.id,
+            user_id: orderSafe.user_id,
             tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
-            amount: (order.price_amount as number | null) ?? tx.amount / 100,
-            currency: (order.currency as string | null) ?? "NGN",
+            amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+            currency: (orderSafe.currency as string | null) ?? "NGN",
             payment_status: "successful",
             payment_type: isOneTime ? "one_time" : "recurring_subscription",
             classification: isOneTime ? "one_time" : "initial",
@@ -405,7 +405,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         const { data: prof } = await supabaseAdmin
           .from("profiles")
           .select("email, full_name")
-          .eq("id", order.user_id)
+          .eq("id", orderSafe.user_id)
           .maybeSingle();
         const to = ((prof as { email?: string } | null)?.email) ?? context.claims?.email ?? null;
         const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
@@ -413,15 +413,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         const { data: orderFull } = await supabaseAdmin
           .from("tool_orders")
           .select("tool_slug, access_type, billing_period")
-          .eq("id", order.id)
+          .eq("id", orderSafe.id)
           .maybeSingle();
         const payload = {
           name,
           tool: orderFull?.tool_slug ?? "your tool",
           access_type: orderFull?.access_type ?? "shared",
           billing_period: orderFull?.billing_period ?? "monthly",
-          amount: (order.price_amount as number | null) ?? tx.amount / 100,
-          currency: (order.currency as string | null) ?? "NGN",
+          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+          currency: (orderSafe.currency as string | null) ?? "NGN",
           reference: tx.reference,
           dashboard_url: "https://topratedseotools.com/dashboard",
           ...extra,
@@ -432,7 +432,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             templateKey: "payment_success",
             recipient: to,
             relatedOrderId: orderId,
-            relatedUserId: order.user_id as string,
+            relatedUserId: orderSafe.user_id as string,
             payload: {
               ...payload,
               start_date: paidAt.toISOString(),
@@ -445,7 +445,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             templateKey: "private_pending",
             recipient: to,
             relatedOrderId: orderId,
-            relatedUserId: order.user_id as string,
+            relatedUserId: orderSafe.user_id as string,
             payload,
           });
         }
@@ -534,7 +534,7 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
           subscription_disabled_at: new Date().toISOString(),
           non_renewal_requested_at: new Date().toISOString(),
         })
-        .eq("id", order.id);
+        .eq("id", orderSafe.id);
       return { ok: true };
     }
 
@@ -554,7 +554,7 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
         subscription_status: "non_renewing",
         non_renewal_requested_at: new Date().toISOString(),
       })
-      .eq("id", order.id);
+      .eq("id", orderSafe.id);
 
     return { ok: true };
   });
