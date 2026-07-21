@@ -75,6 +75,10 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
         </button>
       </div>
 
+      {summary && <SummaryPanel slug={slug} summary={summary} />}
+
+
+
       {showNew && (
         <AccountForm
           slug={slug}
