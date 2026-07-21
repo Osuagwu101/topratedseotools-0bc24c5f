@@ -1,0 +1,1 @@
+UPDATE public.ai_generator_settings SET model = 'gemini-flash-latest' WHERE provider = 'google' AND model NOT IN ('gemini-flash-latest','gemini-flash-lite-latest','gemini-pro-latest','gemini-3.5-flash','gemini-3-flash-preview','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-flash-lite');
