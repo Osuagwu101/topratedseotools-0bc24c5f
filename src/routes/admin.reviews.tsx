@@ -47,9 +47,17 @@ export const Route = createFileRoute("/admin/reviews")({
 const STATUSES: ReviewStatus[] = ["pending", "approved", "rejected", "hidden"];
 
 function ReviewsPage() {
-  const [status, setStatus] = useState<ReviewStatus | "all">("pending");
-  const [toolSlug, setToolSlug] = useState<string>("");
-  const [minRating, setMinRating] = useState<number>(0);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const status: ReviewStatus | "all" = search.status ?? "pending";
+  const toolSlug: string = search.tool_slug ?? "";
+  const minRating: number = search.min_rating ?? 0;
+  const setStatus = (v: ReviewStatus | "all") =>
+    navigate({ search: (s) => ({ ...s, status: v }) });
+  const setToolSlug = (v: string) =>
+    navigate({ search: (s) => ({ ...s, tool_slug: v || undefined }) });
+  const setMinRating = (v: number) =>
+    navigate({ search: (s) => ({ ...s, min_rating: v || undefined }) });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reviews", status, toolSlug, minRating],
