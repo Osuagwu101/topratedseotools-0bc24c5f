@@ -438,7 +438,7 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
       if (email) {
         await queueEmail(supabaseAdmin, {
-          eventKey: `offline_confirmed:${order.id}`,
+          eventKey: `offline_payment:${payment.id}`,
           templateKey: "offline_confirmed",
           recipient: email,
           relatedOrderId: order.id as string,
