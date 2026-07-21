@@ -94,13 +94,8 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
     return { ok: false, reason: "not_due" };
   }
 
-  const settings = await getEmailSettings(admin);
-  if (!settings) return await markCancelled(admin, id, "no_settings");
-  if (!settings.production_sending) return await markCancelled(admin, id, "production_sending_disabled");
-  if (settings.enabled_types?.[row.template_key] === false) return await markCancelled(admin, id, "type_disabled");
-  if (!isResendConfigured()) return await scheduleRetry(admin, row, "RESEND_API_KEY missing");
-
-  // Order-state guard for the abandoned-checkout reminder.
+  // Order-state guard for the abandoned-checkout reminder — checked first so
+  // completed/failed orders never send even while production_sending is off.
   if (row.template_key === "abandoned_checkout" && row.related_order_id) {
     const { data: order } = await admin
       .from("tool_orders")
@@ -111,6 +106,13 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
       return await markCancelled(admin, id, "order_no_longer_pending");
     }
   }
+
+  const settings = await getEmailSettings(admin);
+  if (!settings) return await markCancelled(admin, id, "no_settings");
+  if (!settings.production_sending) return await markCancelled(admin, id, "production_sending_disabled");
+  if (settings.enabled_types?.[row.template_key] === false) return await markCancelled(admin, id, "type_disabled");
+  if (!isResendConfigured()) return await scheduleRetry(admin, row, "RESEND_API_KEY missing");
+
 
   const { data: tpl } = await admin
     .from("email_templates")
@@ -255,7 +257,8 @@ export async function queueAbandonedReminders(admin: any): Promise<{ queued: num
     const p = pMap.get(o.user_id as string);
     if (!p?.email) continue;
     const res = await queueEmail(admin, {
-      eventKey: `abandoned:${o.id}`,
+      eventKey: `abandoned_checkout:${o.id}`,
+
       templateKey: "abandoned_checkout",
       recipient: p.email,
       relatedOrderId: o.id as string,
