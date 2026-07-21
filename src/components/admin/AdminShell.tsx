@@ -124,6 +124,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const reviewsSearch = useRouterState({
+    select: (r) => (r.location.search ?? {}) as Record<string, unknown>,
+  });
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
