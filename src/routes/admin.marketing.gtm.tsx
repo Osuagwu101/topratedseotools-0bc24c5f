@@ -23,13 +23,22 @@ export const Route = createFileRoute("/admin/marketing/gtm")({
   },
   head: () => ({
     meta: [
-      { title: "GTM — Marketing — Admin" },
+      { title: "Google Tag Manager Integration — Admin" },
       { name: "robots", content: "noindex" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: GtmPage,
 });
+
+const TRACKED = [
+  "Page views and traffic sources",
+  "Tool views",
+  "Registrations",
+  "Checkout activity",
+  "Successful purchases",
+  "Advertising conversions",
+];
 
 function GtmPage() {
   const { data } = useSuspenseQuery(q);
@@ -44,8 +53,8 @@ function GtmPage() {
   async function onSave() {
     setBusy(true);
     try {
-      await save({ data: { enabled: on, container_id: id || null } });
-      toast.success("GTM settings saved.");
+      await save({ data: { enabled: on, container_id: id.trim() || null } });
+      toast.success("GTM settings updated.");
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -68,51 +77,78 @@ function GtmPage() {
     }
   }
 
+  const connected = !!gtm?.public_id;
+
   return (
     <AdminShell>
-      <section className="mx-auto max-w-3xl space-y-6 p-6">
+      <section className="mx-auto max-w-2xl space-y-6 p-6">
         <header>
-          <h1 className="text-xl font-semibold">Google Tag Manager</h1>
+          <h1 className="text-xl font-semibold">Google Tag Manager Integration</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add your GTM container ID and we'll push the standard events
-            (<code>page_view</code>, <code>view_item</code>,
-            <code>begin_checkout</code>, <code>purchase</code>, etc.) to the
-            data layer for Google Ads and GA4 to pick up.
+            Route your website events to Google Ads, GA4 and other tags.
           </p>
         </header>
 
+        <div className="rounded-2xl border bg-card p-5">
+          <h2 className="text-sm font-semibold">What this can track</h2>
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            {TRACKED.map((t) => (
+              <li key={t}>• {t}</li>
+            ))}
+          </ul>
+        </div>
+
         <div className="space-y-4 rounded-2xl border bg-card p-5">
           <div>
-            <label className="block text-sm font-medium">GTM container ID</label>
+            <label className="block text-sm font-medium">GTM Container ID</label>
             <input
               value={id}
-              onChange={(e) => setId(e.target.value.toUpperCase())}
+              onChange={(e) => setId(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
               placeholder="GTM-XXXXXXX"
               className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enter only the container ID (e.g. GTM-XXXXXXX). Do not paste the full script.
+            </p>
           </div>
+
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-            Enable GTM
+            Enable Google Tag Manager
           </label>
-          <div className="flex gap-2">
+
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={onSave}
               disabled={busy}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
-              Save
+              Update GTM
             </button>
             <button
               onClick={onTest}
-              disabled={busy}
+              disabled={busy || !connected}
               className="rounded-md border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60"
             >
-              Check container
+              Test Integration
             </button>
           </div>
+
+          <div className="grid gap-2 border-t pt-4 text-sm sm:grid-cols-2">
+            <div>
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div className={connected ? "text-emerald-600" : "text-muted-foreground"}>
+                {connected ? "Connected" : "Not connected"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Last detected event</div>
+              <div>{gtm?.last_event_at ? new Date(gtm.last_event_at).toLocaleString() : "—"}</div>
+            </div>
+          </div>
+
           {gtm?.last_error_message ? (
-            <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+            <div className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
               Last error: {gtm.last_error_message}
             </div>
           ) : null}

@@ -23,13 +23,23 @@ export const Route = createFileRoute("/admin/marketing/meta")({
   },
   head: () => ({
     meta: [
-      { title: "Meta — Marketing — Admin" },
+      { title: "Facebook Pixel Integration — Admin" },
       { name: "robots", content: "noindex" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: MetaPage,
 });
+
+const TRACKED = [
+  "Website and tool page views",
+  "Registration",
+  "Tool selection",
+  "Checkout started",
+  "Successful purchase",
+  "Subscription started",
+  "Contact and WhatsApp clicks",
+];
 
 function MetaPage() {
   const { data } = useSuspenseQuery(q);
@@ -41,7 +51,6 @@ function MetaPage() {
   const [pixelId, setPixelId] = useState(meta?.public_id ?? capi?.public_id ?? "");
   const [pixelOn, setPixelOn] = useState(!!meta?.enabled);
   const [capiOn, setCapiOn] = useState(!!capi?.enabled);
-  const [testCode, setTestCode] = useState(capi?.test_event_code ?? "");
   const [busy, setBusy] = useState(false);
 
   async function onSave() {
@@ -50,12 +59,12 @@ function MetaPage() {
       await save({
         data: {
           pixel_enabled: pixelOn,
-          pixel_id: pixelId || null,
-          capi_enabled: capiOn,
-          test_event_code: testCode || null,
+          pixel_id: pixelId.trim() || null,
+          capi_enabled: capiOn && data.capi_token_configured,
+          test_event_code: capi?.test_event_code ?? null,
         },
       });
-      toast.success("Meta settings saved.");
+      toast.success("Pixel settings updated.");
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -68,7 +77,7 @@ function MetaPage() {
     setBusy(true);
     try {
       const r = await test();
-      if (r.ok) toast.success("Meta CAPI reachable. Test event sent.");
+      if (r.ok) toast.success("Test event sent.");
       else toast.error(r.error ?? "Test failed");
       qc.invalidateQueries({ queryKey: ["admin-marketing-integrations"] });
     } catch (err) {
@@ -78,96 +87,112 @@ function MetaPage() {
     }
   }
 
+  const connected = !!meta?.public_id;
+
   return (
     <AdminShell>
-      <section className="mx-auto max-w-3xl space-y-6 p-6">
+      <section className="mx-auto max-w-2xl space-y-6 p-6">
         <header>
-          <h1 className="text-xl font-semibold">Meta Pixel &amp; Conversions API</h1>
+          <h1 className="text-xl font-semibold">Facebook Pixel Integration</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your Meta Pixel ID once. It powers both the browser Pixel
-            (fires from the visitor) and the server Conversions API (fires from
-            our server, deduped by shared event IDs). Access token is read from
-            the <code>META_CAPI_ACCESS_TOKEN</code> environment variable.
+            Track how visitors interact with your website and ads.
           </p>
         </header>
 
-        <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="rounded-2xl border bg-card p-5">
+          <h2 className="text-sm font-semibold">What this tracks</h2>
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            {TRACKED.map((t) => (
+              <li key={t}>• {t}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="space-y-4 rounded-2xl border bg-card p-5">
           <div>
             <label className="block text-sm font-medium">Pixel ID</label>
             <input
               value={pixelId}
-              onChange={(e) => setPixelId(e.target.value)}
-              placeholder="e.g. 1234567890"
+              onChange={(e) => setPixelId(e.target.value.replace(/\D/g, ""))}
+              placeholder="e.g. 1371893314574468"
+              inputMode="numeric"
               className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Numeric, 8–20 digits. Find it in Meta Events Manager.
+              Enter only the numeric Pixel ID from Meta Events Manager.
             </p>
           </div>
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={pixelOn} onChange={(e) => setPixelOn(e.target.checked)} />
-            Enable browser Pixel (Facebook Pixel snippet)
+            Enable Facebook Pixel
           </label>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={capiOn} onChange={(e) => setCapiOn(e.target.checked)} />
-            Enable Conversions API (server events)
-          </label>
-
-          <div>
-            <label className="block text-sm font-medium">Test event code (optional)</label>
-            <input
-              value={testCode}
-              onChange={(e) => setTestCode(e.target.value)}
-              placeholder="TEST123"
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-          </div>
-
-          <div className="rounded-md border bg-muted/40 p-3 text-xs">
-            <div className="font-semibold">Environment status</div>
-            <div className="mt-1 flex items-center justify-between">
-              <span>META_CAPI_ACCESS_TOKEN</span>
-              <span className={data.capi_token_configured ? "text-emerald-600" : "text-destructive"}>
-                {data.capi_token_configured ? "Set" : "Missing"}
-              </span>
-            </div>
-            {!data.capi_token_configured ? (
-              <p className="mt-2 text-muted-foreground">
-                Add <code>META_CAPI_ACCESS_TOKEN</code> as an environment
-                variable in your hosting settings, then reload this page.
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={onSave}
               disabled={busy}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
-              Save
+              Update Pixel
             </button>
             <button
               onClick={onTest}
-              disabled={busy || !data.capi_token_configured}
+              disabled={busy || !connected}
               className="rounded-md border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60"
             >
-              Send test event
+              Send Test Event
             </button>
           </div>
 
-          {capi?.last_error_message ? (
-            <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">
-              Last error: {capi.last_error_message}
+          <div className="grid gap-2 border-t pt-4 text-sm sm:grid-cols-2">
+            <div>
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div className={connected ? "text-emerald-600" : "text-muted-foreground"}>
+                {connected ? "Connected" : "Not connected"}
+              </div>
             </div>
-          ) : capi?.last_event_at ? (
-            <div className="rounded-md bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-400">
-              Last event: {capi.last_event_name} · {new Date(capi.last_event_at).toLocaleString()}
+            <div>
+              <div className="text-xs text-muted-foreground">Last successful event</div>
+              <div>
+                {meta?.last_event_at || capi?.last_event_at
+                  ? new Date((capi?.last_event_at ?? meta?.last_event_at) as string).toLocaleString()
+                  : "—"}
+              </div>
             </div>
-          ) : null}
+          </div>
         </div>
+
+        <details className="rounded-2xl border bg-card p-5">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Optional: Conversions API (server-side tracking)
+          </summary>
+          <div className="mt-4 space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Send server events for more accurate purchase measurement.
+              Deduplicated with your browser Pixel automatically.
+            </p>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={capiOn}
+                disabled={!data.capi_token_configured}
+                onChange={(e) => setCapiOn(e.target.checked)}
+              />
+              Enable Conversions API
+            </label>
+            {!data.capi_token_configured ? (
+              <p className="rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
+                Server-side tracking is not connected. Facebook Pixel browser tracking will continue to work.
+              </p>
+            ) : null}
+            {capi?.last_error_message ? (
+              <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                Last error: {capi.last_error_message}
+              </p>
+            ) : null}
+          </div>
+        </details>
       </section>
     </AdminShell>
   );
