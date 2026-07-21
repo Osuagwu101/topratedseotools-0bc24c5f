@@ -85,6 +85,10 @@ function OrderPage() {
   const [selected, setSelected] = useState<string | null>(initialId);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [payMode, setPayMode] = useState<"recurring_subscription" | "one_time">(
+    "recurring_subscription",
+  );
+  const [oneTimeAcknowledged, setOneTimeAcknowledged] = useState(false);
 
   if (!tool) {
     return (
@@ -100,11 +104,16 @@ function OrderPage() {
   }
 
   const chosen = options.find((o) => o.id === selected) ?? null;
+  const oneTimeBlocked = payMode === "one_time" && !oneTimeAcknowledged;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!chosen) {
       toast.error("Please select a plan");
+      return;
+    }
+    if (payMode === "one_time" && !oneTimeAcknowledged) {
+      toast.error("Please confirm the one-time payment notice to continue.");
       return;
     }
     setSubmitting(true);
@@ -118,7 +127,7 @@ function OrderPage() {
       });
       const callback = `${window.location.origin}/orders?verify=1`;
       const { authorization_url } = await initPay({
-        data: { order_id: orderId, callback_url: callback },
+        data: { order_id: orderId, callback_url: callback, payment_type: payMode },
       });
       window.location.href = authorization_url;
     } catch (err) {
