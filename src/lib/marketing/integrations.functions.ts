@@ -77,25 +77,31 @@ export const saveMetaSettings = createServerFn({ method: "POST" })
     if (data.pixel_enabled && !isValidPixelId(data.pixel_id)) {
       throw new Error("Enter a valid Meta Pixel ID (8–20 digits).");
     }
-    await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const pixelId = data.pixel_id?.trim() || null;
+    const { data: savedPixel, error: pixelError } = await supabaseAdmin
       .from("marketing_integrations")
-      .update({
+      .upsert({
+        provider: "meta_pixel",
         enabled: data.pixel_enabled,
-        public_id: data.pixel_id?.trim() || null,
-        connected: !!data.pixel_id,
+        public_id: pixelId,
+        connected: !!pixelId,
         updated_by: context.userId,
-      })
-      .eq("provider", "meta_pixel");
-    await context.supabase
+      }, { onConflict: "provider" })
+      .select("provider, enabled, public_id")
+      .maybeSingle();
+    if (pixelError || !savedPixel) throw new Error(pixelError?.message ?? "Pixel settings were not saved.");
+    const { error: capiError } = await supabaseAdmin
       .from("marketing_integrations")
-      .update({
+      .upsert({
+        provider: "meta_capi",
         enabled: data.capi_enabled,
-        public_id: data.pixel_id?.trim() || null,
+        public_id: pixelId,
         test_event_code: data.test_event_code || null,
         updated_by: context.userId,
-      })
-      .eq("provider", "meta_capi");
-    return { ok: true };
+      }, { onConflict: "provider" });
+    if (capiError) throw new Error(capiError.message);
+    return { ok: true, pixel_id: savedPixel.public_id, pixel_enabled: savedPixel.enabled };
   });
 
 export const saveGtmSettings = createServerFn({ method: "POST" })
@@ -113,16 +119,21 @@ export const saveGtmSettings = createServerFn({ method: "POST" })
     if (data.enabled && !isValidGtmId(data.container_id)) {
       throw new Error("Enter a valid GTM container ID like GTM-XXXXXXX.");
     }
-    await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const containerId = data.container_id?.trim() || null;
+    const { data: saved, error } = await supabaseAdmin
       .from("marketing_integrations")
-      .update({
+      .upsert({
+        provider: "gtm",
         enabled: data.enabled,
-        public_id: data.container_id?.trim() || null,
-        connected: !!data.container_id,
+        public_id: containerId,
+        connected: !!containerId,
         updated_by: context.userId,
-      })
-      .eq("provider", "gtm");
-    return { ok: true };
+      }, { onConflict: "provider" })
+      .select("provider, enabled, public_id")
+      .maybeSingle();
+    if (error || !saved) throw new Error(error?.message ?? "GTM settings were not saved.");
+    return { ok: true, container_id: saved.public_id, enabled: saved.enabled };
   });
 
 export const setMarketingPause = createServerFn({ method: "POST" })
