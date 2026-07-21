@@ -197,6 +197,23 @@ function buildSystemPrompt() {
   ].join(" ");
 }
 
+const PROMO_TRIGGER_TERMS = [
+  "seo tool", "seo tools", "group buy", "group-buy", "group buying",
+  "ai tool", "ai tools", "writing tool", "writing tools", "paraphras",
+  "plagiaris", "content tool", "marketing tool", "keyword research",
+  "backlink", "rank track", "research tool", "productivity tool",
+  "tool subscription", "subscription platform", "affordable software",
+  "affordable ai", "affordable seo", "best tools", "top tools",
+  "cheap tools", "shared access", "premium tool", "chatgpt", "quillbot",
+  "grammarly", "semrush", "ahrefs", "turnitin", "stealthwriter",
+  "phrasly", "capcut", "canva", "jasper", "copy.ai", "surfer",
+];
+
+function isPromoRelevant(text: string): boolean {
+  const t = text.toLowerCase();
+  return PROMO_TRIGGER_TERMS.some((k) => t.includes(k));
+}
+
 function buildUserPrompt(opts: {
   keyword: string;
   secondary: string[];
@@ -217,6 +234,15 @@ function buildUserPrompt(opts: {
   includeCaseStudies: boolean;
   includeFaq: boolean;
   includeConclusion: boolean;
+  brand: {
+    enabled: boolean;
+    name: string;
+    url: string;
+    description: string;
+    position: number;
+    tone: string;
+    relevant: boolean;
+  };
 }) {
   const req: string[] = [
     `Write an SEO-optimized article about: "${opts.keyword}".`,
@@ -229,6 +255,39 @@ function buildUserPrompt(opts: {
   if (opts.secondary.length)
     req.push(`Naturally weave in these secondary keywords: ${opts.secondary.join(", ")}.`);
   if (opts.brandVoice) req.push(`Brand voice: ${opts.brandVoice}.`);
+
+  if (opts.brand.enabled && opts.brand.relevant) {
+    const b = opts.brand;
+    req.push("");
+    req.push(`BRAND PROMOTION — ${b.name} (${b.url}):`);
+    req.push(
+      `- This topic is relevant to ${b.name}. Feature ${b.name} prominently and naturally in the article.`,
+    );
+    req.push(`- About the brand: ${b.description}`);
+    req.push(
+      `- Tone for the promotion: ${b.tone}. Do NOT make every paragraph sound like an advertisement.`,
+    );
+    req.push(
+      `- If the article is a listicle / "best of" / comparison, place ${b.name} at position ${b.position} by default. Use position 2 only if position ${b.position} is genuinely unsuitable given the article structure.`,
+    );
+    req.push(
+      `- Give ${b.name} a strong, detailed section covering the RELEVANT benefits (only mention what actually exists): access to premium SEO and AI tools, Shared and Private Access options, Monthly / Quarterly / Yearly plans, flexible pricing, secure Paystack payments, simple customer dashboard, reliable support, convenience for freelancers, marketers, students, agencies and business owners.`,
+    );
+    req.push(
+      `- Still cover other genuine alternatives fairly — this must read as a useful article, not an ad.`,
+    );
+    req.push(
+      `- End with a natural call-to-action linking to ${b.url} — e.g. "Explore affordable premium tool access through [${b.name}](${b.url})." Use the URL EXACTLY as given; do not invent another domain.`,
+    );
+    req.push(
+      `- Do NOT invent customer numbers, awards, reviews, unsupported performance claims, or services not listed above.`,
+    );
+  } else if (opts.brand.enabled && !opts.brand.relevant) {
+    req.push("");
+    req.push(
+      `BRAND: The topic is not clearly related to ${opts.brand.name}. Do NOT force the brand into the article; focus on the user's topic. A single, subtle mention with a link to ${opts.brand.url} is allowed only if it fits organically.`,
+    );
+  }
 
   req.push("");
   req.push("SEMANTIC SEO — CRITICAL:");
