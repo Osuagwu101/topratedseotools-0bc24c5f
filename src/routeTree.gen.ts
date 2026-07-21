@@ -33,6 +33,7 @@ import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials'
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
@@ -177,6 +178,11 @@ const AdminOrdersRoute = AdminOrdersRouteImport.update({
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCustomersRoute = AdminCustomersRouteImport.update({
+  id: '/admin/customers',
+  path: '/admin/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCredentialsRoute = AdminCredentialsRouteImport.update({
@@ -336,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
@@ -384,6 +391,7 @@ export interface FileRoutesByTo {
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
   '/admin/credentials': typeof AdminCredentialsRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
@@ -489,6 +498,7 @@ export interface FileRouteTypes {
     | '/admin/appearance'
     | '/admin/blog'
     | '/admin/credentials'
+    | '/admin/customers'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
@@ -537,6 +547,7 @@ export interface FileRouteTypes {
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/credentials'
+    | '/admin/customers'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
@@ -588,6 +599,7 @@ export interface FileRouteTypes {
     | '/admin/appearance'
     | '/admin/blog'
     | '/admin/credentials'
+    | '/admin/customers'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
@@ -636,6 +648,7 @@ export interface RootRouteChildren {
   AdminAppearanceRoute: typeof AdminAppearanceRoute
   AdminBlogRoute: typeof AdminBlogRouteWithChildren
   AdminCredentialsRoute: typeof AdminCredentialsRoute
+  AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
@@ -813,6 +826,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/customers': {
+      id: '/admin/customers'
+      path: '/admin/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/credentials': {
@@ -1115,6 +1135,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAppearanceRoute: AdminAppearanceRoute,
   AdminBlogRoute: AdminBlogRouteWithChildren,
   AdminCredentialsRoute: AdminCredentialsRoute,
+  AdminCustomersRoute: AdminCustomersRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
