@@ -55,6 +55,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
+  { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
   { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
