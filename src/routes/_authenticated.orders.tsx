@@ -351,18 +351,24 @@ function MyOrdersPage() {
 
 function SubStatusBadge({ order }: { order: ToolOrder }) {
   const items: { label: string; cls: string; Icon: typeof Repeat }[] = [];
+  const isOneTime =
+    order.payment_type === "one_time" || order.renewal_status === "not_applicable";
   if (order.status === "approved") {
-    if (order.subscription_status === "past_due") {
-      items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
-    }
-    if (order.renewal_status === "enabled" && order.paystack_subscription_code) {
-      items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
-    } else if (
-      order.renewal_status === "disabled" ||
-      order.renewal_status === "disable_pending" ||
-      order.subscription_status === "non_renewing"
-    ) {
-      items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+    if (isOneTime) {
+      items.push({ label: "One-time purchase", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+    } else {
+      if (order.subscription_status === "past_due") {
+        items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
+      }
+      if (order.renewal_status === "enabled" && order.paystack_subscription_code) {
+        items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
+      } else if (
+        order.renewal_status === "disabled" ||
+        order.renewal_status === "disable_pending" ||
+        order.subscription_status === "non_renewing"
+      ) {
+        items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+      }
     }
   }
   if (!items.length) return null;
@@ -379,6 +385,7 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
     </div>
   );
 }
+
 
 function PrivatePendingBanner({
   order,
