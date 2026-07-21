@@ -247,6 +247,80 @@ function OrderPage() {
 
           {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} /> : null}
 
+          {chosen ? (
+            <div className="rounded-2xl border bg-card p-6 shadow-card">
+              <div className="text-sm font-semibold">Choose how to pay</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Both options use the exact price above. The channels shown on Paystack depend on your choice.
+              </p>
+              <div className="mt-3 space-y-3">
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
+                    payMode === "recurring_subscription"
+                      ? "border-primary ring-1 ring-primary/40"
+                      : "hover:border-primary/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymode"
+                    className="mt-1 h-4 w-4"
+                    checked={payMode === "recurring_subscription"}
+                    onChange={() => setPayMode("recurring_subscription")}
+                  />
+                  <span className="flex-1">
+                    <span className="block font-medium">Auto-Renew Subscription</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Pay by Card or Direct Debit. Your subscription will renew automatically at
+                      the end of each billing period until you disable renewal.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
+                    payMode === "one_time"
+                      ? "border-primary ring-1 ring-primary/40"
+                      : "hover:border-primary/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymode"
+                    className="mt-1 h-4 w-4"
+                    checked={payMode === "one_time"}
+                    onChange={() => setPayMode("one_time")}
+                  />
+                  <span className="flex-1">
+                    <span className="block font-medium">One-Time Payment</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Pay once via Bank Transfer, USSD, Pay with Bank, QR, or any other one-time
+                      channel enabled on our Paystack account.
+                    </span>
+                  </span>
+                </label>
+
+                {payMode === "one_time" ? (
+                  <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+                    <div className="text-warning">
+                      This payment method supports one-time payment only. Your access will last
+                      for the selected billing period and will not renew automatically.
+                    </div>
+                    <label className="mt-2 flex items-start gap-2 text-foreground">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4"
+                        checked={oneTimeAcknowledged}
+                        onChange={(e) => setOneTimeAcknowledged(e.target.checked)}
+                      />
+                      <span>I understand this is a one-time purchase and will not renew.</span>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border bg-card p-6 shadow-card">
             <label className="text-sm font-semibold" htmlFor="notes">
               Notes <span className="font-normal text-muted-foreground">(optional)</span>
@@ -273,16 +347,19 @@ function OrderPage() {
 
           <button
             type="submit"
-            disabled={submitting || !chosen}
+            disabled={submitting || !chosen || oneTimeBlocked}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
           >
             <CreditCard className="h-4 w-4" />
             {submitting
               ? "Redirecting to Paystack…"
-              : chosen
-                ? `Pay ${formatPrice(chosen)} with Paystack`
-                : "Select a plan to continue"}
+              : !chosen
+                ? "Select a plan to continue"
+                : payMode === "one_time"
+                  ? `Pay ${formatPrice(chosen)} once with Paystack`
+                  : `Subscribe · ${formatPrice(chosen)} with Paystack`}
           </button>
+
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <Info className="mt-0.5 h-3 w-3 shrink-0" />
