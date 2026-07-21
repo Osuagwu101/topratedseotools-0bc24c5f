@@ -339,6 +339,8 @@ const upsertSettingInput = z.object({
   display_manual_credentials: z.boolean().optional(),
   shared_access_enabled: z.boolean().optional(),
   private_access_enabled: z.boolean().optional(),
+  shared_access_authorization: z.enum(["confirmed", "not_confirmed", "not_applicable"]).optional(),
+  private_access_authorization: z.enum(["confirmed", "not_confirmed", "not_applicable"]).optional(),
 });
 export const adminUpsertToolSetting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -374,6 +376,8 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
       "display_manual_credentials",
       "shared_access_enabled",
       "private_access_enabled",
+      "shared_access_authorization",
+      "private_access_authorization",
     ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
