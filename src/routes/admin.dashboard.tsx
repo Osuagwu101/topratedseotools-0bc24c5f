@@ -191,18 +191,18 @@ function DashboardBody({ data }: { data: Overview }) {
       </div>
 
       {/* Revenue snapshot */}
-      <div className="mt-6 rounded-2xl border bg-card p-5 shadow-card">
+      <div className="mt-5 rounded-xl border bg-card p-4 shadow-card">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-success" />
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Revenue (successful payments only)
           </h2>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {revenueBreakdown.map((s) => (
-            <div key={s.label} className="rounded-xl border bg-background p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">{s.label}</div>
-              <div className="mt-1 text-lg font-semibold">{money(s.value)}</div>
+            <div key={s.label} className="rounded-lg border bg-background px-2.5 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
+              <div className="mt-0.5 text-base font-semibold leading-tight">{money(s.value)}</div>
             </div>
           ))}
         </div>
@@ -336,12 +336,12 @@ function StatCard({ label, value, icon: Icon, tone }: {
   label: string; value: number | string; icon: typeof Users; tone: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-card">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-        <Icon className={`h-4 w-4 ${tone}`} />
+    <div className="rounded-xl border bg-card p-3 shadow-card">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${tone}`} />
       </div>
-      <div className="mt-3 text-2xl font-semibold">{value}</div>
+      <div className="mt-1.5 text-xl font-semibold leading-tight">{value}</div>
     </div>
   );
 }
