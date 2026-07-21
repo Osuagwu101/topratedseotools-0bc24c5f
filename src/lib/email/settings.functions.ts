@@ -169,8 +169,8 @@ export const adminUpdateEmailTemplate = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
     const { key, ...patch } = data;
-    (patch as any).updated_by = context.userId;
-    const { error } = await admin.from("email_templates").update(patch).eq("key", key);
+    const finalPatch = { ...patch, updated_by: context.userId } as never;
+    const { error } = await admin.from("email_templates").update(finalPatch).eq("key", key);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
