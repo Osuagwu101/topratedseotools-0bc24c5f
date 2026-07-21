@@ -1,4 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { trackViewItem } from "@/lib/marketing/track";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
 import type { Tool } from "@/lib/tools-data";
