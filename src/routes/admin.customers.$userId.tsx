@@ -88,6 +88,7 @@ function CustomerPage() {
                   {data.profile.email} · Registered {new Date(data.profile.registeredAt).toLocaleDateString()}
                 </p>
               </div>
+              <ResetPasswordButton userId={userId} />
               <AssignToolDialog userId={userId} onDone={() => refetch()} />
             </header>
 
