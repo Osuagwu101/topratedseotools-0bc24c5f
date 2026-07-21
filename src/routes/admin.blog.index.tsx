@@ -1,10 +1,9 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Plus, Edit3, Trash2, Archive, RotateCcw, Copy, Send, Eye } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { adminListPosts, adminPostAction } from "@/lib/blog.functions";
@@ -37,7 +36,7 @@ function AdminBlogList() {
   });
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -45,7 +44,6 @@ function AdminBlogList() {
             <p className="text-sm text-muted-foreground">Manage articles, categories, tags and comments.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AdminNav />
             <Link
               to="/admin/blog/new"
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
@@ -167,6 +165,6 @@ function AdminBlogList() {
           </table>
         </div>
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }

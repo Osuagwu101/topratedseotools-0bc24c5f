@@ -1,6 +1,7 @@
 /**
  * Admin — order queue. Approve/reject/expire tool_orders rows.
  */
+import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,7 +9,6 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Clock, Inbox, ShieldAlert } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import { getTool } from "@/lib/tools-data";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import {
@@ -18,7 +18,6 @@ import {
   adminReconcilePrivateOrder,
   type ToolOrderStatus,
 } from "@/lib/access.functions";
-import { AdminNav } from "./admin.tools";
 
 const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
@@ -75,12 +74,12 @@ function AdminOrdersPage() {
 
   if (!isAdmin) {
     return (
-      <SiteLayout>
+      <AdminShell>
         <div className="mx-auto max-w-md px-4 py-24 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
           <h1 className="mt-3 text-2xl font-semibold">Admins only</h1>
         </div>
-      </SiteLayout>
+      </AdminShell>
     );
   }
 
@@ -146,7 +145,7 @@ function AdminOrdersPage() {
   }
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
@@ -158,7 +157,6 @@ function AdminOrdersPage() {
               Approve or reject subscription requests. Approving grants access immediately.
             </p>
           </div>
-          <AdminNav />
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -414,7 +412,7 @@ function AdminOrdersPage() {
           </ul>
         )}
       </section>
-    </SiteLayout>
+    </AdminShell>
   );
 }
 

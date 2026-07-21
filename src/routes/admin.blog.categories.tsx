@@ -1,11 +1,10 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit3 } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
@@ -50,11 +49,10 @@ function CategoriesAdmin() {
   });
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Blog categories</h1>
-          <AdminNav />
         </div>
         <div className="mt-6"><BlogAdminNav /></div>
 
@@ -146,6 +144,6 @@ function CategoriesAdmin() {
           )}
         </div>
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }

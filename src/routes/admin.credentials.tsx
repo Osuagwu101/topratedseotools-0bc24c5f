@@ -6,6 +6,7 @@
  * write here, and `getMyAccess` on the user side reads them via the
  * service role AFTER checking the caller has an active paid subscription.
  */
+import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -13,7 +14,6 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { KeyRound, Search, ShieldAlert, Save, Eye, EyeOff } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import { getIsAdmin } from "@/lib/site-settings.functions";
@@ -22,7 +22,6 @@ import {
   adminUpsertToolCredential,
   type ToolCredential,
 } from "@/lib/access.functions";
-import { AdminNav } from "./admin.tools";
 
 const credsQuery = queryOptions({
   queryKey: ["admin-credentials"],
@@ -75,17 +74,17 @@ function CredentialsPage() {
 
   if (!isAdmin) {
     return (
-      <SiteLayout>
+      <AdminShell>
         <div className="mx-auto max-w-md px-4 py-24 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
           <h1 className="mt-3 text-2xl font-semibold">Admins only</h1>
         </div>
-      </SiteLayout>
+      </AdminShell>
     );
   }
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
@@ -98,7 +97,6 @@ function CredentialsPage() {
               They are hidden from everyone else and revoked automatically on expiry.
             </p>
           </div>
-          <AdminNav />
         </div>
 
         <div className="mt-6 flex items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card sm:max-w-sm">
@@ -133,7 +131,7 @@ function CredentialsPage() {
           })}
         </ul>
       </section>
-    </SiteLayout>
+    </AdminShell>
   );
 }
 

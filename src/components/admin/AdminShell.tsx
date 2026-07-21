@@ -1,0 +1,233 @@
+/**
+ * AdminShell — collapsible left sidebar wrapping every /admin/* page.
+ *
+ * Replaces the old top `<AdminNav />` chip row. Uses the shadcn sidebar so
+ * it collapses to icons on desktop and turns into a hamburger sheet on
+ * mobile. Only the visual chrome changes — all admin business logic,
+ * saved data, and existing routes are untouched.
+ */
+import { useMemo, useState, type ReactNode } from "react";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import {
+  LayoutDashboard,
+  Settings2,
+  ClipboardList,
+  Users,
+  BookOpen,
+  Palette,
+  LogOut,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  ShieldCheck,
+  Cog,
+} from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { SiteLayout } from "@/components/site/SiteLayout";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { TOOLS } from "@/lib/tools-data";
+
+type NavItem = {
+  title: string;
+  to: string;
+  icon: typeof LayoutDashboard;
+  match?: (path: string) => boolean;
+};
+
+const NAV: NavItem[] = [
+  { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
+  { title: "Orders", to: "/admin/orders", icon: ClipboardList },
+  { title: "Customers", to: "/admin/orders", icon: Users },
+  { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
+  { title: "Appearance", to: "/admin/appearance", icon: Palette },
+  { title: "Settings", to: "/admin/appearance", icon: Cog },
+];
+
+export function AdminShell({ children }: { children: ReactNode }) {
+  return (
+    <SiteLayout>
+      <SidebarProvider defaultOpen>
+        <div className="flex w-full min-h-[calc(100vh-4rem)]">
+          <AdminSidebar />
+          <div className="flex-1 min-w-0">
+            <div className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur">
+              <SidebarTrigger />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Admin
+              </span>
+            </div>
+            <div className="min-h-full">{children}</div>
+          </div>
+        </div>
+      </SidebarProvider>
+    </SiteLayout>
+  );
+}
+
+function AdminSidebar() {
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const navigate = useNavigate();
+  const [toolsOpen, setToolsOpen] = useState(
+    () => path.startsWith("/admin/tools"),
+  );
+  const [q, setQ] = useState("");
+
+  const filteredTools = useMemo(
+    () =>
+      TOOLS.filter(
+        (t) =>
+          !q ||
+          t.name.toLowerCase().includes(q.toLowerCase()) ||
+          t.category.toLowerCase().includes(q.toLowerCase()),
+      ),
+    [q],
+  );
+
+  const isActive = (item: NavItem) =>
+    item.match ? item.match(path) : path === item.to;
+
+  async function signOut() {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Signed out");
+      navigate({ to: "/admin" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sign out failed");
+    }
+  }
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {!collapsed && <span>Admin panel</span>}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={path === "/admin/dashboard"}
+                  tooltip="Dashboard"
+                >
+                  <Link to="/admin/dashboard">
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Tools — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/tools")}
+                  tooltip="Tools"
+                  onClick={() => {
+                    if (collapsed) {
+                      navigate({ to: "/admin/tools" });
+                    } else {
+                      setToolsOpen((v) => !v);
+                    }
+                  }}
+                >
+                  <Settings2 />
+                  <span>Tools</span>
+                  {!collapsed &&
+                    (toolsOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && toolsOpen && (
+                  <>
+                    <div className="mx-2 mt-1 flex items-center gap-1.5 rounded-md border bg-background px-2 py-1">
+                      <Search className="h-3 w-3 text-muted-foreground" />
+                      <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="Search…"
+                        className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={
+                            path === "/admin/tools" || path === "/admin/tools/"
+                          }
+                        >
+                          <Link to="/admin/tools">
+                            <span>All tools</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      {filteredTools.slice(0, 40).map((t) => (
+                        <SidebarMenuSubItem key={t.slug}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={path === `/admin/tools/${t.slug}`}
+                          >
+                            <Link
+                              to="/admin/tools/$slug"
+                              params={{ slug: t.slug }}
+                            >
+                              <span className="truncate">{t.name}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </>
+                )}
+              </SidebarMenuItem>
+
+              {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item)}
+                    tooltip={item.title}
+                  >
+                    <Link to={item.to}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={signOut} tooltip="Log out">
+                  <LogOut />
+                  <span>Log out</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}

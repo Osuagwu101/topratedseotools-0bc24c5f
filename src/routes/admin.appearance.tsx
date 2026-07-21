@@ -1,3 +1,4 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { useServerFn } from "@tanstack/react-start";
@@ -5,7 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Check, MessageCircle, Palette, ShieldAlert, Tag } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import {
   getIsAdmin,
   getPublicSiteSettings,
@@ -32,12 +32,12 @@ export const Route = createFileRoute("/admin/appearance")({
   },
   component: AdminAppearancePage,
   errorComponent: () => (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-xl px-4 py-24 text-center">
         <h1 className="text-2xl font-semibold">Couldn't load admin settings</h1>
         <p className="mt-2 text-sm text-muted-foreground">Please try again.</p>
       </div>
-    </SiteLayout>
+    </AdminShell>
   ),
 });
 
@@ -68,7 +68,7 @@ function AdminAppearancePage() {
 
   if (!isAdmin) {
     return (
-      <SiteLayout>
+      <AdminShell>
         <div className="mx-auto max-w-xl px-4 py-24 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-destructive" />
           <h1 className="mt-4 text-2xl font-semibold">Admins only</h1>
@@ -76,7 +76,7 @@ function AdminAppearancePage() {
             You don't have permission to view this page.
           </p>
         </div>
-      </SiteLayout>
+      </AdminShell>
     );
   }
 
@@ -111,7 +111,7 @@ function AdminAppearancePage() {
   }
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
@@ -204,6 +204,6 @@ function AdminAppearancePage() {
           <code>src/styles.css</code> — no other change needed.
         </div>
       </section>
-    </SiteLayout>
+    </AdminShell>
   );
 }

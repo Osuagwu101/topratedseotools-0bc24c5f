@@ -1,10 +1,9 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { getBlogSettings, adminUpdateBlogSettings } from "@/lib/blog.functions";
@@ -35,11 +34,10 @@ function SettingsAdmin() {
   });
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Blog settings</h1>
-          <AdminNav />
         </div>
         <div className="mt-6"><BlogAdminNav /></div>
 
@@ -101,6 +99,6 @@ function SettingsAdmin() {
           </button>
         </form>
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }
