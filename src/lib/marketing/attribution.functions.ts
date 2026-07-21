@@ -92,6 +92,22 @@ export const linkAttributionToUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Auth — link the visitor's consent choice to the signed-in user so
+ * server-side event dispatch can look up consent by user_id.
+ */
+export const linkConsentToUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ visitor_id: z.string().min(3).max(80) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin
+      .from("consent_choices")
+      .update({ user_id: context.userId })
+      .eq("visitor_id", data.visitor_id);
+    return { ok: true };
+  });
+
 /** Auth — attach snapshot to an order so admin can see the campaign. */
 export const attachOrderAttribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
