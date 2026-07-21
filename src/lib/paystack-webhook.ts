@@ -526,7 +526,12 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
     .eq("paystack_subscription_code", i.subscriptionCode)
     .select("id");
   const { queueOrderEmail } = await import("@/lib/email/order-emails");
-  for (const row of (matched as { id: string }[] | null) ?? []) {
+  const list: { id: string }[] = Array.isArray(matched)
+    ? (matched as { id: string }[])
+    : matched
+      ? [matched as { id: string }]
+      : [];
+  for (const row of list) {
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "renewal_disabled",
       orderId: row.id,
@@ -534,6 +539,7 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
     });
   }
 }
+
 
 async function handleInvoiceFailed(i: DispatchInput) {
   if (!i.subscriptionCode) return;
@@ -550,7 +556,12 @@ async function handleInvoiceFailed(i: DispatchInput) {
   }
   const { queueOrderEmail } = await import("@/lib/email/order-emails");
   const failKey = i.reference ?? i.invoiceCode ?? `${i.subscriptionCode}:${Date.now()}`;
-  for (const row of (matched as { id: string }[] | null) ?? []) {
+  const list: { id: string }[] = Array.isArray(matched)
+    ? (matched as { id: string }[])
+    : matched
+      ? [matched as { id: string }]
+      : [];
+  for (const row of list) {
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "renewal_failed",
       orderId: row.id,
@@ -560,6 +571,7 @@ async function handleInvoiceFailed(i: DispatchInput) {
     });
   }
 }
+
 
 
 async function handleChargeFailed(i: DispatchInput) {
