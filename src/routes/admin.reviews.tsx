@@ -53,11 +53,11 @@ function ReviewsPage() {
   const toolSlug: string = search.tool_slug ?? "";
   const minRating: number = search.min_rating ?? 0;
   const setStatus = (v: ReviewStatus | "all") =>
-    navigate({ search: (s) => ({ ...s, status: v }) });
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, status: v }) });
   const setToolSlug = (v: string) =>
-    navigate({ search: (s) => ({ ...s, tool_slug: v || undefined }) });
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, tool_slug: v || undefined }) });
   const setMinRating = (v: number) =>
-    navigate({ search: (s) => ({ ...s, min_rating: v || undefined }) });
+    navigate({ search: (s: ReviewsSearch) => ({ ...s, min_rating: v || undefined }) });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reviews", status, toolSlug, minRating],
