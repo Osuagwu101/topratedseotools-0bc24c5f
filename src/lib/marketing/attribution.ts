@@ -1,8 +1,16 @@
 /**
- * Client-side attribution capture. Runs on every customer-facing page hit.
- * First-touch is set once and NEVER overwritten. Last-touch is refreshed
- * whenever new campaign data is detected on a later visit.
+ * Client-side attribution capture. STRICT OPT-IN: no marketing attribution
+ * (UTM, fbclid, gclid, referrer, first/last-touch) is written to any browser
+ * storage until the visitor has accepted Marketing consent. Once accepted,
+ * capture begins from that point forward — earlier campaign values are not
+ * reconstructed.
+ *
+ * The visitor_id is generated only on demand (when the visitor makes a
+ * consent decision, or when marketing consent is active). It is not created
+ * during ordinary page loads before consent.
  */
+import { readConsent } from "./consent";
+
 export type AttributionSnapshot = {
   utm_source: string | null;
   utm_medium: string | null;
@@ -25,6 +33,17 @@ export type StoredAttribution = {
 const KEY = "mkt_attr";
 const VID_KEY = "mkt_vid";
 
+/** Peek the current visitor_id without ever creating one. */
+export function peekVisitorId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(VID_KEY);
+}
+
+/**
+ * Return the stable visitor_id, creating one on first use. Call this only
+ * when the visitor makes a consent decision (essential compliance record)
+ * or when marketing consent has been granted.
+ */
 export function getVisitorId(): string {
   if (typeof window === "undefined") return "server";
   let vid = window.localStorage.getItem(VID_KEY);
@@ -38,16 +57,24 @@ export function getVisitorId(): string {
   return vid;
 }
 
+/**
+ * Read stored attribution. NEVER creates a visitor_id and never reads the
+ * stored payload before marketing consent is granted — attribution is only
+ * present once the visitor has opted in.
+ */
 export function readAttribution(): StoredAttribution {
-  const visitor_id = getVisitorId();
+  const visitor_id = peekVisitorId() ?? "";
   if (typeof window === "undefined") {
+    return { visitor_id, first_touch: null, last_touch: null };
+  }
+  if (!readConsent().marketing) {
     return { visitor_id, first_touch: null, last_touch: null };
   }
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return { visitor_id, first_touch: null, last_touch: null };
     const parsed = JSON.parse(raw) as StoredAttribution;
-    return { ...parsed, visitor_id };
+    return { ...parsed, visitor_id: visitor_id || parsed.visitor_id };
   } catch {
     return { visitor_id, first_touch: null, last_touch: null };
   }
@@ -81,18 +108,33 @@ function parseAttribution(): AttributionSnapshot | null {
   };
 }
 
-/** Call on route change. Persists first-touch once, overwrites last-touch. */
+/**
+ * Call on route change. NO-OP unless marketing consent has been granted.
+ * When consent is active, persists first-touch once and refreshes last-touch.
+ */
 export function captureAttributionFromUrl(): StoredAttribution {
+  const empty: StoredAttribution = {
+    visitor_id: peekVisitorId() ?? "",
+    first_touch: null,
+    last_touch: null,
+  };
+  if (typeof window === "undefined") return empty;
+  if (!readConsent().marketing) return empty;
   const stored = readAttribution();
   const snap = parseAttribution();
   if (!snap) return stored;
+  const visitor_id = stored.visitor_id || getVisitorId();
   const next: StoredAttribution = {
-    visitor_id: stored.visitor_id,
+    visitor_id,
     first_touch: stored.first_touch ?? snap,
     last_touch: snap,
   };
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(KEY, JSON.stringify(next));
-  }
+  window.localStorage.setItem(KEY, JSON.stringify(next));
   return next;
+}
+
+/** Wipe any stored attribution payload from the device. */
+export function clearStoredAttribution(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
 }

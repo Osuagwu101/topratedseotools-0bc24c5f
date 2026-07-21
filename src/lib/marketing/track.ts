@@ -3,7 +3,7 @@
  * is off, the call is a no-op. Safe to invoke from any component.
  */
 import { readConsent } from "./consent";
-import { readAttribution, getVisitorId } from "./attribution";
+import { readAttribution, getVisitorId, peekVisitorId } from "./attribution";
 import type { GtmEventName } from "./config";
 
 type Dict = Record<string, unknown>;
@@ -160,8 +160,9 @@ export function trackPaystackOpened(order_id: string) {
 
 /** Convenience — snapshot for server calls (visitor_id + attribution). */
 export function marketingContext() {
+  const consented = marketingAllowed();
   return {
-    visitor_id: getVisitorId(),
+    visitor_id: consented ? getVisitorId() : peekVisitorId(),
     attribution: readAttribution(),
     href: typeof window !== "undefined" ? window.location.href : null,
     user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,

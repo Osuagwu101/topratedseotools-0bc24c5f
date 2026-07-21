@@ -4,7 +4,6 @@
  */
 process.env.META_CAPI_ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN ?? "test-token";
 const { trackServerConversion } = await import("../src/lib/marketing/server-events");
-const { MockDb } = await import("./mock-db");
 import { MockDb } from "./mock-db";
 
 let passed = 0;
