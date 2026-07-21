@@ -49,6 +49,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChangePasswordRouteImport } from './routes/_authenticated.change-password'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
 import { Route as AdminToolsIndexRouteImport } from './routes/admin.tools.index'
+import { Route as AdminMarketingIndexRouteImport } from './routes/admin.marketing.index'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin.customers.index'
 import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
@@ -281,6 +282,11 @@ const AdminToolsIndexRoute = AdminToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminMarketingIndexRoute = AdminMarketingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminMarketingRoute,
+} as any)
 const AdminCustomersIndexRoute = AdminCustomersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -495,6 +501,7 @@ export interface FileRoutesByFullPath {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/marketing/': typeof AdminMarketingIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -524,7 +531,6 @@ export interface FileRoutesByTo {
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -560,6 +566,7 @@ export interface FileRoutesByTo {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
+  '/admin/marketing': typeof AdminMarketingIndexRoute
   '/admin/tools': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -632,6 +639,7 @@ export interface FileRoutesById {
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/marketing/': typeof AdminMarketingIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -704,6 +712,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog/'
     | '/admin/customers/'
+    | '/admin/marketing/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -733,7 +742,6 @@ export interface FileRouteTypes {
     | '/admin/appearance'
     | '/admin/credentials'
     | '/admin/dashboard'
-    | '/admin/marketing'
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
@@ -769,6 +777,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog'
     | '/admin/customers'
+    | '/admin/marketing'
     | '/admin/tools'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -840,6 +849,7 @@ export interface FileRouteTypes {
     | '/blog/tag/$slug'
     | '/admin/blog/'
     | '/admin/customers/'
+    | '/admin/marketing/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -1163,6 +1173,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsIndexRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/marketing/': {
+      id: '/admin/marketing/'
+      path: '/'
+      fullPath: '/admin/marketing/'
+      preLoaderRoute: typeof AdminMarketingIndexRouteImport
+      parentRoute: typeof AdminMarketingRoute
+    }
     '/admin/customers/': {
       id: '/admin/customers/'
       path: '/'
@@ -1484,6 +1501,7 @@ interface AdminMarketingRouteChildren {
   AdminMarketingEventsRoute: typeof AdminMarketingEventsRoute
   AdminMarketingGtmRoute: typeof AdminMarketingGtmRoute
   AdminMarketingMetaRoute: typeof AdminMarketingMetaRoute
+  AdminMarketingIndexRoute: typeof AdminMarketingIndexRoute
 }
 
 const AdminMarketingRouteChildren: AdminMarketingRouteChildren = {
@@ -1491,6 +1509,7 @@ const AdminMarketingRouteChildren: AdminMarketingRouteChildren = {
   AdminMarketingEventsRoute: AdminMarketingEventsRoute,
   AdminMarketingGtmRoute: AdminMarketingGtmRoute,
   AdminMarketingMetaRoute: AdminMarketingMetaRoute,
+  AdminMarketingIndexRoute: AdminMarketingIndexRoute,
 }
 
 const AdminMarketingRouteWithChildren = AdminMarketingRoute._addFileChildren(
@@ -1547,13 +1566,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
