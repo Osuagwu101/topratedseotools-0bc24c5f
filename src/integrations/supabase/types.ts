@@ -1179,6 +1179,206 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_account_assignments: {
+        Row: {
+          access_type: string
+          account_id: string
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          id: string
+          order_id: string | null
+          released_at: string | null
+          released_reason: string | null
+          status: string
+          tool_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_type: string
+          account_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          released_at?: string | null
+          released_reason?: string | null
+          status?: string
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          account_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          released_at?: string | null
+          released_reason?: string | null
+          status?: string
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_account_assignments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_account_assignments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_account_audit: {
+        Row: {
+          account_id: string | null
+          action: string
+          actor: string | null
+          created_at: string
+          from_account_id: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          to_account_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          action: string
+          actor?: string | null
+          created_at?: string
+          from_account_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          to_account_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          action?: string
+          actor?: string | null
+          created_at?: string
+          from_account_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          to_account_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_account_audit_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_account_audit_from_account_id_fkey"
+            columns: ["from_account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_account_audit_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_account_audit_to_account_id_fkey"
+            columns: ["to_account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_accounts: {
+        Row: {
+          access_type: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          expires_at: string | null
+          id: string
+          label: string
+          last_health_check_at: string | null
+          last_health_check_by: string | null
+          last_health_check_note: string | null
+          login_email: string | null
+          login_notes: string | null
+          login_password: string | null
+          login_url: string | null
+          max_capacity: number
+          needs_capacity_review: boolean
+          one_click_login_url: string | null
+          status: string
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          access_type: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          label?: string
+          last_health_check_at?: string | null
+          last_health_check_by?: string | null
+          last_health_check_note?: string | null
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          max_capacity?: number
+          needs_capacity_review?: boolean
+          one_click_login_url?: string | null
+          status?: string
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          access_type?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          label?: string
+          last_health_check_at?: string | null
+          last_health_check_by?: string | null
+          last_health_check_note?: string | null
+          login_email?: string | null
+          login_notes?: string | null
+          login_password?: string | null
+          login_url?: string | null
+          max_capacity?: number
+          needs_capacity_review?: boolean
+          one_click_login_url?: string | null
+          status?: string
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tool_credentials: {
         Row: {
           created_at: string
@@ -1750,6 +1950,7 @@ export type Database = {
           auth_provider: string | null
           display_manual_credentials: boolean
           enabled: boolean
+          full_pool_policy: string
           launch_mode: string
           official_login_url: string | null
           one_click_auth_enabled: boolean
@@ -1765,6 +1966,7 @@ export type Database = {
           auth_provider?: string | null
           display_manual_credentials?: boolean
           enabled?: boolean
+          full_pool_policy?: string
           launch_mode?: string
           official_login_url?: string | null
           one_click_auth_enabled?: boolean
@@ -1780,6 +1982,7 @@ export type Database = {
           auth_provider?: string | null
           display_manual_credentials?: boolean
           enabled?: boolean
+          full_pool_policy?: string
           launch_mode?: string
           official_login_url?: string | null
           one_click_auth_enabled?: boolean
@@ -1899,6 +2102,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_tool_account_for_order: {
+        Args: { _order_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1907,6 +2114,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      release_assignments_for_order: {
+        Args: { _order_id: string; _reason: string }
+        Returns: number
+      }
       user_has_tool_access: {
         Args: { _slug: string; _user_id: string }
         Returns: boolean
