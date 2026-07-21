@@ -179,18 +179,20 @@ function OrderPage() {
       } catch {
         /* attribution attach is best-effort */
       }
-      const price = chosen ? Number(chosen.price_amount ?? 0) : 0;
+      const price = chosen ? Number(chosen.amount ?? 0) : 0;
       const kind = chosen ? normaliseBillingKind(getBillingKind(chosen)) : "monthly";
-      trackBeginCheckout({
-        order_id: orderId,
-        slug,
-        name: tool.name,
-        amount: price,
-        access_type: (chosen?.access_type as string) ?? "shared",
-        billing_period: kind,
-        payment_type: payMode,
-        event_id: buildEventId("checkout", orderId),
-      });
+      if (tool) {
+        trackBeginCheckout({
+          order_id: orderId,
+          slug,
+          name: tool.name,
+          amount: price,
+          access_type: (chosen?.access_type as string) ?? "shared",
+          billing_period: kind,
+          payment_type: payMode,
+          event_id: buildEventId("checkout", orderId),
+        });
+      }
       trackPaymentMethodSelected(payMode);
       trackPaystackOpened(orderId);
       // Paystack unconditionally appends `?trxref=…&reference=…` to the callback,
