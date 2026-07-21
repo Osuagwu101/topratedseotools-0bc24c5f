@@ -41,7 +41,7 @@ function ActivityPage() {
             <div>Status</div>
           </div>
           <ul className="divide-y">
-            {data.rows.map((r) => (
+            {data.rows.map((r: typeof data.rows[number]) => (
               <li key={r.id} className="grid grid-cols-[auto_1fr_auto_auto] gap-3 p-3 text-sm">
                 <div className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</div>
                 <div>

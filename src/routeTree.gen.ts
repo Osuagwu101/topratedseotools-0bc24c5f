@@ -31,6 +31,7 @@ import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
@@ -51,6 +52,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChangePasswordRouteImport } from './routes/_authenticated.change-password'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
 import { Route as AdminToolsIndexRouteImport } from './routes/admin.tools.index'
+import { Route as AdminSettingsIndexRouteImport } from './routes/admin.settings.index'
 import { Route as AdminMarketingIndexRouteImport } from './routes/admin.marketing.index'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin.customers.index'
 import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
@@ -58,7 +60,9 @@ import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
+import { Route as AdminSettingsStaffRouteImport } from './routes/admin.settings.staff'
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
+import { Route as AdminSettingsActivityRouteImport } from './routes/admin.settings.activity'
 import { Route as AdminMarketingMetaRouteImport } from './routes/admin.marketing.meta'
 import { Route as AdminMarketingGtmRouteImport } from './routes/admin.marketing.gtm'
 import { Route as AdminMarketingEventsRouteImport } from './routes/admin.marketing.events'
@@ -191,6 +195,11 @@ const AdminToolsRoute = AdminToolsRouteImport.update({
   path: '/admin/tools',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminReviewsRoute = AdminReviewsRouteImport.update({
   id: '/admin/reviews',
   path: '/admin/reviews',
@@ -295,6 +304,11 @@ const AdminToolsIndexRoute = AdminToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsIndexRoute = AdminSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminMarketingIndexRoute = AdminMarketingIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -330,10 +344,20 @@ const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsStaffRoute = AdminSettingsStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
-  id: '/admin/settings/email',
-  path: '/admin/settings/email',
-  getParentRoute: () => rootRouteImport,
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsActivityRoute = AdminSettingsActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AdminSettingsRoute,
 } as any)
 const AdminMarketingMetaRoute = AdminMarketingMetaRouteImport.update({
   id: '/meta',
@@ -483,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -509,7 +534,9 @@ export interface FileRoutesByFullPath {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -517,6 +544,7 @@ export interface FileRoutesByFullPath {
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/marketing/': typeof AdminMarketingIndexRoute
+  '/admin/settings/': typeof AdminSettingsIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -576,7 +604,9 @@ export interface FileRoutesByTo {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -584,6 +614,7 @@ export interface FileRoutesByTo {
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/marketing': typeof AdminMarketingIndexRoute
+  '/admin/settings': typeof AdminSettingsIndexRoute
   '/admin/tools': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -625,6 +656,7 @@ export interface FileRoutesById {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -651,7 +683,9 @@ export interface FileRoutesById {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -659,6 +693,7 @@ export interface FileRoutesById {
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/marketing/': typeof AdminMarketingIndexRoute
+  '/admin/settings/': typeof AdminSettingsIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -700,6 +735,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -726,7 +762,9 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
     | '/admin/settings/email'
+    | '/admin/settings/staff'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -734,6 +772,7 @@ export interface FileRouteTypes {
     | '/admin/blog/'
     | '/admin/customers/'
     | '/admin/marketing/'
+    | '/admin/settings/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -793,7 +832,9 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
     | '/admin/settings/email'
+    | '/admin/settings/staff'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -801,6 +842,7 @@ export interface FileRouteTypes {
     | '/admin/blog'
     | '/admin/customers'
     | '/admin/marketing'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -841,6 +883,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -867,7 +910,9 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
     | '/admin/settings/email'
+    | '/admin/settings/staff'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -875,6 +920,7 @@ export interface FileRouteTypes {
     | '/admin/blog/'
     | '/admin/customers/'
     | '/admin/marketing/'
+    | '/admin/settings/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -909,10 +955,10 @@ export interface RootRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -1074,6 +1120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reviews': {
       id: '/admin/reviews'
       path: '/admin/reviews'
@@ -1214,6 +1267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsIndexRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/': {
+      id: '/admin/settings/'
+      path: '/'
+      fullPath: '/admin/settings/'
+      preLoaderRoute: typeof AdminSettingsIndexRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/marketing/': {
       id: '/admin/marketing/'
       path: '/'
@@ -1263,12 +1323,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsSlugRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/staff': {
+      id: '/admin/settings/staff'
+      path: '/staff'
+      fullPath: '/admin/settings/staff'
+      preLoaderRoute: typeof AdminSettingsStaffRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/email': {
       id: '/admin/settings/email'
-      path: '/admin/settings/email'
+      path: '/email'
       fullPath: '/admin/settings/email'
       preLoaderRoute: typeof AdminSettingsEmailRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/activity': {
+      id: '/admin/settings/activity'
+      path: '/activity'
+      fullPath: '/admin/settings/activity'
+      preLoaderRoute: typeof AdminSettingsActivityRouteImport
+      parentRoute: typeof AdminSettingsRoute
     }
     '/admin/marketing/meta': {
       id: '/admin/marketing/meta'
@@ -1557,6 +1631,24 @@ const AdminMarketingRouteWithChildren = AdminMarketingRoute._addFileChildren(
   AdminMarketingRouteChildren,
 )
 
+interface AdminSettingsRouteChildren {
+  AdminSettingsActivityRoute: typeof AdminSettingsActivityRoute
+  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
+  AdminSettingsStaffRoute: typeof AdminSettingsStaffRoute
+  AdminSettingsIndexRoute: typeof AdminSettingsIndexRoute
+}
+
+const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
+  AdminSettingsActivityRoute: AdminSettingsActivityRoute,
+  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
+  AdminSettingsStaffRoute: AdminSettingsStaffRoute,
+  AdminSettingsIndexRoute: AdminSettingsIndexRoute,
+}
+
+const AdminSettingsRouteWithChildren = AdminSettingsRoute._addFileChildren(
+  AdminSettingsRouteChildren,
+)
+
 interface AdminToolsRouteChildren {
   AdminToolsSlugRoute: typeof AdminToolsSlugRoute
   AdminToolsIndexRoute: typeof AdminToolsIndexRoute
@@ -1598,10 +1690,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminReviewsRoute: AdminReviewsRoute,
+  AdminSettingsRoute: AdminSettingsRouteWithChildren,
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,

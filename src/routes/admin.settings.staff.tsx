@@ -83,7 +83,7 @@ function StaffPage() {
 
         <div className="rounded-2xl border bg-card shadow-card">
           <ul className="divide-y">
-            {data.admins.map((a) => (
+            {data.admins.map((a: Admin) => (
               <StaffRow
                 key={a.userId}
                 a={a}
@@ -99,7 +99,7 @@ function StaffPage() {
         {showAdd && <AddAdminDialog onClose={() => setShowAdd(false)} onDone={refresh} />}
         {editing && (
           <PermissionsDrawer
-            admin={data.admins.find((a) => a.userId === editing)!}
+            admin={data.admins.find((a: Admin) => a.userId === editing)!}
             onClose={() => setEditing(null)}
             onRefresh={refresh}
           />
@@ -121,7 +121,7 @@ function StaffRow({
   const roleLabel = a.isSuperAdmin
     ? "Super Admin"
     : a.roleKey
-      ? ROLE_LABEL[a.roleKey]
+      ? ROLE_LABEL[a.roleKey as RoleKey]
       : "No role";
   const invStatus = a.invitation?.status ?? (a.lastSignInAt ? "accepted" : "unknown");
 
