@@ -5,43 +5,8 @@
  */
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
-
-type Config = {
-  pixelId: string | null;
-  gtmId: string | null;
-  pixelEnabled: boolean;
-  gtmEnabled: boolean;
-  paused: boolean;
-};
-
-async function fetchConfig(): Promise<Config> {
-  // Anonymous read of public IDs — no service role needed because these are
-  // public IDs already visible in the loaded scripts. RLS blocks anon direct
-  // reads, so we hit a tiny anon-callable endpoint via a public function.
-  try {
-    const { data: integrations } = await supabase
-      .from("marketing_integrations")
-      .select("provider, enabled, public_id");
-    const { data: settings } = await supabase
-      .from("site_settings")
-      .select("marketing_pause")
-      .eq("id", true)
-      .maybeSingle();
-    const meta = (integrations ?? []).find((i) => i.provider === "meta_pixel");
-    const gtm = (integrations ?? []).find((i) => i.provider === "gtm");
-    return {
-      pixelId: (meta?.public_id as string | null) ?? null,
-      pixelEnabled: !!meta?.enabled,
-      gtmId: (gtm?.public_id as string | null) ?? null,
-      gtmEnabled: !!gtm?.enabled,
-      paused: !!(settings as { marketing_pause?: boolean } | null)?.marketing_pause,
-    };
-  } catch {
-    return { pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false };
-  }
-}
+import { getPublicMarketingConfig, type PublicMarketingConfig } from "@/lib/marketing/public-config.functions";
 
 function loadPixel(pixelId: string) {
   const w = window as unknown as {
@@ -89,12 +54,14 @@ function loadGtm(id: string) {
 
 export function MarketingTags() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const [config, setConfig] = useState<Config | null>(null);
+  const [config, setConfig] = useState<PublicMarketingConfig | null>(null);
   const [consent, setConsent] = useState(() => readConsent());
   const isAdminPage = path.startsWith("/admin");
 
   useEffect(() => {
-    fetchConfig().then(setConfig);
+    getPublicMarketingConfig().then(setConfig).catch(() => {
+      setConfig({ pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false });
+    });
     const off = onConsentChange(setConsent);
     return off;
   }, []);

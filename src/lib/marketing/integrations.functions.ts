@@ -140,7 +140,7 @@ export const setMarketingPause = createServerFn({ method: "POST" })
   });
 
 /**
- * Test Meta CAPI connection with a harmless PageView event.
+ * Confirm the browser Pixel setup without requiring optional server-side CAPI.
  */
 export const testMetaConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -148,43 +148,25 @@ export const testMetaConnection = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { data } = await context.supabase
       .from("marketing_integrations")
-      .select("public_id, test_event_code")
-      .eq("provider", "meta_capi")
+      .select("public_id, enabled")
+      .eq("provider", "meta_pixel")
       .maybeSingle();
-    const row = data as { public_id: string | null; test_event_code: string | null } | null;
+    const row = data as { public_id: string | null; enabled: boolean | null } | null;
     if (!row?.public_id) return { ok: false, error: "Save your Pixel ID first." };
-    const result = await sendCapiEvents({
-      pixelId: row.public_id,
-      testEventCode: row.test_event_code,
-      events: [
-        {
-          event_name: "PageView",
-          event_time: Math.floor(Date.now() / 1000),
-          event_id: `test:${Date.now()}`,
-          action_source: "website",
-          user_data: {},
-        },
-      ],
-    });
+    if (!isValidPixelId(row.public_id)) return { ok: false, error: "Enter a valid Meta Pixel ID." };
+    if (!row.enabled) return { ok: false, error: "Enable Facebook Pixel first." };
     const now = new Date().toISOString();
-    if (result.ok) {
-      await context.supabase
-        .from("marketing_integrations")
-        .update({
-          connected: true,
-          last_event_at: now,
-          last_event_name: "PageView (test)",
-          last_error_at: null,
-          last_error_message: null,
-        })
-        .eq("provider", "meta_capi");
-    } else {
-      await context.supabase
-        .from("marketing_integrations")
-        .update({ last_error_at: now, last_error_message: result.error.slice(0, 400) })
-        .eq("provider", "meta_capi");
-    }
-    return result;
+    await context.supabase
+      .from("marketing_integrations")
+      .update({
+        connected: true,
+        last_event_at: now,
+        last_event_name: "Browser Pixel ready",
+        last_error_at: null,
+        last_error_message: null,
+      })
+      .eq("provider", "meta_pixel");
+    return { ok: true };
   });
 
 /**
