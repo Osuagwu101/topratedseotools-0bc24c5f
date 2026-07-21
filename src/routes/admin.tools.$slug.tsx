@@ -214,6 +214,7 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function AccessTab({ slug }: { slug: string }) {
   const { data } = useSuspenseQuery(settingsQuery);
+  const { data: pricingData } = useSuspenseQuery(pricingQuery);
   const setting = data.settings.find((s) => s.tool_slug === slug);
   const router = useRouter();
   const qc = useQueryClient();
@@ -221,6 +222,7 @@ function AccessTab({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
 
   const tool = TOOLS.find((t) => t.slug === slug)!;
+  const toolOpts = pricingData.options.filter((o) => o.tool_slug === slug);
 
   const [enabled, setEnabled] = useState(setting?.enabled ?? true);
   const [level, setLevel] = useState<ToolAccessLevel>(
@@ -228,6 +230,12 @@ function AccessTab({ slug }: { slug: string }) {
   );
   const [shared, setShared] = useState(setting?.shared_access_enabled ?? true);
   const [priv, setPriv] = useState(setting?.private_access_enabled ?? true);
+  const [sharedAuth, setSharedAuth] = useState<
+    "confirmed" | "not_confirmed" | "not_applicable"
+  >(setting?.shared_access_authorization ?? "confirmed");
+  const [privAuth, setPrivAuth] = useState<
+    "confirmed" | "not_confirmed" | "not_applicable"
+  >(setting?.private_access_authorization ?? "confirmed");
 
   const [ocEnabled, setOcEnabled] = useState(
     setting?.one_click_auth_enabled ?? false,
@@ -254,6 +262,8 @@ function AccessTab({ slug }: { slug: string }) {
           access_level: level,
           shared_access_enabled: shared,
           private_access_enabled: priv,
+          shared_access_authorization: sharedAuth,
+          private_access_authorization: privAuth,
           one_click_auth_enabled: ocEnabled,
           official_login_url: ocUrl.trim() || null,
           auth_provider: ocProvider.trim() || null,
@@ -271,8 +281,80 @@ function AccessTab({ slug }: { slug: string }) {
     }
   }
 
+  // ---- Warnings ----
+  const warnings: string[] = [];
+  if (enabled && shared && sharedAuth !== "confirmed") {
+    warnings.push(
+      "Shared Access is enabled but its authorisation is not confirmed — customers cannot purchase it until you mark it Confirmed.",
+    );
+  }
+  if (enabled && priv && privAuth !== "confirmed") {
+    warnings.push(
+      "Private Access is enabled but its authorisation is not confirmed — customers cannot purchase it until you mark it Confirmed.",
+    );
+  }
+  // Canva heuristic: labels mentioning "private" saved under shared, or vice versa.
+  if (slug === "canva") {
+    for (const o of toolOpts) {
+      const lbl = (o.label ?? "").toLowerCase();
+      const at = (o.access_type ?? "shared") as string;
+      if (lbl.includes("private") && at !== "private") {
+        warnings.push(
+          `A Canva plan labelled "${o.label}" is stored under Shared Access — review its Access type on the Pricing tab.`,
+        );
+      } else if (lbl.includes("shared") && at !== "shared") {
+        warnings.push(
+          `A Canva plan labelled "${o.label}" is stored under Private Access — review its Access type on the Pricing tab.`,
+        );
+      }
+    }
+  }
+  // Yearly not cheaper than 12× monthly.
+  for (const access of ["shared", "private"] as const) {
+    const group = toolOpts.filter(
+      (o) => ((o.access_type as string) ?? "shared") === access && o.enabled,
+    );
+    const m = group.find(
+      (o) => normaliseBillingKind(getBillingKind({ unit: o.unit ?? null })) === "monthly",
+    );
+    const y = group.find(
+      (o) => normaliseBillingKind(getBillingKind({ unit: o.unit ?? null })) === "yearly",
+    );
+    if (m?.amount != null && y?.amount != null && Number(y.amount) >= Number(m.amount) * 12) {
+      warnings.push(
+        `${access === "shared" ? "Shared" : "Private"} Yearly (₦${Number(y.amount).toLocaleString()}) is not cheaper than 12× Monthly (₦${(Number(m.amount) * 12).toLocaleString()}). Do not present this as a saving.`,
+      );
+    }
+  }
+  // Turnitin subscription rows must not stay enabled.
+  if (slug === "turnitin") {
+    const anyEnabled = toolOpts.some((o) => o.enabled);
+    if (anyEnabled) {
+      warnings.push(
+        "Turnitin is a per-check product but has enabled subscription pricing rows. Disable them on the Pricing tab — customers cannot buy them, but leaving them enabled is misleading.",
+      );
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {warnings.length > 0 ? (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-warning">
+            <ShieldCheck className="h-4 w-4" />
+            Admin review required
+          </div>
+          <ul className="mt-2 space-y-1 text-xs text-foreground">
+            {warnings.map((w, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-0.5">•</span>
+                <span>{w}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <Card title="Tool availability">
         <label className="flex items-center gap-3 text-sm">
           <input
@@ -304,22 +386,55 @@ function AccessTab({ slug }: { slug: string }) {
 
       <Card title="Shared vs. Private access">
         <div className="grid gap-3 sm:grid-cols-2">
-          <ToggleRow
-            icon={<Users className="h-4 w-4" />}
-            label="Shared Access"
-            desc="Users share one login. Enable to sell shared plans."
-            value={shared}
-            onChange={setShared}
-          />
-          <ToggleRow
-            icon={<Lock className="h-4 w-4" />}
-            label="Private Access"
-            desc="Dedicated account. Enable to sell private plans."
-            value={priv}
-            onChange={setPriv}
-          />
+          <div className="rounded-xl border bg-background p-3">
+            <ToggleRow
+              icon={<Users className="h-4 w-4" />}
+              label="Shared Access"
+              desc="Users share one login. Enable to sell shared plans."
+              value={shared}
+              onChange={setShared}
+            />
+            <label className="mt-3 flex flex-col gap-1 text-xs font-medium">
+              <span className="text-muted-foreground">Authorisation status</span>
+              <select
+                value={sharedAuth}
+                onChange={(e) =>
+                  setSharedAuth(e.target.value as typeof sharedAuth)
+                }
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              >
+                <option value="confirmed">Confirmed — can be sold</option>
+                <option value="not_confirmed">Not confirmed — blocks purchase</option>
+                <option value="not_applicable">Not applicable</option>
+              </select>
+            </label>
+          </div>
+          <div className="rounded-xl border bg-background p-3">
+            <ToggleRow
+              icon={<Lock className="h-4 w-4" />}
+              label="Private Access"
+              desc="Dedicated account. Enable to sell private plans."
+              value={priv}
+              onChange={setPriv}
+            />
+            <label className="mt-3 flex flex-col gap-1 text-xs font-medium">
+              <span className="text-muted-foreground">Authorisation status</span>
+              <select
+                value={privAuth}
+                onChange={(e) =>
+                  setPrivAuth(e.target.value as typeof privAuth)
+                }
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              >
+                <option value="confirmed">Confirmed — can be sold</option>
+                <option value="not_confirmed">Not confirmed — blocks purchase</option>
+                <option value="not_applicable">Not applicable</option>
+              </select>
+            </label>
+          </div>
         </div>
       </Card>
+
 
       <Card title="One-Click Login" icon={<Zap className="h-4 w-4" />}>
         <label className="flex items-center gap-3 text-sm">
