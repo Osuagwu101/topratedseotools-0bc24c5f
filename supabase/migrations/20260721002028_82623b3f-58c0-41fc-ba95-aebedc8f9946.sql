@@ -1,0 +1,1 @@
+UPDATE public.tool_pricing SET enabled = true WHERE enabled = false AND contact_admin = false AND amount IS NOT NULL AND amount > 0;

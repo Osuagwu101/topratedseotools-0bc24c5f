@@ -294,7 +294,9 @@ function newDraft(
     currency: "₦",
     contact_admin: false,
     sort_order: sort,
-    enabled: false,
+    // New plans default to Enabled so a saved row with a valid amount is
+    // immediately visible to customers — the admin can still uncheck it.
+    enabled: true,
     note: "",
     badge: "",
     paystack_plan_code: "",
