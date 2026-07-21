@@ -1116,18 +1116,24 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_active: boolean
+          is_super_admin: boolean
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_active?: boolean
+          is_super_admin?: boolean
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_active?: boolean
+          is_super_admin?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -1181,6 +1187,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       user_has_tool_access: {
         Args: { _slug: string; _user_id: string }
         Returns: boolean
