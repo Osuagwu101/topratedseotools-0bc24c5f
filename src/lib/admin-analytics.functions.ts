@@ -11,7 +11,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 async function assertAdminAndGetAdmin(context: {
-  supabase: { rpc: (name: string, args: unknown) => Promise<{ data: unknown; error: unknown }> };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
   userId: string;
 }) {
   const { data, error } = await context.supabase.rpc("has_role", {
