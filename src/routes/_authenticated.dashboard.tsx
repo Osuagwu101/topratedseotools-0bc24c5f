@@ -50,6 +50,15 @@ function Dashboard() {
     },
   });
 
+  const { data: reviewEligibility } = useQuery({
+    queryKey: ["my-review-eligibility", user.id],
+    queryFn: () => listMyReviewEligibility(),
+  });
+  const reviewItems = (reviewEligibility?.items ?? [])
+    .map((e) => ({ eligibility: e, tool: getTool(e.tool_slug) }))
+    .filter((r): r is { eligibility: typeof r.eligibility; tool: NonNullable<ReturnType<typeof getTool>> } => !!r.tool)
+    .filter((r) => r.eligibility.qualifying_count > 0 || r.eligibility.review);
+
   const displayName =
     (user.user_metadata?.full_name as string | undefined) ??
     user.email?.split("@")[0] ??
