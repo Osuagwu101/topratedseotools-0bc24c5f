@@ -86,6 +86,12 @@ export const TOOLS: Tool[] = [
     category: "AI Detection Bypass",
     access: "pro",
     featured: true,
+    features: [
+      "Rewrites AI text into natural, human-sounding writing",
+      "Designed to bypass GPTZero, Originality.ai, Turnitin and Copyleaks",
+      "Preserves original meaning, tone and keywords",
+      "Multiple humanising modes for essays, blogs and reports",
+    ],
   },
   {
     slug: "phrasly",
@@ -98,6 +104,12 @@ export const TOOLS: Tool[] = [
     category: "AI Detection Bypass",
     access: "pro",
     featured: true,
+    features: [
+      "Humanises AI text and paraphrases in one click",
+      "Tone controls from academic to casual",
+      "Built-in grammar and plagiarism checks",
+      "Exports clean, ready-to-submit documents",
+    ],
   },
   {
     slug: "chatgpt",
