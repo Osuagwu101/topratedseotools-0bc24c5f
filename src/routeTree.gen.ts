@@ -41,6 +41,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
+import { Route as AdminToolsIndexRouteImport } from './routes/admin.tools.index'
 import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
@@ -217,6 +218,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AdminToolsIndexRoute = AdminToolsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminToolsRoute,
+} as any)
 const AdminBlogIndexRoute = AdminBlogIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -320,7 +326,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
-  '/admin/tools': typeof AdminToolsRoute
+  '/admin/tools': typeof AdminToolsRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -339,6 +345,7 @@ export interface FileRoutesByFullPath {
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
+  '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -365,7 +372,6 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
-  '/admin/tools': typeof AdminToolsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -384,6 +390,7 @@ export interface FileRoutesByTo {
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog': typeof AdminBlogIndexRoute
+  '/admin/tools': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -415,7 +422,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
-  '/admin/tools': typeof AdminToolsRoute
+  '/admin/tools': typeof AdminToolsRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -434,6 +441,7 @@ export interface FileRoutesById {
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
+  '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
@@ -484,6 +492,7 @@ export interface FileRouteTypes {
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
     | '/admin/blog/'
+    | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
@@ -510,7 +519,6 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
-    | '/admin/tools'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -529,6 +537,7 @@ export interface FileRouteTypes {
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
     | '/admin/blog'
+    | '/admin/tools'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
@@ -578,6 +587,7 @@ export interface FileRouteTypes {
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
     | '/admin/blog/'
+    | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/webhooks/paystack'
@@ -604,7 +614,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
-  AdminToolsRoute: typeof AdminToolsRoute
+  AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -836,6 +846,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/admin/tools/': {
+      id: '/admin/tools/'
+      path: '/'
+      fullPath: '/admin/tools/'
+      preLoaderRoute: typeof AdminToolsIndexRouteImport
+      parentRoute: typeof AdminToolsRoute
+    }
     '/admin/blog/': {
       id: '/admin/blog/'
       path: '/'
@@ -1026,6 +1043,18 @@ const AdminBlogRouteWithChildren = AdminBlogRoute._addFileChildren(
   AdminBlogRouteChildren,
 )
 
+interface AdminToolsRouteChildren {
+  AdminToolsIndexRoute: typeof AdminToolsIndexRoute
+}
+
+const AdminToolsRouteChildren: AdminToolsRouteChildren = {
+  AdminToolsIndexRoute: AdminToolsIndexRoute,
+}
+
+const AdminToolsRouteWithChildren = AdminToolsRoute._addFileChildren(
+  AdminToolsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
@@ -1047,7 +1076,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
-  AdminToolsRoute: AdminToolsRoute,
+  AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
