@@ -397,6 +397,62 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Helper — best-effort recipient lookup for post-payment emails.
+    async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
+      try {
+        const { queueEmail } = await import("@/lib/email/queue");
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", order.user_id)
+          .maybeSingle();
+        const to = ((prof as { email?: string } | null)?.email) ?? context.claims?.email ?? null;
+        const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
+        if (!to) return;
+        const { data: orderFull } = await supabaseAdmin
+          .from("tool_orders")
+          .select("tool_slug, access_type, billing_period")
+          .eq("id", order.id)
+          .maybeSingle();
+        const payload = {
+          name,
+          tool: orderFull?.tool_slug ?? "your tool",
+          access_type: orderFull?.access_type ?? "shared",
+          billing_period: orderFull?.billing_period ?? "monthly",
+          amount: (order.price_amount as number | null) ?? tx.amount / 100,
+          currency: (order.currency as string | null) ?? "NGN",
+          reference: tx.reference,
+          dashboard_url: "https://topratedseotools.com/dashboard",
+          ...extra,
+        };
+        if (kind === "shared_success") {
+          await queueEmail(supabaseAdmin, {
+            eventKey: `payment_success:${orderId}`,
+            templateKey: "payment_success",
+            recipient: to,
+            relatedOrderId: orderId,
+            relatedUserId: order.user_id as string,
+            payload: {
+              ...payload,
+              start_date: paidAt.toISOString(),
+              expiry_date: new Date(paidAt.getTime() + (dur + grace) * 86400_000).toISOString(),
+            },
+          });
+        } else {
+          await queueEmail(supabaseAdmin, {
+            eventKey: `private_pending:${orderId}`,
+            templateKey: "private_pending",
+            recipient: to,
+            relatedOrderId: orderId,
+            relatedUserId: order.user_id as string,
+            payload,
+          });
+        }
+      } catch (err) {
+        console.warn("[email] failed to queue post-payment email", err);
+      }
+    }
+
     if (access === "private") {
       const deadline = new Date(paidAt.getTime() + 6 * 60 * 60 * 1000);
       await supabaseAdmin
@@ -416,6 +472,10 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         })
         .eq("id", orderId)
         .neq("status", "approved");
+      await queuePostPayment("private_pending", {
+        fulfil_by: deadline.toISOString(),
+        contact_admin_line: "",
+      });
       return { ok: true, orderId, alreadyActive: false, fulfilment: "pending" };
     }
 
@@ -444,6 +504,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .eq("id", orderId)
       .neq("status", "approved");
 
+    await queuePostPayment("shared_success", {});
     return { ok: true, orderId, alreadyActive: false, fulfilment: "not_required" };
   });
 
