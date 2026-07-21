@@ -56,7 +56,6 @@ const NAV: NavItem[] = [
   { title: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
-  { title: "Blog", to: "/admin/blog", icon: BookOpen, match: (p) => p.startsWith("/admin/blog") },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
 ];
@@ -67,6 +66,16 @@ const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
   { title: "All-time subscribers", to: "/admin/customers/all-time" },
   { title: "Inactive / expired", to: "/admin/customers/inactive" },
   { title: "New registrations", to: "/admin/customers/new" },
+];
+
+const BLOG_SUBNAV: { title: string; to: string; exact?: boolean }[] = [
+  { title: "Posts", to: "/admin/blog", exact: true },
+  { title: "AI Generator", to: "/admin/blog/ai-generator" },
+  { title: "Categories", to: "/admin/blog/categories" },
+  { title: "Tags", to: "/admin/blog/tags" },
+  { title: "Comments", to: "/admin/blog/comments" },
+  { title: "CTAs", to: "/admin/blog/ctas" },
+  { title: "Settings", to: "/admin/blog/settings" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -100,6 +109,9 @@ function AdminSidebar() {
   );
   const [customersOpen, setCustomersOpen] = useState(
     () => path.startsWith("/admin/customers"),
+  );
+  const [blogOpen, setBlogOpen] = useState(
+    () => path.startsWith("/admin/blog"),
   );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -256,6 +268,47 @@ function AdminSidebar() {
                 )}
               </SidebarMenuItem>
 
+
+              {/* Blog — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/blog")}
+                  tooltip="Blog"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/blog" });
+                    else setBlogOpen((v) => !v);
+                  }}
+                >
+                  <BookOpen />
+                  <span>Blog</span>
+                  {!collapsed &&
+                    (blogOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && blogOpen && (
+                  <SidebarMenuSub>
+                    {BLOG_SUBNAV.map((s) => (
+                      <SidebarMenuSubItem key={s.to}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={
+                            s.exact
+                              ? path === s.to || path === `${s.to}/`
+                              : path === s.to || path.startsWith(`${s.to}/`)
+                          }
+                        >
+                          <Link to={s.to}>
+                            <span>{s.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
 
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>
