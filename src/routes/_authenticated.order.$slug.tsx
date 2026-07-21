@@ -166,18 +166,22 @@ function OrderPage() {
         },
       });
       // Attach campaign attribution + fire begin_checkout before opening Paystack.
+      // Attribution is only linked to the order once Marketing consent has been granted.
       const ctx = marketingContext();
       const snap = ctx.attribution.last_touch ?? ctx.attribution.first_touch ?? null;
-      try {
-        await attachOrderAttribution({
-          data: {
-            order_id: orderId,
-            visitor_id: ctx.visitor_id,
-            snapshot: snap,
-          },
-        });
-      } catch {
-        /* attribution attach is best-effort */
+      const { readConsent } = await import("@/lib/marketing/consent");
+      if (readConsent().marketing) {
+        try {
+          await attachOrderAttribution({
+            data: {
+              order_id: orderId,
+              visitor_id: ctx.visitor_id,
+              snapshot: snap,
+            },
+          });
+        } catch {
+          /* attribution attach is best-effort */
+        }
       }
       const price = chosen ? Number(chosen.amount ?? 0) : 0;
       const kind = chosen ? normaliseBillingKind(getBillingKind(chosen)) : "monthly";

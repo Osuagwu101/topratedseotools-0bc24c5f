@@ -36,6 +36,16 @@ export function ConsentBanner() {
     pushDataLayer("consent_update", { analytics_storage: a, ad_storage: m });
     try {
       await recordConsentChoice({ data: { visitor_id: getVisitorId(), analytics: a, marketing: m } });
+      // Link consent record to signed-in user so server-side event dispatch
+      // can look up the caller's consent by user_id.
+      if (m) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+          const { linkConsentToUser } = await import("@/lib/marketing/attribution.functions");
+          linkConsentToUser({ data: { visitor_id: getVisitorId() } }).catch(() => {});
+        }
+      }
     } catch {
       /* offline is fine — localStorage is authoritative */
     }
