@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
 import { getPublicMarketingConfig, type PublicMarketingConfig } from "@/lib/marketing/public-config.functions";
+import { flushPendingFbqEvents } from "@/lib/marketing/track";
 
 function loadPixel(pixelId: string) {
   const w = window as unknown as {
@@ -38,6 +39,7 @@ function loadPixel(pixelId: string) {
   /* eslint-enable */
   w.fbq?.("init", pixelId);
   w.fbq?.("track", "PageView");
+  flushPendingFbqEvents();
 }
 
 function loadGtm(id: string) {
@@ -59,11 +61,22 @@ export function MarketingTags() {
   const isAdminPage = path.startsWith("/admin");
 
   useEffect(() => {
-    getPublicMarketingConfig().then(setConfig).catch(() => {
-      setConfig({ pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false });
-    });
+    let cancelled = false;
+    const loadConfig = () => {
+      getPublicMarketingConfig().then((next) => {
+        if (!cancelled) setConfig(next);
+      }).catch(() => {
+        if (!cancelled) setConfig({ pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false });
+      });
+    };
+    loadConfig();
     const off = onConsentChange(setConsent);
-    return off;
+    window.addEventListener("marketing-config-updated", loadConfig);
+    return () => {
+      cancelled = true;
+      off();
+      window.removeEventListener("marketing-config-updated", loadConfig);
+    };
   }, []);
 
   useEffect(() => {
