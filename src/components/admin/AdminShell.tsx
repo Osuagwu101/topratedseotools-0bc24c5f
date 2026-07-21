@@ -6,7 +6,7 @@
  * mobile. Only the visual chrome changes — all admin business logic,
  * saved data, and existing routes are untouched.
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -21,7 +21,9 @@ import {
   Search,
   ShieldCheck,
   Cog,
+  UserCog,
 } from "lucide-react";
+import { getAdminContext } from "@/lib/admin-management.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -89,6 +91,12 @@ function AdminSidebar() {
     () => path.startsWith("/admin/tools"),
   );
   const [q, setQ] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    getAdminContext()
+      .then((c) => setIsSuperAdmin(!!c.isSuperAdmin))
+      .catch(() => setIsSuperAdmin(false));
+  }, []);
 
   const filteredTools = useMemo(
     () =>
@@ -217,6 +225,21 @@ function AdminSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {isSuperAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={path === "/admin/admins"}
+                    tooltip="Admin management"
+                  >
+                    <Link to="/admin/admins">
+                      <UserCog />
+                      <span>Admins</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={signOut} tooltip="Log out">
