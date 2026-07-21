@@ -122,6 +122,12 @@ export const TOOLS: Tool[] = [
     category: "Writing",
     access: "pro",
     featured: true,
+    features: [
+      "Chat, research, writing and coding in one interface",
+      "File uploads, vision and long-form reasoning",
+      "Web browsing and image generation when your plan allows",
+      "Save chats and continue conversations later",
+    ],
   },
   {
     slug: "quillbot",
@@ -134,6 +140,12 @@ export const TOOLS: Tool[] = [
     category: "Writing",
     access: "pro",
     featured: true,
+    features: [
+      "Unlimited paraphrasing modes, including Fluency and Formal",
+      "Summariser condenses long documents into key points",
+      "Grammar checker and citation generator",
+      "Plagiarism scanner included on Premium",
+    ],
   },
   {
     slug: "grammarly",
@@ -146,6 +158,12 @@ export const TOOLS: Tool[] = [
     category: "Grammar & Proofreading",
     access: "pro",
     featured: true,
+    features: [
+      "Grammar, spelling, clarity, tone and engagement checks",
+      "Full-sentence rewrite suggestions",
+      "Works across your browser, desktop and mobile",
+      "Built-in plagiarism detector on Premium",
+    ],
   },
   {
     slug: "capcut",
@@ -158,6 +176,12 @@ export const TOOLS: Tool[] = [
     category: "Video",
     access: "pro",
     featured: true,
+    features: [
+      "Cut, trim and layer video with keyframe animation",
+      "AI auto-captions, background removal and noise reduction",
+      "Premium templates, effects and transitions",
+      "Export up to 4K without watermarks",
+    ],
   },
   {
     slug: "semrush",
@@ -170,18 +194,32 @@ export const TOOLS: Tool[] = [
     category: "SEO",
     access: "pro",
     featured: true,
+    features: [
+      "Keyword research with volume, difficulty and intent",
+      "Daily rank tracking and site audits",
+      "Competitor traffic, backlink and content-gap analysis",
+      "SERP feature and PPC research",
+    ],
   },
   {
     slug: "turnitin",
     name: "Turnitin Checks",
-    tagline: "Plagiarism & AI detection reports",
+    tagline: "Pay-per-check plagiarism & AI detection",
     description:
-      "Run the same Turnitin plagiarism and AI-writing detection reports universities use, before you submit. Get a detailed similarity score, source-by-source matches and an AI-generated content percentage on essays, theses and dissertations.",
+      "Order individual Turnitin plagiarism and AI-writing detection checks — ₦2,300 per check, paid once. You tell us how many checks you need, pay for the total, and we return the official Turnitin similarity report and AI-content percentage for each document you submit.",
     icon: ShieldCheck,
     domain: "turnitin.com",
     category: "Plagiarism",
     access: "pro",
     featured: true,
+    pricingModel: "per_use",
+    perUse: { unit: "check", amount: 2300, currency: "₦" },
+    features: [
+      "Full Turnitin similarity report per document",
+      "AI-writing detection percentage included",
+      "Source-by-source matches with links",
+      "Priced per check — no subscription and no auto-renewal",
+    ],
   },
   {
     slug: "ahrefs",
