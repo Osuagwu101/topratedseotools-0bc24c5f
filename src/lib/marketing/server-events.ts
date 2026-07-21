@@ -37,15 +37,33 @@ async function marketingPaused(admin: Admin): Promise<boolean> {
   return !!(data as { marketing_pause?: boolean } | null)?.marketing_pause;
 }
 
-async function consentAllowsMarketing(admin: Admin, userId: string | null): Promise<boolean> {
-  if (!userId) return true; // no user (webhook) — attribution-based consent handled at browser side
-  const { data } = await admin
-    .from("consent_choices")
-    .select("marketing")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data) return true; // no choice on record — default allow (implied consent)
-  return (data as { marketing?: boolean }).marketing !== false;
+/**
+ * Explicit-opt-in consent check. Marketing events are only allowed when a
+ * consent_choices row exists (keyed by user_id or visitor_id) with
+ * marketing = true. No row / no explicit true → skip.
+ */
+async function consentAllowsMarketing(
+  admin: Admin,
+  userId: string | null,
+  visitorId: string | null,
+): Promise<boolean> {
+  if (userId) {
+    const { data } = await admin
+      .from("consent_choices")
+      .select("marketing")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (data && (data as { marketing?: boolean }).marketing === true) return true;
+  }
+  if (visitorId) {
+    const { data } = await admin
+      .from("consent_choices")
+      .select("marketing")
+      .eq("visitor_id", visitorId)
+      .maybeSingle();
+    if (data && (data as { marketing?: boolean }).marketing === true) return true;
+  }
+  return false;
 }
 
 /**
@@ -71,6 +89,7 @@ export async function trackServerConversion(
     amount?: number | null;
     currency?: string | null;
     email?: string | null;
+    visitor_id?: string | null;
     custom?: Record<string, unknown>;
     meta_event_name?: string; // override default map
   },
@@ -79,8 +98,19 @@ export async function trackServerConversion(
     await logEvent(admin, input, "internal", "skipped", "marketing paused");
     return { status: "skipped", error: "paused" };
   }
-  if (!(await consentAllowsMarketing(admin, input.user_id ?? null))) {
-    await logEvent(admin, input, "internal", "skipped", "consent withheld");
+  // Fall back to the visitor_id captured on the order (webhook path has no user session).
+  let visitorId = input.visitor_id ?? null;
+  if (!visitorId && input.order_id) {
+    const { data: ord } = await admin
+      .from("tool_orders")
+      .select("attribution")
+      .eq("id", input.order_id)
+      .maybeSingle();
+    const attr = (ord as { attribution?: { visitor_id?: string } } | null)?.attribution;
+    if (attr?.visitor_id) visitorId = attr.visitor_id;
+  }
+  if (!(await consentAllowsMarketing(admin, input.user_id ?? null, visitorId))) {
+    await logEvent(admin, input, "internal", "skipped", "consent not granted");
     return { status: "skipped", error: "consent" };
   }
 
