@@ -295,7 +295,7 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
         .select()
         .maybeSingle();
       if (error) throw new Error(error.message);
-      await supabaseAdmin.from("tool_account_audit" as any).insert({
+      await (supabaseAdmin as any).from("tool_account_audit").insert({
         account_id: data.id,
         action: "account_updated",
         actor: context.userId,
@@ -310,7 +310,7 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit" as any).insert({
+    await (supabaseAdmin as any).from("tool_account_audit").insert({
       account_id: inserted.id,
       action: "account_created",
       actor: context.userId,
@@ -339,7 +339,7 @@ export const adminDeleteAccount = createServerFn({ method: "POST" })
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit" as any).insert({
+    await (supabaseAdmin as any).from("tool_account_audit").insert({
       account_id: null,
       action: "account_deleted",
       actor: context.userId,
@@ -430,7 +430,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
       .single();
     if (insErr) throw new Error(insErr.message);
 
-    await supabaseAdmin.from("tool_account_audit" as any).insert({
+    await (supabaseAdmin as any).from("tool_account_audit").insert({
       account_id: data.new_account_id,
       from_account_id: oldAccountId,
       to_account_id: data.new_account_id,
@@ -479,7 +479,7 @@ export const adminRecordHealthCheck = createServerFn({ method: "POST" })
       })
       .eq("id", data.account_id);
     if (error) throw new Error(error.message);
-    await supabaseAdmin.from("tool_account_audit" as any).insert({
+    await (supabaseAdmin as any).from("tool_account_audit").insert({
       account_id: data.account_id,
       action: `health_check_${data.result}`,
       actor: context.userId,
