@@ -55,6 +55,7 @@ function safeError(err: unknown): string {
 
 const HANDLED_EVENTS = new Set([
   "charge.success",
+  "charge.failed",
   "subscription.create",
   "subscription.disable",
   "subscription.not_renew",
@@ -225,6 +226,8 @@ async function dispatchEvent(i: DispatchInput) {
   switch (i.eventType) {
     case "charge.success":
       return handleChargeSuccess(i);
+    case "charge.failed":
+      return handleChargeFailed(i);
     case "subscription.create":
       return handleSubscriptionCreate(i);
     case "subscription.disable":
@@ -275,27 +278,75 @@ async function handleChargeSuccess(i: DispatchInput) {
     !!order.paystack_plan_code &&
     (order.paystack_plan_code === i.planCode || !!order.paystack_subscription_code);
 
-  // Record every successful charge in tool_payments (idempotent per ref).
+  // Record every successful charge in tool_payments — UPSERT by reference so
+  // an "initiated" row from checkout advances to "successful" in place.
   if (i.reference) {
+    const paystackChannel = (i.data as { channel?: string })?.channel ?? null;
+    const paystackId = (i.data as { id?: string | number })?.id;
     const { data: dup } = await i.supabaseAdmin
       .from("tool_payments")
-      .select("id")
+      .select("id, payment_status")
       .eq("paystack_reference", i.reference)
       .maybeSingle();
-    if (!dup) {
-      await i.supabaseAdmin.from("tool_payments").insert({
-        order_id: order.id,
-        user_id: order.user_id,
-        tool_slug: order.tool_slug,
-        amount: order.price_amount,
-        currency: order.currency ?? "NGN",
-        payment_status: "successful",
-        payment_type: isOneTime ? "one_time" : "recurring_subscription",
-        classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
-        paystack_reference: i.reference,
-        paystack_environment: i.env,
-        paid_at: paidAt.toISOString(),
-      });
+    if (dup) {
+      if (dup.payment_status !== "successful") {
+        await i.supabaseAdmin
+          .from("tool_payments")
+          .update({
+            payment_status: "successful",
+            paid_at: paidAt.toISOString(),
+            paystack_status: "success",
+            paystack_last_checked_at: paidAt.toISOString(),
+            paystack_transaction_id: paystackId ? String(paystackId) : null,
+            payment_channel: paystackChannel,
+            classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
+            last_status_change_at: paidAt.toISOString(),
+          })
+          .eq("id", dup.id);
+        await i.supabaseAdmin.from("tool_payment_status_history").insert({
+          payment_id: dup.id,
+          from_status: dup.payment_status,
+          to_status: "successful",
+          source: "webhook",
+          paystack_status: "success",
+          note: "charge.success webhook",
+        });
+      }
+    } else {
+      const { data: inserted } = await i.supabaseAdmin
+        .from("tool_payments")
+        .insert({
+          order_id: order.id,
+          user_id: order.user_id,
+          tool_slug: order.tool_slug,
+          amount: order.price_amount,
+          currency: order.currency ?? "NGN",
+          payment_status: "successful",
+          payment_type: isOneTime ? "one_time" : "recurring_subscription",
+          classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
+          paystack_reference: i.reference,
+          paystack_environment: i.env,
+          paystack_status: "success",
+          paystack_transaction_id: paystackId ? String(paystackId) : null,
+          paystack_last_checked_at: paidAt.toISOString(),
+          payment_channel: paystackChannel,
+          access_type: order.access_type ?? null,
+          billing_period: order.billing_period ?? null,
+          paid_at: paidAt.toISOString(),
+          last_status_change_at: paidAt.toISOString(),
+        })
+        .select("id")
+        .maybeSingle();
+      if (inserted?.id) {
+        await i.supabaseAdmin.from("tool_payment_status_history").insert({
+          payment_id: inserted.id,
+          from_status: null,
+          to_status: "successful",
+          source: "webhook",
+          paystack_status: "success",
+          note: "charge.success webhook (no prior record)",
+        });
+      }
     }
   }
 
@@ -446,4 +497,60 @@ async function handleInvoiceFailed(i: DispatchInput) {
       payment_status: "failed",
     })
     .eq("paystack_subscription_code", i.subscriptionCode);
+  if (i.reference) {
+    await upsertPaymentStatus(i, i.reference, "failed", "invoice.payment_failed");
+  }
 }
+
+async function handleChargeFailed(i: DispatchInput) {
+  if (!i.reference) return;
+  await upsertPaymentStatus(i, i.reference, "failed", "charge.failed webhook");
+  // Reflect failure on the pending order if we can find it.
+  const order = await findOrder(i);
+  if (order && order.status !== "approved") {
+    await i.supabaseAdmin
+      .from("tool_orders")
+      .update({ payment_status: "failed" })
+      .eq("id", order.id);
+  }
+}
+
+/**
+ * Upsert-by-reference payment status change (used by failure events).
+ * Advances an existing row's status or inserts a new record when the initial
+ * checkout row was never created (e.g. legacy or offline-imported references).
+ */
+async function upsertPaymentStatus(
+  i: DispatchInput,
+  reference: string,
+  toStatus: string,
+  note: string,
+) {
+  const { data: existing } = await i.supabaseAdmin
+    .from("tool_payments")
+    .select("id, payment_status, user_id, order_id, tool_slug")
+    .eq("paystack_reference", reference)
+    .maybeSingle();
+  if (existing) {
+    if (existing.payment_status === "successful") return; // never overwrite success
+    if (existing.payment_status === toStatus) return;
+    await i.supabaseAdmin
+      .from("tool_payments")
+      .update({
+        payment_status: toStatus,
+        paystack_status: (i.data as { status?: string })?.status ?? toStatus,
+        paystack_last_checked_at: new Date().toISOString(),
+        last_status_change_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+    await i.supabaseAdmin.from("tool_payment_status_history").insert({
+      payment_id: existing.id,
+      from_status: existing.payment_status,
+      to_status: toStatus,
+      source: "webhook",
+      paystack_status: (i.data as { status?: string })?.status ?? null,
+      note,
+    });
+  }
+}
+

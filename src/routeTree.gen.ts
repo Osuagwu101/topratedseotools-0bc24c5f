@@ -29,6 +29,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
 import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
@@ -38,6 +39,7 @@ import { Route as AdminCredentialsRouteImport } from './routes/admin.credentials
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAppearanceRouteImport } from './routes/admin.appearance'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
+import { Route as AuthenticatedTransactionsRouteImport } from './routes/_authenticated.transactions'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated.subscription'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
@@ -63,6 +65,7 @@ import { Route as AdminBlogCtasRouteImport } from './routes/admin.blog.ctas'
 import { Route as AdminBlogCommentsRouteImport } from './routes/admin.blog.comments'
 import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog.categories'
 import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai-generator'
+import { Route as AuthenticatedReceiptReferenceRouteImport } from './routes/_authenticated.receipt.$reference'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
 import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
@@ -167,6 +170,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => BlogRoute,
 } as any)
+const AdminTransactionsRoute = AdminTransactionsRouteImport.update({
+  id: '/admin/transactions',
+  path: '/admin/transactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminToolsRoute = AdminToolsRouteImport.update({
   id: '/admin/tools',
   path: '/admin/tools',
@@ -212,6 +220,12 @@ const AdminAdminsRoute = AdminAdminsRouteImport.update({
   path: '/admin/admins',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTransactionsRoute =
+  AuthenticatedTransactionsRouteImport.update({
+    id: '/transactions',
+    path: '/transactions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSubscriptionRoute =
   AuthenticatedSubscriptionRouteImport.update({
     id: '/subscription',
@@ -339,6 +353,12 @@ const AdminBlogAiGeneratorRoute = AdminBlogAiGeneratorRouteImport.update({
   path: '/ai-generator',
   getParentRoute: () => AdminBlogRoute,
 } as any)
+const AuthenticatedReceiptReferenceRoute =
+  AuthenticatedReceiptReferenceRouteImport.update({
+    id: '/receipt/$reference',
+    path: '/receipt/$reference',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedOrderSlugRoute = AuthenticatedOrderSlugRouteImport.update({
   id: '/order/$slug',
   path: '/order/$slug',
@@ -382,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -391,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -398,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -439,12 +462,14 @@ export interface FileRoutesByTo {
   '/orders': typeof AuthenticatedOrdersRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
+  '/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -452,6 +477,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -497,6 +523,7 @@ export interface FileRoutesById {
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
+  '/_authenticated/transactions': typeof AuthenticatedTransactionsRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/appearance': typeof AdminAppearanceRoute
   '/admin/blog': typeof AdminBlogRouteWithChildren
@@ -506,6 +533,7 @@ export interface FileRoutesById {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -513,6 +541,7 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
+  '/_authenticated/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
   '/admin/blog/categories': typeof AdminBlogCategoriesRoute
   '/admin/blog/comments': typeof AdminBlogCommentsRoute
@@ -558,6 +587,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
+    | '/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -567,6 +597,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -574,6 +605,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/order/$slug'
+    | '/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -615,12 +647,14 @@ export interface FileRouteTypes {
     | '/orders'
     | '/profile'
     | '/subscription'
+    | '/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/credentials'
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -628,6 +662,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/tools'
     | '/order/$slug'
+    | '/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -672,6 +707,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orders'
     | '/_authenticated/profile'
     | '/_authenticated/subscription'
+    | '/_authenticated/transactions'
     | '/admin/admins'
     | '/admin/appearance'
     | '/admin/blog'
@@ -681,6 +717,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -688,6 +725,7 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/tools/'
     | '/_authenticated/order/$slug'
+    | '/_authenticated/receipt/$reference'
     | '/admin/blog/ai-generator'
     | '/admin/blog/categories'
     | '/admin/blog/comments'
@@ -736,6 +774,7 @@ export interface RootRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
+  AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -883,6 +922,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/admin/transactions': {
+      id: '/admin/transactions'
+      path: '/admin/transactions'
+      fullPath: '/admin/transactions'
+      preLoaderRoute: typeof AdminTransactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/tools': {
       id: '/admin/tools'
       path: '/admin/tools'
@@ -945,6 +991,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/admins'
       preLoaderRoute: typeof AdminAdminsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/transactions': {
+      id: '/_authenticated/transactions'
+      path: '/transactions'
+      fullPath: '/transactions'
+      preLoaderRoute: typeof AuthenticatedTransactionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/subscription': {
       id: '/_authenticated/subscription'
@@ -1121,6 +1174,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBlogAiGeneratorRouteImport
       parentRoute: typeof AdminBlogRoute
     }
+    '/_authenticated/receipt/$reference': {
+      id: '/_authenticated/receipt/$reference'
+      path: '/receipt/$reference'
+      fullPath: '/receipt/$reference'
+      preLoaderRoute: typeof AuthenticatedReceiptReferenceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/order/$slug': {
       id: '/_authenticated/order/$slug'
       path: '/order/$slug'
@@ -1159,7 +1219,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
+  AuthenticatedTransactionsRoute: typeof AuthenticatedTransactionsRoute
   AuthenticatedOrderSlugRoute: typeof AuthenticatedOrderSlugRoute
+  AuthenticatedReceiptReferenceRoute: typeof AuthenticatedReceiptReferenceRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1169,7 +1231,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
+  AuthenticatedTransactionsRoute: AuthenticatedTransactionsRoute,
   AuthenticatedOrderSlugRoute: AuthenticatedOrderSlugRoute,
+  AuthenticatedReceiptReferenceRoute: AuthenticatedReceiptReferenceRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -1296,6 +1360,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminToolsRoute: AdminToolsRouteWithChildren,
+  AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,

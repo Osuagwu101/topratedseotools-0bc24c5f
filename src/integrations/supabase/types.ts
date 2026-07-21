@@ -1023,23 +1023,84 @@ export type Database = {
           },
         ]
       }
+      tool_payment_status_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_status: string | null
+          id: string
+          note: string | null
+          payment_id: string
+          paystack_status: string | null
+          source: string
+          to_status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          payment_id: string
+          paystack_status?: string | null
+          source: string
+          to_status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          payment_id?: string
+          paystack_status?: string | null
+          source?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_payment_status_history_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "tool_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_payments: {
         Row: {
+          access_type: string | null
           admin_note: string | null
           amount: number | null
+          billing_period: string | null
           classification: string
           created_at: string
           currency: string
+          customer_email: string | null
+          customer_name: string | null
+          flagged_at: string | null
+          flagged_reason: string | null
           id: string
+          initiated_at: string
+          last_status_change_at: string | null
           order_id: string | null
           paid_at: string | null
+          payment_channel: string | null
           payment_method: string | null
           payment_status: string
           payment_type: string
           paystack_environment: string
           paystack_invoice_code: string | null
+          paystack_last_checked_at: string | null
           paystack_reference: string | null
+          paystack_status: string | null
           paystack_transaction_id: string | null
+          price_label: string | null
+          receipt_last_error: string | null
+          receipt_last_status: string | null
+          receipt_sent_at: string | null
+          reconciliation_note: string | null
+          reconciliation_status: string
           recorded_by: string | null
           reference_note: string | null
           source: string
@@ -1048,21 +1109,38 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_type?: string | null
           admin_note?: string | null
           amount?: number | null
+          billing_period?: string | null
           classification?: string
           created_at?: string
           currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          flagged_at?: string | null
+          flagged_reason?: string | null
           id?: string
+          initiated_at?: string
+          last_status_change_at?: string | null
           order_id?: string | null
           paid_at?: string | null
+          payment_channel?: string | null
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
           paystack_environment?: string
           paystack_invoice_code?: string | null
+          paystack_last_checked_at?: string | null
           paystack_reference?: string | null
+          paystack_status?: string | null
           paystack_transaction_id?: string | null
+          price_label?: string | null
+          receipt_last_error?: string | null
+          receipt_last_status?: string | null
+          receipt_sent_at?: string | null
+          reconciliation_note?: string | null
+          reconciliation_status?: string
           recorded_by?: string | null
           reference_note?: string | null
           source?: string
@@ -1071,21 +1149,38 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_type?: string | null
           admin_note?: string | null
           amount?: number | null
+          billing_period?: string | null
           classification?: string
           created_at?: string
           currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          flagged_at?: string | null
+          flagged_reason?: string | null
           id?: string
+          initiated_at?: string
+          last_status_change_at?: string | null
           order_id?: string | null
           paid_at?: string | null
+          payment_channel?: string | null
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
           paystack_environment?: string
           paystack_invoice_code?: string | null
+          paystack_last_checked_at?: string | null
           paystack_reference?: string | null
+          paystack_status?: string | null
           paystack_transaction_id?: string | null
+          price_label?: string | null
+          receipt_last_error?: string | null
+          receipt_last_status?: string | null
+          receipt_sent_at?: string | null
+          reconciliation_note?: string | null
+          reconciliation_status?: string
           recorded_by?: string | null
           reference_note?: string | null
           source?: string
