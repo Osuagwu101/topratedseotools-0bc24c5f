@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label";
 import {
   adminCancelAssignedOrder,
   adminGetCustomerDetail,
+  adminResetCustomerPassword,
   adminUpdateCustomerMeta,
 } from "@/lib/customer-admin.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import { Wallet, XCircle, ShieldCheck } from "lucide-react";
+import { Wallet, XCircle, ShieldCheck, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/admin/customers/$userId")({
   ssr: false,
