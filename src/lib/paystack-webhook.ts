@@ -497,4 +497,60 @@ async function handleInvoiceFailed(i: DispatchInput) {
       payment_status: "failed",
     })
     .eq("paystack_subscription_code", i.subscriptionCode);
+  if (i.reference) {
+    await upsertPaymentStatus(i, i.reference, "failed", "invoice.payment_failed");
+  }
 }
+
+async function handleChargeFailed(i: DispatchInput) {
+  if (!i.reference) return;
+  await upsertPaymentStatus(i, i.reference, "failed", "charge.failed webhook");
+  // Reflect failure on the pending order if we can find it.
+  const order = await findOrder(i);
+  if (order && order.status !== "approved") {
+    await i.supabaseAdmin
+      .from("tool_orders")
+      .update({ payment_status: "failed" })
+      .eq("id", order.id);
+  }
+}
+
+/**
+ * Upsert-by-reference payment status change (used by failure events).
+ * Advances an existing row's status or inserts a new record when the initial
+ * checkout row was never created (e.g. legacy or offline-imported references).
+ */
+async function upsertPaymentStatus(
+  i: DispatchInput,
+  reference: string,
+  toStatus: string,
+  note: string,
+) {
+  const { data: existing } = await i.supabaseAdmin
+    .from("tool_payments")
+    .select("id, payment_status, user_id, order_id, tool_slug")
+    .eq("paystack_reference", reference)
+    .maybeSingle();
+  if (existing) {
+    if (existing.payment_status === "successful") return; // never overwrite success
+    if (existing.payment_status === toStatus) return;
+    await i.supabaseAdmin
+      .from("tool_payments")
+      .update({
+        payment_status: toStatus,
+        paystack_status: (i.data as { status?: string })?.status ?? toStatus,
+        paystack_last_checked_at: new Date().toISOString(),
+        last_status_change_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+    await i.supabaseAdmin.from("tool_payment_status_history").insert({
+      payment_id: existing.id,
+      from_status: existing.payment_status,
+      to_status: toStatus,
+      source: "webhook",
+      paystack_status: (i.data as { status?: string })?.status ?? null,
+      note,
+    });
+  }
+}
+
