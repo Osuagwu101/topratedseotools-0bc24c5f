@@ -5,7 +5,6 @@ import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Save, Tag, Trash2, ShieldAlert, Lock, Users, AlertTriangle } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import { TOOLS } from "@/lib/tools-data";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import {
@@ -121,12 +120,12 @@ function AdminPricingPage() {
 
   if (!isAdmin) {
     return (
-      <SiteLayout>
+      <AdminShell>
         <div className="mx-auto max-w-xl px-4 py-24 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-destructive" />
           <h1 className="mt-4 text-2xl font-semibold">Admins only</h1>
         </div>
-      </SiteLayout>
+      </AdminShell>
     );
   }
 
@@ -198,7 +197,7 @@ function AdminPricingPage() {
   }
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
@@ -271,7 +270,7 @@ function AdminPricingPage() {
           })}
         </div>
       </section>
-    </SiteLayout>
+    </AdminShell>
   );
 }
 

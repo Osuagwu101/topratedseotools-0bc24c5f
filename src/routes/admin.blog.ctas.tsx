@@ -4,8 +4,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit3, Save, X } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
@@ -107,11 +105,10 @@ function CtaAdmin() {
   >;
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">CTA templates</h1>
-          <AdminNav />
         </div>
         <div className="mt-6"><BlogAdminNav /></div>
 
@@ -307,6 +304,6 @@ function CtaAdmin() {
           ))}
         </div>
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }

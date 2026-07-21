@@ -3,8 +3,6 @@ import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@ta
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Check, X, Trash2 } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { adminListComments, adminModerateComment } from "@/lib/blog.functions";
@@ -35,11 +33,10 @@ function CommentsAdmin() {
   });
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Comments</h1>
-          <AdminNav />
         </div>
         <div className="mt-6"><BlogAdminNav /></div>
 
@@ -116,6 +113,6 @@ function CommentsAdmin() {
           )}
         </div>
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }

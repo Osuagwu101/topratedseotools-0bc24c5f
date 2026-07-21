@@ -3,8 +3,6 @@ import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@ta
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { SiteLayout } from "@/components/site/SiteLayout";
-import { AdminNav } from "@/routes/admin.tools";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { listCategories } from "@/lib/blog.functions";
@@ -233,7 +231,7 @@ function AiGeneratorPage() {
   }
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -243,7 +241,6 @@ function AiGeneratorPage() {
               · Model: <span className="font-mono text-xs">{s.model}</span>
             </p>
           </div>
-          <AdminNav />
         </div>
         <div className="mt-6">
           <BlogAdminNav />
@@ -738,6 +735,6 @@ function AiGeneratorPage() {
           </div>
         )}
       </div>
-    </SiteLayout>
+    </AdminShell>
   );
 }

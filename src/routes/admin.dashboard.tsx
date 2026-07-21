@@ -20,10 +20,8 @@ import {
   XCircle,
   BookOpen,
 } from "lucide-react";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import { adminListOrders, adminListToolCredentials } from "@/lib/access.functions";
 import { TOOLS } from "@/lib/tools-data";
-import { AdminNav } from "./admin.tools";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 
 
@@ -135,7 +133,7 @@ function AdminDashboardInner() {
   const recent = orders.slice(0, 6);
 
   return (
-    <SiteLayout>
+    <AdminShell>
       <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
@@ -147,7 +145,6 @@ function AdminDashboardInner() {
               Control the entire site from one place.
             </p>
           </div>
-          <AdminNav />
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -230,6 +227,6 @@ function AdminDashboardInner() {
           )}
         </div>
       </section>
-    </SiteLayout>
+    </AdminShell>
   );
 }
