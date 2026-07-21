@@ -27,6 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AccountsCapacityTab } from "@/components/admin/AccountsCapacityTab";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import {
@@ -98,7 +99,7 @@ export const Route = createFileRoute("/admin/tools/$slug")({
   ),
 });
 
-type Tab = "overview" | "access" | "pricing" | "credentials" | "orders";
+type Tab = "overview" | "access" | "pricing" | "accounts" | "credentials" | "orders";
 
 function AdminToolPage() {
   const { slug } = Route.useParams();
@@ -112,7 +113,8 @@ function AdminToolPage() {
     { id: "overview", label: "Overview", icon: Info },
     { id: "access", label: "Access & Availability", icon: ShieldCheck },
     { id: "pricing", label: "Pricing", icon: Tag },
-    { id: "credentials", label: "Credentials", icon: KeyRound },
+    { id: "accounts", label: "Accounts & Capacity", icon: Users },
+    { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
 
@@ -168,6 +170,7 @@ function AdminToolPage() {
           {tab === "overview" && <OverviewTab tool={tool} />}
           {tab === "access" && <AccessTab slug={tool.slug} />}
           {tab === "pricing" && <PricingTab slug={tool.slug} />}
+          {tab === "accounts" && <AccountsCapacityTab slug={tool.slug} />}
           {tab === "credentials" && <CredentialsTab tool={tool} />}
           {tab === "orders" && <OrdersTab slug={tool.slug} />}
         </div>

@@ -167,8 +167,42 @@ export const getMyAccess = createServerFn({ method: "GET" })
       ),
     );
     const creds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    // Per-order account assignment (new pool). Keys by order_id.
+    const assignedByOrder: Record<
+      string,
+      { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }
+    > = {};
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const orderIds = (data ?? []).map((r) => r.id as string);
+    if (orderIds.length) {
+      const { data: aRows } = await (supabaseAdmin as any)
+        .from("tool_account_assignments")
+        .select("order_id, account_id")
+        .in("order_id", orderIds)
+        .eq("status", "active");
+      const accIds = Array.from(new Set(((aRows ?? []) as any[]).map((r) => r.account_id as string)));
+      const accById: Record<string, any> = {};
+      if (accIds.length) {
+        const { data: accs } = await (supabaseAdmin as any)
+          .from("tool_accounts")
+          .select("id, login_email, login_password, login_url, login_notes")
+          .in("id", accIds);
+        for (const a of ((accs ?? []) as any[])) accById[a.id as string] = a;
+      }
+      for (const r of ((aRows ?? []) as any[])) {
+        const a = accById[r.account_id as string];
+        if (!a) continue;
+        assignedByOrder[r.order_id as string] = {
+          email: (a.login_email as string | null) ?? null,
+          password: (a.login_password as string | null) ?? null,
+          login_url: (a.login_url as string | null) ?? null,
+          login_notes: (a.login_notes as string | null) ?? null,
+        };
+      }
+    }
+    // Legacy fallback: tool_credentials is kept read-only for tools with
+    // no active assignment yet.
     if (sharedSlugs.length > 0) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: rows } = await supabaseAdmin
         .from("tool_credentials")
         .select("tool_slug, login_email, login_password, login_url, login_notes")
@@ -193,7 +227,10 @@ export const getMyAccess = createServerFn({ method: "GET" })
           | "failed"
           | "expired";
         let credentials = null;
-        if (access === "shared") {
+        const assigned = assignedByOrder[r.id as string];
+        if (assigned && (assigned.email || assigned.password || assigned.login_url || assigned.login_notes)) {
+          credentials = assigned;
+        } else if (access === "shared") {
           credentials = creds[r.tool_slug as string] ?? null;
         } else if (access === "private" && fulfilment === "active" && r.admin_notes) {
           credentials = {
@@ -203,6 +240,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
             login_notes: r.admin_notes as string,
           };
         }
+
         return {
           order_id: r.id as string,
           tool_slug: r.tool_slug as string,

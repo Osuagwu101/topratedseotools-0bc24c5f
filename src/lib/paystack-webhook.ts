@@ -422,6 +422,10 @@ async function handleChargeSuccess(i: DispatchInput) {
         })
         .eq("id", order.id)
         .neq("status", "approved");
+      try {
+        const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
+        await tryAutoAssignAccount(i.supabaseAdmin, order.id as string);
+      } catch (e) { console.warn("[account-pool] private auto-assign failed", e); }
       const { queueOrderEmail } = await import("@/lib/email/order-emails");
       await queueOrderEmail(i.supabaseAdmin, {
         kind: "private_pending",
@@ -461,6 +465,10 @@ async function handleChargeSuccess(i: DispatchInput) {
       })
       .eq("id", order.id)
       .neq("status", "approved");
+    try {
+      const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
+      await tryAutoAssignAccount(i.supabaseAdmin, order.id as string);
+    } catch (e) { console.warn("[account-pool] shared auto-assign failed", e); }
     const { queueOrderEmail } = await import("@/lib/email/order-emails");
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "payment_success",
