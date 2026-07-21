@@ -57,8 +57,10 @@ const NAV: NavItem[] = [
   { title: "Orders", to: "/admin/orders", icon: ClipboardList },
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
   { title: "Appearance", to: "/admin/appearance", icon: Palette },
+  { title: "Email", to: "/admin/settings/email", icon: Cog },
   { title: "Settings", to: "/admin/appearance", icon: Cog },
 ];
+
 
 const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
   { title: "All users", to: "/admin/customers" },
