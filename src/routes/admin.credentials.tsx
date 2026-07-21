@@ -6,6 +6,7 @@
  * write here, and `getMyAccess` on the user side reads them via the
  * service role AFTER checking the caller has an active paid subscription.
  */
+import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";

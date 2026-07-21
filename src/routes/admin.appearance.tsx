@@ -1,3 +1,4 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { useServerFn } from "@tanstack/react-start";

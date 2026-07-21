@@ -1,6 +1,7 @@
 /**
  * Admin — order queue. Approve/reject/expire tool_orders rows.
  */
+import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";

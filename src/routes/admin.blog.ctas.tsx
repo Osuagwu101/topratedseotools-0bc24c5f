@@ -1,3 +1,4 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";

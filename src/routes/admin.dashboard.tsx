@@ -4,6 +4,7 @@
  * Central hub showing high-level counts and links into each admin section
  * (Tools, Orders, Pricing, Credentials, Appearance). Only admins can see it.
  */
+import { AdminShell } from "@/components/admin/AdminShell";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import {
