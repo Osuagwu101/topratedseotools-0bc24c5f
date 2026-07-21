@@ -23,6 +23,7 @@ import {
   Cog,
   UserCog,
   Star,
+  Megaphone,
 } from "lucide-react";
 import { getAdminContext } from "@/lib/admin-management.functions";
 import { toast } from "sonner";
@@ -82,6 +83,14 @@ const BLOG_SUBNAV: { title: string; to: string; exact?: boolean }[] = [
   { title: "Settings", to: "/admin/blog/settings" },
 ];
 
+const MARKETING_SUBNAV: { title: string; to: string }[] = [
+  { title: "Overview", to: "/admin/marketing" },
+  { title: "Meta (Facebook / Instagram)", to: "/admin/marketing/meta" },
+  { title: "Google Tag Manager", to: "/admin/marketing/gtm" },
+  { title: "Analytics", to: "/admin/marketing/analytics" },
+  { title: "Event history", to: "/admin/marketing/events" },
+];
+
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <SiteLayout>
@@ -116,6 +125,9 @@ function AdminSidebar() {
   );
   const [blogOpen, setBlogOpen] = useState(
     () => path.startsWith("/admin/blog"),
+  );
+  const [marketingOpen, setMarketingOpen] = useState(
+    () => path.startsWith("/admin/marketing"),
   );
   const [q, setQ] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -313,6 +325,41 @@ function AdminSidebar() {
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
+
+              {/* Marketing — expandable */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/marketing")}
+                  tooltip="Marketing"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/marketing" });
+                    else setMarketingOpen((v) => !v);
+                  }}
+                >
+                  <Megaphone />
+                  <span>Marketing</span>
+                  {!collapsed &&
+                    (marketingOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
+                </SidebarMenuButton>
+                {!collapsed && marketingOpen && (
+                  <SidebarMenuSub>
+                    {MARKETING_SUBNAV.map((s) => (
+                      <SidebarMenuSubItem key={s.to}>
+                        <SidebarMenuSubButton asChild isActive={path === s.to}>
+                          <Link to={s.to}>
+                            <span>{s.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
 
               {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>

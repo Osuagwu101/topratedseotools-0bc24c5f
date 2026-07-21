@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { AuthShell, FieldEmail, FieldPassword, GoogleIcon } from "./login";
+import { trackSignUp } from "@/lib/marketing/track";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -39,11 +40,13 @@ function RegisterPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
+    trackSignUp("email");
     toast.success("Check your email to verify your account.");
     navigate({ to: "/login" });
   }
 
   async function onGoogle() {
+    trackSignUp("google");
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });

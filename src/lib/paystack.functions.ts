@@ -478,6 +478,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         fulfil_by: deadline.toISOString(),
         contact_admin_line: "",
       });
+      await trackConversionFromServer({
+        access,
+        isOneTime,
+        orderId: orderSafe.id as string,
+        userId: orderSafe.user_id as string,
+        reference: tx.reference,
+        amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+        currency: (orderSafe.currency as string | null) ?? "NGN",
+      });
       return { ok: true, orderId, alreadyActive: false, fulfilment: "pending" };
     }
 
@@ -507,8 +516,67 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .neq("status", "approved");
 
     await queuePostPayment("shared_success", {});
+    await trackConversionFromServer({
+      access,
+      isOneTime,
+      orderId: orderSafe.id as string,
+      userId: orderSafe.user_id as string,
+      reference: tx.reference,
+      amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+      currency: (orderSafe.currency as string | null) ?? "NGN",
+    });
     return { ok: true, orderId, alreadyActive: false, fulfilment: "not_required" };
   });
+
+/**
+ * Fire Meta CAPI conversion after the browser return path activates an order.
+ * Uses a stable event_id so if the webhook also fires, Meta dedups.
+ */
+async function trackConversionFromServer(args: {
+  access: "shared" | "private";
+  isOneTime: boolean;
+  orderId: string;
+  userId: string;
+  reference: string;
+  amount: number;
+  currency: string;
+}) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { trackServerConversion, buildEventId } = await import(
+      "@/lib/marketing/server-events"
+    );
+    const { data: prof } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("id", args.userId)
+      .maybeSingle();
+    const { data: orderFull } = await supabaseAdmin
+      .from("tool_orders")
+      .select("tool_slug")
+      .eq("id", args.orderId)
+      .maybeSingle();
+    // Private access hasn't been fulfilled yet, so no Purchase there.
+    const kind = args.access === "private"
+      ? "subscription_start"
+      : args.isOneTime
+        ? "purchase"
+        : "subscription_start";
+    await trackServerConversion(supabaseAdmin, {
+      kind,
+      event_id: buildEventId(kind, args.orderId),
+      order_id: args.orderId,
+      user_id: args.userId,
+      tool_slug: (orderFull as { tool_slug?: string } | null)?.tool_slug ?? null,
+      amount: args.amount,
+      currency: args.currency,
+      email: (prof as { email?: string } | null)?.email ?? null,
+      custom: { paystack_reference: args.reference, source: "verify" },
+    });
+  } catch (err) {
+    console.warn("[marketing] verify conversion failed", err);
+  }
+}
 
 /** Auth — user disables auto-renewal on an active subscription. */
 export const disableOrderRenewal = createServerFn({ method: "POST" })

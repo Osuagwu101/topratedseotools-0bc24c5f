@@ -15,6 +15,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 import { getActiveTheme } from "@/lib/site-settings.functions";
+import { MarketingTags } from "@/components/marketing/MarketingTags";
+import { MarketingProvider } from "@/components/marketing/MarketingProvider";
+import { ConsentBanner } from "@/components/marketing/ConsentBanner";
 
 function NotFoundComponent() {
   return (
@@ -153,7 +156,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <MarketingProvider />
+      <MarketingTags />
       <Outlet />
+      <ConsentBanner />
       <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
   );
