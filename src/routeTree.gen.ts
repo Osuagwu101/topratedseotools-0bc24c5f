@@ -29,6 +29,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
 import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
@@ -168,6 +169,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => BlogRoute,
+} as any)
+const AdminTransactionsRoute = AdminTransactionsRouteImport.update({
+  id: '/admin/transactions',
+  path: '/admin/transactions',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminToolsRoute = AdminToolsRouteImport.update({
   id: '/admin/tools',
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -462,6 +469,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -525,6 +533,7 @@ export interface FileRoutesById {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/tools': typeof AdminToolsRouteWithChildren
+  '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/tools/$slug': typeof ToolsSlugRoute
@@ -588,6 +597,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -644,6 +654,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/orders'
     | '/admin/pricing'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -706,6 +717,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/tools'
+    | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
     | '/tools/$slug'
@@ -762,6 +774,7 @@ export interface RootRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
+  AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -908,6 +921,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/admin/transactions': {
+      id: '/admin/transactions'
+      path: '/admin/transactions'
+      fullPath: '/admin/transactions'
+      preLoaderRoute: typeof AdminTransactionsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/tools': {
       id: '/admin/tools'
@@ -1340,6 +1360,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminToolsRoute: AdminToolsRouteWithChildren,
+  AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
