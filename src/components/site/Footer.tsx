@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { APP_NAME } from "@/lib/site-config";
 import logoAsset from "@/assets/logo.png.asset.json";
+import { openConsentBanner } from "@/components/marketing/ConsentBanner";
 
 
 const COLS = [
@@ -72,7 +73,17 @@ export function Footer() {
       <div className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
           <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
-          <span>Individual tool subscriptions, one place to manage them.</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={openConsentBanner}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Cookie preferences
+            </button>
+            <span aria-hidden>·</span>
+            <span>Individual tool subscriptions, one place to manage them.</span>
+          </div>
         </div>
       </div>
     </footer>
