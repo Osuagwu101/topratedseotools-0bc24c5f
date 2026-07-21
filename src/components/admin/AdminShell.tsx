@@ -310,7 +310,7 @@ function AdminSidebar() {
                 )}
               </SidebarMenuItem>
 
-
+              {NAV.filter((n) => n.title !== "Dashboard").map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
