@@ -45,6 +45,8 @@ export interface AdminOverview {
     allTime: number;
     recurring: number;
     oneTime: number;
+    online: number;
+    offline: number;
     successfulPayments: number;
     failedPayments: number;
     refunds: number;
@@ -131,7 +133,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
         .limit(2000),
       admin
         .from("tool_payments")
-        .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, payment_status, paid_at, created_at")
+        .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, payment_status, paid_at, created_at, source")
         .order("created_at", { ascending: false })
         .limit(5000),
     ]);
@@ -177,6 +179,8 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       allTime: sum(successful),
       recurring: sum(successful, (r) => r.payment_type === "recurring_subscription"),
       oneTime: sum(successful, (r) => r.payment_type !== "recurring_subscription"),
+      online: sum(successful, (r) => ((r as { source?: string }).source ?? "paystack") !== "offline"),
+      offline: sum(successful, (r) => (r as { source?: string }).source === "offline"),
       successfulPayments: successful.length,
       failedPayments: payments.filter((p) => p.payment_status === "failed").length,
       refunds: payments.filter(

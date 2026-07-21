@@ -4,7 +4,9 @@
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { listPlatformCustomers, type CustomerSegment } from "@/lib/admin-analytics.functions";
+import { AddCustomerDialog } from "@/components/admin/AddCustomerDialog";
 import { Search } from "lucide-react";
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
@@ -45,11 +47,14 @@ export function CustomersTable({ segment }: { segment: CustomerSegment }) {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">{SEGMENT_LABEL[segment]}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Platform-wide customer directory. Excludes passwords, card data, and tool credentials.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{SEGMENT_LABEL[segment]}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Platform-wide customer directory. Excludes passwords, card data, and tool credentials.
+          </p>
+        </div>
+        <AddCustomerDialog />
       </header>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -107,7 +112,13 @@ export function CustomersTable({ segment }: { segment: CustomerSegment }) {
               {rows.map((r) => (
                 <tr key={r.userId} className="hover:bg-muted/20">
                   <td className="px-3 py-2">
-                    <div className="font-medium">{r.fullName ?? "—"}</div>
+                    <Link
+                      to="/admin/customers/$userId"
+                      params={{ userId: r.userId }}
+                      className="font-medium hover:underline"
+                    >
+                      {r.fullName ?? "—"}
+                    </Link>
                     <div className="text-xs text-muted-foreground">{r.email ?? "—"}</div>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
