@@ -488,6 +488,42 @@ export type Database = {
         }
         Relationships: []
       }
+      consent_choices: {
+        Row: {
+          analytics: boolean
+          created_at: string
+          decided_at: string | null
+          essential: boolean
+          id: string
+          marketing: boolean
+          updated_at: string
+          user_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          analytics?: boolean
+          created_at?: string
+          decided_at?: string | null
+          essential?: boolean
+          id?: string
+          marketing?: boolean
+          updated_at?: string
+          user_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          analytics?: boolean
+          created_at?: string
+          decided_at?: string | null
+          essential?: boolean
+          id?: string
+          marketing?: boolean
+          updated_at?: string
+          user_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       contact_messages: {
         Row: {
           created_at: string
@@ -761,6 +797,173 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_attribution: {
+        Row: {
+          fbclid: string | null
+          first_seen_at: string
+          first_touch: Json | null
+          gclid: string | null
+          id: string
+          landing_page: string | null
+          last_seen_at: string
+          last_touch: Json | null
+          referrer: string | null
+          user_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          visitor_id: string
+        }
+        Insert: {
+          fbclid?: string | null
+          first_seen_at?: string
+          first_touch?: Json | null
+          gclid?: string | null
+          id?: string
+          landing_page?: string | null
+          last_seen_at?: string
+          last_touch?: Json | null
+          referrer?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id: string
+        }
+        Update: {
+          fbclid?: string | null
+          first_seen_at?: string
+          first_touch?: Json | null
+          gclid?: string | null
+          id?: string
+          landing_page?: string | null
+          last_seen_at?: string
+          last_touch?: Json | null
+          referrer?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
+      marketing_events: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          error_message: string | null
+          event_id: string | null
+          event_name: string
+          id: string
+          order_id: string | null
+          payload: Json
+          platform: string
+          source: string
+          status: string
+          tool_slug: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_name: string
+          id?: string
+          order_id?: string | null
+          payload?: Json
+          platform: string
+          source: string
+          status: string
+          tool_slug?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_name?: string
+          id?: string
+          order_id?: string | null
+          payload?: Json
+          platform?: string
+          source?: string
+          status?: string
+          tool_slug?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_integrations: {
+        Row: {
+          config: Json
+          connected: boolean
+          created_at: string
+          enabled: boolean
+          id: string
+          last_error_at: string | null
+          last_error_message: string | null
+          last_event_at: string | null
+          last_event_name: string | null
+          provider: string
+          public_id: string | null
+          test_event_code: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          connected?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_error_at?: string | null
+          last_error_message?: string | null
+          last_event_at?: string | null
+          last_event_name?: string | null
+          provider: string
+          public_id?: string | null
+          test_event_code?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          connected?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_error_at?: string | null
+          last_error_message?: string | null
+          last_event_at?: string | null
+          last_event_name?: string | null
+          provider?: string
+          public_id?: string | null
+          test_event_code?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       paystack_customers: {
         Row: {
           created_at: string
@@ -954,6 +1157,7 @@ export type Database = {
           active_theme: string
           admin_whatsapp_number: string | null
           id: boolean
+          marketing_pause: boolean
           updated_at: string
           updated_by: string | null
         }
@@ -961,6 +1165,7 @@ export type Database = {
           active_theme?: string
           admin_whatsapp_number?: string | null
           id?: boolean
+          marketing_pause?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -968,6 +1173,7 @@ export type Database = {
           active_theme?: string
           admin_whatsapp_number?: string | null
           id?: boolean
+          marketing_pause?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -1008,6 +1214,7 @@ export type Database = {
           access_type: string | null
           admin_notes: string | null
           approved_at: string | null
+          attribution: Json | null
           auto_fulfilled_at: string | null
           billing_period: string | null
           cancellation_reason: string | null
@@ -1062,6 +1269,7 @@ export type Database = {
           access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          attribution?: Json | null
           auto_fulfilled_at?: string | null
           billing_period?: string | null
           cancellation_reason?: string | null
@@ -1116,6 +1324,7 @@ export type Database = {
           access_type?: string | null
           admin_notes?: string | null
           approved_at?: string | null
+          attribution?: Json | null
           auto_fulfilled_at?: string | null
           billing_period?: string | null
           cancellation_reason?: string | null
