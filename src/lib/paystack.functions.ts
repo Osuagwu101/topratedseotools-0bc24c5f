@@ -80,6 +80,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found");
+    const orderSafe = order;
     if (order.status === "approved") throw new Error("This subscription is already active");
 
     let snapshot;
@@ -107,11 +108,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     }
 
     const email = context.claims?.email ?? `${context.userId}@users.local`;
-    const reference = generatePaystackReference(order.id as string);
+    const reference = generatePaystackReference(orderSafe.id as string);
     const metadata = {
       ...buildPaystackMetadata({
-        order_id: order.id as string,
-        user_id: order.user_id as string,
+        order_id: orderSafe.id as string,
+        user_id: orderSafe.user_id as string,
         tool_slug: snapshot.tool_slug,
         pricing_option_id: snapshot.pricing_option_id,
         access_type: snapshot.access_type,
@@ -162,7 +163,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
       })
-      .eq("id", order.id);
+      .eq("id", orderSafe.id);
 
     // Record an "initiated" payment row so a single transaction reference is
     // tracked from checkout through verification, receipt delivery, and
@@ -178,8 +179,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         const { data: inserted } = await supabaseAdmin
           .from("tool_payments")
           .insert({
-            order_id: order.id,
-            user_id: order.user_id,
+            order_id: orderSafe.id,
+            user_id: orderSafe.user_id,
             tool_slug: snapshot.tool_slug,
             amount: snapshot.price_amount,
             currency: snapshot.currency,
@@ -211,8 +212,41 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Schedule an abandoned-checkout reminder — the dispatcher will cancel it
+    // if the order is completed or fails before the delay elapses.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { queueEmail, getEmailSettings } = await import("@/lib/email/queue");
+      const settings = await getEmailSettings(supabaseAdmin);
+      const delayH = settings?.abandoned_delay_hours ?? 24;
+      const scheduled = new Date(Date.now() + delayH * 3600_000).toISOString();
+      const to = email;
+      if (to) {
+        await queueEmail(supabaseAdmin, {
+          eventKey: `abandoned:${orderSafe.id}`,
+          templateKey: "abandoned_checkout",
+          recipient: to,
+          relatedOrderId: orderSafe.id as string,
+          relatedUserId: orderSafe.user_id as string,
+          scheduledFor: scheduled,
+          payload: {
+            name: "there",
+            tool: snapshot.tool_slug,
+            amount: snapshot.price_amount,
+            currency: snapshot.currency,
+            access_type: snapshot.access_type,
+            billing_period: snapshot.billing_period,
+            resume_url: `https://topratedseotools.com/order/${snapshot.tool_slug}`,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn("[email] failed to schedule abandoned reminder", err);
+    }
+
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
+
 
 
 /** Fallback verify — used when the browser returns from Paystack before the webhook fires. */
@@ -247,6 +281,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
+    const orderSafe = order;
     if (order.status === "approved") {
       return { ok: true, orderId, alreadyActive: true };
     }
@@ -262,10 +297,10 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const verdict = validatePaymentVerification({
       tx,
       order: {
-        id: order.id as string,
-        user_id: order.user_id as string,
-        price_amount: (order.price_amount as number | null) ?? null,
-        currency: (order.currency as string | null) ?? null,
+        id: orderSafe.id as string,
+        user_id: orderSafe.user_id as string,
+        price_amount: (orderSafe.price_amount as number | null) ?? null,
+        currency: (orderSafe.currency as string | null) ?? null,
         paystack_reference: (order.paystack_reference as string | null) ?? null,
         paystack_environment: (order.paystack_environment as string | null) ?? null,
       },
@@ -324,16 +359,16 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         const { data: orderFull } = await supabaseAdmin
           .from("tool_orders")
           .select("tool_slug, access_type, billing_period")
-          .eq("id", order.id)
+          .eq("id", orderSafe.id)
           .maybeSingle();
         const { data: inserted } = await supabaseAdmin
           .from("tool_payments")
           .insert({
-            order_id: order.id,
-            user_id: order.user_id,
+            order_id: orderSafe.id,
+            user_id: orderSafe.user_id,
             tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
-            amount: (order.price_amount as number | null) ?? tx.amount / 100,
-            currency: (order.currency as string | null) ?? "NGN",
+            amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+            currency: (orderSafe.currency as string | null) ?? "NGN",
             payment_status: "successful",
             payment_type: isOneTime ? "one_time" : "recurring_subscription",
             classification: isOneTime ? "one_time" : "initial",
@@ -364,6 +399,62 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Helper — best-effort recipient lookup for post-payment emails.
+    async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
+      try {
+        const { queueEmail } = await import("@/lib/email/queue");
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", orderSafe.user_id)
+          .maybeSingle();
+        const to = ((prof as { email?: string } | null)?.email) ?? context.claims?.email ?? null;
+        const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
+        if (!to) return;
+        const { data: orderFull } = await supabaseAdmin
+          .from("tool_orders")
+          .select("tool_slug, access_type, billing_period")
+          .eq("id", orderSafe.id)
+          .maybeSingle();
+        const payload = {
+          name,
+          tool: orderFull?.tool_slug ?? "your tool",
+          access_type: orderFull?.access_type ?? "shared",
+          billing_period: orderFull?.billing_period ?? "monthly",
+          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
+          currency: (orderSafe.currency as string | null) ?? "NGN",
+          reference: tx.reference,
+          dashboard_url: "https://topratedseotools.com/dashboard",
+          ...extra,
+        };
+        if (kind === "shared_success") {
+          await queueEmail(supabaseAdmin, {
+            eventKey: `payment_success:${orderId}`,
+            templateKey: "payment_success",
+            recipient: to,
+            relatedOrderId: orderId,
+            relatedUserId: orderSafe.user_id as string,
+            payload: {
+              ...payload,
+              start_date: paidAt.toISOString(),
+              expiry_date: new Date(paidAt.getTime() + (dur + grace) * 86400_000).toISOString(),
+            },
+          });
+        } else {
+          await queueEmail(supabaseAdmin, {
+            eventKey: `private_pending:${orderId}`,
+            templateKey: "private_pending",
+            recipient: to,
+            relatedOrderId: orderId,
+            relatedUserId: orderSafe.user_id as string,
+            payload,
+          });
+        }
+      } catch (err) {
+        console.warn("[email] failed to queue post-payment email", err);
+      }
+    }
+
     if (access === "private") {
       const deadline = new Date(paidAt.getTime() + 6 * 60 * 60 * 1000);
       await supabaseAdmin
@@ -383,6 +474,10 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         })
         .eq("id", orderId)
         .neq("status", "approved");
+      await queuePostPayment("private_pending", {
+        fulfil_by: deadline.toISOString(),
+        contact_admin_line: "",
+      });
       return { ok: true, orderId, alreadyActive: false, fulfilment: "pending" };
     }
 
@@ -411,6 +506,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       .eq("id", orderId)
       .neq("status", "approved");
 
+    await queuePostPayment("shared_success", {});
     return { ok: true, orderId, alreadyActive: false, fulfilment: "not_required" };
   });
 
@@ -427,6 +523,8 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Subscription not found");
+    const orderSafe = order;
+
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -439,7 +537,7 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
           subscription_disabled_at: new Date().toISOString(),
           non_renewal_requested_at: new Date().toISOString(),
         })
-        .eq("id", order.id);
+        .eq("id", orderSafe.id);
       return { ok: true };
     }
 
@@ -459,7 +557,7 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
         subscription_status: "non_renewing",
         non_renewal_requested_at: new Date().toISOString(),
       })
-      .eq("id", order.id);
+      .eq("id", orderSafe.id);
 
     return { ok: true };
   });

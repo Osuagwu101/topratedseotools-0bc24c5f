@@ -53,6 +53,7 @@ import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
+import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
 import { Route as AdminCustomersNewRouteImport } from './routes/admin.customers.new'
 import { Route as AdminCustomersInactiveRouteImport } from './routes/admin.customers.inactive'
 import { Route as AdminCustomersAllTimeRouteImport } from './routes/admin.customers.all-time'
@@ -68,6 +69,7 @@ import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai
 import { Route as AuthenticatedReceiptReferenceRouteImport } from './routes/_authenticated.receipt.$reference'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
+import { Route as ApiPublicHooksEmailDispatcherRouteImport } from './routes/api.public.hooks.email-dispatcher'
 import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
 import { Route as AdminBlogIdEditRouteImport } from './routes/admin.blog.$id.edit'
 
@@ -293,6 +295,11 @@ const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
+  id: '/admin/settings/email',
+  path: '/admin/settings/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminCustomersNewRoute = AdminCustomersNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -370,6 +377,12 @@ const ApiPublicWebhooksPaystackRoute =
     path: '/api/public/webhooks/paystack',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksEmailDispatcherRoute =
+  ApiPublicHooksEmailDispatcherRouteImport.update({
+    id: '/api/public/hooks/email-dispatcher',
+    path: '/api/public/hooks/email-dispatcher',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAutoFulfilPrivateRoute =
   ApiPublicHooksAutoFulfilPrivateRouteImport.update({
     id: '/api/public/hooks/auto-fulfil-private',
@@ -433,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -442,6 +456,7 @@ export interface FileRoutesByFullPath {
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
+  '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -490,6 +505,7 @@ export interface FileRoutesByTo {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -499,6 +515,7 @@ export interface FileRoutesByTo {
   '/admin/tools': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
+  '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -554,6 +571,7 @@ export interface FileRoutesById {
   '/admin/customers/all-time': typeof AdminCustomersAllTimeRoute
   '/admin/customers/inactive': typeof AdminCustomersInactiveRoute
   '/admin/customers/new': typeof AdminCustomersNewRoute
+  '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -563,6 +581,7 @@ export interface FileRoutesById {
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
+  '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -618,6 +637,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -627,6 +647,7 @@ export interface FileRouteTypes {
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
+    | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -675,6 +696,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -684,6 +706,7 @@ export interface FileRouteTypes {
     | '/admin/tools'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
+    | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -738,6 +761,7 @@ export interface FileRouteTypes {
     | '/admin/customers/all-time'
     | '/admin/customers/inactive'
     | '/admin/customers/new'
+    | '/admin/settings/email'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -747,6 +771,7 @@ export interface FileRouteTypes {
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
+    | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -776,7 +801,9 @@ export interface RootRouteChildren {
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
+  ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -1090,6 +1117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsSlugRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/email': {
+      id: '/admin/settings/email'
+      path: '/admin/settings/email'
+      fullPath: '/admin/settings/email'
+      preLoaderRoute: typeof AdminSettingsEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/customers/new': {
       id: '/admin/customers/new'
       path: '/new'
@@ -1193,6 +1227,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/webhooks/paystack'
       fullPath: '/api/public/webhooks/paystack'
       preLoaderRoute: typeof ApiPublicWebhooksPaystackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/email-dispatcher': {
+      id: '/api/public/hooks/email-dispatcher'
+      path: '/api/public/hooks/email-dispatcher'
+      fullPath: '/api/public/hooks/email-dispatcher'
+      preLoaderRoute: typeof ApiPublicHooksEmailDispatcherRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/auto-fulfil-private': {
@@ -1362,7 +1403,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
+  ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport
