@@ -24,8 +24,9 @@ import {
   UserCog,
   Star,
   Megaphone,
+  Cog as CogIcon,
 } from "lucide-react";
-import { getAdminContext } from "@/lib/admin-management.functions";
+import { getMyAdminContext } from "@/lib/admin-permissions.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -148,13 +149,28 @@ function AdminSidebar() {
   const [reviewsOpen, setReviewsOpen] = useState(
     () => path.startsWith("/admin/reviews"),
   );
-  const [q, setQ] = useState("");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("admin.settings.open");
+      if (stored !== null) return stored === "1";
+    }
+    return path.startsWith("/admin/settings") || path.startsWith("/admin/access-health") || path.startsWith("/admin/awaiting-assignments");
+  });
   useEffect(() => {
-    getAdminContext()
-      .then((c) => setIsSuperAdmin(!!c.isSuperAdmin))
-      .catch(() => setIsSuperAdmin(false));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("admin.settings.open", settingsOpen ? "1" : "0");
+    }
+  }, [settingsOpen]);
+  const [q, setQ] = useState("");
+  const [myCtx, setMyCtx] = useState<{ isSuperAdmin: boolean; permissions: string[] } | null>(null);
+  useEffect(() => {
+    getMyAdminContext()
+      .then((c) => setMyCtx({ isSuperAdmin: !!c.isSuperAdmin, permissions: c.permissions ?? [] }))
+      .catch(() => setMyCtx({ isSuperAdmin: false, permissions: [] }));
   }, []);
+  const isSuperAdmin = !!myCtx?.isSuperAdmin;
+  const perms = myCtx?.permissions ?? [];
+  const can = (p: string) => isSuperAdmin || perms.includes(p);
 
   const filteredTools = useMemo(
     () =>
@@ -440,6 +456,71 @@ function AdminSidebar() {
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
+
+              {/* Settings — collapsible (Phase 1 foundation) */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={path.startsWith("/admin/settings") || path.startsWith("/admin/access-health") || path.startsWith("/admin/awaiting-assignments")}
+                  tooltip="Settings"
+                  onClick={() => {
+                    if (collapsed) navigate({ to: "/admin/settings" });
+                    else setSettingsOpen((v) => !v);
+                  }}
+                >
+                  <CogIcon />
+                  <span>Settings</span>
+                  {!collapsed && (settingsOpen
+                    ? <ChevronDown className="ml-auto h-4 w-4" />
+                    : <ChevronRight className="ml-auto h-4 w-4" />)}
+                </SidebarMenuButton>
+                {!collapsed && settingsOpen && (
+                  <SidebarMenuSub>
+                    {[
+                      { title: "Settings Overview", to: "/admin/settings" as const, perm: null },
+                      { title: "General Website Settings", to: "/admin/settings/general" as const, perm: null },
+                      { title: "Website Content", to: "/admin/settings/content" as const, perm: "content.manage" },
+                      { title: "Tools & Products", to: "/admin/settings/tools-products" as const, perm: "tools.manage" },
+                      { title: "Credentials & Capacity", to: "/admin/settings/credentials" as const, perm: "credentials.view" },
+                      { title: "Access Health", to: "/admin/access-health" as const, perm: null },
+                      { title: "Awaiting Assignment", to: "/admin/awaiting-assignments" as const, perm: null },
+                      { title: "Promotions & Rewards", to: "/admin/settings/promotions" as const, perm: "promotions.manage" },
+                      { title: "Business Rules", to: "/admin/settings/business-rules" as const, perm: null },
+                      { title: "Support Tickets", to: "/admin/settings/support" as const, perm: "support.manage" },
+                      { title: "Customer Communications", to: "/admin/settings/communications" as const, perm: "emails.manage" },
+                      { title: "Automations", to: "/admin/settings/automations" as const, perm: null },
+                      { title: "Admin Activity", to: "/admin/settings/activity" as const, perm: "audit.view" },
+                    ].filter((i) => !i.perm || can(i.perm)).map((i) => (
+                      <SidebarMenuSubItem key={i.to}>
+                        <SidebarMenuSubButton asChild isActive={path === i.to}>
+                          <Link to={i.to}><span>{i.title}</span></Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                    <SidebarMenuSubItem>
+                      <div className="mt-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-destructive/70">
+                        Critical Controls
+                      </div>
+                    </SidebarMenuSubItem>
+                    {[
+                      { title: "Payment Recovery", to: "/admin/settings/payment-recovery" as const, perm: "payments.manage" },
+                      { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage" },
+                      { title: "Staff, Roles & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
+                      { title: "Security Centre", to: "/admin/settings/security" as const, perm: null },
+                      { title: "System Health & Repair", to: "/admin/settings/system-health" as const, perm: "system_health.access" },
+                      { title: "Backup & Recovery", to: "/admin/settings/backup" as const, perm: "backups.access" },
+                      { title: "Emergency Controls", to: "/admin/settings/emergency" as const, perm: "emergency.use" },
+                      { title: "Migration & Launch", to: "/admin/settings/migration" as const, perm: "migration.access" },
+                    ].filter((i) => (i.superOnly ? isSuperAdmin : !i.perm || can(i.perm))).map((i) => (
+                      <SidebarMenuSubItem key={i.to}>
+                        <SidebarMenuSubButton asChild isActive={path === i.to}>
+                          <Link to={i.to}><span>{i.title}</span></Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
 
 
 

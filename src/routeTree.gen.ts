@@ -31,6 +31,7 @@ import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
@@ -51,6 +52,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChangePasswordRouteImport } from './routes/_authenticated.change-password'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
 import { Route as AdminToolsIndexRouteImport } from './routes/admin.tools.index'
+import { Route as AdminSettingsIndexRouteImport } from './routes/admin.settings.index'
 import { Route as AdminMarketingIndexRouteImport } from './routes/admin.marketing.index'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin.customers.index'
 import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
@@ -58,7 +60,25 @@ import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
+import { Route as AdminSettingsToolsProductsRouteImport } from './routes/admin.settings.tools-products'
+import { Route as AdminSettingsSystemHealthRouteImport } from './routes/admin.settings.system-health'
+import { Route as AdminSettingsSupportRouteImport } from './routes/admin.settings.support'
+import { Route as AdminSettingsStaffRouteImport } from './routes/admin.settings.staff'
+import { Route as AdminSettingsSecurityRouteImport } from './routes/admin.settings.security'
+import { Route as AdminSettingsPromotionsRouteImport } from './routes/admin.settings.promotions'
+import { Route as AdminSettingsPaymentRecoveryRouteImport } from './routes/admin.settings.payment-recovery'
+import { Route as AdminSettingsMigrationRouteImport } from './routes/admin.settings.migration'
+import { Route as AdminSettingsGeneralRouteImport } from './routes/admin.settings.general'
+import { Route as AdminSettingsEmergencyRouteImport } from './routes/admin.settings.emergency'
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
+import { Route as AdminSettingsCredentialsRouteImport } from './routes/admin.settings.credentials'
+import { Route as AdminSettingsContentRouteImport } from './routes/admin.settings.content'
+import { Route as AdminSettingsCommunicationsRouteImport } from './routes/admin.settings.communications'
+import { Route as AdminSettingsBusinessRulesRouteImport } from './routes/admin.settings.business-rules'
+import { Route as AdminSettingsBackupRouteImport } from './routes/admin.settings.backup'
+import { Route as AdminSettingsAutomationsRouteImport } from './routes/admin.settings.automations'
+import { Route as AdminSettingsApiKeysRouteImport } from './routes/admin.settings.api-keys'
+import { Route as AdminSettingsActivityRouteImport } from './routes/admin.settings.activity'
 import { Route as AdminMarketingMetaRouteImport } from './routes/admin.marketing.meta'
 import { Route as AdminMarketingGtmRouteImport } from './routes/admin.marketing.gtm'
 import { Route as AdminMarketingEventsRouteImport } from './routes/admin.marketing.events'
@@ -191,6 +211,11 @@ const AdminToolsRoute = AdminToolsRouteImport.update({
   path: '/admin/tools',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminReviewsRoute = AdminReviewsRouteImport.update({
   id: '/admin/reviews',
   path: '/admin/reviews',
@@ -295,6 +320,11 @@ const AdminToolsIndexRoute = AdminToolsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsIndexRoute = AdminSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminMarketingIndexRoute = AdminMarketingIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -330,10 +360,107 @@ const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => AdminToolsRoute,
 } as any)
+const AdminSettingsToolsProductsRoute =
+  AdminSettingsToolsProductsRouteImport.update({
+    id: '/tools-products',
+    path: '/tools-products',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsSystemHealthRoute =
+  AdminSettingsSystemHealthRouteImport.update({
+    id: '/system-health',
+    path: '/system-health',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsSupportRoute = AdminSettingsSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsStaffRoute = AdminSettingsStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsSecurityRoute = AdminSettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsPromotionsRoute = AdminSettingsPromotionsRouteImport.update({
+  id: '/promotions',
+  path: '/promotions',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsPaymentRecoveryRoute =
+  AdminSettingsPaymentRecoveryRouteImport.update({
+    id: '/payment-recovery',
+    path: '/payment-recovery',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsMigrationRoute = AdminSettingsMigrationRouteImport.update({
+  id: '/migration',
+  path: '/migration',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsGeneralRoute = AdminSettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsEmergencyRoute = AdminSettingsEmergencyRouteImport.update({
+  id: '/emergency',
+  path: '/emergency',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
-  id: '/admin/settings/email',
-  path: '/admin/settings/email',
-  getParentRoute: () => rootRouteImport,
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsCredentialsRoute =
+  AdminSettingsCredentialsRouteImport.update({
+    id: '/credentials',
+    path: '/credentials',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsContentRoute = AdminSettingsContentRouteImport.update({
+  id: '/content',
+  path: '/content',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsCommunicationsRoute =
+  AdminSettingsCommunicationsRouteImport.update({
+    id: '/communications',
+    path: '/communications',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsBusinessRulesRoute =
+  AdminSettingsBusinessRulesRouteImport.update({
+    id: '/business-rules',
+    path: '/business-rules',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsBackupRoute = AdminSettingsBackupRouteImport.update({
+  id: '/backup',
+  path: '/backup',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsAutomationsRoute =
+  AdminSettingsAutomationsRouteImport.update({
+    id: '/automations',
+    path: '/automations',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsApiKeysRoute = AdminSettingsApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
+const AdminSettingsActivityRoute = AdminSettingsActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AdminSettingsRoute,
 } as any)
 const AdminMarketingMetaRoute = AdminMarketingMetaRouteImport.update({
   id: '/meta',
@@ -483,6 +610,7 @@ export interface FileRoutesByFullPath {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -509,7 +637,25 @@ export interface FileRoutesByFullPath {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
+  '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
+  '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
+  '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
+  '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
+  '/admin/settings/general': typeof AdminSettingsGeneralRoute
+  '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
+  '/admin/settings/security': typeof AdminSettingsSecurityRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
+  '/admin/settings/support': typeof AdminSettingsSupportRoute
+  '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
+  '/admin/settings/tools-products': typeof AdminSettingsToolsProductsRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -517,6 +663,7 @@ export interface FileRoutesByFullPath {
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/marketing/': typeof AdminMarketingIndexRoute
+  '/admin/settings/': typeof AdminSettingsIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -576,7 +723,25 @@ export interface FileRoutesByTo {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
+  '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
+  '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
+  '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
+  '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
+  '/admin/settings/general': typeof AdminSettingsGeneralRoute
+  '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
+  '/admin/settings/security': typeof AdminSettingsSecurityRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
+  '/admin/settings/support': typeof AdminSettingsSupportRoute
+  '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
+  '/admin/settings/tools-products': typeof AdminSettingsToolsProductsRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -584,6 +749,7 @@ export interface FileRoutesByTo {
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/marketing': typeof AdminMarketingIndexRoute
+  '/admin/settings': typeof AdminSettingsIndexRoute
   '/admin/tools': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -625,6 +791,7 @@ export interface FileRoutesById {
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -651,7 +818,25 @@ export interface FileRoutesById {
   '/admin/marketing/events': typeof AdminMarketingEventsRoute
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
+  '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
+  '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
+  '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
+  '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
+  '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
+  '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
+  '/admin/settings/general': typeof AdminSettingsGeneralRoute
+  '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
+  '/admin/settings/security': typeof AdminSettingsSecurityRoute
+  '/admin/settings/staff': typeof AdminSettingsStaffRoute
+  '/admin/settings/support': typeof AdminSettingsSupportRoute
+  '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
+  '/admin/settings/tools-products': typeof AdminSettingsToolsProductsRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
@@ -659,6 +844,7 @@ export interface FileRoutesById {
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/marketing/': typeof AdminMarketingIndexRoute
+  '/admin/settings/': typeof AdminSettingsIndexRoute
   '/admin/tools/': typeof AdminToolsIndexRoute
   '/admin/blog/$id/edit': typeof AdminBlogIdEditRoute
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -700,6 +886,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -726,7 +913,25 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
+    | '/admin/settings/api-keys'
+    | '/admin/settings/automations'
+    | '/admin/settings/backup'
+    | '/admin/settings/business-rules'
+    | '/admin/settings/communications'
+    | '/admin/settings/content'
+    | '/admin/settings/credentials'
     | '/admin/settings/email'
+    | '/admin/settings/emergency'
+    | '/admin/settings/general'
+    | '/admin/settings/migration'
+    | '/admin/settings/payment-recovery'
+    | '/admin/settings/promotions'
+    | '/admin/settings/security'
+    | '/admin/settings/staff'
+    | '/admin/settings/support'
+    | '/admin/settings/system-health'
+    | '/admin/settings/tools-products'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -734,6 +939,7 @@ export interface FileRouteTypes {
     | '/admin/blog/'
     | '/admin/customers/'
     | '/admin/marketing/'
+    | '/admin/settings/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -793,7 +999,25 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
+    | '/admin/settings/api-keys'
+    | '/admin/settings/automations'
+    | '/admin/settings/backup'
+    | '/admin/settings/business-rules'
+    | '/admin/settings/communications'
+    | '/admin/settings/content'
+    | '/admin/settings/credentials'
     | '/admin/settings/email'
+    | '/admin/settings/emergency'
+    | '/admin/settings/general'
+    | '/admin/settings/migration'
+    | '/admin/settings/payment-recovery'
+    | '/admin/settings/promotions'
+    | '/admin/settings/security'
+    | '/admin/settings/staff'
+    | '/admin/settings/support'
+    | '/admin/settings/system-health'
+    | '/admin/settings/tools-products'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -801,6 +1025,7 @@ export interface FileRouteTypes {
     | '/admin/blog'
     | '/admin/customers'
     | '/admin/marketing'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -841,6 +1066,7 @@ export interface FileRouteTypes {
     | '/admin/orders'
     | '/admin/pricing'
     | '/admin/reviews'
+    | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
     | '/blog/$slug'
@@ -867,7 +1093,25 @@ export interface FileRouteTypes {
     | '/admin/marketing/events'
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
+    | '/admin/settings/activity'
+    | '/admin/settings/api-keys'
+    | '/admin/settings/automations'
+    | '/admin/settings/backup'
+    | '/admin/settings/business-rules'
+    | '/admin/settings/communications'
+    | '/admin/settings/content'
+    | '/admin/settings/credentials'
     | '/admin/settings/email'
+    | '/admin/settings/emergency'
+    | '/admin/settings/general'
+    | '/admin/settings/migration'
+    | '/admin/settings/payment-recovery'
+    | '/admin/settings/promotions'
+    | '/admin/settings/security'
+    | '/admin/settings/staff'
+    | '/admin/settings/support'
+    | '/admin/settings/system-health'
+    | '/admin/settings/tools-products'
     | '/admin/tools/$slug'
     | '/blog/author/$id'
     | '/blog/category/$slug'
@@ -875,6 +1119,7 @@ export interface FileRouteTypes {
     | '/admin/blog/'
     | '/admin/customers/'
     | '/admin/marketing/'
+    | '/admin/settings/'
     | '/admin/tools/'
     | '/admin/blog/$id/edit'
     | '/api/public/hooks/auto-fulfil-private'
@@ -909,10 +1154,10 @@ export interface RootRouteChildren {
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -1074,6 +1319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reviews': {
       id: '/admin/reviews'
       path: '/admin/reviews'
@@ -1214,6 +1466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsIndexRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/': {
+      id: '/admin/settings/'
+      path: '/'
+      fullPath: '/admin/settings/'
+      preLoaderRoute: typeof AdminSettingsIndexRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/marketing/': {
       id: '/admin/marketing/'
       path: '/'
@@ -1263,12 +1522,138 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToolsSlugRouteImport
       parentRoute: typeof AdminToolsRoute
     }
+    '/admin/settings/tools-products': {
+      id: '/admin/settings/tools-products'
+      path: '/tools-products'
+      fullPath: '/admin/settings/tools-products'
+      preLoaderRoute: typeof AdminSettingsToolsProductsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/system-health': {
+      id: '/admin/settings/system-health'
+      path: '/system-health'
+      fullPath: '/admin/settings/system-health'
+      preLoaderRoute: typeof AdminSettingsSystemHealthRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/support': {
+      id: '/admin/settings/support'
+      path: '/support'
+      fullPath: '/admin/settings/support'
+      preLoaderRoute: typeof AdminSettingsSupportRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/staff': {
+      id: '/admin/settings/staff'
+      path: '/staff'
+      fullPath: '/admin/settings/staff'
+      preLoaderRoute: typeof AdminSettingsStaffRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/security': {
+      id: '/admin/settings/security'
+      path: '/security'
+      fullPath: '/admin/settings/security'
+      preLoaderRoute: typeof AdminSettingsSecurityRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/promotions': {
+      id: '/admin/settings/promotions'
+      path: '/promotions'
+      fullPath: '/admin/settings/promotions'
+      preLoaderRoute: typeof AdminSettingsPromotionsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/payment-recovery': {
+      id: '/admin/settings/payment-recovery'
+      path: '/payment-recovery'
+      fullPath: '/admin/settings/payment-recovery'
+      preLoaderRoute: typeof AdminSettingsPaymentRecoveryRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/migration': {
+      id: '/admin/settings/migration'
+      path: '/migration'
+      fullPath: '/admin/settings/migration'
+      preLoaderRoute: typeof AdminSettingsMigrationRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/general': {
+      id: '/admin/settings/general'
+      path: '/general'
+      fullPath: '/admin/settings/general'
+      preLoaderRoute: typeof AdminSettingsGeneralRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/emergency': {
+      id: '/admin/settings/emergency'
+      path: '/emergency'
+      fullPath: '/admin/settings/emergency'
+      preLoaderRoute: typeof AdminSettingsEmergencyRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/email': {
       id: '/admin/settings/email'
-      path: '/admin/settings/email'
+      path: '/email'
       fullPath: '/admin/settings/email'
       preLoaderRoute: typeof AdminSettingsEmailRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/credentials': {
+      id: '/admin/settings/credentials'
+      path: '/credentials'
+      fullPath: '/admin/settings/credentials'
+      preLoaderRoute: typeof AdminSettingsCredentialsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/content': {
+      id: '/admin/settings/content'
+      path: '/content'
+      fullPath: '/admin/settings/content'
+      preLoaderRoute: typeof AdminSettingsContentRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/communications': {
+      id: '/admin/settings/communications'
+      path: '/communications'
+      fullPath: '/admin/settings/communications'
+      preLoaderRoute: typeof AdminSettingsCommunicationsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/business-rules': {
+      id: '/admin/settings/business-rules'
+      path: '/business-rules'
+      fullPath: '/admin/settings/business-rules'
+      preLoaderRoute: typeof AdminSettingsBusinessRulesRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/backup': {
+      id: '/admin/settings/backup'
+      path: '/backup'
+      fullPath: '/admin/settings/backup'
+      preLoaderRoute: typeof AdminSettingsBackupRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/automations': {
+      id: '/admin/settings/automations'
+      path: '/automations'
+      fullPath: '/admin/settings/automations'
+      preLoaderRoute: typeof AdminSettingsAutomationsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/api-keys': {
+      id: '/admin/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/admin/settings/api-keys'
+      preLoaderRoute: typeof AdminSettingsApiKeysRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/activity': {
+      id: '/admin/settings/activity'
+      path: '/activity'
+      fullPath: '/admin/settings/activity'
+      preLoaderRoute: typeof AdminSettingsActivityRouteImport
+      parentRoute: typeof AdminSettingsRoute
     }
     '/admin/marketing/meta': {
       id: '/admin/marketing/meta'
@@ -1557,6 +1942,56 @@ const AdminMarketingRouteWithChildren = AdminMarketingRoute._addFileChildren(
   AdminMarketingRouteChildren,
 )
 
+interface AdminSettingsRouteChildren {
+  AdminSettingsActivityRoute: typeof AdminSettingsActivityRoute
+  AdminSettingsApiKeysRoute: typeof AdminSettingsApiKeysRoute
+  AdminSettingsAutomationsRoute: typeof AdminSettingsAutomationsRoute
+  AdminSettingsBackupRoute: typeof AdminSettingsBackupRoute
+  AdminSettingsBusinessRulesRoute: typeof AdminSettingsBusinessRulesRoute
+  AdminSettingsCommunicationsRoute: typeof AdminSettingsCommunicationsRoute
+  AdminSettingsContentRoute: typeof AdminSettingsContentRoute
+  AdminSettingsCredentialsRoute: typeof AdminSettingsCredentialsRoute
+  AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
+  AdminSettingsEmergencyRoute: typeof AdminSettingsEmergencyRoute
+  AdminSettingsGeneralRoute: typeof AdminSettingsGeneralRoute
+  AdminSettingsMigrationRoute: typeof AdminSettingsMigrationRoute
+  AdminSettingsPaymentRecoveryRoute: typeof AdminSettingsPaymentRecoveryRoute
+  AdminSettingsPromotionsRoute: typeof AdminSettingsPromotionsRoute
+  AdminSettingsSecurityRoute: typeof AdminSettingsSecurityRoute
+  AdminSettingsStaffRoute: typeof AdminSettingsStaffRoute
+  AdminSettingsSupportRoute: typeof AdminSettingsSupportRoute
+  AdminSettingsSystemHealthRoute: typeof AdminSettingsSystemHealthRoute
+  AdminSettingsToolsProductsRoute: typeof AdminSettingsToolsProductsRoute
+  AdminSettingsIndexRoute: typeof AdminSettingsIndexRoute
+}
+
+const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
+  AdminSettingsActivityRoute: AdminSettingsActivityRoute,
+  AdminSettingsApiKeysRoute: AdminSettingsApiKeysRoute,
+  AdminSettingsAutomationsRoute: AdminSettingsAutomationsRoute,
+  AdminSettingsBackupRoute: AdminSettingsBackupRoute,
+  AdminSettingsBusinessRulesRoute: AdminSettingsBusinessRulesRoute,
+  AdminSettingsCommunicationsRoute: AdminSettingsCommunicationsRoute,
+  AdminSettingsContentRoute: AdminSettingsContentRoute,
+  AdminSettingsCredentialsRoute: AdminSettingsCredentialsRoute,
+  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
+  AdminSettingsEmergencyRoute: AdminSettingsEmergencyRoute,
+  AdminSettingsGeneralRoute: AdminSettingsGeneralRoute,
+  AdminSettingsMigrationRoute: AdminSettingsMigrationRoute,
+  AdminSettingsPaymentRecoveryRoute: AdminSettingsPaymentRecoveryRoute,
+  AdminSettingsPromotionsRoute: AdminSettingsPromotionsRoute,
+  AdminSettingsSecurityRoute: AdminSettingsSecurityRoute,
+  AdminSettingsStaffRoute: AdminSettingsStaffRoute,
+  AdminSettingsSupportRoute: AdminSettingsSupportRoute,
+  AdminSettingsSystemHealthRoute: AdminSettingsSystemHealthRoute,
+  AdminSettingsToolsProductsRoute: AdminSettingsToolsProductsRoute,
+  AdminSettingsIndexRoute: AdminSettingsIndexRoute,
+}
+
+const AdminSettingsRouteWithChildren = AdminSettingsRoute._addFileChildren(
+  AdminSettingsRouteChildren,
+)
+
 interface AdminToolsRouteChildren {
   AdminToolsSlugRoute: typeof AdminToolsSlugRoute
   AdminToolsIndexRoute: typeof AdminToolsIndexRoute
@@ -1598,10 +2033,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminReviewsRoute: AdminReviewsRoute,
+  AdminSettingsRoute: AdminSettingsRouteWithChildren,
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
@@ -1609,13 +2044,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
