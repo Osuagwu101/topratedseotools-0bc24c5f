@@ -145,8 +145,7 @@ function AdminAdminsPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            If the email already has an account, that user gains admin access. Otherwise a
-            Supabase invitation is sent so they can set a password.
+            Use an email that is not registered as a customer. Existing customer accounts cannot be reused for Admin access.
           </p>
         </form>
 

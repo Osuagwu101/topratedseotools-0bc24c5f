@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_accounts: {
+        Row: {
+          account_email: string
+          created_at: string
+          email: string | null
+          full_name: string | null
+          invited_by: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_email: string
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          invited_by?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_email?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          invited_by?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_generator_settings: {
         Row: {
           brand_description: string

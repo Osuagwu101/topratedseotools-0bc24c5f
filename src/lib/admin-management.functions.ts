@@ -9,6 +9,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export const CUSTOMER_EMAIL_ADMIN_REJECTION =
+  "This email is already registered as a customer. Please use a different email address for the Admin account.";
+
+export function normalizeAdminEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function assertEmailCanBecomeNewAdmin(existingCustomer: unknown) {
+  if (existingCustomer) throw new Error(CUSTOMER_EMAIL_ADMIN_REJECTION);
+}
+
 async function assertSuperAdmin(userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
@@ -45,32 +56,32 @@ export const listAdmins = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertSuperAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: roles, error } = await supabaseAdmin
-      .from("user_roles")
-      .select("id, user_id, role, is_active, is_super_admin, created_at")
-      .eq("role", "admin")
+    const { data: accounts, error: accountError } = await supabaseAdmin
+      .from("admin_accounts")
+      .select("user_id, account_email, full_name, created_at")
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (accountError) throw new Error(accountError.message);
 
-    const ids = (roles ?? []).map((r) => r.user_id);
-    let profiles: Record<string, { email: string | null; full_name: string | null }> = {};
+    const ids = (accounts ?? []).map((r) => r.user_id);
+    let roles: Record<string, { id: string; is_active?: boolean; is_super_admin?: boolean; created_at?: string }> = {};
     if (ids.length) {
       const { data: rows } = await supabaseAdmin
-        .from("profiles")
-        .select("id, email, full_name")
-        .in("id", ids);
-      profiles = Object.fromEntries((rows ?? []).map((p) => [p.id, { email: p.email, full_name: p.full_name }]));
+        .from("user_roles")
+        .select("id, user_id, is_active, is_super_admin, created_at")
+        .eq("role", "admin")
+        .in("user_id", ids);
+      roles = Object.fromEntries((rows ?? []).map((r) => [r.user_id, r]));
     }
 
     return {
-      admins: (roles ?? []).map((r) => ({
-        id: r.id,
-        userId: r.user_id,
-        email: profiles[r.user_id]?.email ?? null,
-        fullName: profiles[r.user_id]?.full_name ?? null,
-        isActive: (r as { is_active?: boolean }).is_active !== false,
-        isSuperAdmin: !!(r as { is_super_admin?: boolean }).is_super_admin,
-        createdAt: r.created_at,
+      admins: (accounts ?? []).map((account) => ({
+        id: roles[account.user_id]?.id ?? account.user_id,
+        userId: account.user_id,
+        email: account.account_email,
+        fullName: account.full_name,
+        isActive: !!roles[account.user_id] && roles[account.user_id].is_active !== false,
+        isSuperAdmin: !!roles[account.user_id]?.is_super_admin,
+        createdAt: roles[account.user_id]?.created_at ?? account.created_at,
       })),
     };
   });
@@ -80,7 +91,7 @@ export const createAdmin = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
-        email: z.string().email().transform((v) => v.trim().toLowerCase()),
+        email: z.string().email().transform(normalizeAdminEmail),
         fullName: z.string().trim().max(120).optional(),
       })
       .parse(input),
@@ -89,48 +100,79 @@ export const createAdmin = createServerFn({ method: "POST" })
     await assertSuperAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Find or invite the target auth user
-    let targetUserId: string | null = null;
-    const { data: existing } = await supabaseAdmin
+    const { data: existingAdmin, error: existingAdminError } = await supabaseAdmin
+      .from("admin_accounts")
+      .select("user_id")
+      .eq("account_email", data.email)
+      .maybeSingle();
+    if (existingAdminError) throw new Error(existingAdminError.message);
+
+    if (existingAdmin) {
+      const { data: roleRow, error: roleLookupError } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", existingAdmin.user_id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleLookupError) throw new Error(roleLookupError.message);
+
+      if (roleRow) {
+        const { error } = await supabaseAdmin
+          .from("user_roles")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .update({ is_active: true } as any)
+          .eq("id", roleRow.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabaseAdmin
+          .from("user_roles")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert({ user_id: existingAdmin.user_id, role: "admin", is_active: true, is_super_admin: false } as any);
+        if (error) throw new Error(error.message);
+      }
+
+      const { error: accountError } = await supabaseAdmin
+        .from("admin_accounts")
+        .update({ full_name: data.fullName ?? null } as any)
+        .eq("user_id", existingAdmin.user_id);
+      if (accountError) throw new Error(accountError.message);
+
+      return { ok: true, userId: existingAdmin.user_id };
+    }
+
+    const { data: existingCustomer, error: existingCustomerError } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("email", data.email)
       .maybeSingle();
-    if (existing) {
-      targetUserId = existing.id;
-    } else {
-      const { data: invited, error: inviteErr } =
-        await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
-          data: data.fullName ? { full_name: data.fullName } : undefined,
-        });
-      if (inviteErr || !invited.user) {
-        throw new Error(inviteErr?.message ?? "Could not invite admin");
-      }
-      targetUserId = invited.user.id;
-    }
+    if (existingCustomerError) throw new Error(existingCustomerError.message);
+    assertEmailCanBecomeNewAdmin(existingCustomer);
 
-    // Insert / re-activate the admin role row
-    const { data: roleRow } = await supabaseAdmin
+    const { data: invited, error: inviteErr } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+        data: data.fullName ? { full_name: data.fullName } : undefined,
+      });
+    if (inviteErr || !invited.user) {
+      throw new Error(inviteErr?.message ?? "Could not invite admin");
+    }
+    const targetUserId = invited.user.id;
+
+    const { error: accountError } = await supabaseAdmin
+      .from("admin_accounts")
+      .insert({
+        user_id: targetUserId,
+        account_email: data.email,
+        email: data.email,
+        full_name: data.fullName ?? null,
+        invited_by: context.userId,
+      });
+    if (accountError) throw new Error(accountError.message);
+
+    const { error } = await supabaseAdmin
       .from("user_roles")
-      .select("id")
-      .eq("user_id", targetUserId)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (roleRow) {
-      const { error } = await supabaseAdmin
-        .from("user_roles")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ is_active: true } as any)
-        .eq("id", roleRow.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin
-        .from("user_roles")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert({ user_id: targetUserId, role: "admin", is_active: true, is_super_admin: false } as any);
-      if (error) throw new Error(error.message);
-    }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert({ user_id: targetUserId, role: "admin", is_active: true, is_super_admin: false } as any);
+    if (error) throw new Error(error.message);
 
     return { ok: true, userId: targetUserId };
   });
@@ -147,12 +189,12 @@ export const setAdminActive = createServerFn({ method: "POST" })
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
-      .from("user_roles")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("user_roles")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .update({ is_active: data.isActive } as any)
       .eq("user_id", data.userId)
-      .eq("role", "admin");
-    if (error) throw new Error(error.message);
+        .eq("role", "admin");
+      if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -162,7 +204,13 @@ export const resendAdminInvite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
+    const { data: account } = await supabaseAdmin
+      .from("admin_accounts")
+      .select("account_email")
+      .eq("account_email", normalizeAdminEmail(data.email))
+      .maybeSingle();
+    if (!account) throw new Error("Admin account not found.");
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(account.account_email);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

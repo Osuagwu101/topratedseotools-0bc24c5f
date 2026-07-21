@@ -6,6 +6,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { APP_NAME } from "@/lib/site-config";
+import { getIsAdmin } from "@/lib/site-settings.functions";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -38,6 +39,11 @@ function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
+    const { isAdmin } = await getIsAdmin();
+    if (isAdmin) {
+      await supabase.auth.signOut();
+      return toast.error("Admin accounts must sign in from the Admin login page.");
+    }
     toast.success("Welcome back!");
     navigate({ to: dest });
   }
