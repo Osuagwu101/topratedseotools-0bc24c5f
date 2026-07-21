@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_alert_log: {
+        Row: {
+          alert_key: string
+          alert_type: string
+          id: string
+          recipient: string
+          resolved_at: string | null
+          sent_at: string
+          subject: string
+        }
+        Insert: {
+          alert_key: string
+          alert_type: string
+          id?: string
+          recipient: string
+          resolved_at?: string | null
+          sent_at?: string
+          subject: string
+        }
+        Update: {
+          alert_key?: string
+          alert_type?: string
+          id?: string
+          recipient?: string
+          resolved_at?: string | null
+          sent_at?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       ai_generator_settings: {
         Row: {
           brand_description: string
@@ -1156,6 +1186,10 @@ export type Database = {
         Row: {
           active_theme: string
           admin_whatsapp_number: string | null
+          alert_almost_full_pct: number
+          alert_email_recipients: string[]
+          alert_emails_enabled: boolean
+          alert_expiry_days: number
           id: boolean
           marketing_pause: boolean
           updated_at: string
@@ -1164,6 +1198,10 @@ export type Database = {
         Insert: {
           active_theme?: string
           admin_whatsapp_number?: string | null
+          alert_almost_full_pct?: number
+          alert_email_recipients?: string[]
+          alert_emails_enabled?: boolean
+          alert_expiry_days?: number
           id?: boolean
           marketing_pause?: boolean
           updated_at?: string
@@ -1172,6 +1210,10 @@ export type Database = {
         Update: {
           active_theme?: string
           admin_whatsapp_number?: string | null
+          alert_almost_full_pct?: number
+          alert_email_recipients?: string[]
+          alert_emails_enabled?: boolean
+          alert_expiry_days?: number
           id?: boolean
           marketing_pause?: boolean
           updated_at?: string

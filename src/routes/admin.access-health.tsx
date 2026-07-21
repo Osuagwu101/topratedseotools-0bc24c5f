@@ -1,21 +1,33 @@
 /**
  * /admin/access-health — cross-tool health center.
  *
- * Lists every account across every tool with utilisation, health, and
- * expiry flags. Highlights: full pools, needs-review, unhealthy status,
- * and expiring credentials.
+ * Lists every login account across every tool with utilisation, health,
+ * expiry and review flags. Surfaces the alert queue and links straight
+ * to the tool page for reassignment.
  */
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { adminListAllAccounts } from "@/lib/account-pool.functions";
-import { AlertTriangle, Activity, ShieldCheck, Users2 } from "lucide-react";
+import {
+  getAccessHealthOverview,
+  setAlertSettings,
+  bulkReassignFromAccount,
+  assignAwaitingCustomer,
+  dispatchAdminAlertEmails,
+} from "@/lib/access-health.functions";
+import { adminRecordHealthCheck } from "@/lib/account-pool.functions";
+import type { HealthStatus } from "@/lib/access-health";
+import {
+  AlertTriangle, Activity, ShieldCheck, Users2, Bell, Mail, Settings2, ArrowRightLeft, Stethoscope, Clock,
+} from "lucide-react";
 
-const allAccountsQuery = queryOptions({
-  queryKey: ["all-accounts"],
-  queryFn: () => adminListAllAccounts(),
+const overviewQuery = queryOptions({
+  queryKey: ["access-health-overview"],
+  queryFn: () => getAccessHealthOverview(),
 });
 
 export const Route = createFileRoute("/admin/access-health")({
@@ -28,124 +40,223 @@ export const Route = createFileRoute("/admin/access-health")({
     ],
   }),
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(allAccountsQuery);
+    await context.queryClient.ensureQueryData(overviewQuery);
   },
   component: AccessHealthPage,
 });
 
+const HEALTH_LABELS: Record<HealthStatus, string> = {
+  available: "Available",
+  almost_full: "Almost Full",
+  full: "Full",
+  under_maintenance: "Under Maintenance",
+  login_problem: "Login Problem",
+  expired: "Expired",
+  suspended: "Suspended",
+  disabled: "Disabled",
+};
+
+function healthTone(h: HealthStatus): string {
+  switch (h) {
+    case "available": return "text-success";
+    case "almost_full": return "text-amber-600";
+    case "full": case "expired": case "suspended": case "login_problem": return "text-destructive";
+    case "under_maintenance": return "text-amber-600";
+    case "disabled": return "text-muted-foreground";
+  }
+}
+
 function AccessHealthPage() {
-  const { data } = useSuspenseQuery(allAccountsQuery);
-  const [filter, setFilter] = useState<"all" | "full" | "review" | "unhealthy" | "expiring">("all");
+  const qc = useQueryClient();
+  const { data } = useSuspenseQuery(overviewQuery);
+  const [toolFilter, setToolFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "shared" | "private">("all");
+  const [healthFilter, setHealthFilter] = useState<"all" | HealthStatus>("all");
+  const [capacityFilter, setCapacityFilter] = useState<"all" | "full" | "available" | "expiring" | "review">("all");
+  const [showSettings, setShowSettings] = useState(false);
+  const [healthCheckFor, setHealthCheckFor] = useState<string | null>(null);
+  const [bulkFor, setBulkFor] = useState<string | null>(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["access-health-overview"] });
+
+  const tools = useMemo(() => Array.from(new Set(data.accounts.map((a) => a.tool_slug))).sort(), [data.accounts]);
 
   const now = Date.now();
-  const soon = now + 7 * 86400_000;
-
-  const flagged = useMemo(() => {
-    return data.accounts.map((a) => {
-      const expIso = a.expires_at;
-      const expTs = expIso ? new Date(expIso).getTime() : null;
-      const expiring = expTs !== null && expTs > now && expTs < soon;
-      const full = a.available <= 0;
-      const unhealthy = a.status !== "working";
-      const review = a.needs_capacity_review;
-      return { ...a, _flags: { full, review, unhealthy, expiring, expired: expTs !== null && expTs <= now } };
-    });
-  }, [data.accounts, now, soon]);
-
-  const shown = flagged.filter((a) => {
-    if (filter === "all") return true;
-    if (filter === "full") return a._flags.full;
-    if (filter === "review") return a._flags.review;
-    if (filter === "unhealthy") return a._flags.unhealthy;
-    if (filter === "expiring") return a._flags.expiring || a._flags.expired;
+  const soon = now + data.settings.expiryDays * 86400_000;
+  const filtered = data.accounts.filter((a) => {
+    if (toolFilter !== "all" && a.tool_slug !== toolFilter) return false;
+    if (typeFilter !== "all" && (a as any).access_type !== typeFilter) return false;
+    if (healthFilter !== "all" && a.health !== healthFilter) return false;
+    if (capacityFilter === "full" && a.available > 0) return false;
+    if (capacityFilter === "available" && a.available === 0) return false;
+    if (capacityFilter === "expiring") {
+      const t = a.expires_at ? new Date(a.expires_at).getTime() : null;
+      if (t === null || t > soon || t <= now) return false;
+    }
+    if (capacityFilter === "review" && !a.needs_capacity_review) return false;
     return true;
   });
 
-  const stats = {
-    total: flagged.length,
-    full: flagged.filter((a) => a._flags.full).length,
-    review: flagged.filter((a) => a._flags.review).length,
-    unhealthy: flagged.filter((a) => a._flags.unhealthy).length,
-    expiring: flagged.filter((a) => a._flags.expiring || a._flags.expired).length,
-  };
+  const dispatchAlerts = useServerFn(dispatchAdminAlertEmails);
 
   return (
     <AdminShell>
-      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Access Health</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cross-tool account pool status. Fix full pools, review flagged capacities, and rotate unhealthy accounts.
-        </p>
-
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <Kpi label="Accounts" value={stats.total} icon={ShieldCheck} tone="default" onClick={() => setFilter("all")} active={filter === "all"} />
-          <Kpi label="Full pools" value={stats.full} icon={Users2} tone="destructive" onClick={() => setFilter("full")} active={filter === "full"} />
-          <Kpi label="Needs review" value={stats.review} icon={AlertTriangle} tone="warning" onClick={() => setFilter("review")} active={filter === "review"} />
-          <Kpi label="Unhealthy" value={stats.unhealthy} icon={Activity} tone="destructive" onClick={() => setFilter("unhealthy")} active={filter === "unhealthy"} />
-          <Kpi label="Expiring 7d" value={stats.expiring} icon={AlertTriangle} tone="warning" onClick={() => setFilter("expiring")} active={filter === "expiring"} />
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Access Health</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Monitor every login account, resolve alerts, and reassign customers safely.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/awaiting-assignments" className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted">
+              <Clock className="h-4 w-4" /> Awaiting assignment
+            </Link>
+            <button
+              onClick={async () => {
+                const r = await dispatchAlerts().catch((e) => ({ sent: 0, error: String(e) } as any));
+                if ((r as any).skipped === "emails_disabled") toast.info("Alert emails are disabled.");
+                else toast.success(`Queued ${r.sent ?? 0} admin alert email(s).`);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
+            >
+              <Mail className="h-4 w-4" /> Send alerts
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
+            >
+              <Settings2 className="h-4 w-4" /> Alert settings
+            </button>
+          </div>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-2xl border bg-card shadow-card">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <Kpi label="Accounts" value={data.accounts.length} icon={ShieldCheck} tone="default" />
+          <Kpi label="Alerts" value={data.alertCounts.total} icon={Bell} tone={data.alertCounts.critical ? "destructive" : "warning"} />
+          <Kpi label="Full" value={data.accounts.filter((a) => a.health === "full").length} icon={Users2} tone="destructive" />
+          <Kpi label="Unhealthy" value={data.accounts.filter((a) => ["under_maintenance","login_problem","expired","suspended"].includes(a.health)).length} icon={Activity} tone="destructive" />
+          <Kpi label="Awaiting" value={data.awaiting.length} icon={Clock} tone="warning" />
+        </div>
+
+        {data.alerts.length > 0 && (
+          <div className="mt-6 rounded-2xl border bg-card p-4 shadow-card">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Bell className="h-4 w-4" /> Alerts ({data.alerts.length})
+            </h2>
+            <ul className="space-y-2">
+              {data.alerts.slice(0, 20).map((a) => (
+                <li key={a.key} className="flex items-start justify-between gap-3 rounded-lg border p-2 text-sm">
+                  <div className="min-w-0">
+                    <div className={`font-medium ${a.level === "critical" ? "text-destructive" : a.level === "warning" ? "text-amber-600" : ""}`}>
+                      {a.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{a.message}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {a.account_id && (
+                      <button
+                        onClick={() => setBulkFor(a.account_id!)}
+                        className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                      >
+                        Reassign customers
+                      </button>
+                    )}
+                    <Link
+                      to="/admin/tools/$slug"
+                      params={{ slug: a.tool_slug }}
+                      className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                    >
+                      Open tool
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+          <select value={toolFilter} onChange={(e) => setToolFilter(e.target.value)} className="rounded-lg border bg-background px-2 py-1.5">
+            <option value="all">All tools</option>
+            {tools.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="rounded-lg border bg-background px-2 py-1.5">
+            <option value="all">Shared + Private</option>
+            <option value="shared">Shared</option>
+            <option value="private">Private</option>
+          </select>
+          <select value={healthFilter} onChange={(e) => setHealthFilter(e.target.value as any)} className="rounded-lg border bg-background px-2 py-1.5">
+            <option value="all">Any health</option>
+            {Object.entries(HEALTH_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select value={capacityFilter} onChange={(e) => setCapacityFilter(e.target.value as any)} className="rounded-lg border bg-background px-2 py-1.5">
+            <option value="all">All capacity</option>
+            <option value="available">Has space</option>
+            <option value="full">Full</option>
+            <option value="expiring">Expiring soon</option>
+            <option value="review">Needs review</option>
+          </select>
+        </div>
+
+        <div className="mt-4 overflow-x-auto rounded-2xl border bg-card shadow-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Tool</th>
                 <th className="px-3 py-2 text-left">Label</th>
                 <th className="px-3 py-2 text-left">Type</th>
-                <th className="px-3 py-2 text-left">Usage</th>
-                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Cap</th>
+                <th className="px-3 py-2 text-left">Active</th>
+                <th className="px-3 py-2 text-left">Free</th>
+                <th className="px-3 py-2 text-left">Fill %</th>
                 <th className="px-3 py-2 text-left">Expires</th>
-                <th className="px-3 py-2 text-left">Flags</th>
+                <th className="px-3 py-2 text-left">Health</th>
+                <th className="px-3 py-2 text-left">Last check</th>
+                <th className="px-3 py-2 text-left">Customers affected</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {shown.map((a) => (
+              {filtered.map((a) => (
                 <tr key={a.id} className="border-b last:border-0">
                   <td className="px-3 py-2 font-medium">{a.tool_slug}</td>
-                  <td className="px-3 py-2">{a.label}</td>
-                  <td className="px-3 py-2 capitalize">{a.access_type}</td>
-                  <td className="px-3 py-2">
-                    {a.active_count}/{a.max_capacity}
-                    <div className="mt-1 h-1 w-24 rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${a.fill_pct >= 100 ? "bg-destructive" : a.fill_pct >= 80 ? "bg-amber-500" : "bg-primary"}`}
-                        style={{ width: `${Math.min(100, a.fill_pct)}%` }}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={a.status === "working" ? "text-success" : "text-destructive"}>
-                      {a.status.replace(/_/g, " ")}
-                    </span>
-                  </td>
+                  <td className="px-3 py-2">{(a as any).label}</td>
+                  <td className="px-3 py-2 capitalize">{(a as any).access_type}</td>
+                  <td className="px-3 py-2">{a.max_capacity}</td>
+                  <td className="px-3 py-2">{a.active_count}</td>
+                  <td className="px-3 py-2">{a.available}</td>
+                  <td className="px-3 py-2">{a.fill_pct}%</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {a.expires_at ? new Date(a.expires_at).toLocaleDateString() : "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {a._flags.full && <Chip color="destructive">Full</Chip>}
-                      {a._flags.review && <Chip color="warning">Review</Chip>}
-                      {a._flags.unhealthy && <Chip color="destructive">Unhealthy</Chip>}
-                      {a._flags.expiring && <Chip color="warning">Expiring</Chip>}
-                      {a._flags.expired && <Chip color="destructive">Expired</Chip>}
-                      {!a.enabled && <Chip color="muted">Disabled</Chip>}
-                    </div>
+                    <span className={healthTone(a.health)}>{HEALTH_LABELS[a.health]}</span>
                   </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {(a as any).last_health_check_at ? new Date((a as any).last_health_check_at).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-3 py-2">{a.active_count}</td>
                   <td className="px-3 py-2 text-right">
-                    <Link
-                      to="/admin/tools/$slug"
-                      params={{ slug: a.tool_slug }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Manage →
-                    </Link>
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => setHealthCheckFor(a.id)} className="rounded-md border px-2 py-1 text-xs hover:bg-muted" title="Record health check">
+                        <Stethoscope className="h-3.5 w-3.5" />
+                      </button>
+                      {a.active_count > 0 && (
+                        <button onClick={() => setBulkFor(a.id)} className="rounded-md border px-2 py-1 text-xs hover:bg-muted" title="Bulk reassign">
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <Link to="/admin/tools/$slug" params={{ slug: a.tool_slug }} className="rounded-md border px-2 py-1 text-xs hover:bg-muted">
+                        Manage
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {shown.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={12} className="px-3 py-8 text-center text-sm text-muted-foreground">
                     Nothing to show for this filter.
                   </td>
                 </tr>
@@ -154,37 +265,144 @@ function AccessHealthPage() {
           </table>
         </div>
       </section>
+
+      {healthCheckFor && (
+        <HealthCheckDialog accountId={healthCheckFor} onClose={() => { setHealthCheckFor(null); refresh(); }} />
+      )}
+      {bulkFor && (
+        <BulkReassignDialog accountId={bulkFor} onClose={() => { setBulkFor(null); refresh(); }} />
+      )}
+      {showSettings && (
+        <AlertSettingsDialog
+          initial={data.settings}
+          onClose={() => { setShowSettings(false); refresh(); }}
+        />
+      )}
     </AdminShell>
   );
 }
 
-function Kpi({
-  label, value, icon: Icon, tone, onClick, active,
-}: {
-  label: string; value: number; icon: any; tone: "default" | "warning" | "destructive"; onClick: () => void; active?: boolean;
-}) {
-  const toneCls =
-    tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-amber-600" : "text-primary";
+function Kpi({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: "default" | "warning" | "destructive"; }) {
+  const toneCls = tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-amber-600" : "text-primary";
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-xl border p-3 text-left transition ${active ? "border-primary bg-primary/5" : "hover:bg-muted"}`}
-    >
+    <div className="rounded-xl border p-3">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</span>
         <Icon className={`h-3.5 w-3.5 ${toneCls}`} />
       </div>
       <div className={`mt-1 text-xl font-semibold ${toneCls}`}>{value}</div>
-    </button>
+    </div>
   );
 }
 
-function Chip({ color, children }: { color: "destructive" | "warning" | "muted"; children: React.ReactNode }) {
-  const cls =
-    color === "destructive"
-      ? "bg-destructive/10 text-destructive"
-      : color === "warning"
-        ? "bg-amber-500/15 text-amber-600"
-        : "bg-muted text-muted-foreground";
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${cls}`}>{children}</span>;
+function HealthCheckDialog({ accountId, onClose }: { accountId: string; onClose: () => void }) {
+  const [result, setResult] = useState<"working" | "login_failed" | "password_changed" | "suspended" | "expired" | "tool_unavailable" | "other">("working");
+  const [note, setNote] = useState("");
+  const record = useServerFn(adminRecordHealthCheck);
+  return (
+    <ModalShell title="Record health check" onClose={onClose}>
+      <label className="text-sm">Result</label>
+      <select value={result} onChange={(e) => setResult(e.target.value as any)} className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm">
+        <option value="working">Working</option>
+        <option value="login_failed">Login failed</option>
+        <option value="password_changed">Password changed</option>
+        <option value="suspended">Account suspended</option>
+        <option value="expired">Account expired</option>
+        <option value="tool_unavailable">Tool temporarily unavailable</option>
+        <option value="other">Other issue</option>
+      </select>
+      <label className="mt-3 block text-sm">Note (optional)</label>
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="mt-1 w-full rounded-md border bg-background p-2 text-sm" />
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm">Cancel</button>
+        <button
+          onClick={async () => {
+            await record({ data: { account_id: accountId, result, note: note.trim() || undefined } });
+            toast.success("Health check recorded.");
+            onClose();
+          }}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+        >Save</button>
+      </div>
+    </ModalShell>
+  );
 }
+
+function BulkReassignDialog({ accountId, onClose }: { accountId: string; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const run = useServerFn(bulkReassignFromAccount);
+  return (
+    <ModalShell title="Reassign affected customers" onClose={onClose}>
+      <p className="text-sm text-muted-foreground">
+        Moves every active customer on this account to the highest-availability compatible account. Customers that don't fit stay awaiting assignment — none are overfilled.
+      </p>
+      <label className="mt-3 block text-sm">Reason (optional)</label>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1 w-full rounded-md border bg-background p-2 text-sm" />
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm">Cancel</button>
+        <button
+          onClick={async () => {
+            try {
+              const r = await run({ data: { account_id: accountId, reason: reason.trim() || undefined } });
+              toast.success(`Moved ${r.moved}. Still awaiting: ${r.still_awaiting}.`);
+              onClose();
+            } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+          }}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+        >Reassign</button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function AlertSettingsDialog({ initial, onClose }: { initial: any; onClose: () => void }) {
+  const [pct, setPct] = useState<number>(initial.almostFullPct);
+  const [days, setDays] = useState<number>(initial.expiryDays);
+  const [enabled, setEnabled] = useState<boolean>(initial.emailsEnabled);
+  const [rcpts, setRcpts] = useState<string>((initial.emailRecipients ?? []).join(", "));
+  const save = useServerFn(setAlertSettings);
+  return (
+    <ModalShell title="Alert settings" onClose={onClose}>
+      <label className="text-sm">Almost-full warning (%)</label>
+      <input type="number" min={10} max={100} value={pct} onChange={(e) => setPct(parseInt(e.target.value) || 0)} className="mt-1 w-full rounded-md border bg-background p-2 text-sm" />
+      <label className="mt-3 block text-sm">Expiry warning (days)</label>
+      <input type="number" min={1} max={60} value={days} onChange={(e) => setDays(parseInt(e.target.value) || 0)} className="mt-1 w-full rounded-md border bg-background p-2 text-sm" />
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        Enable Admin email alerts (deduplicated per open issue)
+      </label>
+      <label className="mt-3 block text-sm">Recipients (comma-separated emails)</label>
+      <input value={rcpts} onChange={(e) => setRcpts(e.target.value)} className="mt-1 w-full rounded-md border bg-background p-2 text-sm" />
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm">Cancel</button>
+        <button
+          onClick={async () => {
+            const emails = rcpts.split(",").map((s) => s.trim()).filter(Boolean);
+            try {
+              await save({ data: { almostFullPct: pct, expiryDays: days, emailsEnabled: enabled, emailRecipients: emails } });
+              toast.success("Alert settings saved.");
+              onClose();
+            } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+          }}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+        >Save</button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border bg-card p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-sm text-muted-foreground">✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export { assignAwaitingCustomer };
