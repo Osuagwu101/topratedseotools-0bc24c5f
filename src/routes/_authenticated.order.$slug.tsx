@@ -64,19 +64,28 @@ function OrderPage() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const setting = settings.settings.find((s) => s.tool_slug === slug);
-  const sharedAllowed = setting?.shared_access_enabled ?? true;
-  const privateAllowed = setting?.private_access_enabled ?? true;
+  const sharedAllowed =
+    (setting?.shared_access_enabled ?? true) &&
+    (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
+  const privateAllowed =
+    (setting?.private_access_enabled ?? true) &&
+    (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
   const router = useRouter();
-  const options = pricing.options.filter((o) => {
-    if (o.tool_slug !== slug) return false;
-    if (!o.enabled || o.contact_admin) return false;
-    const access = (o.access_type as AccessType) ?? "shared";
-    if (access === "shared" && !sharedAllowed) return false;
-    if (access === "private" && !privateAllowed) return false;
-    return true;
-  });
+  // Turnitin (and any future per-use tool) has no subscription checkout —
+  // block any old/direct link from opening the subscription flow.
+  const perUseBlocked = tool?.pricingModel === "per_use";
+  const options = perUseBlocked
+    ? []
+    : pricing.options.filter((o) => {
+        if (o.tool_slug !== slug) return false;
+        if (!o.enabled || o.contact_admin) return false;
+        const access = (o.access_type as AccessType) ?? "shared";
+        if (access === "shared" && !sharedAllowed) return false;
+        if (access === "private" && !privateAllowed) return false;
+        return true;
+      });
 
   const initialId =
     (preselected && options.find((o) => o.id === preselected)?.id) ??
