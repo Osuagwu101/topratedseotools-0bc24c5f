@@ -180,6 +180,9 @@ function PricingPage() {
           {filtered.map((g) => {
             const tool = getTool(g.slug);
             if (!tool) return null;
+            if (tool.pricingModel === "per_use") {
+              return <PerUseCard key={g.slug} tool={tool} />;
+            }
             return <ToolPricingCard key={g.slug} group={g} tool={tool} />;
           })}
         </div>
