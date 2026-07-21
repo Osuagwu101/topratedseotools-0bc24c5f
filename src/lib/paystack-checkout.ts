@@ -180,6 +180,9 @@ export async function validateAndBuildOrderSnapshot(
     period === "monthly" ? 28 : period === "quarterly" ? 90 : 365;
   const durationDays = Number(opt.duration_days ?? durationFallback) || durationFallback;
 
+  const paymentType: PaymentType =
+    input.payment_type === "one_time" ? "one_time" : "recurring_subscription";
+
   return {
     user_id: input.userId,
     tool_slug: input.tool_slug,
@@ -192,7 +195,7 @@ export async function validateAndBuildOrderSnapshot(
     duration_days: durationDays,
     grace_days: Number(opt.grace_days ?? 0),
     warning_days: Number(opt.warning_days ?? 0),
-    payment_type: "recurring_subscription",
+    payment_type: paymentType,
     product_type: "subscription",
     paystack_environment: env,
   };
