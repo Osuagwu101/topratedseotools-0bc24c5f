@@ -90,6 +90,10 @@ const createInput = z.object({
   fullName: z.string().trim().min(1).max(120),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  temporaryPassword: z
+    .string()
+    .min(8, "Temporary password must be at least 8 characters.")
+    .max(200),
 });
 
 export const adminCreateCustomer = createServerFn({ method: "POST" })
@@ -100,7 +104,7 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await assertNotAdminEmail(supabaseAdmin, data.email);
 
-    // Existing customer? open it instead.
+    // Existing customer? open it instead — never reset the password automatically.
     const { data: existing } = await supabaseAdmin
       .from("profiles")
       .select("id, email, full_name")
@@ -109,29 +113,40 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
 
     let userId: string;
     let existed = false;
-    let invited = false;
+    let created = false;
 
     if (existing) {
       userId = existing.id as string;
       existed = true;
     } else {
-      const { data: created, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        data.email,
-        { data: { full_name: data.fullName } },
-      );
-      if (error || !created.user) {
-        throw new Error(error?.message ?? "Could not send customer invitation.");
+      // Create the auth user directly with the temporary password, email already
+      // confirmed so the customer can sign in immediately — no invitation email,
+      // no email-confirmation requirement.
+      const { data: createdRes, error } = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password: data.temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: data.fullName,
+          must_change_password: true,
+          created_by_admin: true,
+        },
+      });
+      if (error || !createdRes.user) {
+        throw new Error(error?.message ?? "Could not create customer account.");
       }
-      userId = created.user.id;
-      invited = true;
-      // handle_new_user trigger creates the profile row; nudge full_name in case
+      userId = createdRes.user.id;
+      created = true;
       await supabaseAdmin
         .from("profiles")
-        .update({ full_name: data.fullName, email: data.email })
+        .update({
+          full_name: data.fullName,
+          email: data.email,
+          must_change_password: true,
+        })
         .eq("id", userId);
     }
 
-    // Upsert admin metadata (phone + notes)
     if (data.phone || data.notes) {
       await supabaseAdmin.from("customer_admin_meta").upsert(
         {
@@ -144,18 +159,98 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
       );
     }
 
+    // Audit — never write the password anywhere in the payload.
     await supabaseAdmin.from("customer_admin_audit").insert({
       customer_id: userId,
       admin_id: context.userId,
-      action: existed ? "customer_reopened" : "customer_created",
+      action: existed ? "customer_reopened" : "customer_created_with_temp_password",
       details: {
         email: data.email,
         full_name: data.fullName,
-        invited,
+        created,
       },
     });
 
-    return { userId, existed, invited };
+    return { userId, existed, created };
+  });
+
+// -------- Admin-issued password reset for an existing customer --------
+
+export const adminResetCustomerPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        temporaryPassword: z.string().min(8).max(200),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: adminRow } = await supabaseAdmin
+      .from("admin_accounts")
+      .select("user_id")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (adminRow) throw new Error("This account is an Admin — use Admin controls.");
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.temporaryPassword,
+      email_confirm: true,
+      user_metadata: { must_change_password: true },
+    });
+    if (error) throw new Error(error.message);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: true })
+      .eq("id", data.userId);
+    await supabaseAdmin.from("customer_admin_audit").insert({
+      customer_id: data.userId,
+      admin_id: context.userId,
+      action: "customer_password_reset_by_admin",
+      details: {},
+    });
+    return { ok: true };
+  });
+
+// -------- Customer: change own password (clears the must-change flag) --------
+
+export const changeMyPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ newPassword: z.string().min(8).max(200) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.newPassword,
+      user_metadata: { must_change_password: false },
+    });
+    if (error) throw new Error(error.message);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", context.userId);
+    return { ok: true };
+  });
+
+// -------- Read the current user's must-change flag --------
+
+export const getMustChangePassword = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("profiles")
+      .select("must_change_password")
+      .eq("id", context.userId)
+      .maybeSingle();
+    return {
+      mustChange: Boolean(
+        (data as { must_change_password?: boolean } | null)?.must_change_password,
+      ),
+    };
   });
 
 // -------- Assign tool + record offline payment --------

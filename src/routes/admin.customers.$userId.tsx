@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label";
 import {
   adminCancelAssignedOrder,
   adminGetCustomerDetail,
+  adminResetCustomerPassword,
   adminUpdateCustomerMeta,
 } from "@/lib/customer-admin.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import { Wallet, XCircle, ShieldCheck } from "lucide-react";
+import { Wallet, XCircle, ShieldCheck, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/admin/customers/$userId")({
   ssr: false,
@@ -87,6 +88,7 @@ function CustomerPage() {
                   {data.profile.email} · Registered {new Date(data.profile.registeredAt).toLocaleDateString()}
                 </p>
               </div>
+              <ResetPasswordButton userId={userId} />
               <AssignToolDialog userId={userId} onDone={() => refetch()} />
             </header>
 
@@ -256,5 +258,54 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-semibold leading-tight">{value}</div>
     </div>
+  );
+}
+
+function randomPassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint32Array(14);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const b of bytes) out += chars[b % chars.length];
+  return out + "!";
+}
+
+function ResetPasswordButton({ userId }: { userId: string }) {
+  const [issued, setIssued] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: (pw: string) =>
+      adminResetCustomerPassword({ data: { userId, temporaryPassword: pw } }),
+    onSuccess: (_r, pw) => {
+      setIssued(pw);
+      toast.success("Temporary password issued");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  if (issued) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div className="rounded-md border bg-amber-500/10 px-2 py-1 font-mono text-xs">{issued}</div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(issued); toast.success("Copied"); }}>
+            Copy
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setIssued(null)}>Hide</Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Send securely — will not be shown again.</p>
+      </div>
+    );
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={mut.isPending}
+      onClick={() => {
+        if (!confirm("Issue a new temporary password? The customer must change it on next sign-in.")) return;
+        mut.mutate(randomPassword());
+      }}
+    >
+      <KeyRound className="h-3.5 w-3.5 mr-1" /> {mut.isPending ? "Resetting…" : "Reset password"}
+    </Button>
   );
 }
