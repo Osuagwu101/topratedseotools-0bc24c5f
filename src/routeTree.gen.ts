@@ -78,6 +78,7 @@ import { Route as AdminSettingsBusinessRulesRouteImport } from './routes/admin.s
 import { Route as AdminSettingsBackupRouteImport } from './routes/admin.settings.backup'
 import { Route as AdminSettingsAutomationsRouteImport } from './routes/admin.settings.automations'
 import { Route as AdminSettingsApiKeysRouteImport } from './routes/admin.settings.api-keys'
+import { Route as AdminSettingsAnalyticsRouteImport } from './routes/admin.settings.analytics'
 import { Route as AdminSettingsActivityRouteImport } from './routes/admin.settings.activity'
 import { Route as AdminMarketingMetaRouteImport } from './routes/admin.marketing.meta'
 import { Route as AdminMarketingGtmRouteImport } from './routes/admin.marketing.gtm'
@@ -457,6 +458,11 @@ const AdminSettingsApiKeysRoute = AdminSettingsApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => AdminSettingsRoute,
 } as any)
+const AdminSettingsAnalyticsRoute = AdminSettingsAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsActivityRoute = AdminSettingsActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -638,6 +644,7 @@ export interface FileRoutesByFullPath {
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
@@ -724,6 +731,7 @@ export interface FileRoutesByTo {
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
@@ -819,6 +827,7 @@ export interface FileRoutesById {
   '/admin/marketing/gtm': typeof AdminMarketingGtmRoute
   '/admin/marketing/meta': typeof AdminMarketingMetaRoute
   '/admin/settings/activity': typeof AdminSettingsActivityRoute
+  '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/automations': typeof AdminSettingsAutomationsRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
@@ -914,6 +923,7 @@ export interface FileRouteTypes {
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
     | '/admin/settings/activity'
+    | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/automations'
     | '/admin/settings/backup'
@@ -1000,6 +1010,7 @@ export interface FileRouteTypes {
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
     | '/admin/settings/activity'
+    | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/automations'
     | '/admin/settings/backup'
@@ -1094,6 +1105,7 @@ export interface FileRouteTypes {
     | '/admin/marketing/gtm'
     | '/admin/marketing/meta'
     | '/admin/settings/activity'
+    | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/automations'
     | '/admin/settings/backup'
@@ -1648,6 +1660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsApiKeysRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/analytics': {
+      id: '/admin/settings/analytics'
+      path: '/analytics'
+      fullPath: '/admin/settings/analytics'
+      preLoaderRoute: typeof AdminSettingsAnalyticsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/activity': {
       id: '/admin/settings/activity'
       path: '/activity'
@@ -1944,6 +1963,7 @@ const AdminMarketingRouteWithChildren = AdminMarketingRoute._addFileChildren(
 
 interface AdminSettingsRouteChildren {
   AdminSettingsActivityRoute: typeof AdminSettingsActivityRoute
+  AdminSettingsAnalyticsRoute: typeof AdminSettingsAnalyticsRoute
   AdminSettingsApiKeysRoute: typeof AdminSettingsApiKeysRoute
   AdminSettingsAutomationsRoute: typeof AdminSettingsAutomationsRoute
   AdminSettingsBackupRoute: typeof AdminSettingsBackupRoute
@@ -1967,6 +1987,7 @@ interface AdminSettingsRouteChildren {
 
 const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsActivityRoute: AdminSettingsActivityRoute,
+  AdminSettingsAnalyticsRoute: AdminSettingsAnalyticsRoute,
   AdminSettingsApiKeysRoute: AdminSettingsApiKeysRoute,
   AdminSettingsAutomationsRoute: AdminSettingsAutomationsRoute,
   AdminSettingsBackupRoute: AdminSettingsBackupRoute,

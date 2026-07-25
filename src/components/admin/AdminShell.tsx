@@ -489,6 +489,7 @@ function AdminSidebar() {
                       { title: "Customer Communications", to: "/admin/settings/communications" as const, perm: "emails.manage" },
                       { title: "Automations", to: "/admin/settings/automations" as const, perm: null },
                       { title: "Admin Activity", to: "/admin/settings/activity" as const, perm: "audit.view" },
+                      { title: "Business Analytics", to: "/admin/settings/analytics" as const, perm: null },
                     ].filter((i) => !i.perm || can(i.perm)).map((i) => (
                       <SidebarMenuSubItem key={i.to}>
                         <SidebarMenuSubButton asChild isActive={path === i.to}>
