@@ -287,9 +287,10 @@ export const adminExtendOrderExpiry = createServerFn({ method: "POST" })
     const start = base.getTime() > Date.now() ? base.getTime() : Date.now();
     const nextExpiry = new Date(start + data.days * 86400_000).toISOString();
 
-    const patch: Record<string, unknown> = { expires_at: nextExpiry };
-    if (r.current_period_end) patch.current_period_end = nextExpiry;
-    const { error } = await admin.from("tool_orders").update(patch).eq("id", data.orderId);
+    const patch = r.current_period_end
+      ? { expires_at: nextExpiry, current_period_end: nextExpiry }
+      : { expires_at: nextExpiry };
+    const { error } = await admin.from("tool_orders").update(patch as never).eq("id", data.orderId);
     if (error) throw new Error(error.message);
 
     await logAdminActivity(
