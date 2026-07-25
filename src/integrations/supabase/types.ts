@@ -1102,6 +1102,57 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_providers: {
+        Row: {
+          config: Json
+          created_at: string
+          display_name: string
+          enabled: boolean
+          environment: string
+          id: string
+          is_active: boolean
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_status: string | null
+          public_key: string | null
+          slug: string
+          updated_at: string
+          webhook_secret_hint: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          display_name: string
+          enabled?: boolean
+          environment?: string
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          public_key?: string | null
+          slug: string
+          updated_at?: string
+          webhook_secret_hint?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          display_name?: string
+          enabled?: boolean
+          environment?: string
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          public_key?: string | null
+          slug?: string
+          updated_at?: string
+          webhook_secret_hint?: string | null
+        }
+        Relationships: []
+      }
       paystack_customers: {
         Row: {
           created_at: string
