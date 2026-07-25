@@ -71,6 +71,7 @@ function AdminOrdersPage() {
   const [fulfilText, setFulfilText] = useState("");
   const [reconcileOpen, setReconcileOpen] = useState<string | null>(null);
   const [reconcileReason, setReconcileReason] = useState("");
+  const [search, setSearch] = useState("");
 
   if (!isAdmin) {
     return (
