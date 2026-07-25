@@ -102,13 +102,20 @@ export const Route = createFileRoute("/tools/$slug")({
 
 function ToolPage() {
   const data = Route.useLoaderData();
-  const tool = getTool(data.slug)!;
+  const baseTool = getTool(data.slug)!;
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
   const { data: session } = useQuery(sessionQuery);
+  const override = overridesData.overrides.find((o) => o.tool_slug === baseTool.slug);
+  const tool = { ...baseTool, ...applyOverride(baseTool, override) };
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
   const setting = settings.settings.find((s) => s.tool_slug === tool.slug);
-  const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
+  const overrideBySlug = new Map(overridesData.overrides.map((o) => [o.tool_slug, o]));
+  const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug)
+    .map((t) => ({ ...t, ...applyOverride(t, overrideBySlug.get(t.slug)) }))
+    .filter((t) => t.is_visible)
+    .slice(0, 3);
 
   const badge =
     setting?.enabled === false
