@@ -118,6 +118,26 @@ function ToolPage() {
     .filter((t) => t.is_visible)
     .slice(0, 3);
 
+  if (!tool.is_visible) {
+    return (
+      <SiteLayout>
+        <div className="mx-auto max-w-md px-4 py-24 text-center">
+          <h1 className="text-2xl font-semibold">Tool unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This tool is currently hidden and not available to customers.
+          </p>
+          <Link
+            to="/tools"
+            className="mt-6 inline-block text-sm text-primary hover:underline"
+          >
+            Browse other tools
+          </Link>
+        </div>
+      </SiteLayout>
+    );
+  }
+
+
   const badge =
     setting?.enabled === false
       ? { label: "Disabled", cls: "bg-destructive/10 text-destructive" }
