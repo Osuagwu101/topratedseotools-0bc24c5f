@@ -49,9 +49,8 @@ const settingsQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    plan: typeof search.plan === "string" ? search.plan : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { plan?: string } =>
+    typeof search.plan === "string" ? { plan: search.plan } : {},
   head: () => ({
     meta: [
       { title: "Subscribe — Top Rated SEO Tools" },
