@@ -66,7 +66,9 @@ import { Route as AdminSettingsSupportRouteImport } from './routes/admin.setting
 import { Route as AdminSettingsStaffRouteImport } from './routes/admin.settings.staff'
 import { Route as AdminSettingsSecurityRouteImport } from './routes/admin.settings.security'
 import { Route as AdminSettingsPromotionsRouteImport } from './routes/admin.settings.promotions'
+import { Route as AdminSettingsProductionReadinessRouteImport } from './routes/admin.settings.production-readiness'
 import { Route as AdminSettingsPaymentRecoveryRouteImport } from './routes/admin.settings.payment-recovery'
+import { Route as AdminSettingsMigrationGuideRouteImport } from './routes/admin.settings.migration-guide'
 import { Route as AdminSettingsMigrationRouteImport } from './routes/admin.settings.migration'
 import { Route as AdminSettingsGeneralRouteImport } from './routes/admin.settings.general'
 import { Route as AdminSettingsEmergencyRouteImport } from './routes/admin.settings.emergency'
@@ -393,10 +395,22 @@ const AdminSettingsPromotionsRoute = AdminSettingsPromotionsRouteImport.update({
   path: '/promotions',
   getParentRoute: () => AdminSettingsRoute,
 } as any)
+const AdminSettingsProductionReadinessRoute =
+  AdminSettingsProductionReadinessRouteImport.update({
+    id: '/production-readiness',
+    path: '/production-readiness',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
 const AdminSettingsPaymentRecoveryRoute =
   AdminSettingsPaymentRecoveryRouteImport.update({
     id: '/payment-recovery',
     path: '/payment-recovery',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsMigrationGuideRoute =
+  AdminSettingsMigrationGuideRouteImport.update({
+    id: '/migration-guide',
+    path: '/migration-guide',
     getParentRoute: () => AdminSettingsRoute,
   } as any)
 const AdminSettingsMigrationRoute = AdminSettingsMigrationRouteImport.update({
@@ -656,7 +670,9 @@ export interface FileRoutesByFullPath {
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
   '/admin/settings/security': typeof AdminSettingsSecurityRoute
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
@@ -743,7 +759,9 @@ export interface FileRoutesByTo {
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
   '/admin/settings/security': typeof AdminSettingsSecurityRoute
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
@@ -839,7 +857,9 @@ export interface FileRoutesById {
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
+  '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
+  '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
   '/admin/settings/security': typeof AdminSettingsSecurityRoute
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
@@ -935,7 +955,9 @@ export interface FileRouteTypes {
     | '/admin/settings/emergency'
     | '/admin/settings/general'
     | '/admin/settings/migration'
+    | '/admin/settings/migration-guide'
     | '/admin/settings/payment-recovery'
+    | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
     | '/admin/settings/security'
     | '/admin/settings/staff'
@@ -1022,7 +1044,9 @@ export interface FileRouteTypes {
     | '/admin/settings/emergency'
     | '/admin/settings/general'
     | '/admin/settings/migration'
+    | '/admin/settings/migration-guide'
     | '/admin/settings/payment-recovery'
+    | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
     | '/admin/settings/security'
     | '/admin/settings/staff'
@@ -1117,7 +1141,9 @@ export interface FileRouteTypes {
     | '/admin/settings/emergency'
     | '/admin/settings/general'
     | '/admin/settings/migration'
+    | '/admin/settings/migration-guide'
     | '/admin/settings/payment-recovery'
+    | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
     | '/admin/settings/security'
     | '/admin/settings/staff'
@@ -1576,11 +1602,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsPromotionsRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/production-readiness': {
+      id: '/admin/settings/production-readiness'
+      path: '/production-readiness'
+      fullPath: '/admin/settings/production-readiness'
+      preLoaderRoute: typeof AdminSettingsProductionReadinessRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/payment-recovery': {
       id: '/admin/settings/payment-recovery'
       path: '/payment-recovery'
       fullPath: '/admin/settings/payment-recovery'
       preLoaderRoute: typeof AdminSettingsPaymentRecoveryRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/migration-guide': {
+      id: '/admin/settings/migration-guide'
+      path: '/migration-guide'
+      fullPath: '/admin/settings/migration-guide'
+      preLoaderRoute: typeof AdminSettingsMigrationGuideRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
     '/admin/settings/migration': {
@@ -1975,7 +2015,9 @@ interface AdminSettingsRouteChildren {
   AdminSettingsEmergencyRoute: typeof AdminSettingsEmergencyRoute
   AdminSettingsGeneralRoute: typeof AdminSettingsGeneralRoute
   AdminSettingsMigrationRoute: typeof AdminSettingsMigrationRoute
+  AdminSettingsMigrationGuideRoute: typeof AdminSettingsMigrationGuideRoute
   AdminSettingsPaymentRecoveryRoute: typeof AdminSettingsPaymentRecoveryRoute
+  AdminSettingsProductionReadinessRoute: typeof AdminSettingsProductionReadinessRoute
   AdminSettingsPromotionsRoute: typeof AdminSettingsPromotionsRoute
   AdminSettingsSecurityRoute: typeof AdminSettingsSecurityRoute
   AdminSettingsStaffRoute: typeof AdminSettingsStaffRoute
@@ -1999,7 +2041,9 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsEmergencyRoute: AdminSettingsEmergencyRoute,
   AdminSettingsGeneralRoute: AdminSettingsGeneralRoute,
   AdminSettingsMigrationRoute: AdminSettingsMigrationRoute,
+  AdminSettingsMigrationGuideRoute: AdminSettingsMigrationGuideRoute,
   AdminSettingsPaymentRecoveryRoute: AdminSettingsPaymentRecoveryRoute,
+  AdminSettingsProductionReadinessRoute: AdminSettingsProductionReadinessRoute,
   AdminSettingsPromotionsRoute: AdminSettingsPromotionsRoute,
   AdminSettingsSecurityRoute: AdminSettingsSecurityRoute,
   AdminSettingsStaffRoute: AdminSettingsStaffRoute,
@@ -2065,13 +2109,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
