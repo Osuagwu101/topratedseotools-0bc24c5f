@@ -51,6 +51,7 @@ export const Route = createFileRoute("/tools/$slug")({
     if (!tool) throw notFound();
     context.queryClient.ensureQueryData(pricingQuery);
     context.queryClient.ensureQueryData(settingsQuery);
+    context.queryClient.ensureQueryData(overridesQuery);
     return {
       slug: tool.slug,
       name: tool.name,
