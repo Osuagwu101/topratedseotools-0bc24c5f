@@ -530,6 +530,14 @@ export const adminUpsertToolCredential = createServerFn({ method: "POST" })
       .from("tool_credentials")
       .upsert(patch, { onConflict: "tool_slug" });
     if (error) throw new Error(error.message);
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "tool_credential_upserted",
+      area: "credentials",
+      target_type: "tool_credential",
+      target_id: data.tool_slug,
+      reference: data.tool_slug,
+    });
     return { ok: true };
   });
 
