@@ -68,6 +68,7 @@ import { Route as AdminSettingsSecurityRouteImport } from './routes/admin.settin
 import { Route as AdminSettingsPromotionsRouteImport } from './routes/admin.settings.promotions'
 import { Route as AdminSettingsProductionReadinessRouteImport } from './routes/admin.settings.production-readiness'
 import { Route as AdminSettingsPaymentRecoveryRouteImport } from './routes/admin.settings.payment-recovery'
+import { Route as AdminSettingsMigrationReadinessRouteImport } from './routes/admin.settings.migration-readiness'
 import { Route as AdminSettingsMigrationGuideRouteImport } from './routes/admin.settings.migration-guide'
 import { Route as AdminSettingsMigrationRouteImport } from './routes/admin.settings.migration'
 import { Route as AdminSettingsGeneralRouteImport } from './routes/admin.settings.general'
@@ -407,6 +408,12 @@ const AdminSettingsPaymentRecoveryRoute =
     path: '/payment-recovery',
     getParentRoute: () => AdminSettingsRoute,
   } as any)
+const AdminSettingsMigrationReadinessRoute =
+  AdminSettingsMigrationReadinessRouteImport.update({
+    id: '/migration-readiness',
+    path: '/migration-readiness',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
 const AdminSettingsMigrationGuideRoute =
   AdminSettingsMigrationGuideRouteImport.update({
     id: '/migration-guide',
@@ -671,6 +678,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
   '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
+  '/admin/settings/migration-readiness': typeof AdminSettingsMigrationReadinessRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
   '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
@@ -760,6 +768,7 @@ export interface FileRoutesByTo {
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
   '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
+  '/admin/settings/migration-readiness': typeof AdminSettingsMigrationReadinessRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
   '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
@@ -858,6 +867,7 @@ export interface FileRoutesById {
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
   '/admin/settings/migration-guide': typeof AdminSettingsMigrationGuideRoute
+  '/admin/settings/migration-readiness': typeof AdminSettingsMigrationReadinessRoute
   '/admin/settings/payment-recovery': typeof AdminSettingsPaymentRecoveryRoute
   '/admin/settings/production-readiness': typeof AdminSettingsProductionReadinessRoute
   '/admin/settings/promotions': typeof AdminSettingsPromotionsRoute
@@ -956,6 +966,7 @@ export interface FileRouteTypes {
     | '/admin/settings/general'
     | '/admin/settings/migration'
     | '/admin/settings/migration-guide'
+    | '/admin/settings/migration-readiness'
     | '/admin/settings/payment-recovery'
     | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
@@ -1045,6 +1056,7 @@ export interface FileRouteTypes {
     | '/admin/settings/general'
     | '/admin/settings/migration'
     | '/admin/settings/migration-guide'
+    | '/admin/settings/migration-readiness'
     | '/admin/settings/payment-recovery'
     | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
@@ -1142,6 +1154,7 @@ export interface FileRouteTypes {
     | '/admin/settings/general'
     | '/admin/settings/migration'
     | '/admin/settings/migration-guide'
+    | '/admin/settings/migration-readiness'
     | '/admin/settings/payment-recovery'
     | '/admin/settings/production-readiness'
     | '/admin/settings/promotions'
@@ -1616,6 +1629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsPaymentRecoveryRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/migration-readiness': {
+      id: '/admin/settings/migration-readiness'
+      path: '/migration-readiness'
+      fullPath: '/admin/settings/migration-readiness'
+      preLoaderRoute: typeof AdminSettingsMigrationReadinessRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/migration-guide': {
       id: '/admin/settings/migration-guide'
       path: '/migration-guide'
@@ -2016,6 +2036,7 @@ interface AdminSettingsRouteChildren {
   AdminSettingsGeneralRoute: typeof AdminSettingsGeneralRoute
   AdminSettingsMigrationRoute: typeof AdminSettingsMigrationRoute
   AdminSettingsMigrationGuideRoute: typeof AdminSettingsMigrationGuideRoute
+  AdminSettingsMigrationReadinessRoute: typeof AdminSettingsMigrationReadinessRoute
   AdminSettingsPaymentRecoveryRoute: typeof AdminSettingsPaymentRecoveryRoute
   AdminSettingsProductionReadinessRoute: typeof AdminSettingsProductionReadinessRoute
   AdminSettingsPromotionsRoute: typeof AdminSettingsPromotionsRoute
@@ -2042,6 +2063,7 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsGeneralRoute: AdminSettingsGeneralRoute,
   AdminSettingsMigrationRoute: AdminSettingsMigrationRoute,
   AdminSettingsMigrationGuideRoute: AdminSettingsMigrationGuideRoute,
+  AdminSettingsMigrationReadinessRoute: AdminSettingsMigrationReadinessRoute,
   AdminSettingsPaymentRecoveryRoute: AdminSettingsPaymentRecoveryRoute,
   AdminSettingsProductionReadinessRoute: AdminSettingsProductionReadinessRoute,
   AdminSettingsPromotionsRoute: AdminSettingsPromotionsRoute,

@@ -511,6 +511,7 @@ function AdminSidebar() {
                       { title: "Backup & Recovery", to: "/admin/settings/backup" as const, perm: "backups.access" },
                       { title: "Emergency Controls", to: "/admin/settings/emergency" as const, perm: "emergency.use" },
                       { title: "Migration & Launch", to: "/admin/settings/migration" as const, perm: "migration.access" },
+                      { title: "Migration Readiness", to: "/admin/settings/migration-readiness" as const, perm: "migration.access" },
                       { title: "Production Readiness", to: "/admin/settings/production-readiness" as const, perm: "system_health.access" },
                       { title: "Migration Guide", to: "/admin/settings/migration-guide" as const, perm: "migration.access" },
                     ].filter((i) => (i.superOnly ? isSuperAdmin : !i.perm || can(i.perm))).map((i) => (
