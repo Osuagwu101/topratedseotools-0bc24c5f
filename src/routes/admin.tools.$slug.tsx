@@ -92,6 +92,7 @@ export const Route = createFileRoute("/admin/tools/$slug")({
       context.queryClient.ensureQueryData(pricingQuery),
       context.queryClient.ensureQueryData(credsQuery),
       context.queryClient.ensureQueryData(ordersQuery),
+      context.queryClient.ensureQueryData(overridesQuery),
     ]);
     return { tool };
   },
