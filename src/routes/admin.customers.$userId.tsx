@@ -320,6 +320,11 @@ function CommunicationHistoryCard({ userId }: { userId: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
