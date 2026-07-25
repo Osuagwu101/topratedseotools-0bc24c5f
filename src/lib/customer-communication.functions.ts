@@ -364,7 +364,7 @@ export const adminListCustomerSegment = createServerFn({ method: "POST" })
         .from("tool_orders")
         .select("user_id")
         .eq("tool_slug", data.toolSlug)
-        .in("status", ["approved", "pending", "pending_manual"])
+        .in("status", ["approved", "pending"] as never)
         .limit(2000);
       userIds = Array.from(new Set(((rows as any[]) ?? []).map((r) => r.user_id)));
     } else if (data.segment === "failed_payments") {
