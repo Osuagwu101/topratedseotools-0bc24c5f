@@ -46,6 +46,11 @@ import {
   type ToolPricingOption,
   type AccessType,
 } from "@/lib/tool-pricing.functions";
+import {
+  listToolOverrides,
+  adminUpsertToolOverride,
+  adminResetToolOverride,
+} from "@/lib/tool-overrides.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 import { launchTool } from "@/lib/tool-launcher";
 
