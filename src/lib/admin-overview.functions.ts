@@ -177,6 +177,43 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
       }
     } catch {}
 
+    // Subscriptions expiring within 7 days
+    try {
+      const now = new Date();
+      const upper = new Date(now.getTime() + 7 * 86400_000).toISOString();
+      const { count } = await (supabaseAdmin as any)
+        .from("tool_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "approved")
+        .gte("expires_at", now.toISOString())
+        .lte("expires_at", upper);
+      if ((count ?? 0) > 0) {
+        attention.push({
+          id: "expiring-soon",
+          label: "Subscriptions expiring in 7 days",
+          count: count ?? 0,
+          href: "/admin/settings/communications",
+        });
+      }
+    } catch {}
+
+    // Renewal-failed subscriptions
+    try {
+      const { count } = await (supabaseAdmin as any)
+        .from("tool_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("renewal_status", "failed");
+      if ((count ?? 0) > 0) {
+        attention.push({
+          id: "renewal-failed",
+          label: "Subscription renewals failed",
+          count: count ?? 0,
+          href: "/admin/settings/communications",
+        });
+      }
+    } catch {}
+
+
     // Recent activity
     let recentActivity: Array<{
       id: string;
