@@ -54,6 +54,7 @@ const EMAIL_TYPES: { key: string; label: string }[] = [
   { key: "renewal_disabled", label: "Auto-renewal disabled" },
   { key: "customer_invite", label: "Customer invitation" },
   { key: "admin_alert", label: "Admin — Access Health alert" },
+  { key: "admin_manual", label: "Admin manual message / announcement" },
 ];
 
 function EmailSettingsPage() {
