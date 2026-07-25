@@ -32,7 +32,7 @@ export interface PaymentProviderRow {
   enabled: boolean;
   is_active: boolean;
   webhook_secret_hint: string | null;
-  config: Record<string, unknown>;
+  config: Record<string, string | number | boolean | null>;
   last_test_at: string | null;
   last_test_status: string | null;
   last_test_message: string | null;
