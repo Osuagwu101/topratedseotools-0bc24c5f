@@ -20,8 +20,10 @@ import {
   adminResetCustomerPassword,
   adminUpdateCustomerMeta,
 } from "@/lib/customer-admin.functions";
+import { adminGetCustomerCommunicationHistory } from "@/lib/customer-communication.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import { Wallet, XCircle, ShieldCheck, KeyRound } from "lucide-react";
+import { Wallet, XCircle, ShieldCheck, KeyRound, Mail } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin/customers/$userId")({
   ssr: false,
