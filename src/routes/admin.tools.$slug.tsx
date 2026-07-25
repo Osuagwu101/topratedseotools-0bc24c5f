@@ -192,23 +192,207 @@ function AdminToolPage() {
 /* ------------------------------ Overview ------------------------------ */
 
 function OverviewTab({ tool }: { tool: (typeof TOOLS)[number] }) {
+  const { data } = useSuspenseQuery(overridesQuery);
+  const existing = data.overrides.find((o) => o.tool_slug === tool.slug);
+  const qc = useQueryClient();
+  const upsert = useServerFn(adminUpsertToolOverride);
+  const reset = useServerFn(adminResetToolOverride);
+
+  const [name, setName] = useState(existing?.name ?? tool.name);
+  const [tagline, setTagline] = useState(existing?.tagline ?? tool.tagline);
+  const [description, setDescription] = useState(existing?.description ?? tool.description);
+  const [category, setCategory] = useState(existing?.category ?? tool.category);
+  const [domain, setDomain] = useState(existing?.domain ?? tool.domain ?? "");
+  const [imageUrl, setImageUrl] = useState(existing?.image_url ?? "");
+  const [isVisible, setIsVisible] = useState(existing?.is_visible ?? true);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["tool-overrides"] });
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await upsert({
+        data: {
+          tool_slug: tool.slug,
+          name: name.trim() || null,
+          tagline: tagline.trim() || null,
+          description: description.trim() || null,
+          category: category.trim() || null,
+          domain: domain.trim() || null,
+          image_url: imageUrl.trim() || null,
+          is_visible: isVisible,
+        },
+      });
+      toast.success("Saved");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetToDefault = async () => {
+    if (!confirm("Reset all edits and restore the built-in defaults?")) return;
+    setBusy(true);
+    try {
+      await reset({ data: { tool_slug: tool.slug } });
+      setName(tool.name);
+      setTagline(tool.tagline);
+      setDescription(tool.description);
+      setCategory(tool.category);
+      setDomain(tool.domain ?? "");
+      setImageUrl("");
+      setIsVisible(true);
+      toast.success("Reset to defaults");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Reset failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Name" value={tool.name} />
-      <Field label="Category" value={tool.category} />
-      <Field label="Slug" value={tool.slug} />
-      <Field label="Domain" value={tool.domain ?? "—"} />
-      <div className="rounded-2xl border bg-card p-5 shadow-card sm:col-span-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Tagline
+    <div className="grid gap-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Visibility</h3>
+            <p className="text-xs text-muted-foreground">
+              Hide the tool from customers without deleting anything.
+            </p>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isVisible}
+              onChange={(e) => setIsVisible(e.target.checked)}
+              className="h-4 w-4"
+            />
+            {isVisible ? (
+              <span className="inline-flex items-center gap-1 text-success">
+                <Eye className="h-3.5 w-3.5" /> Visible
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <EyeOff className="h-3.5 w-3.5" /> Hidden
+              </span>
+            )}
+          </label>
         </div>
-        <p className="mt-1 text-sm">{tool.tagline}</p>
-        <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Description
-        </div>
-        <p className="mt-1 text-sm leading-relaxed">{tool.description}</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <EditField label="Name">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </EditField>
+        <EditField label="Category">
+          <input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            maxLength={80}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </EditField>
+        <EditField label="Slug (read-only)">
+          <input
+            value={tool.slug}
+            disabled
+            className="w-full rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+          />
+        </EditField>
+        <EditField label="Brand domain (for logo)">
+          <input
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            maxLength={160}
+            placeholder="example.com"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </EditField>
+        <EditField label="Custom image URL (optional, overrides logo)" full>
+          <div className="flex gap-2">
+            <input
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://…"
+              maxLength={600}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt=""
+                className="h-10 w-10 rounded-lg border object-cover"
+              />
+            )}
+          </div>
+        </EditField>
+        <EditField label="Tagline" full>
+          <input
+            value={tagline}
+            onChange={(e) => setTagline(e.target.value)}
+            maxLength={240}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </EditField>
+        <EditField label="Description" full>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={4000}
+            rows={5}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm leading-relaxed"
+          />
+        </EditField>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        {existing && (
+          <button
+            onClick={resetToDefault}
+            disabled={busy}
+            className="rounded-full border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+          >
+            Reset to defaults
+          </button>
+        )}
+        <button
+          onClick={save}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" />
+          {busy ? "Saving…" : "Save changes"}
+        </button>
       </div>
     </div>
+  );
+}
+
+function EditField({
+  label,
+  children,
+  full,
+}: {
+  label: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
+  return (
+    <label className={`block ${full ? "sm:col-span-2" : ""}`}>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      {children}
+    </label>
   );
 }
 
