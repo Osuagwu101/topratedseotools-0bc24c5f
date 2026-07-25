@@ -276,6 +276,14 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
         action: "account_updated",
         actor: context.userId,
       });
+      const { logAdminActivity } = await import("@/lib/admin-audit.server");
+      await logAdminActivity(context, {
+        action: "account_updated",
+        area: "credentials",
+        target_type: "tool_account",
+        target_id: data.id,
+        reference: `${data.tool_slug} · ${data.access_type}`,
+      });
       return { ok: true, account: updated };
     }
     patch.created_by = context.userId;
@@ -288,6 +296,14 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
       account_id: (inserted as any).id,
       action: "account_created",
       actor: context.userId,
+    });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "account_created",
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: (inserted as any).id,
+      reference: `${data.tool_slug} · ${data.access_type}`,
     });
     return { ok: true, account: inserted };
   });
@@ -313,6 +329,13 @@ export const adminDeleteAccount = createServerFn({ method: "POST" })
       action: "account_deleted",
       actor: context.userId,
       notes: `Deleted account ${data.id}`,
+    });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "account_deleted",
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: data.id,
     });
     return { ok: true };
   });
@@ -404,6 +427,15 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
       actor: context.userId,
       notes: data.reason ?? null,
     });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "customer_reassigned",
+      area: "credentials",
+      target_type: "tool_order",
+      target_id: orderRow.id,
+      reason: data.reason,
+      reference: `${orderRow.tool_slug} → account ${data.new_account_id}`,
+    });
 
     return { ok: true, assignment_id: (inserted as any).id };
   });
@@ -446,6 +478,14 @@ export const adminRecordHealthCheck = createServerFn({ method: "POST" })
       action: `health_check_${data.result}`,
       actor: context.userId,
       notes: data.note ?? null,
+    });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: `health_check_${data.result}`,
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: data.account_id,
+      reason: data.note,
     });
     return { ok: true };
   });
