@@ -142,7 +142,16 @@ function ToolsDirectory() {
                 className="group relative flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
               >
                 <div className="flex items-center justify-between">
-                  <ToolBrandMark tool={t} />
+                  {t.image_url ? (
+                    <img
+                      src={t.image_url}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <ToolBrandMark tool={t} />
+                  )}
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
