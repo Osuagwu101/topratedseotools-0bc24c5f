@@ -66,6 +66,16 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     } = await import("@/lib/paystack-checkout");
     const { ensurePlanFromSnapshot } = await import("@/lib/paystack-plans");
 
+    // Emergency controls — admin can halt new orders / payments without code.
+    const { data: gate } = await context.supabase
+      .from("site_settings")
+      .select("orders_paused, payments_paused, maintenance_mode")
+      .eq("id", true)
+      .maybeSingle();
+    if (gate?.maintenance_mode) throw new Error("The site is currently in maintenance mode. Please try again shortly.");
+    if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
+    if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
+
     const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
     if (!env) throw new Error("Payments are temporarily unavailable. Please contact support.");
 
