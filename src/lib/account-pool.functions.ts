@@ -330,6 +330,13 @@ export const adminDeleteAccount = createServerFn({ method: "POST" })
       actor: context.userId,
       notes: `Deleted account ${data.id}`,
     });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "account_deleted",
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: data.id,
+    });
     return { ok: true };
   });
 
