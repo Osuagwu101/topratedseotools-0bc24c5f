@@ -247,12 +247,79 @@ function CustomerPage() {
                 {data.audit.length === 0 && <li className="text-xs text-muted-foreground">No admin activity yet.</li>}
               </ul>
             </div>
+
+            {/* Communication history */}
+            <CommunicationHistoryCard userId={userId} />
           </>
         )}
       </section>
     </AdminShell>
   );
 }
+
+function CommunicationHistoryCard({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["customer-comm-history", userId],
+    queryFn: () => adminGetCustomerCommunicationHistory({ data: { userId, limit: 50 } }),
+  });
+  const rows = data?.messages ?? [];
+  return (
+    <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
+      <div className="flex items-center justify-between border-b p-3">
+        <div className="text-sm font-semibold flex items-center gap-1.5">
+          <Mail className="h-4 w-4" /> Communication history
+        </div>
+        <Link
+          to="/admin/settings/communications"
+          className="text-xs text-primary hover:underline"
+        >
+          Open Communication Centre →
+        </Link>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">When</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Subject</th>
+              <th className="px-3 py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {rows.map((m) => (
+              <tr key={m.id}>
+                <td className="px-3 py-2 text-xs">{new Date(m.createdAt).toLocaleString()}</td>
+                <td className="px-3 py-2 text-xs">{m.templateKey}</td>
+                <td className="px-3 py-2 truncate max-w-[280px]">{m.subject ?? "—"}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase " +
+                      (m.status === "sent"
+                        ? "bg-success/15 text-success"
+                        : m.status === "failed"
+                          ? "bg-destructive/15 text-destructive"
+                          : m.status === "cancelled"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-warning/15 text-warning")
+                    }
+                  >
+                    {m.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && !isLoading && (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  No emails sent to this customer yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
