@@ -181,7 +181,6 @@ function DashboardBody({ data }: { data: Overview }) {
     { label: "Customers who disabled renewal", count: a.renewalDisabled, to: "/admin/orders" },
   ];
 
-  return (
   const newCustomers = data.trend.registrations.reduce((s, n) => s + n, 0);
   const bestTool = data.topTools[0];
 
