@@ -39,6 +39,19 @@ function ToolsDirectory() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
+  const overrideBySlug = useMemo(() => {
+    const m = new Map<string, (typeof overridesData.overrides)[number]>();
+    for (const o of overridesData.overrides) m.set(o.tool_slug, o);
+    return m;
+  }, [overridesData]);
+  const effectiveTools = useMemo(
+    () =>
+      TOOLS.map((t) => applyOverride(t, overrideBySlug.get(t.slug))).filter(
+        (t) => t.is_visible,
+      ),
+    [overrideBySlug],
+  );
   const priceByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
@@ -61,7 +74,7 @@ function ToolsDirectory() {
 
 
   const filtered = useMemo(() => {
-    return TOOLS.filter((t) => {
+    return effectiveTools.filter((t) => {
       const matchesCat = cat === "All" || t.category === cat;
       const matchesQ =
         !q ||
@@ -70,7 +83,7 @@ function ToolsDirectory() {
         t.description.toLowerCase().includes(q.toLowerCase());
       return matchesCat && matchesQ;
     });
-  }, [q, cat]);
+  }, [q, cat, effectiveTools]);
 
   return (
     <SiteLayout>
