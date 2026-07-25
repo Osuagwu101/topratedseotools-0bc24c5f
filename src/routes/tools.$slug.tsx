@@ -20,6 +20,7 @@ import {
   renewalText,
 } from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
+import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 
@@ -30,6 +31,10 @@ const pricingQuery = queryOptions({
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
+});
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
 });
 const sessionQuery = queryOptions({
   queryKey: ["session-flag"],
