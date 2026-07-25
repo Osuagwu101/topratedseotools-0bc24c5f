@@ -589,6 +589,17 @@ export const adminUpdateOrder = createServerFn({ method: "POST" })
       .update(patch)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "order_updated",
+      area: "orders",
+      target_type: "tool_order",
+      target_id: data.id,
+      reference:
+        (data.status ? `status=${data.status}` : "") +
+        (data.expires_at ? ` expires=${data.expires_at}` : "") +
+        (data.admin_notes != null ? " notes" : ""),
+    });
     return { ok: true };
   });
 
