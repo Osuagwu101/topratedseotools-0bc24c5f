@@ -135,7 +135,15 @@ function ToolPage() {
             <ArrowLeft className="h-4 w-4" /> All tools
           </Link>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <ToolBrandMark tool={tool} size="lg" className="shadow-card" />
+            {tool.image_url ? (
+              <img
+                src={tool.image_url}
+                alt=""
+                className="h-20 w-20 rounded-2xl object-cover shadow-card"
+              />
+            ) : (
+              <ToolBrandMark tool={tool} size="lg" className="shadow-card" />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border bg-background/60 px-2 py-0.5">{tool.category}</span>
