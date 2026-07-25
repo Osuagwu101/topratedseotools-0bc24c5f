@@ -6,15 +6,24 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
 });
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
+});
 
 export const Route = createFileRoute("/tools/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(pricingQuery),
+      context.queryClient.ensureQueryData(overridesQuery),
+    ]),
   head: () => ({
     meta: [
       { title: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
