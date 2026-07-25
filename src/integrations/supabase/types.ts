@@ -1394,8 +1394,12 @@ export type Database = {
           alert_email_recipients: string[]
           alert_emails_enabled: boolean
           alert_expiry_days: number
+          emails_paused: boolean
           id: boolean
+          maintenance_mode: boolean
           marketing_pause: boolean
+          orders_paused: boolean
+          payments_paused: boolean
           updated_at: string
           updated_by: string | null
         }
@@ -1406,8 +1410,12 @@ export type Database = {
           alert_email_recipients?: string[]
           alert_emails_enabled?: boolean
           alert_expiry_days?: number
+          emails_paused?: boolean
           id?: boolean
+          maintenance_mode?: boolean
           marketing_pause?: boolean
+          orders_paused?: boolean
+          payments_paused?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -1418,8 +1426,12 @@ export type Database = {
           alert_email_recipients?: string[]
           alert_emails_enabled?: boolean
           alert_expiry_days?: number
+          emails_paused?: boolean
           id?: boolean
+          maintenance_mode?: boolean
           marketing_pause?: boolean
+          orders_paused?: boolean
+          payments_paused?: boolean
           updated_at?: string
           updated_by?: string | null
         }
