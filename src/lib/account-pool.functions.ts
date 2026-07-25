@@ -479,6 +479,14 @@ export const adminRecordHealthCheck = createServerFn({ method: "POST" })
       actor: context.userId,
       notes: data.note ?? null,
     });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: `health_check_${data.result}`,
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: data.account_id,
+      reason: data.note,
+    });
     return { ok: true };
   });
 
