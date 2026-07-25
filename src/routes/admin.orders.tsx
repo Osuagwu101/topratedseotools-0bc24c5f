@@ -84,10 +84,23 @@ function AdminOrdersPage() {
     );
   }
 
-  const filtered = useMemo(
-    () => (filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter)),
-    [data.orders, filter],
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter);
+    if (q) {
+      list = list.filter((o) => {
+        const email = ((o as any).customer_email ?? (o as any).user_email ?? "").toLowerCase();
+        const ref = ((o as any).paystack_reference ?? (o as any).reference ?? "").toLowerCase();
+        return (
+          email.includes(q) ||
+          ref.includes(q) ||
+          o.tool_slug.toLowerCase().includes(q) ||
+          o.id.toLowerCase().includes(q)
+        );
+      });
+    }
+    return list;
+  }, [data.orders, filter, search]);
 
   async function act(
     id: string,
