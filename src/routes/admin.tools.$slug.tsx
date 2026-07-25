@@ -70,6 +70,10 @@ const ordersQuery = queryOptions({
   queryKey: ["admin-orders"],
   queryFn: () => adminListOrders(),
 });
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
+});
 
 export const Route = createFileRoute("/admin/tools/$slug")({
   ssr: false,
