@@ -71,6 +71,7 @@ function AdminOrdersPage() {
   const [fulfilText, setFulfilText] = useState("");
   const [reconcileOpen, setReconcileOpen] = useState<string | null>(null);
   const [reconcileReason, setReconcileReason] = useState("");
+  const [search, setSearch] = useState("");
 
   if (!isAdmin) {
     return (
@@ -83,10 +84,23 @@ function AdminOrdersPage() {
     );
   }
 
-  const filtered = useMemo(
-    () => (filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter)),
-    [data.orders, filter],
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter);
+    if (q) {
+      list = list.filter((o) => {
+        const email = ((o as any).customer_email ?? (o as any).user_email ?? "").toLowerCase();
+        const ref = ((o as any).paystack_reference ?? (o as any).reference ?? "").toLowerCase();
+        return (
+          email.includes(q) ||
+          ref.includes(q) ||
+          o.tool_slug.toLowerCase().includes(q) ||
+          o.id.toLowerCase().includes(q)
+        );
+      });
+    }
+    return list;
+  }, [data.orders, filter, search]);
 
   async function act(
     id: string,
@@ -176,6 +190,16 @@ function AdminOrdersPage() {
               )}
             </button>
           ))}
+        </div>
+
+        <div className="mt-4">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by email, reference, tool, or order ID…"
+            className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
         </div>
 
         {filtered.length === 0 ? (
