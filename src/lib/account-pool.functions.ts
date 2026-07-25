@@ -289,6 +289,14 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
       action: "account_created",
       actor: context.userId,
     });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "account_created",
+      area: "credentials",
+      target_type: "tool_account",
+      target_id: (inserted as any).id,
+      reference: `${data.tool_slug} · ${data.access_type}`,
+    });
     return { ok: true, account: inserted };
   });
 
