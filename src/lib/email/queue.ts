@@ -204,7 +204,10 @@ async function scheduleRetry(admin: any, row: any, error: string) {
 }
 
 /** Dispatch every due row (used by cron). Small cap per run to avoid long executions. */
-export async function dispatchDue(admin: any, limit = 50): Promise<{ processed: number; sent: number; failed: number }> {
+export async function dispatchDue(admin: any, limit = 50): Promise<{ processed: number; sent: number; failed: number; paused?: boolean }> {
+  // Emergency control — admin can pause all outgoing email without touching code.
+  const { data: pauseRow } = await admin.from("site_settings").select("emails_paused").eq("id", true).maybeSingle();
+  if (pauseRow?.emails_paused) return { processed: 0, sent: 0, failed: 0, paused: true };
   const { data } = await admin
     .from("email_messages")
     .select("id")
