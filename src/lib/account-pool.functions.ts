@@ -276,6 +276,14 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
         action: "account_updated",
         actor: context.userId,
       });
+      const { logAdminActivity } = await import("@/lib/admin-audit.server");
+      await logAdminActivity(context, {
+        action: "account_updated",
+        area: "credentials",
+        target_type: "tool_account",
+        target_id: data.id,
+        reference: `${data.tool_slug} · ${data.access_type}`,
+      });
       return { ok: true, account: updated };
     }
     patch.created_by = context.userId;
