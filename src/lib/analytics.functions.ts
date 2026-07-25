@@ -1,0 +1,406 @@
+/**
+ * Phase 6 — Business analytics server functions.
+ *
+ * Thin admin-only wrappers around existing tables. Everything here is
+ * additive: revenue math already lives in `admin-analytics.functions`, this
+ * module only adds filtered slices, tool performance, and CSV export.
+ */
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+async function assertAdminAndGetAdmin(context: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  userId: string;
+}) {
+  const { data, error } = await context.supabase.rpc("has_role", {
+    _user_id: context.userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(String((error as { message?: string }).message ?? "role check failed"));
+  if (!data) throw new Error("Forbidden");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+const rangeInput = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  tool_slug: z.string().trim().max(120).optional(),
+  payment_method: z.string().trim().max(60).optional(),
+});
+
+function defaultRange(from?: string, to?: string) {
+  const toIso = to ?? new Date().toISOString();
+  const fromIso = from ?? new Date(Date.now() - 30 * 86400_000).toISOString();
+  return { fromIso, toIso };
+}
+
+// ---------- Revenue Dashboard ----------
+
+export const getRevenueAnalytics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => rangeInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const admin = await assertAdminAndGetAdmin(context);
+    const { fromIso, toIso } = defaultRange(data.from, data.to);
+
+    let query = admin
+      .from("tool_payments")
+      .select(
+        "id, tool_slug, amount, currency, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paid_at, created_at",
+      )
+      .gte("created_at", fromIso)
+      .lte("created_at", toIso);
+    if (data.tool_slug) query = query.eq("tool_slug", data.tool_slug);
+    if (data.payment_method) query = query.eq("payment_method", data.payment_method);
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+    const payments = rows ?? [];
+
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+    const successful = payments.filter((p) => p.payment_status === "successful");
+    const failed = payments.filter((p) => p.payment_status === "failed");
+    const refunds = payments.filter(
+      (p) => p.payment_status === "refunded" || p.payment_status === "reversed",
+    );
+
+    const totalRevenue = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    const revenueThisMonth = successful
+      .filter((p) => new Date((p.paid_at as string) ?? (p.created_at as string)) >= startOfMonth)
+      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+    const bucket = <K extends string>(
+      items: typeof successful,
+      key: (p: (typeof successful)[number]) => K | null | undefined,
+      fallback: K,
+    ) => {
+      const m = new Map<K, { revenue: number; count: number }>();
+      for (const p of items) {
+        const k = (key(p) ?? fallback) as K;
+        const cur = m.get(k) ?? { revenue: 0, count: 0 };
+        cur.revenue += Number(p.amount ?? 0);
+        cur.count += 1;
+        m.set(k, cur);
+      }
+      return Array.from(m.entries())
+        .map(([label, v]) => ({ label: String(label), ...v }))
+        .sort((a, b) => b.revenue - a.revenue);
+    };
+
+    const byTool = bucket(successful, (p) => p.tool_slug as string | null, "unknown");
+    const byPlan = bucket(successful, (p) => (p.billing_period as string | null) ?? null, "unknown");
+    const byAccess = bucket(successful, (p) => (p.access_type as string | null) ?? null, "unknown");
+    const byProvider = bucket(
+      successful,
+      (p) => {
+        const src = (p.source as string | null) ?? "paystack";
+        if (src === "offline") return (p.payment_method as string | null) ?? "offline";
+        return src;
+      },
+      "paystack",
+    );
+
+    const methodOptions = Array.from(
+      new Set(payments.map((p) => (p.payment_method as string) || "").filter(Boolean)),
+    ).sort();
+
+    return {
+      range: { from: fromIso, to: toIso },
+      totalRevenue,
+      revenueThisMonth,
+      successfulPayments: successful.length,
+      failedPayments: failed.length,
+      refunds: refunds.length,
+      byTool,
+      byPlan,
+      byAccess,
+      byProvider,
+      methodOptions,
+    };
+  });
+
+// ---------- Customer Growth ----------
+
+export const getCustomerAnalytics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => rangeInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const admin = await assertAdminAndGetAdmin(context);
+    const { fromIso, toIso } = defaultRange(data.from, data.to);
+    const now = new Date();
+    const in7d = new Date(now.getTime() + 7 * 86400_000);
+
+    const [profilesRes, ordersRes] = await Promise.all([
+      admin.from("profiles").select("id, created_at"),
+      admin
+        .from("tool_orders")
+        .select(
+          "id, user_id, tool_slug, status, access_type, expires_at, renewal_status, subscription_status, created_at",
+        ),
+    ]);
+    const profiles = profilesRes.data ?? [];
+    const orders = ordersRes.data ?? [];
+
+    const totalCustomers = profiles.length;
+    const newCustomers = profiles.filter((p) => {
+      const at = new Date(p.created_at as string);
+      return at >= new Date(fromIso) && at <= new Date(toIso);
+    }).length;
+
+    const activeUserSet = new Set<string>();
+    const expiredUserSet = new Set<string>();
+    const renewingUserSet = new Set<string>();
+    const byToolMap = new Map<string, Set<string>>();
+    const expiringSoonSet = new Set<string>();
+
+    for (const o of orders) {
+      const uid = o.user_id as string;
+      const slug = o.tool_slug as string;
+      const status = o.status as string;
+      const expiresAt = o.expires_at ? new Date(o.expires_at as string) : null;
+      const isLive = status === "approved" && (!expiresAt || expiresAt > now);
+      if (isLive) {
+        activeUserSet.add(uid);
+        const s = byToolMap.get(slug) ?? new Set<string>();
+        s.add(uid);
+        byToolMap.set(slug, s);
+        if (expiresAt && expiresAt <= in7d) expiringSoonSet.add(uid);
+        if (o.subscription_status === "active" && o.renewal_status !== "disabled" && o.renewal_status !== "disable_pending") {
+          renewingUserSet.add(uid);
+        }
+      } else if (status === "expired" || (status === "approved" && expiresAt && expiresAt <= now)) {
+        expiredUserSet.add(uid);
+      }
+    }
+
+    const byTool = Array.from(byToolMap.entries())
+      .map(([tool, set]) => ({ tool, customers: set.size }))
+      .sort((a, b) => b.customers - a.customers);
+
+    return {
+      range: { from: fromIso, to: toIso },
+      totalCustomers,
+      newCustomers,
+      activeCustomers: activeUserSet.size,
+      expiredCustomers: expiredUserSet.size,
+      renewingCustomers: renewingUserSet.size,
+      expiringSoon: expiringSoonSet.size,
+      byTool,
+    };
+  });
+
+// ---------- Tool Performance ----------
+
+export const getToolPerformance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const admin = await assertAdminAndGetAdmin(context);
+    const now = new Date();
+    const in7d = new Date(now.getTime() + 7 * 86400_000);
+
+    const [ordersRes, paymentsRes, accountsRes, reviewsRes] = await Promise.all([
+      admin
+        .from("tool_orders")
+        .select("id, user_id, tool_slug, status, expires_at"),
+      admin
+        .from("tool_payments")
+        .select("tool_slug, amount, payment_status"),
+      admin
+        .from("tool_accounts")
+        .select("tool_slug, enabled, status, expires_at"),
+      admin
+        .from("tool_reviews")
+        .select("tool_slug, rating, status"),
+    ]);
+    const orders = ordersRes.data ?? [];
+    const payments = paymentsRes.data ?? [];
+    const accounts = accountsRes.data ?? [];
+    const reviews = reviewsRes.data ?? [];
+
+    const map = new Map<
+      string,
+      {
+        tool: string;
+        customers: Set<string>;
+        revenue: number;
+        activeAccounts: number;
+        expiring: number;
+        ratingSum: number;
+        ratingCount: number;
+      }
+    >();
+    const ensure = (slug: string) => {
+      let m = map.get(slug);
+      if (!m) {
+        m = {
+          tool: slug,
+          customers: new Set(),
+          revenue: 0,
+          activeAccounts: 0,
+          expiring: 0,
+          ratingSum: 0,
+          ratingCount: 0,
+        };
+        map.set(slug, m);
+      }
+      return m;
+    };
+
+    for (const o of orders) {
+      const slug = o.tool_slug as string;
+      const m = ensure(slug);
+      const live =
+        o.status === "approved" &&
+        (!o.expires_at || new Date(o.expires_at as string) > now);
+      if (live) {
+        m.customers.add(o.user_id as string);
+        if (o.expires_at && new Date(o.expires_at as string) <= in7d) m.expiring += 1;
+      }
+    }
+    for (const p of payments) {
+      if (p.payment_status !== "successful") continue;
+      const m = ensure(p.tool_slug as string);
+      m.revenue += Number(p.amount ?? 0);
+    }
+    for (const a of accounts) {
+      if (
+        a.enabled &&
+        a.status === "working" &&
+        (!a.expires_at || new Date(a.expires_at as string) > now)
+      ) {
+        const m = ensure(a.tool_slug as string);
+        m.activeAccounts += 1;
+      }
+    }
+    for (const r of reviews) {
+      if (r.status !== "approved") continue;
+      const m = ensure(r.tool_slug as string);
+      m.ratingSum += Number(r.rating ?? 0);
+      m.ratingCount += 1;
+    }
+
+    return Array.from(map.values())
+      .map((m) => ({
+        tool: m.tool,
+        customers: m.customers.size,
+        revenue: m.revenue,
+        activeAccounts: m.activeAccounts,
+        expiring: m.expiring,
+        rating: m.ratingCount ? Math.round((m.ratingSum / m.ratingCount) * 10) / 10 : 0,
+        reviews: m.ratingCount,
+      }))
+      .sort((a, b) => b.revenue - a.revenue || b.customers - a.customers);
+  });
+
+// ---------- CSV Export ----------
+
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+function toCsv(headers: string[], rows: Array<Record<string, unknown>>): string {
+  const head = headers.join(",");
+  const body = rows
+    .map((r) => headers.map((h) => csvEscape(r[h])).join(","))
+    .join("\n");
+  return `${head}\n${body}`;
+}
+
+export const exportAnalyticsCsv = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        report: z.enum(["revenue", "customers", "orders"]),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await assertAdminAndGetAdmin(context);
+    const { fromIso, toIso } = defaultRange(data.from, data.to);
+
+    if (data.report === "revenue") {
+      const { data: rows } = await admin
+        .from("tool_payments")
+        .select(
+          "created_at, paid_at, tool_slug, amount, currency, payment_status, payment_type, classification, payment_method, source, billing_period, access_type, paystack_reference, customer_email",
+        )
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+        .order("created_at", { ascending: false });
+      const csv = toCsv(
+        [
+          "created_at",
+          "paid_at",
+          "tool_slug",
+          "amount",
+          "currency",
+          "payment_status",
+          "payment_type",
+          "classification",
+          "payment_method",
+          "source",
+          "billing_period",
+          "access_type",
+          "paystack_reference",
+          "customer_email",
+        ],
+        rows ?? [],
+      );
+      return { filename: `revenue-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
+    }
+
+    if (data.report === "customers") {
+      const { data: rows } = await admin
+        .from("profiles")
+        .select("id, email, full_name, created_at")
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+        .order("created_at", { ascending: false });
+      const csv = toCsv(
+        ["id", "email", "full_name", "created_at"],
+        rows ?? [],
+      );
+      return { filename: `customers-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
+    }
+
+    // orders
+    const { data: rows } = await admin
+      .from("tool_orders")
+      .select(
+        "id, user_id, tool_slug, status, access_type, billing_period, payment_type, payment_status, price_amount, expires_at, fulfilment_status, renewal_status, subscription_status, created_at, approved_at",
+      )
+      .gte("created_at", fromIso)
+      .lte("created_at", toIso)
+      .order("created_at", { ascending: false });
+    const csv = toCsv(
+      [
+        "id",
+        "user_id",
+        "tool_slug",
+        "status",
+        "access_type",
+        "billing_period",
+        "payment_type",
+        "payment_status",
+        "price_amount",
+        "expires_at",
+        "fulfilment_status",
+        "renewal_status",
+        "subscription_status",
+        "created_at",
+        "approved_at",
+      ],
+      rows ?? [],
+    );
+    return { filename: `orders-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
+  });

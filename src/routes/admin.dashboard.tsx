@@ -181,10 +181,22 @@ function DashboardBody({ data }: { data: Overview }) {
     { label: "Customers who disabled renewal", count: a.renewalDisabled, to: "/admin/orders" },
   ];
 
+  const newCustomers = data.trend.registrations.reduce((s, n) => s + n, 0);
+  const bestTool = data.topTools[0];
+
   return (
     <>
+      {/* Phase 6 — Quick summary */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <StatCard label="Revenue this month" value={money(r.thisMonth)} icon={Wallet} tone="text-success" />
+        <StatCard label={`New customers (${data.trend.days.length}d)`} value={newCustomers} icon={Users} tone="text-primary" />
+        <StatCard label="Failed payments" value={r.failedPayments} icon={XCircle} tone={r.failedPayments > 0 ? "text-destructive" : "text-muted-foreground"} />
+        <StatCard label="Expiring ≤7d" value={a.expiringSoon} icon={Timer} tone={a.expiringSoon > 0 ? "text-warning" : "text-muted-foreground"} />
+        <StatCard label="Best tool" value={bestTool ? bestTool.tool_slug : "—"} icon={TrendingUp} tone="text-primary" />
+      </div>
+
       {/* Row 1 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {row1.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
       {/* Row 2 */}
