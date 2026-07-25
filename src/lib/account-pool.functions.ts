@@ -427,6 +427,15 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
       actor: context.userId,
       notes: data.reason ?? null,
     });
+    const { logAdminActivity } = await import("@/lib/admin-audit.server");
+    await logAdminActivity(context, {
+      action: "customer_reassigned",
+      area: "credentials",
+      target_type: "tool_order",
+      target_id: orderRow.id,
+      reason: data.reason,
+      reference: `${orderRow.tool_slug} → account ${data.new_account_id}`,
+    });
 
     return { ok: true, assignment_id: (inserted as any).id };
   });
