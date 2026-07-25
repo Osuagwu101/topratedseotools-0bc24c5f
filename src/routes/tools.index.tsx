@@ -6,15 +6,24 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
   queryFn: () => listToolPricing(),
 });
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
+});
 
 export const Route = createFileRoute("/tools/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(pricingQuery),
+      context.queryClient.ensureQueryData(overridesQuery),
+    ]),
   head: () => ({
     meta: [
       { title: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
@@ -30,6 +39,19 @@ function ToolsDirectory() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
+  const overrideBySlug = useMemo(() => {
+    const m = new Map<string, (typeof overridesData.overrides)[number]>();
+    for (const o of overridesData.overrides) m.set(o.tool_slug, o);
+    return m;
+  }, [overridesData]);
+  const effectiveTools = useMemo(
+    () =>
+      TOOLS.map((t) => applyOverride(t, overrideBySlug.get(t.slug))).filter(
+        (t) => t.is_visible,
+      ),
+    [overrideBySlug],
+  );
   const priceByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
@@ -52,7 +74,7 @@ function ToolsDirectory() {
 
 
   const filtered = useMemo(() => {
-    return TOOLS.filter((t) => {
+    return effectiveTools.filter((t) => {
       const matchesCat = cat === "All" || t.category === cat;
       const matchesQ =
         !q ||
@@ -61,7 +83,7 @@ function ToolsDirectory() {
         t.description.toLowerCase().includes(q.toLowerCase());
       return matchesCat && matchesQ;
     });
-  }, [q, cat]);
+  }, [q, cat, effectiveTools]);
 
   return (
     <SiteLayout>
@@ -120,7 +142,16 @@ function ToolsDirectory() {
                 className="group relative flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
               >
                 <div className="flex items-center justify-between">
-                  <ToolBrandMark tool={t} />
+                  {t.image_url ? (
+                    <img
+                      src={t.image_url}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <ToolBrandMark tool={t} />
+                  )}
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",

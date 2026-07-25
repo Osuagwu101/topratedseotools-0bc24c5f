@@ -20,6 +20,7 @@ import {
   renewalText,
 } from "@/lib/currency";
 import { listToolSettings } from "@/lib/access.functions";
+import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 
@@ -30,6 +31,10 @@ const pricingQuery = queryOptions({
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
+});
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
 });
 const sessionQuery = queryOptions({
   queryKey: ["session-flag"],
@@ -46,6 +51,7 @@ export const Route = createFileRoute("/tools/$slug")({
     if (!tool) throw notFound();
     context.queryClient.ensureQueryData(pricingQuery);
     context.queryClient.ensureQueryData(settingsQuery);
+    context.queryClient.ensureQueryData(overridesQuery);
     return {
       slug: tool.slug,
       name: tool.name,
@@ -97,13 +103,40 @@ export const Route = createFileRoute("/tools/$slug")({
 
 function ToolPage() {
   const data = Route.useLoaderData();
-  const tool = getTool(data.slug)!;
+  const baseTool = getTool(data.slug)!;
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
   const { data: session } = useQuery(sessionQuery);
+  const override = overridesData.overrides.find((o) => o.tool_slug === baseTool.slug);
+  const tool = { ...baseTool, ...applyOverride(baseTool, override) };
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
   const setting = settings.settings.find((s) => s.tool_slug === tool.slug);
-  const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug).slice(0, 3);
+  const overrideBySlug = new Map(overridesData.overrides.map((o) => [o.tool_slug, o]));
+  const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug)
+    .map((t) => ({ ...t, ...applyOverride(t, overrideBySlug.get(t.slug)) }))
+    .filter((t) => t.is_visible)
+    .slice(0, 3);
+
+  if (!tool.is_visible) {
+    return (
+      <SiteLayout>
+        <div className="mx-auto max-w-md px-4 py-24 text-center">
+          <h1 className="text-2xl font-semibold">Tool unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This tool is currently hidden and not available to customers.
+          </p>
+          <Link
+            to="/tools"
+            className="mt-6 inline-block text-sm text-primary hover:underline"
+          >
+            Browse other tools
+          </Link>
+        </div>
+      </SiteLayout>
+    );
+  }
+
 
   const badge =
     setting?.enabled === false
@@ -122,7 +155,15 @@ function ToolPage() {
             <ArrowLeft className="h-4 w-4" /> All tools
           </Link>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <ToolBrandMark tool={tool} size="lg" className="shadow-card" />
+            {tool.image_url ? (
+              <img
+                src={tool.image_url}
+                alt=""
+                className="h-20 w-20 rounded-2xl object-cover shadow-card"
+              />
+            ) : (
+              <ToolBrandMark tool={tool} size="lg" className="shadow-card" />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border bg-background/60 px-2 py-0.5">{tool.category}</span>

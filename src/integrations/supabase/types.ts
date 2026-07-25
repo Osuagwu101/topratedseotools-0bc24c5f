@@ -1290,6 +1290,51 @@ export type Database = {
         }
         Relationships: []
       }
+      promotions: {
+        Row: {
+          audience: string
+          created_at: string
+          description: string | null
+          discount_type: string | null
+          discount_value: number | null
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          starts_at: string | null
+          title: string
+          tool_slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          created_at?: string
+          description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          starts_at?: string | null
+          title: string
+          tool_slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          created_at?: string
+          description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          starts_at?: string | null
+          title?: string
+          tool_slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           active_theme: string
@@ -1734,6 +1779,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tool_overrides: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          domain: string | null
+          image_url: string | null
+          is_visible: boolean
+          name: string | null
+          tagline: string | null
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string | null
+          tagline?: string | null
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string | null
+          tagline?: string | null
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tool_payment_status_history: {
         Row: {
