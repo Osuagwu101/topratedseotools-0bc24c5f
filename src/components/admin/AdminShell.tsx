@@ -93,7 +93,7 @@ const MARKETING_SUBNAV: { title: string; to: string }[] = [
   { title: "Google Tag Manager", to: "/admin/marketing/gtm" },
 ];
 
-type ReviewsSearch = { status: string; min_rating?: number };
+type ReviewsSearch = { status: "all" | "pending" | "approved" | "rejected" | "hidden"; min_rating?: number };
 const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
   { title: "Pending", search: { status: "pending" } },
   { title: "Approved", search: { status: "approved" } },
