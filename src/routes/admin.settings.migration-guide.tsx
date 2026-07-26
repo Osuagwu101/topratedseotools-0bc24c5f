@@ -108,6 +108,38 @@ function GuidePage() {
           </ol>
         </Section>
 
+        <Section title="5b. Hostinger (Node.js) deployment" description="Follow only when hosting on Hostinger Node.js or another traditional Node host. Skip on Cloudflare/Lovable.">
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Node version:</strong> 20 LTS or newer.</li>
+            <li><strong>Package manager:</strong> <code>bun install</code> (or <code>npm install</code>).</li>
+            <li>
+              <strong>One-time config change</strong> in <code>vite.config.ts</code> — switch the nitro preset from Cloudflare to Node:
+              <pre className="mt-1 rounded bg-muted p-2 text-xs overflow-x-auto"><code>{`export default defineConfig({
+  nitro: { preset: "node-server" },
+  tanstackStart: { server: { entry: "server" } },
+});`}</code></pre>
+            </li>
+            <li><strong>Build command:</strong> <code>bun run build</code> (produces <code>.output/</code>).</li>
+            <li><strong>Start command:</strong> <code>node .output/server/index.mjs</code></li>
+            <li>
+              <strong>Port:</strong> the Node preset automatically listens on <code>process.env.PORT</code>
+              (fallback 3000). Do not hardcode a port — Hostinger assigns it.
+            </li>
+            <li>
+              <strong>Environment variables:</strong> add every entry from section 2 in Hostinger's
+              <em> hPanel → Node.js app → Environment Variables</em>. All server code reads them via <code>process.env.*</code>.
+            </li>
+            <li>
+              <strong>Cron:</strong> Hostinger cron jobs call the two public hook endpoints listed in section 3
+              with the <code>Authorization: Bearer $CRON_SECRET</code> header (use <code>curl</code>).
+            </li>
+            <li>
+              <strong>Webhooks:</strong> reachable at <code>https://your-domain/api/public/webhooks/paystack</code>
+              once DNS points at the Hostinger app.
+            </li>
+          </ul>
+        </Section>
+
         <Section title="6. Post-migration testing">
           <ol className="list-decimal pl-5 space-y-1">
             <li>Public site: homepage, tools page, tool detail, pricing page, blog — all render.</li>
