@@ -59,10 +59,29 @@ function Dashboard() {
     .filter((r): r is { eligibility: typeof r.eligibility; tool: NonNullable<ReturnType<typeof getTool>> } => !!r.tool)
     .filter((r) => r.eligibility.qualifying_count > 0 || r.eligibility.review);
 
+  // Customer-facing greeting: never surface "Admin" as an identity. Use the
+  // customer's first name when it's a real personal name, otherwise fall back
+  // to a neutral greeting. Admin terminology only appears in admin routes.
+  const RESERVED_NAMES = new Set([
+    "admin",
+    "administrator",
+    "superadmin",
+    "super admin",
+    "super-admin",
+    "root",
+    "staff",
+    "support",
+    "moderator",
+    "owner",
+  ]);
+  const rawFullName = (user.user_metadata?.full_name as string | undefined)?.trim();
+  const firstName = rawFullName ? rawFullName.split(/\s+/)[0] : undefined;
+  const emailLocal = user.email?.split("@")[0];
+  const candidate = firstName ?? emailLocal;
   const displayName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    user.email?.split("@")[0] ??
-    "there";
+    candidate && !RESERVED_NAMES.has(candidate.toLowerCase())
+      ? candidate
+      : "there";
 
   const now = Date.now();
   const orders = ordersData?.orders ?? [];
