@@ -119,7 +119,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             icon={CheckCircle2}
             label="Active subscriptions"
@@ -127,7 +127,6 @@ function Dashboard() {
             hint={pendingCount ? `${pendingCount} awaiting payment` : undefined}
           />
           <StatCard icon={Clock} label="Next renewal" value={nextRenewalDate} />
-          <StatCard icon={LayoutGrid} label="Available tools" value={String(TOOLS.length)} />
           <StatCard icon={Star} label="Favourites" value={String(favTools.length)} />
         </div>
 
