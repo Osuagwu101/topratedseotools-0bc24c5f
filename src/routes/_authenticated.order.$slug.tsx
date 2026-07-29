@@ -463,9 +463,15 @@ function OrderPage() {
 function CheckoutSummary({
   chosen,
   allOptions,
+  currency,
+  price,
+  config,
 }: {
   chosen: ToolPricingOption;
   allOptions: ToolPricingOption[];
+  currency: import("@/lib/currency-convert").SupportedCurrency;
+  price: (ngn: number) => import("@/lib/currency-convert").PricingBreakdown | null;
+  config: Awaited<ReturnType<typeof import("@/lib/currency.functions").getPublicCurrencyConfig>> | undefined;
 }) {
   const kind = normaliseBillingKind(getBillingKind(chosen));
   const billing = billingDescription(kind);
@@ -508,9 +514,16 @@ function CheckoutSummary({
           ? "Yearly Subscription"
           : chosen.label ?? "Standard";
 
+  const ngn = Number(chosen.amount ?? 0);
+  const breakdown = currency === "NGN" ? null : price(ngn);
+  const rateRow = currency === "NGN" ? null : config?.rates.find((r) => r.currency === currency);
+
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
-      <div className="text-sm font-semibold">Order summary</div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold">Order summary</div>
+        <CurrencySwitcher />
+      </div>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex items-center justify-between">
           <dt className="text-muted-foreground">Access</dt>
@@ -536,10 +549,51 @@ function CheckoutSummary({
             <dd>{billing}</dd>
           </div>
         ) : null}
+
         <div className="flex items-center justify-between border-t pt-2">
-          <dt className="text-muted-foreground">Amount due today</dt>
-          <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
+          <dt className="text-muted-foreground">Base price</dt>
+          <dd className="font-medium">{formatPlanPrice(chosen)}</dd>
         </div>
+
+        {breakdown ? (
+          <>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Converted price ({currency})</dt>
+              <dd>{formatMoney(breakdown.converted_amount, currency)}</dd>
+            </div>
+            {breakdown.international_fee_amount > 0 ? (
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">
+                  International processing fee ({breakdown.international_fee_percent}%)
+                </dt>
+                <dd>{formatMoney(breakdown.international_fee_amount, currency)}</dd>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between border-t pt-2">
+              <dt className="text-muted-foreground">Total payable</dt>
+              <dd className="text-base font-bold">
+                {formatMoney(breakdown.final_amount, currency)}
+              </dd>
+            </div>
+            {rateRow ? (
+              <div className="flex items-start gap-1 text-[11px] text-muted-foreground">
+                <Globe className="mt-0.5 h-3 w-3" />
+                <span>
+                  {formatRateHint(currency, breakdown.exchange_rate)}
+                  {rateRow.fetched_at
+                    ? ` · Rate updated ${new Date(rateRow.fetched_at).toLocaleString()}`
+                    : ""}
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="flex items-center justify-between border-t pt-2">
+            <dt className="text-muted-foreground">Amount due today</dt>
+            <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
+          </div>
+        )}
+
         {savingLine ? (
           <div className="flex items-start gap-1 text-[11px] text-success">
             <TrendingDown className="mt-0.5 h-3 w-3" />
@@ -550,7 +604,6 @@ function CheckoutSummary({
           <p className="text-[11px] text-muted-foreground">{renewal}</p>
         ) : null}
       </dl>
-
     </div>
   );
 }
