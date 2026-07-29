@@ -80,8 +80,12 @@ function CurrencySettingsPage() {
   }
 
   return (
-    <AdminShell title="Currency & Surcharge" description="Manage multi-currency checkout and the international payment surcharge.">
+    <AdminShell>
       <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <header>
+          <h1 className="text-2xl font-bold">Currency & Surcharge</h1>
+          <p className="text-sm text-muted-foreground">Manage multi-currency checkout and the international payment surcharge.</p>
+        </header>
         <section className="rounded-2xl border bg-card p-6 shadow-card">
           <h2 className="text-base font-semibold">Currency switching</h2>
           <p className="mt-1 text-xs text-muted-foreground">
