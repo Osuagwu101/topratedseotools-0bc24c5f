@@ -59,29 +59,50 @@ function Dashboard() {
     .filter((r): r is { eligibility: typeof r.eligibility; tool: NonNullable<ReturnType<typeof getTool>> } => !!r.tool)
     .filter((r) => r.eligibility.qualifying_count > 0 || r.eligibility.review);
 
-  // Customer-facing greeting: never surface "Admin" as an identity. Use the
-  // customer's first name when it's a real personal name, otherwise fall back
-  // to a neutral greeting. Admin terminology only appears in admin routes.
+  const { data: profile } = useQuery({
+    queryKey: ["profile-name", user.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
+
+  // Customer-facing greeting: never surface role names ("Admin", "User", etc.)
+  // as an identity. Extract only the first name from the user's profile.
+  // If no valid first name is available, use a neutral "Welcome back".
   const RESERVED_NAMES = new Set([
     "admin",
     "administrator",
     "superadmin",
-    "super admin",
-    "super-admin",
+    "super",
     "root",
     "staff",
     "support",
     "moderator",
     "owner",
+    "user",
+    "customer",
   ]);
-  const rawFullName = (user.user_metadata?.full_name as string | undefined)?.trim();
-  const firstName = rawFullName ? rawFullName.split(/\s+/)[0] : undefined;
-  const emailLocal = user.email?.split("@")[0];
-  const candidate = firstName ?? emailLocal;
-  const displayName =
-    candidate && !RESERVED_NAMES.has(candidate.toLowerCase())
-      ? candidate
-      : "there";
+  const extractFirstName = (raw?: string | null): string | undefined => {
+    const trimmed = raw?.trim();
+    if (!trimmed) return undefined;
+    const first = trimmed.split(/\s+/)[0];
+    if (!first) return undefined;
+    if (RESERVED_NAMES.has(first.toLowerCase())) return undefined;
+    // Skip email-shaped values
+    if (first.includes("@")) return undefined;
+    return first;
+  };
+  const firstName =
+    extractFirstName(profile?.full_name) ??
+    extractFirstName(user.user_metadata?.full_name as string | undefined) ??
+    extractFirstName(user.user_metadata?.name as string | undefined) ??
+    extractFirstName(user.user_metadata?.first_name as string | undefined);
+  const greeting = firstName ? `Welcome back, ${firstName}` : "Welcome back";
 
   const now = Date.now();
   const orders = ordersData?.orders ?? [];
@@ -119,7 +140,8 @@ function Dashboard() {
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="truncate text-3xl font-bold tracking-tight">Welcome back, {displayName}</h1>
+            <h1 className="truncate text-3xl font-bold tracking-tight">{greeting}</h1>
+
             <p className="mt-1 text-sm text-muted-foreground">Here's a snapshot of your workspace.</p>
           </div>
           <div className="flex flex-wrap gap-2">
