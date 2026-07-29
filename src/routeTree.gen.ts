@@ -74,6 +74,7 @@ import { Route as AdminSettingsMigrationRouteImport } from './routes/admin.setti
 import { Route as AdminSettingsGeneralRouteImport } from './routes/admin.settings.general'
 import { Route as AdminSettingsEmergencyRouteImport } from './routes/admin.settings.emergency'
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
+import { Route as AdminSettingsCurrencyRouteImport } from './routes/admin.settings.currency'
 import { Route as AdminSettingsCredentialsRouteImport } from './routes/admin.settings.credentials'
 import { Route as AdminSettingsContentRouteImport } from './routes/admin.settings.content'
 import { Route as AdminSettingsCommunicationsRouteImport } from './routes/admin.settings.communications'
@@ -440,6 +441,11 @@ const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
   path: '/email',
   getParentRoute: () => AdminSettingsRoute,
 } as any)
+const AdminSettingsCurrencyRoute = AdminSettingsCurrencyRouteImport.update({
+  id: '/currency',
+  path: '/currency',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsCredentialsRoute =
   AdminSettingsCredentialsRouteImport.update({
     id: '/credentials',
@@ -673,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
+  '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
@@ -763,6 +770,7 @@ export interface FileRoutesByTo {
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
+  '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
@@ -862,6 +870,7 @@ export interface FileRoutesById {
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
+  '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/general': typeof AdminSettingsGeneralRoute
@@ -961,6 +970,7 @@ export interface FileRouteTypes {
     | '/admin/settings/communications'
     | '/admin/settings/content'
     | '/admin/settings/credentials'
+    | '/admin/settings/currency'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/general'
@@ -1051,6 +1061,7 @@ export interface FileRouteTypes {
     | '/admin/settings/communications'
     | '/admin/settings/content'
     | '/admin/settings/credentials'
+    | '/admin/settings/currency'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/general'
@@ -1149,6 +1160,7 @@ export interface FileRouteTypes {
     | '/admin/settings/communications'
     | '/admin/settings/content'
     | '/admin/settings/credentials'
+    | '/admin/settings/currency'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/general'
@@ -1671,6 +1683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsEmailRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/currency': {
+      id: '/admin/settings/currency'
+      path: '/currency'
+      fullPath: '/admin/settings/currency'
+      preLoaderRoute: typeof AdminSettingsCurrencyRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/credentials': {
       id: '/admin/settings/credentials'
       path: '/credentials'
@@ -2031,6 +2050,7 @@ interface AdminSettingsRouteChildren {
   AdminSettingsCommunicationsRoute: typeof AdminSettingsCommunicationsRoute
   AdminSettingsContentRoute: typeof AdminSettingsContentRoute
   AdminSettingsCredentialsRoute: typeof AdminSettingsCredentialsRoute
+  AdminSettingsCurrencyRoute: typeof AdminSettingsCurrencyRoute
   AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   AdminSettingsEmergencyRoute: typeof AdminSettingsEmergencyRoute
   AdminSettingsGeneralRoute: typeof AdminSettingsGeneralRoute
@@ -2058,6 +2078,7 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsCommunicationsRoute: AdminSettingsCommunicationsRoute,
   AdminSettingsContentRoute: AdminSettingsContentRoute,
   AdminSettingsCredentialsRoute: AdminSettingsCredentialsRoute,
+  AdminSettingsCurrencyRoute: AdminSettingsCurrencyRoute,
   AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   AdminSettingsEmergencyRoute: AdminSettingsEmergencyRoute,
   AdminSettingsGeneralRoute: AdminSettingsGeneralRoute,
@@ -2131,13 +2152,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

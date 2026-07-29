@@ -23,9 +23,9 @@ export function paystackIntervalFor(period: BillingPeriod): PaystackInterval {
 export interface PaystackApi {
   createPlan(input: {
     name: string;
-    amount: number; // kobo
+    amount: number; // minor units of `currency`
     interval: PaystackInterval;
-    currency: "NGN";
+    currency: string;
   }): Promise<{ plan_code: string }>;
 }
 
@@ -35,13 +35,16 @@ export interface EnsurePlanInput {
   access_type: "shared" | "private";
   billing_period: BillingPeriod;
   paystack_environment: PaystackEnv;
-  price_amount: number; // naira
+  /** Amount that Paystack will charge, in the plan's own currency. */
+  price_amount: number;
+  /** Plan currency (defaults to NGN for legacy callers). */
+  currency?: string;
 }
 
 /**
  * Look up an active, matching plan mapping and return its plan_code — or
  * create a fresh Paystack plan and persist the mapping. Idempotent per
- * (tool, access, period, amount, env).
+ * (tool, access, period, amount, currency, env).
  */
 export async function ensurePaystackPlanCode(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,15 +53,17 @@ export async function ensurePaystackPlanCode(
   input: EnsurePlanInput,
 ): Promise<{ plan_code: string; reused: boolean }> {
   const interval = paystackIntervalFor(input.billing_period);
+  const currency = (input.currency ?? "NGN").toUpperCase();
 
   const { data: existing } = await supabaseAdmin
     .from("paystack_plan_mappings")
-    .select("paystack_plan_code, amount_snapshot")
+    .select("paystack_plan_code, amount_snapshot, currency")
     .eq("tool_slug", input.tool_slug)
     .eq("access_type", input.access_type)
     .eq("billing_period", input.billing_period)
     .eq("paystack_environment", input.paystack_environment)
     .eq("amount_snapshot", input.price_amount)
+    .eq("currency", currency)
     .eq("active_for_new_purchases", true)
     .maybeSingle();
 
@@ -67,10 +72,10 @@ export async function ensurePaystackPlanCode(
   }
 
   const plan = await api.createPlan({
-    name: `${input.tool_slug} · ${input.access_type} · ${input.billing_period} · ₦${input.price_amount}`,
+    name: `${input.tool_slug} · ${input.access_type} · ${input.billing_period} · ${currency}${input.price_amount}`,
     amount: Math.round(input.price_amount * 100),
     interval,
-    currency: "NGN",
+    currency,
   });
 
   await supabaseAdmin.from("paystack_plan_mappings").insert({
@@ -82,7 +87,8 @@ export async function ensurePaystackPlanCode(
     paystack_interval: interval,
     paystack_plan_code: plan.plan_code,
     amount_snapshot: input.price_amount,
-    currency: "NGN",
+    currency,
+    subscription_currency: currency,
     sync_status: "active",
     active_for_new_purchases: true,
     last_verified_at: new Date().toISOString(),
@@ -97,6 +103,7 @@ export function ensurePlanFromSnapshot(
   supabaseAdmin: any,
   api: PaystackApi,
   snapshot: OrderSnapshot,
+  override?: { currency?: string; priceAmount?: number },
 ) {
   return ensurePaystackPlanCode(supabaseAdmin, api, {
     tool_slug: snapshot.tool_slug,
@@ -104,6 +111,7 @@ export function ensurePlanFromSnapshot(
     access_type: snapshot.access_type,
     billing_period: snapshot.billing_period,
     paystack_environment: snapshot.paystack_environment,
-    price_amount: snapshot.price_amount,
+    price_amount: override?.priceAmount ?? snapshot.price_amount,
+    currency: override?.currency ?? "NGN",
   });
 }

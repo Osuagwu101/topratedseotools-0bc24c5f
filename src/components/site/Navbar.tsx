@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import logoAsset from "@/assets/logo.png.asset.json";
+import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 
 
 
@@ -85,6 +86,7 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <CurrencySwitcher />
           {user ? (
             <>
               <Link
@@ -142,6 +144,7 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t pt-3">
+              <div className="px-1"><CurrencySwitcher className="h-9 w-full text-sm" /></div>
               {user ? (
                 <>
                   <Link

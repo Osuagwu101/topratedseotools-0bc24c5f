@@ -504,6 +504,7 @@ function AdminSidebar() {
                     </SidebarMenuSubItem>
                     {[
                       { title: "Payment Recovery", to: "/admin/settings/payment-recovery" as const, perm: "payments.manage" },
+                      { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage" },
                       { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage" },
                       { title: "Staff, Roles & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
                       { title: "Security Centre", to: "/admin/settings/security" as const, perm: null },

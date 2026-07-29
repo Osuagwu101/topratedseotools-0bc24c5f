@@ -8,9 +8,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
-function toKobo(naira: number): number {
-  return Math.round(naira * 100);
-}
 
 async function paystack<T>(path: string, init?: RequestInit): Promise<T> {
   const key = process.env.PAYSTACK_SECRET_KEY;
@@ -36,7 +33,7 @@ function paystackApi() {
       name: string;
       amount: number;
       interval: "monthly" | "quarterly" | "annually";
-      currency: "NGN";
+      currency: string;
     }) =>
       paystack<{ plan_code: string }>("/plan", {
         method: "POST",
@@ -53,6 +50,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         order_id: z.string().uuid(),
         callback_url: z.string().url(),
         payment_type: z.enum(["one_time", "recurring_subscription"]).optional(),
+        payment_currency: z.enum(["NGN", "GHS", "KES", "ZAR", "USD"]).optional(),
       })
       .parse(input),
   )
@@ -110,10 +108,59 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       throw err;
     }
 
+    // Multi-currency: server re-validates chosen currency + recomputes the
+    // breakdown from DB rates. Never trusts client-supplied amounts.
+    const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
+    const { buildPricingBreakdown } = await import("@/lib/currency-convert");
+    let currencyBreakdown = buildPricingBreakdown({
+      ngn: snapshot.price_amount,
+      currency: "NGN",
+      rate: 1,
+      surchargePercent: 0,
+      surchargeEnabled: false,
+    });
+    if (chosenCurrency !== "NGN") {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: cs }, { data: rateRow }] = await Promise.all([
+        supabaseAdmin
+          .from("currency_settings")
+          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies")
+          .eq("id", true)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("exchange_rates")
+          .select("rate, expires_at")
+          .eq("base_currency", "NGN")
+          .eq("quote_currency", chosenCurrency)
+          .maybeSingle(),
+      ]);
+      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[] } | null;
+      if (!settings?.switching_enabled) throw new Error("Currency switching is currently disabled.");
+      if (!settings.supported_currencies.includes(chosenCurrency)) {
+        throw new Error(`${chosenCurrency} is not supported at the moment.`);
+      }
+      const rate = Number((rateRow as { rate?: number } | null)?.rate ?? 0);
+      const expires = (rateRow as { expires_at?: string } | null)?.expires_at;
+      if (!rate || rate <= 0) throw new Error(`No exchange rate available for ${chosenCurrency}. Please try again shortly or pay in NGN.`);
+      if (expires && new Date(expires).getTime() < Date.now()) {
+        throw new Error(`Exchange rate for ${chosenCurrency} is stale. Please refresh and try again.`);
+      }
+      currencyBreakdown = buildPricingBreakdown({
+        ngn: snapshot.price_amount,
+        currency: chosenCurrency,
+        rate,
+        surchargePercent: Number(settings.surcharge_percent ?? 3),
+        surchargeEnabled: !!settings.surcharge_enabled,
+      });
+    }
+
     let planCode: string | null = null;
     if (isRecurring) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const res = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot);
+      const res = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot, {
+        currency: currencyBreakdown.payment_currency,
+        priceAmount: currencyBreakdown.final_amount,
+      });
       planCode = res.plan_code;
     }
 
@@ -129,6 +176,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         billing_period: snapshot.billing_period,
       }),
       payment_type: paymentType,
+      payment_currency: currencyBreakdown.payment_currency,
+      base_amount_ngn: currencyBreakdown.base_amount_ngn,
+      exchange_rate: currencyBreakdown.exchange_rate,
+      international_fee_amount: currencyBreakdown.international_fee_amount,
+      final_amount: currencyBreakdown.final_amount,
     };
 
     // Recurring: restrict to channels Paystack supports for subscriptions.
@@ -136,8 +188,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
     const initBody: Record<string, unknown> = {
       email,
-      amount: toKobo(snapshot.price_amount),
-      currency: "NGN",
+      amount: currencyBreakdown.minor_units_amount,
+      currency: currencyBreakdown.payment_currency,
       reference,
       callback_url: data.callback_url,
       metadata,
@@ -172,6 +224,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         subscription_status: "pending",
         renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
+        payment_currency: currencyBreakdown.payment_currency,
+        exchange_rate_snapshot: currencyBreakdown.exchange_rate,
+        international_fee_amount: currencyBreakdown.international_fee_amount,
+        final_amount_charged: currencyBreakdown.final_amount,
       })
       .eq("id", orderSafe.id);
 
@@ -206,6 +262,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             source: "paystack",
             initiated_at: new Date().toISOString(),
             last_status_change_at: new Date().toISOString(),
+            base_amount_ngn: currencyBreakdown.base_amount_ngn,
+            payment_currency: currencyBreakdown.payment_currency,
+            exchange_rate: currencyBreakdown.exchange_rate,
+            converted_amount: currencyBreakdown.converted_amount,
+            international_fee_percent: currencyBreakdown.international_fee_percent,
+            international_fee_amount: currencyBreakdown.international_fee_amount,
+            final_amount: currencyBreakdown.final_amount,
           } as never)
           .select("id")
           .maybeSingle();
@@ -285,7 +348,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
@@ -330,6 +393,8 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         currency: (orderSafe.currency as string | null) ?? null,
         paystack_reference: (order.paystack_reference as string | null) ?? null,
         paystack_environment: (order.paystack_environment as string | null) ?? null,
+        payment_currency: ((order as { payment_currency?: string | null }).payment_currency) ?? null,
+        final_amount_charged: ((order as { final_amount_charged?: number | null }).final_amount_charged) ?? null,
       },
       callerUserId: context.userId,
       env,
