@@ -689,6 +689,39 @@ export type Database = {
         }
         Relationships: []
       }
+      currency_settings: {
+        Row: {
+          created_at: string
+          id: boolean
+          supported_currencies: string[]
+          surcharge_enabled: boolean
+          surcharge_percent: number
+          switching_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: boolean
+          supported_currencies?: string[]
+          surcharge_enabled?: boolean
+          surcharge_percent?: number
+          switching_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: boolean
+          supported_currencies?: string[]
+          surcharge_enabled?: boolean
+          surcharge_percent?: number
+          switching_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       customer_admin_audit: {
         Row: {
           action: string
@@ -914,6 +947,72 @@ export type Database = {
           text_body?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      exchange_rate_logs: {
+        Row: {
+          base_currency: string
+          created_at: string
+          fetched_at: string
+          id: string
+          quote_currency: string
+          rate: number
+          source: string
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          quote_currency: string
+          rate: number
+          source: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          quote_currency?: string
+          rate?: number
+          source?: string
+        }
+        Relationships: []
+      }
+      exchange_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          expires_at: string
+          fetched_at: string
+          id: string
+          quote_currency: string
+          rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          quote_currency: string
+          rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: string
+          quote_currency?: string
+          rate?: number
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1197,6 +1296,7 @@ export type Database = {
           paystack_interval: string | null
           paystack_plan_code: string | null
           pricing_option_id: string | null
+          subscription_currency: string
           superseded_at: string | null
           sync_error: string | null
           sync_status: string
@@ -1216,6 +1316,7 @@ export type Database = {
           paystack_interval?: string | null
           paystack_plan_code?: string | null
           pricing_option_id?: string | null
+          subscription_currency?: string
           superseded_at?: string | null
           sync_error?: string | null
           sync_status?: string
@@ -1235,6 +1336,7 @@ export type Database = {
           paystack_interval?: string | null
           paystack_plan_code?: string | null
           pricing_option_id?: string | null
+          subscription_currency?: string
           superseded_at?: string | null
           sync_error?: string | null
           sync_status?: string
@@ -1684,7 +1786,9 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           duration_days: number | null
+          exchange_rate_snapshot: number | null
           expires_at: string | null
+          final_amount_charged: number | null
           fulfilled_at: string | null
           fulfilment_deadline_at: string | null
           fulfilment_marked_by: string | null
@@ -1692,12 +1796,14 @@ export type Database = {
           fulfilment_status: string
           grace_days: number
           id: string
+          international_fee_amount: number
           next_payment_at: string | null
           non_renewal_requested_at: string | null
           notes: string | null
           origin: string
           paid_at: string | null
           paid_through_at: string | null
+          payment_currency: string
           payment_status: string
           payment_type: string
           paystack_customer_code: string | null
@@ -1739,7 +1845,9 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           duration_days?: number | null
+          exchange_rate_snapshot?: number | null
           expires_at?: string | null
+          final_amount_charged?: number | null
           fulfilled_at?: string | null
           fulfilment_deadline_at?: string | null
           fulfilment_marked_by?: string | null
@@ -1747,12 +1855,14 @@ export type Database = {
           fulfilment_status?: string
           grace_days?: number
           id?: string
+          international_fee_amount?: number
           next_payment_at?: string | null
           non_renewal_requested_at?: string | null
           notes?: string | null
           origin?: string
           paid_at?: string | null
           paid_through_at?: string | null
+          payment_currency?: string
           payment_status?: string
           payment_type?: string
           paystack_customer_code?: string | null
@@ -1794,7 +1904,9 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           duration_days?: number | null
+          exchange_rate_snapshot?: number | null
           expires_at?: string | null
+          final_amount_charged?: number | null
           fulfilled_at?: string | null
           fulfilment_deadline_at?: string | null
           fulfilment_marked_by?: string | null
@@ -1802,12 +1914,14 @@ export type Database = {
           fulfilment_status?: string
           grace_days?: number
           id?: string
+          international_fee_amount?: number
           next_payment_at?: string | null
           non_renewal_requested_at?: string | null
           notes?: string | null
           origin?: string
           paid_at?: string | null
           paid_through_at?: string | null
+          payment_currency?: string
           payment_status?: string
           payment_type?: string
           paystack_customer_code?: string | null
@@ -1931,20 +2045,27 @@ export type Database = {
           access_type: string | null
           admin_note: string | null
           amount: number | null
+          base_amount_ngn: number | null
           billing_period: string | null
           classification: string
+          converted_amount: number | null
           created_at: string
           currency: string
           customer_email: string | null
           customer_name: string | null
+          exchange_rate: number | null
+          final_amount: number | null
           flagged_at: string | null
           flagged_reason: string | null
           id: string
           initiated_at: string
+          international_fee_amount: number
+          international_fee_percent: number
           last_status_change_at: string | null
           order_id: string | null
           paid_at: string | null
           payment_channel: string | null
+          payment_currency: string
           payment_method: string | null
           payment_status: string
           payment_type: string
@@ -1971,20 +2092,27 @@ export type Database = {
           access_type?: string | null
           admin_note?: string | null
           amount?: number | null
+          base_amount_ngn?: number | null
           billing_period?: string | null
           classification?: string
+          converted_amount?: number | null
           created_at?: string
           currency?: string
           customer_email?: string | null
           customer_name?: string | null
+          exchange_rate?: number | null
+          final_amount?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
           initiated_at?: string
+          international_fee_amount?: number
+          international_fee_percent?: number
           last_status_change_at?: string | null
           order_id?: string | null
           paid_at?: string | null
           payment_channel?: string | null
+          payment_currency?: string
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
@@ -2011,20 +2139,27 @@ export type Database = {
           access_type?: string | null
           admin_note?: string | null
           amount?: number | null
+          base_amount_ngn?: number | null
           billing_period?: string | null
           classification?: string
+          converted_amount?: number | null
           created_at?: string
           currency?: string
           customer_email?: string | null
           customer_name?: string | null
+          exchange_rate?: number | null
+          final_amount?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
           id?: string
           initiated_at?: string
+          international_fee_amount?: number
+          international_fee_percent?: number
           last_status_change_at?: string | null
           order_id?: string | null
           paid_at?: string | null
           payment_channel?: string | null
+          payment_currency?: string
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
@@ -2365,7 +2500,9 @@ export type Database = {
           current_period_end: string | null
           interval: string | null
           plan: string
+          renewal_currency: string
           status: string
+          subscription_currency: string
           trial_end: string | null
           updated_at: string
           user_id: string
@@ -2376,7 +2513,9 @@ export type Database = {
           current_period_end?: string | null
           interval?: string | null
           plan?: string
+          renewal_currency?: string
           status?: string
+          subscription_currency?: string
           trial_end?: string | null
           updated_at?: string
           user_id: string
@@ -2387,7 +2526,9 @@ export type Database = {
           current_period_end?: string | null
           interval?: string | null
           plan?: string
+          renewal_currency?: string
           status?: string
+          subscription_currency?: string
           trial_end?: string | null
           updated_at?: string
           user_id?: string
