@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, LayoutGrid, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
+import { CreditCard, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
