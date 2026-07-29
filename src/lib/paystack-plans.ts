@@ -103,6 +103,7 @@ export function ensurePlanFromSnapshot(
   supabaseAdmin: any,
   api: PaystackApi,
   snapshot: OrderSnapshot,
+  override?: { currency?: string; priceAmount?: number },
 ) {
   return ensurePaystackPlanCode(supabaseAdmin, api, {
     tool_slug: snapshot.tool_slug,
@@ -110,6 +111,7 @@ export function ensurePlanFromSnapshot(
     access_type: snapshot.access_type,
     billing_period: snapshot.billing_period,
     paystack_environment: snapshot.paystack_environment,
-    price_amount: snapshot.price_amount,
+    price_amount: override?.priceAmount ?? snapshot.price_amount,
+    currency: override?.currency ?? "NGN",
   });
 }
