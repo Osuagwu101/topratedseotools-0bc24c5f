@@ -8,9 +8,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
-function toKobo(naira: number): number {
-  return Math.round(naira * 100);
-}
 
 async function paystack<T>(path: string, init?: RequestInit): Promise<T> {
   const key = process.env.PAYSTACK_SECRET_KEY;
