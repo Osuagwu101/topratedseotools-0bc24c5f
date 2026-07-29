@@ -18,6 +18,7 @@ import { getActiveTheme } from "@/lib/site-settings.functions";
 import { MarketingTags } from "@/components/marketing/MarketingTags";
 import { MarketingProvider } from "@/components/marketing/MarketingProvider";
 import { ConsentBanner } from "@/components/marketing/ConsentBanner";
+import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
 
 function NotFoundComponent() {
   return (
@@ -156,11 +157,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MarketingProvider />
-      <MarketingTags />
-      <Outlet />
-      <ConsentBanner />
-      <Toaster position="top-right" richColors closeButton />
+      <CurrencyProvider>
+        <MarketingProvider />
+        <MarketingTags />
+        <Outlet />
+        <ConsentBanner />
+        <Toaster position="top-right" richColors closeButton />
+      </CurrencyProvider>
     </QueryClientProvider>
   );
 }
