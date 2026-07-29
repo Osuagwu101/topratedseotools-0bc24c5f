@@ -263,7 +263,7 @@ export interface VerifyInput {
   tx: {
     status: string;
     reference: string;
-    amount: number; // kobo
+    amount: number; // minor units of `currency`
     currency: string;
     metadata?: { order_id?: string };
   } | null;
@@ -274,6 +274,10 @@ export interface VerifyInput {
     currency: string | null;
     paystack_reference: string | null;
     paystack_environment: string | null;
+    /** Multi-currency: currency chosen at checkout (NGN when omitted). */
+    payment_currency?: string | null;
+    /** Multi-currency: total that Paystack was asked to charge. */
+    final_amount_charged?: number | null;
   } | null;
   callerUserId: string;
   env: PaystackEnv;
@@ -304,11 +308,17 @@ export function validatePaymentVerification(
     return { ok: false, reason: "reference_mismatch" };
   }
   if (v.otherOrderHasReference) return { ok: false, reason: "reference_reused" };
-  const expectedKobo = Math.round((v.order.price_amount ?? 0) * 100);
-  if (expectedKobo <= 0 || v.tx.amount !== expectedKobo) {
+
+  // Multi-currency aware: compare against the actual currency + total we told
+  // Paystack to charge. Falls back to legacy NGN comparison for existing rows.
+  const expectedCurrency = (v.order.payment_currency ?? "NGN").toUpperCase();
+  const expectedAmountMajor =
+    v.order.final_amount_charged ?? v.order.price_amount ?? 0;
+  const expectedMinor = Math.round(Number(expectedAmountMajor) * 100);
+  if (expectedMinor <= 0 || v.tx.amount !== expectedMinor) {
     return { ok: false, reason: "amount_mismatch" };
   }
-  if ((v.tx.currency ?? "").toUpperCase() !== "NGN") {
+  if ((v.tx.currency ?? "").toUpperCase() !== expectedCurrency) {
     return { ok: false, reason: "currency_mismatch" };
   }
   const orderEnv = v.order.paystack_environment;
