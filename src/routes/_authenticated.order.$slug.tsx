@@ -12,7 +12,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, Globe } from "lucide-react";
+import { useCurrency } from "@/components/currency/CurrencyProvider";
+import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
+import { formatMoney, formatRateHint } from "@/lib/currency-convert";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { getTool } from "@/lib/tools-data";
@@ -70,6 +73,7 @@ function OrderPage() {
   const tool = getTool(slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
+  const { currency, price, config } = useCurrency();
   const setting = settings.settings.find((s) => s.tool_slug === slug);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
@@ -204,7 +208,12 @@ function OrderPage() {
       // route's validateSearch throws "This page didn't load".
       const callback = `${window.location.origin}/orders`;
       const { authorization_url } = await initPay({
-        data: { order_id: orderId, callback_url: callback, payment_type: payMode },
+        data: {
+          order_id: orderId,
+          callback_url: callback,
+          payment_type: payMode,
+          payment_currency: currency,
+        },
       });
       window.location.href = authorization_url;
     } catch (err) {
@@ -322,7 +331,7 @@ function OrderPage() {
           </div>
 
 
-          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} /> : null}
+          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} currency={currency} price={price} config={config} /> : null}
 
           {chosen ? (
             <div className="rounded-2xl border bg-card p-6 shadow-card">
