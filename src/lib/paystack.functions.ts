@@ -227,6 +227,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         subscription_status: "pending",
         renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
+        payment_currency: currencyBreakdown.payment_currency,
+        exchange_rate_snapshot: currencyBreakdown.exchange_rate,
+        international_fee_amount: currencyBreakdown.international_fee_amount,
+        final_amount_charged: currencyBreakdown.final_amount,
       })
       .eq("id", orderSafe.id);
 
@@ -261,6 +265,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             source: "paystack",
             initiated_at: new Date().toISOString(),
             last_status_change_at: new Date().toISOString(),
+            base_amount_ngn: currencyBreakdown.base_amount_ngn,
+            payment_currency: currencyBreakdown.payment_currency,
+            exchange_rate: currencyBreakdown.exchange_rate,
+            converted_amount: currencyBreakdown.converted_amount,
+            international_fee_percent: currencyBreakdown.international_fee_percent,
+            international_fee_amount: currencyBreakdown.international_fee_amount,
+            final_amount: currencyBreakdown.final_amount,
           } as never)
           .select("id")
           .maybeSingle();
