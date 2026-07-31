@@ -12,7 +12,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { CURRENCY_META, isSupportedCurrency, type SupportedCurrency } from "./currency-convert";
 
-const DEFAULT_RATE_URL = "https://api.exchangerate.host/latest";
+// Keyless provider ("1 NGN = <rate> <quote>"). exchangerate.host now requires
+// an access key, so we default to open.er-api.com; override with EXCHANGE_RATE_URL.
+const DEFAULT_RATE_URL = "https://open.er-api.com/v6/latest/NGN";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
