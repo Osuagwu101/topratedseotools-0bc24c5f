@@ -100,9 +100,24 @@ export const refreshExchangeRates = createServerFn({ method: "POST" })
 
     const url = process.env.EXCHANGE_RATE_URL ?? DEFAULT_RATE_URL;
     const symbols = ["GHS", "KES", "ZAR", "USD"];
-    const res = await fetch(`${url}?base=NGN&symbols=${symbols.join(",")}`);
+    // Some providers take ?base/&symbols, others encode the base in the path.
+    const reqUrl = url.includes("latest/")
+      ? url
+      : `${url}?base=NGN&symbols=${symbols.join(",")}`;
+    const source = new URL(reqUrl).hostname;
+    const res = await fetch(reqUrl);
     if (!res.ok) throw new Error(`Rate provider returned ${res.status}`);
-    const body = (await res.json()) as { rates?: Record<string, number>; date?: string };
+    const body = (await res.json()) as {
+      rates?: Record<string, number>;
+      result?: string;
+      success?: boolean;
+      error?: { info?: string; type?: string };
+    };
+    if (body.success === false || (body.result && body.result !== "success")) {
+      throw new Error(
+        `Rate provider rejected the request: ${body.error?.info ?? body.error?.type ?? "unknown error"}`,
+      );
+    }
     const rates = body.rates ?? {};
 
     const now = new Date();
@@ -116,7 +131,7 @@ export const refreshExchangeRates = createServerFn({ method: "POST" })
         base_currency: "NGN",
         quote_currency: code,
         rate,
-        source: "exchangerate.host",
+        source,
         fetched_at: now.toISOString(),
         expires_at: expires.toISOString(),
       });
@@ -124,16 +139,17 @@ export const refreshExchangeRates = createServerFn({ method: "POST" })
         base_currency: "NGN",
         quote_currency: code,
         rate,
-        source: "exchangerate.host",
+        source,
         fetched_at: now.toISOString(),
       });
     }
-    if (upserts.length) {
-      await supabaseAdmin
-        .from("exchange_rates")
-        .upsert(upserts, { onConflict: "base_currency,quote_currency" });
-      await supabaseAdmin.from("exchange_rate_logs").insert(logs);
+    if (!upserts.length) {
+      throw new Error("Rate provider returned no usable rates. Rates were not changed.");
     }
+    await supabaseAdmin
+      .from("exchange_rates")
+      .upsert(upserts, { onConflict: "base_currency,quote_currency" });
+    await supabaseAdmin.from("exchange_rate_logs").insert(logs);
     return { ok: true, updated: upserts.length };
   });
 
