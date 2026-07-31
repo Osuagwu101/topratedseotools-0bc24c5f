@@ -468,8 +468,8 @@ async function handleChargeSuccess(i: DispatchInput) {
       await fireWebhookConversion(i, order, {
         kind: "subscription_start",
         eventKey: order.id as string,
-        amount: Number(order.price_amount) || 0,
-        currency: (order.currency as string) ?? "NGN",
+        amount: chargedAmount(order as CurrencyBearingOrder),
+        currency: chargedCurrency(order as CurrencyBearingOrder),
       });
       return;
     }
