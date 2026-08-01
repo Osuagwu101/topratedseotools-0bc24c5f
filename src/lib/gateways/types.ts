@@ -74,6 +74,11 @@ export interface GatewayAdapter {
   slug: GatewaySlug;
   displayName: string;
   supportsRecurring: boolean;
+  /**
+   * Currencies this gateway can actually charge. When omitted, the currencies
+   * configured on `currency_settings.merchant_currencies` are used instead.
+   */
+  chargeCurrencies?: string[];
   /** True when every secret/credential this gateway needs is present. */
   isConfigured(): boolean;
   /** Which environment the configured secret belongs to. */
