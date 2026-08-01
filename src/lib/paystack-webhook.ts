@@ -335,6 +335,8 @@ async function handleChargeSuccess(i: DispatchInput) {
             payment_currency: chargedCurrency(order as CurrencyBearingOrder),
             currency: chargedCurrency(order as CurrencyBearingOrder),
             final_amount: chargedAmount(order as CurrencyBearingOrder),
+            display_currency: displayCurrencyOf(order as CurrencyBearingOrder),
+            display_amount: displayAmountOf(order as CurrencyBearingOrder),
             base_amount_ngn: order.discounted_amount_ngn ?? order.price_amount ?? null,
             coupon_code: order.coupon_code ?? null,
             discount_amount_ngn: Number(order.discount_amount_ngn ?? 0) || 0,
