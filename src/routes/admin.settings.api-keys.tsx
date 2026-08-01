@@ -31,6 +31,8 @@ import {
   KeyRound,
   Plug,
   Plus,
+  Power,
+  PowerOff,
   RefreshCw,
   Trash2,
   XCircle,
