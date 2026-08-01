@@ -368,11 +368,13 @@ async function handleChargeSuccess(i: DispatchInput) {
           payment_currency: chargedCurrency(order as CurrencyBearingOrder),
           exchange_rate: order.exchange_rate_snapshot ?? null,
           converted_amount:
-            chargedCurrency(order as CurrencyBearingOrder) === "NGN"
+            displayCurrencyOf(order as CurrencyBearingOrder) === "NGN"
               ? (order.discounted_amount_ngn ?? order.price_amount ?? null)
-              : Number(order.final_amount_charged ?? 0) - Number(order.international_fee_amount ?? 0),
+              : Number(displayAmountOf(order as CurrencyBearingOrder)) - Number(order.international_fee_amount ?? 0),
           international_fee_amount: order.international_fee_amount ?? 0,
           final_amount: chargedAmount(order as CurrencyBearingOrder),
+          display_currency: displayCurrencyOf(order as CurrencyBearingOrder),
+          display_amount: displayAmountOf(order as CurrencyBearingOrder),
           payment_status: "successful",
           payment_type: isOneTime ? "one_time" : "recurring_subscription",
           classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
