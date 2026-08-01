@@ -152,6 +152,85 @@ export function buildPricingBreakdown(input: {
   };
 }
 
+/**
+ * Currencies our Paystack merchant account can actually charge. Everything
+ * else is display-only: the customer sees the localized price, and Paystack is
+ * charged the equivalent amount in the settlement currency (NGN).
+ */
+export const DEFAULT_MERCHANT_CURRENCIES: SupportedCurrency[] = ["NGN"];
+
+export interface ChargePlan {
+  /** Currency the customer selected and sees everywhere in the UI/emails. */
+  display_currency: SupportedCurrency;
+  display_amount: number;
+  /** Currency actually sent to Paystack. */
+  payment_currency: SupportedCurrency;
+  payment_amount: number;
+  payment_minor_units: number;
+  /** True when display currency ≠ payment currency. */
+  fallback_applied: boolean;
+}
+
+function normaliseMerchantCurrencies(
+  list: readonly string[] | null | undefined,
+  settlement: SupportedCurrency,
+): SupportedCurrency[] {
+  const out = new Set<SupportedCurrency>([settlement]);
+  for (const raw of list ?? DEFAULT_MERCHANT_CURRENCIES) {
+    const code = String(raw ?? "").trim().toUpperCase();
+    if (isSupportedCurrency(code)) out.add(code);
+  }
+  return [...out];
+}
+
+/**
+ * Splits display currency from payment currency.
+ *
+ * The pricing pipeline is untouched — the customer-facing total is always
+ * `breakdown.final_amount` in `breakdown.payment_currency`. When that currency
+ * is not chargeable on the merchant account, the same total is converted back
+ * to the settlement currency (NGN) at the snapshotted rate and Paystack is
+ * charged that instead.
+ */
+export function resolveChargePlan(
+  breakdown: PricingBreakdown,
+  merchantCurrencies?: readonly string[] | null,
+  settlementCurrency: SupportedCurrency = "NGN",
+): ChargePlan {
+  const displayCurrency = breakdown.payment_currency;
+  const displayAmount = breakdown.final_amount;
+  const supported = normaliseMerchantCurrencies(merchantCurrencies, settlementCurrency);
+
+  if (supported.includes(displayCurrency)) {
+    return {
+      display_currency: displayCurrency,
+      display_amount: displayAmount,
+      payment_currency: displayCurrency,
+      payment_amount: displayAmount,
+      payment_minor_units: breakdown.minor_units_amount,
+      fallback_applied: false,
+    };
+  }
+
+  const rate = Number(breakdown.exchange_rate);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error(`Missing exchange rate for ${displayCurrency}`);
+  }
+  if (settlementCurrency !== "NGN") {
+    throw new Error("Only NGN is supported as a settlement currency");
+  }
+  // Rates are quoted as "1 NGN = rate <display>", so divide to come back.
+  const paymentAmount = roundForCurrency(displayAmount / rate, settlementCurrency);
+  return {
+    display_currency: displayCurrency,
+    display_amount: displayAmount,
+    payment_currency: settlementCurrency,
+    payment_amount: paymentAmount,
+    payment_minor_units: Math.round(paymentAmount * CURRENCY_META[settlementCurrency].minorMultiplier),
+    fallback_applied: true,
+  };
+}
+
 
 /** Locale-aware format, e.g. "GH₵ 12.34" / "₦5,000". */
 export function formatMoney(amount: number, currency: SupportedCurrency): string {
