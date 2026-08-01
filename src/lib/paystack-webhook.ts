@@ -84,12 +84,6 @@ export async function handlePaystackWebhook(
   request: Request,
   deps: WebhookDeps,
 ): Promise<Response> {
-  const { secret, supabaseAdmin } = deps;
-
-  if (!secret) return new Response("not configured", { status: 503 });
-
-  const env = detectEnvironmentStrict(secret);
-  if (!env) return new Response("server configuration error", { status: 503 });
 
   const { secret, supabaseAdmin, adapter } = deps;
   const gatewaySlug = adapter?.slug ?? "paystack";
