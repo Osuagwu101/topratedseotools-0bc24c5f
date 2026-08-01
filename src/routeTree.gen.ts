@@ -16,6 +16,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HumanizeRouteImport } from './routes/humanize'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -140,6 +141,11 @@ const PricingRoute = PricingRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HumanizeRoute = HumanizeRouteImport.update({
+  id: '/humanize',
+  path: '/humanize',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -617,6 +623,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -714,6 +721,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -808,6 +816,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -908,6 +917,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -1005,6 +1015,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -1098,6 +1109,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -1198,6 +1210,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HumanizeRoute: typeof HumanizeRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -1275,6 +1288,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/humanize': {
+      id: '/humanize'
+      path: '/humanize'
+      fullPath: '/humanize'
+      preLoaderRoute: typeof HumanizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -2122,6 +2142,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  HumanizeRoute: HumanizeRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
