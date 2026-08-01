@@ -8,7 +8,12 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicCurrencyConfig, type SupportedCurrency } from "@/lib/currency.functions";
-import { buildPricingBreakdown, formatMoney, type PricingBreakdown } from "@/lib/currency-convert";
+import {
+  buildPricingBreakdown,
+  formatMoney,
+  type DiscountInput,
+  type PricingBreakdown,
+} from "@/lib/currency-convert";
 import { billingSuffix, formatCurrency, getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const STORAGE_KEY = "ts_currency";
@@ -18,11 +23,15 @@ type Ctx = {
   setCurrency: (c: SupportedCurrency) => void;
   config: Awaited<ReturnType<typeof getPublicCurrencyConfig>> | undefined;
   isLoading: boolean;
-  /** Convert an NGN price into the selected currency + apply surcharge. */
-  price: (ngn: number) => PricingBreakdown | null;
+  /**
+   * Base NGN → coupon discount → conversion → international adjustment.
+   * Same function the server uses to build the Paystack charge.
+   */
+  price: (ngn: number, discount?: DiscountInput | null) => PricingBreakdown | null;
   /** Whether the switcher UI should render (feature-flagged by admin). */
   switcherEnabled: boolean;
 };
+
 
 const CurrencyContext = createContext<Ctx | null>(null);
 
