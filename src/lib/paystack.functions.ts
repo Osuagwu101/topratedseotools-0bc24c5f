@@ -51,9 +51,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         callback_url: z.string().url(),
         payment_type: z.enum(["one_time", "recurring_subscription"]).optional(),
         payment_currency: z.enum(["NGN", "GHS", "KES", "ZAR", "USD"]).optional(),
+        coupon_code: z.string().min(1).max(64).optional().nullable(),
       })
       .parse(input),
   )
+
   .handler(async ({ data, context }) => {
     const {
       detectCheckoutEnvironment,
