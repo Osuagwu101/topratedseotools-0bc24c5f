@@ -398,7 +398,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
