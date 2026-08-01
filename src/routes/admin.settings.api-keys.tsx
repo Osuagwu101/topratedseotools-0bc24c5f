@@ -17,6 +17,7 @@ import {
   adminListPaymentProviders,
   adminUpsertPaymentProvider,
   adminSetActiveProvider,
+  adminSetProviderEnabled,
   adminTestProviderConnection,
   adminDeletePaymentProvider,
   adminSaveProviderSecrets,
