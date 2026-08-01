@@ -54,11 +54,33 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
   return "pending";
 }
 
+/**
+ * Channels offered on the Flutterwave checkout. Mobile Money is the primary
+ * method in Ghana/Kenya, so it is listed first for those currencies.
+ */
+function paymentOptionsFor(currency: string): string {
+  switch (String(currency).toUpperCase()) {
+    case "GHS":
+      return "mobilemoneyghana,card,banktransfer,ussd";
+    case "KES":
+      return "mpesa,card,banktransfer";
+    case "ZAR":
+      return "card,banktransfer";
+    case "USD":
+      return "card";
+    default:
+      return "card,banktransfer,ussd,account";
+  }
+}
+
 export const flutterwaveAdapter: GatewayAdapter = {
   slug: "flutterwave",
   displayName: "Flutterwave",
   // Recurring is handled by our own renewal flow; Flutterwave charges one-time.
   supportsRecurring: false,
+  // Flutterwave settles these directly — no NGN fallback needed, so Ghanaian
+  // customers are charged in GHS and can pay with Mobile Money.
+  chargeCurrencies: ["NGN", "GHS", "KES", "ZAR", "USD"],
 
   isConfigured() {
     return !!process.env.FLUTTERWAVE_SECRET_KEY;
@@ -78,7 +100,7 @@ export const flutterwaveAdapter: GatewayAdapter = {
         amount: minorToMajor(input.amountMinor),
         currency: input.currency,
         redirect_url: input.callbackUrl,
-        payment_options: "card,banktransfer,ussd,mobilemoneyghana,mpesa,account",
+        payment_options: paymentOptionsFor(input.currency),
         customer: {
           email: input.email,
           name: input.customerName ?? undefined,

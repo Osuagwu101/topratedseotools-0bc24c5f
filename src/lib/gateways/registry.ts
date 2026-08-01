@@ -9,6 +9,7 @@ import { paystackAdapter } from "./paystack";
 import { flutterwaveAdapter } from "./flutterwave";
 import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
+import { loadGatewaySecrets } from "./secrets.server";
 
 export interface ResolvedGateway {
   slug: GatewaySlug;
@@ -26,6 +27,8 @@ export function getAdapter(slug: GatewaySlug, config: GatewayConfig = {}): Gatew
 /** Read the active provider row (falls back to Paystack). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function resolveActiveGateway(db: any): Promise<ResolvedGateway> {
+  // Admin-entered credentials live in the database — hydrate them first.
+  await loadGatewaySecrets(db);
   let slug: GatewaySlug = "paystack";
   let config: GatewayConfig = {};
   try {
@@ -55,6 +58,7 @@ export async function resolveActiveGateway(db: any): Promise<ResolvedGateway> {
 /** Which gateway processed a given reference — used by verify + receipts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function resolveGatewayForReference(db: any, reference: string): Promise<ResolvedGateway> {
+  await loadGatewaySecrets(db);
   let slug: GatewaySlug = "paystack";
   try {
     const { data: pay } = await db

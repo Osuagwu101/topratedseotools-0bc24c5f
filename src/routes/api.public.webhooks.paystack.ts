@@ -10,6 +10,8 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
     handlers: {
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
+        await loadGatewaySecrets(supabaseAdmin, true);
         return handlePaystackWebhook(request, {
           secret: process.env.PAYSTACK_SECRET_KEY,
           supabaseAdmin,

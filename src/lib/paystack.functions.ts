@@ -211,7 +211,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     // charge its merchant currencies (NGN today), so for GHS/KES/ZAR/USD the
     // customer-facing total is converted back to NGN for the actual charge.
     const { resolveChargePlan } = await import("@/lib/currency-convert");
-    const charge = resolveChargePlan(currencyBreakdown, merchantCurrencies);
+    // Gateways that settle the customer's currency natively (Flutterwave for
+    // GHS/KES/ZAR/USD) charge it directly; otherwise we fall back to NGN.
+    const chargeable = gateway.adapter.chargeCurrencies ?? merchantCurrencies;
+    const charge = resolveChargePlan(currencyBreakdown, chargeable);
     if (charge.payment_minor_units <= 0) {
       throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
     }

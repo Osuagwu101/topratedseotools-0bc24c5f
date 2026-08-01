@@ -81,6 +81,7 @@ export function createMonnifyAdapter(config: GatewayConfig = {}): GatewayAdapter
     slug: "monnify",
     displayName: "Monnify",
     supportsRecurring: false,
+    chargeCurrencies: ["NGN"],
 
     isConfigured() {
       return !!process.env.MONNIFY_API_KEY && !!process.env.MONNIFY_SECRET_KEY && !!contractCode;

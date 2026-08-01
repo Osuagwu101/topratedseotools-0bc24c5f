@@ -13,6 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
+import { loadGatewaySecrets, missingSecrets, isGatewaySecretName } from "@/lib/gateways/secrets.server";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -52,6 +53,7 @@ export interface PaymentProviderRow {
   missing_secrets: string[]; // computed
   webhook_url: string | null; // computed
   supports_recurring: boolean; // computed
+  configured_secrets?: string[]; // computed — names only, never values
 }
 
 const KNOWN: Record<
@@ -65,6 +67,11 @@ const KNOWN: Record<
     webhook_path: string;
     /** Non-secret config fields the admin fills in here. */
     config_fields: { key: string; label: string; required: boolean }[];
+    /**
+     * Credentials the admin can enter securely from the dashboard. Values are
+     * written to encrypted server-side storage and never returned to the UI.
+     */
+    secret_fields: { name: string; label: string; required: boolean }[];
   }
 > = {
   paystack: {
@@ -74,6 +81,7 @@ const KNOWN: Record<
     supports_recurring: true,
     webhook_path: "/api/public/webhooks/paystack",
     config_fields: [],
+    secret_fields: [{ name: "PAYSTACK_SECRET_KEY", label: "Secret key", required: true }],
   },
   flutterwave: {
     display_name: "Flutterwave",
@@ -82,6 +90,12 @@ const KNOWN: Record<
     supports_recurring: false,
     webhook_path: "/api/public/webhooks/flutterwave",
     config_fields: [],
+    secret_fields: [
+      { name: "FLUTTERWAVE_SECRET_KEY", label: "Secret key", required: true },
+      { name: "FLUTTERWAVE_PUBLIC_KEY", label: "Public key", required: false },
+      { name: "FLUTTERWAVE_ENCRYPTION_KEY", label: "Encryption key", required: false },
+      { name: "FLUTTERWAVE_WEBHOOK_HASH", label: "Webhook secret hash (verif-hash)", required: true },
+    ],
   },
   monnify: {
     display_name: "Monnify",
@@ -93,6 +107,10 @@ const KNOWN: Record<
       { key: "contract_code", label: "Contract Code", required: true },
       { key: "base_url", label: "API Base URL", required: false },
     ],
+    secret_fields: [
+      { name: "MONNIFY_API_KEY", label: "API key", required: true },
+      { name: "MONNIFY_SECRET_KEY", label: "Secret key", required: true },
+    ],
   },
 };
 
@@ -102,6 +120,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context);
+    await loadGatewaySecrets(admin, true);
     const { data, error } = await admin
       .from("payment_providers")
       .select("*")
@@ -112,8 +131,11 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
     });
     const rows: PaymentProviderRow[] = (data ?? []).map((r: any) => {
       const known = KNOWN[r.slug];
-      const hasSecret = known?.secret_env ? !!process.env[known.secret_env] : false;
-      const missing = (known?.required_env ?? []).filter((k) => !process.env[k]);
+      const hasSecret = known?.secret_env ? missingSecrets([known.secret_env]).length === 0 : false;
+      const missing = missingSecrets(known?.required_env ?? []);
+      const configured_secrets = (known?.secret_fields ?? [])
+        .filter((f) => missingSecrets([f.name]).length === 0)
+        .map((f) => f.name);
       const cfg = (r.config ?? {}) as Record<string, unknown>;
       // Monnify also needs its contract code before it can be activated.
       for (const f of known?.config_fields ?? []) {
@@ -123,6 +145,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
         ...r,
         has_secret_configured: hasSecret,
         missing_secrets: missing,
+        configured_secrets,
         webhook_url: known ? `${SITE_ORIGIN}${known.webhook_path}` : null,
         supports_recurring: known?.supports_recurring ?? false,
       } as PaymentProviderRow;
@@ -134,6 +157,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
       required_env: meta.required_env,
       supports_recurring: meta.supports_recurring,
       config_fields: meta.config_fields,
+      secret_fields: meta.secret_fields,
       webhook_url: `${SITE_ORIGIN}${meta.webhook_path}`,
     }));
     return { providers: rows, catalog, is_super_admin: !!isSuper };
@@ -210,6 +234,7 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
+    await loadGatewaySecrets(admin, true);
     const { data: target } = await admin
       .from("payment_providers")
       .select("id, slug, config")
@@ -220,13 +245,21 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
     // Never make a half-configured gateway live — customers would be stranded.
     const known = KNOWN[target.slug as string];
     if (known) {
-      const missing = known.required_env.filter((k) => !process.env[k]);
+      const missing = missingSecrets(known.required_env);
       const cfg = (target.config ?? {}) as Record<string, unknown>;
       for (const f of known.config_fields) {
         if (f.required && !cfg[f.key]) missing.push(f.label);
       }
       if (missing.length) {
         throw new Error(`Cannot activate ${known.display_name} — missing: ${missing.join(", ")}.`);
+      }
+      // Never activate on credentials the gateway itself rejects.
+      const test = await runConnectionTest(target);
+      await recordTestResult(admin, data.id, test);
+      if (!test.ok) {
+        throw new Error(
+          `Cannot activate ${known.display_name} — credential check failed: ${test.message}`,
+        );
       }
     }
 
@@ -247,86 +280,162 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Live credential validation against the gateway's own API. Shared by the
+ * "Test" button, credential saving and activation, so a gateway can never go
+ * live with invalid keys.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function runConnectionTest(p: any): Promise<{ ok: boolean; message: string }> {
+  let ok = false;
+  let msg = "";
+  try {
+    if (p.slug === "paystack") {
+      const secret = process.env.PAYSTACK_SECRET_KEY;
+      if (!secret) {
+        msg = "Paystack secret key is not set.";
+      } else {
+        const res = await fetch("https://api.paystack.co/balance", {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const body = (await res.json()) as { status?: boolean; message?: string };
+        ok = res.ok && !!body.status;
+        msg = body.message ?? (ok ? "Connection successful" : `HTTP ${res.status}`);
+      }
+    } else if (p.slug === "flutterwave") {
+      const secret = process.env.FLUTTERWAVE_SECRET_KEY;
+      if (!secret) {
+        msg = "Flutterwave secret key is not set.";
+      } else {
+        // Authenticated endpoint: rejects an invalid/incorrect secret key.
+        const res = await fetch("https://api.flutterwave.com/v3/subaccounts?page=1", {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const body = (await res.json()) as { status?: string; message?: string };
+        ok = res.ok && body.status === "success";
+        if (ok) {
+          const extras: string[] = [];
+          if (!process.env.FLUTTERWAVE_WEBHOOK_HASH) extras.push("webhook hash missing");
+          if (!process.env.FLUTTERWAVE_ENCRYPTION_KEY) extras.push("encryption key missing");
+          msg = extras.length
+            ? `Credentials valid (${extras.join(", ")})`
+            : "Connection successful";
+        } else {
+          msg = body.message ?? `HTTP ${res.status}`;
+        }
+      }
+    } else if (p.slug === "monnify") {
+      const apiKey = process.env.MONNIFY_API_KEY;
+      const secretKey = process.env.MONNIFY_SECRET_KEY;
+      const cfg = (p.config ?? {}) as Record<string, unknown>;
+      const base = (cfg.base_url as string) || "https://api.monnify.com";
+      if (!apiKey || !secretKey) {
+        msg = "Monnify API key and secret key must both be set.";
+      } else if (!cfg.contract_code) {
+        msg = "Monnify contract code is missing.";
+      } else {
+        const basic = Buffer.from(`${apiKey}:${secretKey}`).toString("base64");
+        const res = await fetch(`${base}/api/v1/auth/login`, {
+          method: "POST",
+          headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/json" },
+        });
+        const body = (await res.json()) as { requestSuccessful?: boolean; responseMessage?: string };
+        ok = res.ok && !!body.requestSuccessful;
+        msg = ok ? "Connection successful" : body.responseMessage ?? `HTTP ${res.status}`;
+      }
+    } else {
+      msg = "Test connection is not implemented for this provider yet.";
+    }
+  } catch (err) {
+    msg = (err as Error).message;
+  }
+  return { ok, message: msg.slice(0, 500) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function recordTestResult(admin: any, id: string, r: { ok: boolean; message: string }) {
+  await admin
+    .from("payment_providers")
+    .update({
+      last_test_at: new Date().toISOString(),
+      last_test_status: r.ok ? "ok" : "failed",
+      last_test_message: r.message,
+    })
+    .eq("id", id);
+}
+
 export const adminTestProviderConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
+    await loadGatewaySecrets(admin, true);
     const { data: p } = await admin.from("payment_providers").select("*").eq("id", data.id).maybeSingle();
     if (!p) throw new Error("Provider not found");
 
-    let ok = false;
-    let msg = "";
-    try {
-      if (p.slug === "paystack") {
-        const secret = process.env.PAYSTACK_SECRET_KEY;
-        if (!secret) {
-          msg = "PAYSTACK_SECRET_KEY is not set. Add it via the API-keys settings.";
-        } else {
-          const res = await fetch("https://api.paystack.co/balance", {
-            headers: { Authorization: `Bearer ${secret}` },
-          });
-          const body = (await res.json()) as { status?: boolean; message?: string };
-          ok = res.ok && !!body.status;
-          msg = body.message ?? (ok ? "Connection successful" : `HTTP ${res.status}`);
-        }
-      } else if (p.slug === "flutterwave") {
-        const secret = process.env.FLUTTERWAVE_SECRET_KEY;
-        if (!secret) {
-          msg = "FLUTTERWAVE_SECRET_KEY is not set.";
-        } else {
-          const res = await fetch("https://api.flutterwave.com/v3/banks/NG", {
-            headers: { Authorization: `Bearer ${secret}` },
-          });
-          const body = (await res.json()) as { status?: string; message?: string };
-          ok = res.ok && body.status === "success";
-          msg = ok ? "Connection successful" : body.message ?? `HTTP ${res.status}`;
-        }
-      } else if (p.slug === "monnify") {
-        const apiKey = process.env.MONNIFY_API_KEY;
-        const secretKey = process.env.MONNIFY_SECRET_KEY;
-        const cfg = (p.config ?? {}) as Record<string, unknown>;
-        const base = (cfg.base_url as string) || "https://api.monnify.com";
-        if (!apiKey || !secretKey) {
-          msg = "MONNIFY_API_KEY and MONNIFY_SECRET_KEY must both be set.";
-        } else if (!cfg.contract_code) {
-          msg = "Monnify contract code is missing.";
-        } else {
-          const basic = Buffer.from(`${apiKey}:${secretKey}`).toString("base64");
-          const res = await fetch(`${base}/api/v1/auth/login`, {
-            method: "POST",
-            headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/json" },
-          });
-          const body = (await res.json()) as { requestSuccessful?: boolean; responseMessage?: string };
-          ok = res.ok && !!body.requestSuccessful;
-          msg = ok ? "Connection successful" : body.responseMessage ?? `HTTP ${res.status}`;
-        }
-      } else {
-        msg = "Test connection is not implemented for this provider yet.";
-      }
-    } catch (err) {
-      msg = (err as Error).message;
-    }
-
-    await admin
-      .from("payment_providers")
-      .update({
-        last_test_at: new Date().toISOString(),
-        last_test_status: ok ? "ok" : "failed",
-        last_test_message: msg.slice(0, 500),
-      })
-      .eq("id", data.id);
-
+    const r = await runConnectionTest(p);
+    await recordTestResult(admin, data.id, r);
     await logAdminActivity(context, {
       action: "payment_provider.test",
       area: "payments",
       target_type: "payment_provider",
       target_id: data.id,
-      success: ok,
-      details: msg,
+      success: r.ok,
+      details: r.message,
     });
+    return r;
+  });
 
-    return { ok, message: msg };
+/**
+ * Save gateway credentials entered by a Super Admin. Values go straight into
+ * server-side secret storage (never the client, never the provider row) and the
+ * gateway is validated immediately afterwards.
+ */
+export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        secrets: z.record(z.string(), z.string().min(1).max(500)),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await assertSuperAdmin(context);
+    const { data: p } = await admin.from("payment_providers").select("*").eq("id", data.id).maybeSingle();
+    if (!p) throw new Error("Provider not found");
+    const known = KNOWN[p.slug as string];
+    if (!known) throw new Error("Unknown gateway");
+
+    const allowed = new Set(known.secret_fields.map((f) => f.name));
+    const rows: { name: string; value: string; updated_at: string }[] = [];
+    for (const [name, value] of Object.entries(data.secrets)) {
+      const trimmed = String(value).trim();
+      if (!trimmed) continue;
+      if (!allowed.has(name) || !isGatewaySecretName(name)) {
+        throw new Error(`Unexpected credential field: ${name}`);
+      }
+      rows.push({ name, value: trimmed, updated_at: new Date().toISOString() });
+    }
+    if (!rows.length) throw new Error("Nothing to save — enter at least one credential.");
+
+    const { error } = await admin.from("internal_secrets").upsert(rows, { onConflict: "name" });
+    if (error) throw new Error(error.message);
+    await loadGatewaySecrets(admin, true);
+
+    const r = await runConnectionTest(p);
+    await recordTestResult(admin, data.id, r);
+    await logAdminActivity(context, {
+      action: "payment_provider.save_secrets",
+      area: "payments",
+      target_type: "payment_provider",
+      target_id: data.id,
+      success: r.ok,
+      // names only — never log credential values
+      details: `${p.slug}: ${rows.map((x) => x.name).join(", ")} · ${r.message}`,
+    });
+    return { saved: rows.map((x) => x.name), ...r };
   });
 
 export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
