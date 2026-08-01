@@ -45,7 +45,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const { data: order } = await admin
       .from("tool_orders")
       .select(
-        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
+        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, display_currency, display_amount, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
       )
       .eq("id", i.orderId)
       .maybeSingle();
@@ -60,12 +60,15 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     if (!to) return;
     const name = (profile as { full_name?: string } | null)?.full_name ?? "there";
 
-    // Emails must state what the customer was actually charged: international
-    // orders pay `final_amount_charged` in `payment_currency`, NGN orders pay
-    // the base price. Legacy rows have neither column set and fall back to NGN.
-    const payCurrency = String(order.payment_currency ?? order.currency ?? "NGN").toUpperCase();
+    // Emails always show the customer's selected (display) currency, which can
+    // differ from the currency Paystack was charged in when the merchant
+    // account cannot settle that currency. Legacy rows fall back to the
+    // charged/base amount in NGN.
+    const chargedCurrency = String(order.payment_currency ?? order.currency ?? "NGN").toUpperCase();
+    const chargedAmount = Number(order.final_amount_charged ?? order.price_amount ?? 0) || 0;
+    const payCurrency = String(order.display_currency ?? chargedCurrency).toUpperCase();
     const isIntl = payCurrency !== "NGN";
-    const charged = Number(order.final_amount_charged ?? order.price_amount ?? 0) || 0;
+    const charged = Number(order.display_amount ?? chargedAmount) || 0;
     const baseNgn = Number(order.price_amount ?? 0) || 0;
     const fee = Number(order.international_fee_amount ?? 0) || 0;
     const rate = Number(order.exchange_rate_snapshot ?? 0) || 0;

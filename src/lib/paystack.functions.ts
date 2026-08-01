@@ -147,6 +147,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
 
     // Multi-currency: server re-validates chosen currency + recomputes the
     // breakdown from DB rates. Never trusts client-supplied amounts.
+    // `chosenCurrency` is the *display* currency the customer selected — the
+    // currency Paystack is charged in is resolved separately below.
     let currencyBreakdown = buildPricingBreakdown({
       ngn: snapshot.price_amount,
       currency: "NGN",
@@ -155,12 +157,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       surchargeEnabled: false,
       discount,
     });
+    let merchantCurrencies: string[] = ["NGN"];
     if (chosenCurrency !== "NGN") {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const [{ data: cs }, { data: rateRow }] = await Promise.all([
         supabaseAdmin
           .from("currency_settings")
-          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies")
+          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies, merchant_currencies")
           .eq("id", true)
           .maybeSingle(),
         supabaseAdmin
@@ -170,11 +173,12 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
           .eq("quote_currency", chosenCurrency)
           .maybeSingle(),
       ]);
-      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[] } | null;
+      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[]; merchant_currencies?: string[] | null } | null;
       if (!settings?.switching_enabled) throw new Error("Currency switching is currently disabled.");
       if (!settings.supported_currencies.includes(chosenCurrency)) {
         throw new Error(`${chosenCurrency} is not supported at the moment.`);
       }
+      merchantCurrencies = settings.merchant_currencies?.length ? settings.merchant_currencies : ["NGN"];
       const rate = Number((rateRow as { rate?: number } | null)?.rate ?? 0);
       const expires = (rateRow as { expires_at?: string } | null)?.expires_at;
       if (!rate || rate <= 0) throw new Error(`No exchange rate available for ${chosenCurrency}. Please try again shortly or pay in NGN.`);
@@ -190,7 +194,12 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         discount,
       });
     }
-    if (currencyBreakdown.minor_units_amount <= 0) {
+    // Display currency vs. payment currency. Our Paystack account can only
+    // charge its merchant currencies (NGN today), so for GHS/KES/ZAR/USD the
+    // customer-facing total is converted back to NGN for the actual charge.
+    const { resolveChargePlan } = await import("@/lib/currency-convert");
+    const charge = resolveChargePlan(currencyBreakdown, merchantCurrencies);
+    if (charge.payment_minor_units <= 0) {
       throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
     }
 
@@ -199,8 +208,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (isRecurring) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const res = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot, {
-        currency: currencyBreakdown.payment_currency,
-        priceAmount: currencyBreakdown.final_amount,
+        currency: charge.payment_currency,
+        priceAmount: charge.payment_amount,
       });
       planCode = res.plan_code;
     }
@@ -217,7 +226,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         billing_period: snapshot.billing_period,
       }),
       payment_type: paymentType,
-      payment_currency: currencyBreakdown.payment_currency,
+      payment_currency: charge.payment_currency,
+      payment_amount: charge.payment_amount,
+      customer_display_currency: charge.display_currency,
+      customer_display_amount: charge.display_amount,
       base_amount_ngn: currencyBreakdown.base_amount_ngn,
       coupon_code: currencyBreakdown.discount_code,
       discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
@@ -232,8 +244,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
     const initBody: Record<string, unknown> = {
       email,
-      amount: currencyBreakdown.minor_units_amount,
-      currency: currencyBreakdown.payment_currency,
+      amount: charge.payment_minor_units,
+      currency: charge.payment_currency,
       reference,
       callback_url: data.callback_url,
       metadata,
@@ -242,6 +254,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       initBody.plan = planCode;
       initBody.channels = ["card", "direct_debit"];
     }
+
 
     const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
       "/transaction/initialize",
@@ -268,10 +281,12 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         subscription_status: "pending",
         renewal_status: isRecurring ? "enabled" : "not_applicable",
         fulfilment_status: fulfilment,
-        payment_currency: currencyBreakdown.payment_currency,
+        payment_currency: charge.payment_currency,
         exchange_rate_snapshot: currencyBreakdown.exchange_rate,
         international_fee_amount: currencyBreakdown.international_fee_amount,
-        final_amount_charged: currencyBreakdown.final_amount,
+        final_amount_charged: charge.payment_amount,
+        display_currency: charge.display_currency,
+        display_amount: charge.display_amount,
         coupon_id: couponId,
         coupon_code: currencyBreakdown.discount_code,
         discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
@@ -313,12 +328,14 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             base_amount_ngn: currencyBreakdown.base_amount_ngn,
             coupon_code: currencyBreakdown.discount_code,
             discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
-            payment_currency: currencyBreakdown.payment_currency,
+            payment_currency: charge.payment_currency,
             exchange_rate: currencyBreakdown.exchange_rate,
             converted_amount: currencyBreakdown.converted_amount,
             international_fee_percent: currencyBreakdown.international_fee_percent,
             international_fee_amount: currencyBreakdown.international_fee_amount,
-            final_amount: currencyBreakdown.final_amount,
+            final_amount: charge.payment_amount,
+            display_currency: charge.display_currency,
+            display_amount: charge.display_amount,
           } as never)
           .select("id")
           .maybeSingle();
@@ -398,14 +415,14 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, display_currency, display_amount, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
     const orderSafe = order;
-    // Charged money = what Paystack actually took (multi-currency aware),
+    // Charged money = what Paystack actually took (merchant currency),
     // falling back to the NGN order price for legacy rows.
     const chargedCurrency =
       ((order as { payment_currency?: string | null }).payment_currency ?? tx.currency ?? "NGN").toUpperCase();
@@ -413,6 +430,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       ((order as { final_amount_charged?: number | null }).final_amount_charged) ??
       (orderSafe.price_amount as number | null) ??
       tx.amount / 100;
+    // What the customer saw and should see again in receipts/emails.
+    const displayCurrency =
+      ((order as { display_currency?: string | null }).display_currency ?? chargedCurrency).toUpperCase();
+    const displayAmount =
+      ((order as { display_amount?: number | null }).display_amount) ?? chargedAmount;
     if (order.status === "approved") {
       const { data: orderFull } = await context.supabase
         .from("tool_orders")
@@ -532,11 +554,13 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             exchange_rate:
               ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
             converted_amount:
-              chargedAmount -
+              displayAmount -
               (Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0),
             international_fee_amount:
               Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0,
             final_amount: chargedAmount,
+            display_currency: displayCurrency,
+            display_amount: displayAmount,
             payment_status: "successful",
             payment_type: isOneTime ? "one_time" : "recurring_subscription",
             classification: isOneTime ? "one_time" : "initial",
@@ -598,8 +622,9 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
           tool: orderFull?.tool_slug ?? "your tool",
           access_type: orderFull?.access_type ?? "shared",
           billing_period: orderFull?.billing_period ?? "monthly",
-          amount: chargedAmount,
-          currency: chargedCurrency,
+          // Customer-facing emails always show the currency the customer chose.
+          amount: displayAmount,
+          currency: displayCurrency,
           reference: tx.reference,
           dashboard_url: "https://topratedseotools.com/dashboard",
           ...extra,

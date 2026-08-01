@@ -246,14 +246,18 @@ async function dispatchEvent(i: DispatchInput) {
 }
 
 /**
- * Multi-currency: the amount/currency Paystack actually charged.
- * Falls back to the legacy NGN order price for pre-multi-currency rows.
+ * Payment vs. display money.
+ * `charged*` = what Paystack actually took (merchant/settlement currency).
+ * `display*` = what the customer selected and sees in receipts/emails.
+ * Both fall back to the legacy NGN order price for pre-multi-currency rows.
  */
 type CurrencyBearingOrder = {
   price_amount?: number | null;
   currency?: string | null;
   payment_currency?: string | null;
   final_amount_charged?: number | null;
+  display_currency?: string | null;
+  display_amount?: number | null;
 };
 function chargedAmount(order: CurrencyBearingOrder): number {
   return Number(order.final_amount_charged ?? order.price_amount) || 0;
@@ -261,12 +265,18 @@ function chargedAmount(order: CurrencyBearingOrder): number {
 function chargedCurrency(order: CurrencyBearingOrder): string {
   return (order.payment_currency ?? order.currency ?? "NGN").toUpperCase();
 }
+function displayAmountOf(order: CurrencyBearingOrder): number {
+  return Number(order.display_amount ?? chargedAmount(order)) || 0;
+}
+function displayCurrencyOf(order: CurrencyBearingOrder): string {
+  return (order.display_currency ?? chargedCurrency(order)).toUpperCase();
+}
 
 async function findOrder(i: DispatchInput) {
   const q = i.supabaseAdmin
     .from("tool_orders")
     .select(
-      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, discounted_amount_ngn",
+      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, display_currency, display_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
     );
   const { data } = i.orderId
     ? await q.eq("id", i.orderId).maybeSingle()
@@ -325,6 +335,8 @@ async function handleChargeSuccess(i: DispatchInput) {
             payment_currency: chargedCurrency(order as CurrencyBearingOrder),
             currency: chargedCurrency(order as CurrencyBearingOrder),
             final_amount: chargedAmount(order as CurrencyBearingOrder),
+            display_currency: displayCurrencyOf(order as CurrencyBearingOrder),
+            display_amount: displayAmountOf(order as CurrencyBearingOrder),
             base_amount_ngn: order.discounted_amount_ngn ?? order.price_amount ?? null,
             coupon_code: order.coupon_code ?? null,
             discount_amount_ngn: Number(order.discount_amount_ngn ?? 0) || 0,
@@ -356,11 +368,13 @@ async function handleChargeSuccess(i: DispatchInput) {
           payment_currency: chargedCurrency(order as CurrencyBearingOrder),
           exchange_rate: order.exchange_rate_snapshot ?? null,
           converted_amount:
-            chargedCurrency(order as CurrencyBearingOrder) === "NGN"
+            displayCurrencyOf(order as CurrencyBearingOrder) === "NGN"
               ? (order.discounted_amount_ngn ?? order.price_amount ?? null)
-              : Number(order.final_amount_charged ?? 0) - Number(order.international_fee_amount ?? 0),
+              : Number(displayAmountOf(order as CurrencyBearingOrder)) - Number(order.international_fee_amount ?? 0),
           international_fee_amount: order.international_fee_amount ?? 0,
           final_amount: chargedAmount(order as CurrencyBearingOrder),
+          display_currency: displayCurrencyOf(order as CurrencyBearingOrder),
+          display_amount: displayAmountOf(order as CurrencyBearingOrder),
           payment_status: "successful",
           payment_type: isOneTime ? "one_time" : "recurring_subscription",
           classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",

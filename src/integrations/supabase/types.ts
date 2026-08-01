@@ -809,6 +809,7 @@ export type Database = {
         Row: {
           created_at: string
           id: boolean
+          merchant_currencies: string[]
           supported_currencies: string[]
           surcharge_enabled: boolean
           surcharge_percent: number
@@ -819,6 +820,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: boolean
+          merchant_currencies?: string[]
           supported_currencies?: string[]
           surcharge_enabled?: boolean
           surcharge_percent?: number
@@ -829,6 +831,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: boolean
+          merchant_currencies?: string[]
           supported_currencies?: string[]
           surcharge_enabled?: boolean
           surcharge_percent?: number
@@ -1905,6 +1908,8 @@ export type Database = {
           current_period_start: string | null
           discount_amount_ngn: number
           discounted_amount_ngn: number | null
+          display_amount: number | null
+          display_currency: string | null
           duration_days: number | null
           exchange_rate_snapshot: number | null
           expires_at: string | null
@@ -1968,6 +1973,8 @@ export type Database = {
           current_period_start?: string | null
           discount_amount_ngn?: number
           discounted_amount_ngn?: number | null
+          display_amount?: number | null
+          display_currency?: string | null
           duration_days?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
@@ -2031,6 +2038,8 @@ export type Database = {
           current_period_start?: string | null
           discount_amount_ngn?: number
           discounted_amount_ngn?: number | null
+          display_amount?: number | null
+          display_currency?: string | null
           duration_days?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
@@ -2183,6 +2192,8 @@ export type Database = {
           customer_email: string | null
           customer_name: string | null
           discount_amount_ngn: number
+          display_amount: number | null
+          display_currency: string | null
           exchange_rate: number | null
           final_amount: number | null
           flagged_at: string | null
@@ -2232,6 +2243,8 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           discount_amount_ngn?: number
+          display_amount?: number | null
+          display_currency?: string | null
           exchange_rate?: number | null
           final_amount?: number | null
           flagged_at?: string | null
@@ -2281,6 +2294,8 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           discount_amount_ngn?: number
+          display_amount?: number | null
+          display_currency?: string | null
           exchange_rate?: number | null
           final_amount?: number | null
           flagged_at?: string | null
