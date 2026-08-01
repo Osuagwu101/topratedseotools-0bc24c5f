@@ -130,6 +130,21 @@ function PaymentProvidersPage() {
     }
   }
 
+  async function toggleEnabled(id: string, enabled: boolean) {
+    setBusy(`en:${id}`);
+    try {
+      await setEnabled({ data: { id, enabled } });
+      toast.success(enabled ? "Gateway enabled for checkout" : "Gateway disabled");
+      await router.invalidate();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+
+
   async function storeSecrets(id: string) {
     const entries = Object.entries(secretDraft[id] ?? {}).filter(([, v]) => v.trim().length > 0);
     if (!entries.length) {
