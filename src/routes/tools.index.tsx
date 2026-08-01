@@ -38,6 +38,7 @@ export const Route = createFileRoute("/tools/")({
 });
 
 function ToolsDirectory() {
+  const money = useMoney();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);

@@ -277,6 +277,7 @@ function SubscriptionCard({
       }
     | undefined;
 }) {
+  const money = useMoney();
   const [showPlans, setShowPlans] = useState(false);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
