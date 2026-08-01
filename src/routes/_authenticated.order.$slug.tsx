@@ -398,7 +398,15 @@ function OrderPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Both options use the exact price above. The channels shown at checkout depend on your choice.
               </p>
+              {!gatewayRecurring ? (
+                <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+                  <strong>{gatewayName} does not support automatic renewals.</strong> This purchase
+                  is a one-time payment for the selected billing period only — nothing will be
+                  charged again automatically, and you'll need to renew manually when it expires.
+                </div>
+              ) : null}
               <div className="mt-3 space-y-3">
+
                 <label
                   className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     payMode === "recurring_subscription"
