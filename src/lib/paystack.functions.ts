@@ -348,13 +348,21 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
     const orderSafe = order;
+    // Charged money = what Paystack actually took (multi-currency aware),
+    // falling back to the NGN order price for legacy rows.
+    const chargedCurrency =
+      ((order as { payment_currency?: string | null }).payment_currency ?? tx.currency ?? "NGN").toUpperCase();
+    const chargedAmount =
+      ((order as { final_amount_charged?: number | null }).final_amount_charged) ??
+      (orderSafe.price_amount as number | null) ??
+      tx.amount / 100;
     if (order.status === "approved") {
       const { data: orderFull } = await context.supabase
         .from("tool_orders")
@@ -368,8 +376,8 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         purchase: {
           order_id: orderId,
           tool_slug: (orderFull as { tool_slug?: string } | null)?.tool_slug ?? null,
-          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
-          currency: (orderSafe.currency as string | null) ?? tx.currency ?? "NGN",
+          amount: chargedAmount,
+          currency: chargedCurrency,
           reference: tx.reference,
           event_id: `purchase:${orderId}`,
         },
@@ -461,6 +469,16 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
             amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
             currency: (orderSafe.currency as string | null) ?? "NGN",
+            base_amount_ngn: (orderSafe.price_amount as number | null) ?? null,
+            payment_currency: chargedCurrency,
+            exchange_rate:
+              ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
+            converted_amount:
+              chargedAmount -
+              (Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0),
+            international_fee_amount:
+              Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0,
+            final_amount: chargedAmount,
             payment_status: "successful",
             payment_type: isOneTime ? "one_time" : "recurring_subscription",
             classification: isOneTime ? "one_time" : "initial",
@@ -513,8 +531,8 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
           tool: orderFull?.tool_slug ?? "your tool",
           access_type: orderFull?.access_type ?? "shared",
           billing_period: orderFull?.billing_period ?? "monthly",
-          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
-          currency: (orderSafe.currency as string | null) ?? "NGN",
+          amount: chargedAmount,
+          currency: chargedCurrency,
           reference: tx.reference,
           dashboard_url: "https://topratedseotools.com/dashboard",
           ...extra,
@@ -591,8 +609,8 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         purchase: {
           order_id: orderSafe.id as string,
           tool_slug: null,
-          amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
-          currency: (orderSafe.currency as string | null) ?? tx.currency ?? "NGN",
+          amount: chargedAmount,
+          currency: chargedCurrency,
           reference: tx.reference,
           event_id: `subscription_start:${orderSafe.id as string}`,
         },
