@@ -34,9 +34,9 @@ describe("localized display rounding + checkout parity", () => {
   it("changing the admin adjustment changes new prices deterministically", () => {
     const three = buildPricingBreakdown({ ngn: 17000, currency: "GHS", rate: 0.0085, surchargePercent: 3, surchargeEnabled: true });
     const seven = buildPricingBreakdown({ ngn: 17000, currency: "GHS", rate: 0.0085, surchargePercent: 7, surchargeEnabled: true });
-    expect(three.final_amount).toBe(149.94);
-    expect(seven.final_amount).toBe(154.7);
-    expect(seven.minor_units_amount).toBe(15470);
+    expect(three.final_amount).toBe(148.84);
+    expect(seven.final_amount).toBe(154.62);
+    expect(seven.minor_units_amount).toBe(15462);
     // stored snapshots of past orders are independent of the new percent
     expect(three.international_fee_percent).toBe(3);
   });
