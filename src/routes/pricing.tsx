@@ -52,8 +52,6 @@ export const Route = createFileRoute("/pricing")({
   component: PricingPage,
 });
 
-type Period = "monthly" | "quarterly" | "yearly";
-
 interface AccessBucket {
   monthly: ToolPricingOption | null;
   quarterly: ToolPricingOption | null;
@@ -79,10 +77,6 @@ function placeIntoBucket(bucket: AccessBucket, opt: ToolPricingOption) {
   else if (kind === "quarterly" && !bucket.quarterly) bucket.quarterly = opt;
   else if (kind === "yearly" && !bucket.yearly) bucket.yearly = opt;
   else bucket.other.push(opt);
-}
-
-function bucketHasAny(b: AccessBucket): boolean {
-  return !!(b.monthly || b.quarterly || b.yearly) || b.other.length > 0;
 }
 
 function PricingPage() {
