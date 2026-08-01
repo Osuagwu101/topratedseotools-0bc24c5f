@@ -209,7 +209,13 @@ function AdminTransactionsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-xs">
-                      ₦{Number(t.amount ?? 0).toLocaleString()}
+                      {formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}
+                      {t.payment_currency && t.payment_currency !== "NGN" ? (
+                        <div className="text-[11px] text-muted-foreground">
+                          base {formatAnyMoney(t.base_amount_ngn, "NGN")}
+                          {t.international_fee_amount ? ` · fee ${formatAnyMoney(t.international_fee_amount, t.payment_currency)}` : ""}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-xs">{t.payment_channel ?? "—"}</td>
                     <td className="px-3 py-2 text-xs uppercase">{t.paystack_environment}</td>

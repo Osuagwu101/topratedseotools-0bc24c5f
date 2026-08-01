@@ -101,7 +101,18 @@ function ReceiptPage() {
             <Field label="Tool">{tool?.name ?? t.tool_slug}</Field>
             <Field label="Access type">{t.access_type ?? "—"}</Field>
             <Field label="Billing period">{t.billing_period ?? "—"}</Field>
-            <Field label="Amount">₦{Number(t.amount ?? 0).toLocaleString()}</Field>
+            <Field label="Amount">{formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}</Field>
+            {t.payment_currency && t.payment_currency !== "NGN" ? (
+              <>
+                <Field label="Base price">{formatAnyMoney(t.base_amount_ngn, "NGN")}</Field>
+                <Field label="Exchange rate">
+                  {t.exchange_rate ? `1 NGN = ${t.exchange_rate} ${t.payment_currency}` : "—"}
+                </Field>
+                <Field label="International payment fee">
+                  {formatAnyMoney(t.international_fee_amount, t.payment_currency)}
+                </Field>
+              </>
+            ) : null}
             <Field label="Payment channel">{t.payment_channel ?? "—"}</Field>
             <Field label="Paid at">
               {t.paid_at ? new Date(t.paid_at).toLocaleString() : "—"}
