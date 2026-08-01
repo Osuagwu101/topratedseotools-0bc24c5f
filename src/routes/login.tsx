@@ -105,11 +105,13 @@ function LoginPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !hydrated}
+          aria-busy={loading || !hydrated}
           className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {!hydrated ? "Loading..." : loading ? "Signing in..." : "Sign in"}
         </button>
+
       </form>
     </AuthShell>
   );
