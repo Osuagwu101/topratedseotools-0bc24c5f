@@ -9,7 +9,7 @@
  */
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, TicketPercent, X } from "lucide-react";
@@ -30,6 +30,7 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
+import { getActiveGatewayPublic } from "@/lib/payment-providers.functions";
 import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
 import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
@@ -83,6 +84,16 @@ function OrderPage() {
     (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
+  // Which gateway the customer is sent to is an Admin setting — keep the copy
+  // in sync so switching gateways needs no code change.
+  const fetchGateway = useServerFn(getActiveGatewayPublic);
+  const { data: gateway } = useQuery({
+    queryKey: ["active-gateway"],
+    queryFn: () => fetchGateway(),
+    staleTime: 60_000,
+  });
+  const gatewayName = gateway?.display_name ?? "our secure payment provider";
+  const gatewayRecurring = gateway?.supports_recurring ?? true;
   const router = useRouter();
   // Turnitin (and any future per-use tool) has no subscription checkout —
   // block any old/direct link from opening the subscription flow.
@@ -122,6 +133,12 @@ function OrderPage() {
   useEffect(() => {
     if (payMode !== "one_time") setCoupon(null);
   }, [payMode]);
+
+  // Some gateways cannot charge automatically each cycle — keep the customer
+  // on the one-time flow instead of promising a renewal we can't deliver.
+  useEffect(() => {
+    if (!gatewayRecurring) setPayMode("one_time");
+  }, [gatewayRecurring]);
 
   if (!tool) {
     return (
@@ -379,20 +396,21 @@ function OrderPage() {
             <div className="rounded-2xl border bg-card p-6 shadow-card">
               <div className="text-sm font-semibold">Choose how to pay</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Both options use the exact price above. The channels shown on Paystack depend on your choice.
+                Both options use the exact price above. The channels shown at checkout depend on your choice.
               </p>
               <div className="mt-3 space-y-3">
                 <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
+                  className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     payMode === "recurring_subscription"
                       ? "border-primary ring-1 ring-primary/40"
                       : "hover:border-primary/40"
-                  }`}
+                  } ${gatewayRecurring ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
                 >
                   <input
                     type="radio"
                     name="paymode"
                     className="mt-1 h-4 w-4"
+                    disabled={!gatewayRecurring}
                     checked={payMode === "recurring_subscription"}
                     onChange={() => setPayMode("recurring_subscription")}
                   />
@@ -423,7 +441,7 @@ function OrderPage() {
                     <span className="block font-medium">One-Time Payment</span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
                       Pay once via Bank Transfer, USSD, Pay with Bank, QR, or any other one-time
-                      channel enabled on our Paystack account.
+                      channel enabled on our {gatewayName} account.
                     </span>
                   </span>
                 </label>
@@ -527,7 +545,7 @@ function OrderPage() {
           <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-4 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
             <div>
-              You'll be redirected to <strong>Paystack</strong> to pay securely.
+              You'll be redirected to <strong>{gatewayName}</strong> to pay securely.
               <strong> Shared Access</strong> is activated after payment
               confirmation, subject to availability.
               <strong> Private Access</strong> orders are marked pending
@@ -543,12 +561,12 @@ function OrderPage() {
           >
             <CreditCard className="h-4 w-4" />
             {submitting
-              ? "Redirecting to Paystack…"
+              ? `Redirecting to ${gatewayName}…`
               : !chosen
                 ? "Select a plan to continue"
                 : payMode === "one_time"
-                  ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with Paystack`
-                  : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with Paystack`}
+                  ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with ${gatewayName}`
+                  : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with ${gatewayName}`}
           </button>
 
 

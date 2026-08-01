@@ -76,11 +76,24 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
     if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
 
-    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
-    if (!env) throw new Error("Payments are temporarily unavailable. Please contact support.");
+    // Which gateway processes this payment is an admin setting — the pricing,
+    // coupon, currency, order and access pipelines below are gateway-agnostic.
+    const { supabaseAdmin: adminForGateway } = await import("@/integrations/supabase/client.server");
+    const { resolveActiveGateway } = await import("@/lib/gateways/registry");
+    const gateway = await resolveActiveGateway(adminForGateway);
 
-    const paymentType = data.payment_type ?? "recurring_subscription";
+    const env =
+      detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY) ?? gateway.environment ?? "live";
+
+    const requestedType = data.payment_type ?? "recurring_subscription";
+    // Gateways without native subscriptions charge one-time; renewals are then
+    // handled by our own reminder/renewal flow instead of the gateway's.
+    const paymentType =
+      requestedType === "recurring_subscription" && !gateway.adapter.supportsRecurring
+        ? "one_time"
+        : requestedType;
     const isRecurring = paymentType === "recurring_subscription";
+
 
     const { data: order, error } = await context.supabase
       .from("tool_orders")
@@ -239,27 +252,27 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       final_amount: currencyBreakdown.final_amount,
     };
 
-    // Recurring: restrict to channels Paystack supports for subscriptions.
-    // One-time: omit `channels` so every one-time channel enabled on the
-    // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
-    const initBody: Record<string, unknown> = {
-      email,
-      amount: charge.payment_minor_units,
-      currency: charge.payment_currency,
-      reference,
-      callback_url: data.callback_url,
-      metadata,
-    };
+    // Recurring (Paystack): restrict to channels Paystack supports for
+    // subscriptions. One-time: omit `channels` so every one-time channel
+    // enabled on the account (bank transfer, USSD, QR, etc.) shows.
+    const extra: Record<string, unknown> = {};
     if (isRecurring && planCode) {
-      initBody.plan = planCode;
-      initBody.channels = ["card", "direct_debit"];
+      extra.plan = planCode;
+      extra.channels = ["card", "direct_debit"];
     }
 
+    const init = await gateway.adapter.initialize({
+      reference,
+      amountMinor: charge.payment_minor_units,
+      currency: charge.payment_currency,
+      email,
+      callbackUrl: data.callback_url,
+      customerName: (context.claims as { name?: string } | undefined)?.name ?? null,
+      description: `${snapshot.tool_slug} · ${snapshot.access_type} ${snapshot.billing_period}`,
+      metadata,
+      extra,
+    });
 
-    const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
-      "/transaction/initialize",
-      { method: "POST", body: JSON.stringify(initBody) },
-    );
 
     const fulfilment = snapshot.access_type === "private" ? "pending" : "not_required";
 
@@ -268,6 +281,9 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .update({
         paystack_reference: init.reference,
         paystack_plan_code: planCode,
+        payment_gateway: gateway.slug,
+        gateway_transaction_reference: init.gateway_reference,
+
         access_type: snapshot.access_type,
         billing_period: snapshot.billing_period,
         price_amount: snapshot.price_amount,
@@ -318,11 +334,14 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             classification: isRecurring ? "initial" : "one_time",
             paystack_reference: init.reference,
             paystack_environment: snapshot.paystack_environment,
+            payment_gateway: gateway.slug,
+            gateway_transaction_reference: init.gateway_reference,
             customer_email: email,
             access_type: snapshot.access_type,
             billing_period: snapshot.billing_period,
             price_label: snapshot.price_label,
-            source: "paystack",
+            source: gateway.slug,
+
             initiated_at: new Date().toISOString(),
             last_status_change_at: new Date().toISOString(),
             base_amount_ngn: currencyBreakdown.base_amount_ngn,
@@ -397,17 +416,21 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { detectCheckoutEnvironment, validatePaymentVerification, VERIFY_FAILURE_MESSAGE } =
       await import("@/lib/paystack-checkout");
 
-    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
-    if (!env) throw new Error(VERIFY_FAILURE_MESSAGE);
+    // Which gateway issued this reference decides how it is verified. The
+    // adapter returns a Paystack-shaped transaction (amount in minor units),
+    // so every check and side effect below is gateway-agnostic.
+    const { supabaseAdmin: adminForVerify } = await import("@/integrations/supabase/client.server");
+    const { resolveGatewayForReference } = await import("@/lib/gateways/registry");
+    const gateway = await resolveGatewayForReference(adminForVerify, data.reference);
 
-    const tx = await paystack<{
-      status: string;
-      reference: string;
-      amount: number;
-      currency: string;
-      metadata: { order_id?: string; user_id?: string };
-      customer?: { customer_code?: string };
-    }>(`/transaction/verify/${encodeURIComponent(data.reference)}`);
+    const env =
+      (gateway.slug === "paystack"
+        ? detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY)
+        : gateway.environment) ?? "live";
+
+    const tx = await gateway.adapter.verify(data.reference);
+    if (tx.status !== "success") throw new Error(VERIFY_FAILURE_MESSAGE);
+
 
     const orderId = tx.metadata?.order_id;
     if (!orderId) throw new Error(VERIFY_FAILURE_MESSAGE);
@@ -514,7 +537,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
               paystack_last_checked_at: paidAt.toISOString(),
               paystack_transaction_id: paystackId ? String(paystackId) : null,
               payment_channel: paystackChannel,
+              payment_gateway: gateway.slug,
+              gateway_transaction_reference: paystackId ? String(paystackId) : null,
+              gateway_response: (tx.raw ?? null) as never,
               last_status_change_at: paidAt.toISOString(),
+
             } as never)
             .eq("id", dupPay.id);
           await supabaseAdmin.from("tool_payment_status_history").insert({
@@ -572,8 +599,13 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             payment_channel: paystackChannel,
             access_type: orderFull?.access_type ?? null,
             billing_period: orderFull?.billing_period ?? null,
+            payment_gateway: gateway.slug,
+            gateway_transaction_reference: paystackId ? String(paystackId) : null,
+            gateway_response: (tx.raw ?? null) as never,
+            source: gateway.slug,
             paid_at: paidAt.toISOString(),
             last_status_change_at: paidAt.toISOString(),
+
           } as never)
           .select("id")
           .maybeSingle();

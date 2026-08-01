@@ -30,7 +30,21 @@ export interface WebhookDeps {
   secret: string | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any;
+  /**
+   * Non-Paystack gateway (Flutterwave, Monnify). When supplied, the adapter
+   * verifies the signature and maps its payload onto the Paystack event
+   * vocabulary, so order completion, access assignment, emails and
+   * idempotency stay identical across gateways.
+   */
+  adapter?: {
+    slug: string;
+    environment(): Env | null;
+    verifyWebhook(raw: string, headers: Headers): boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    normalizeWebhook(payload: unknown): { event: string; data: any } | null;
+  };
 }
+
 
 export function detectEnvironmentStrict(secret: string): Env | null {
   if (secret.startsWith("sk_test_")) return "test";
@@ -70,29 +84,45 @@ export async function handlePaystackWebhook(
   request: Request,
   deps: WebhookDeps,
 ): Promise<Response> {
-  const { secret, supabaseAdmin } = deps;
 
-  if (!secret) return new Response("not configured", { status: 503 });
+  const { secret, supabaseAdmin, adapter } = deps;
+  const gatewaySlug = adapter?.slug ?? "paystack";
 
-  const env = detectEnvironmentStrict(secret);
-  if (!env) return new Response("server configuration error", { status: 503 });
-
-  const signature = request.headers.get("x-paystack-signature") ?? "";
   const raw = await request.text();
-  const expected = createHmac("sha512", secret).update(raw).digest("hex");
-  const sig = Buffer.from(signature);
-  const exp = Buffer.from(expected);
-  if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
-    return new Response("invalid signature", { status: 401 });
+  let env: Env;
+
+  if (adapter) {
+    const detected = adapter.environment();
+    if (!detected) return new Response("not configured", { status: 503 });
+    if (!adapter.verifyWebhook(raw, request.headers)) {
+      return new Response("invalid signature", { status: 401 });
+    }
+    env = detected;
+  } else {
+    if (!secret) return new Response("not configured", { status: 503 });
+    const detected = detectEnvironmentStrict(secret);
+    if (!detected) return new Response("server configuration error", { status: 503 });
+    env = detected;
+    const signature = request.headers.get("x-paystack-signature") ?? "";
+    const expected = createHmac("sha512", secret).update(raw).digest("hex");
+    const sig = Buffer.from(signature);
+    const exp = Buffer.from(expected);
+    if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
+      return new Response("invalid signature", { status: 401 });
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payload: any;
+  let parsed: any;
   try {
-    payload = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     return new Response("bad json", { status: 400 });
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: any = adapter ? adapter.normalizeWebhook(parsed) : parsed;
+  if (!payload) return new Response("ignored", { status: 200 });
 
   const eventType: string = payload?.event ?? "";
   if (!HANDLED_EVENTS.has(eventType)) {
@@ -113,10 +143,11 @@ export async function handlePaystackWebhook(
     reference ?? invoiceCode ?? subscriptionCode ?? (orderId ? `order:${orderId}` : "");
   if (!naturalId) return new Response("no identifier", { status: 400 });
 
+
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
     env,
-    reference: naturalId,
+    reference: gatewaySlug === "paystack" ? naturalId : `${gatewaySlug}:${naturalId}`,
     status: txStatus,
   });
   const payloadHash = createHash("sha256").update(raw).digest("hex");
@@ -126,7 +157,9 @@ export async function handlePaystackWebhook(
     .insert({
       idempotency_key: idempotencyKey,
       event_type: eventType,
+      gateway: gatewaySlug,
       transaction_reference: reference ?? null,
+
       subscription_code: subscriptionCode ?? null,
       invoice_code: invoiceCode ?? null,
       paystack_environment: env,
@@ -173,6 +206,7 @@ export async function handlePaystackWebhook(
     const result = await dispatchEvent({
       supabaseAdmin,
       env,
+      gateway: gatewaySlug,
       eventType,
       eventId,
       orderId,
@@ -221,6 +255,8 @@ interface DispatchInput {
   subscriptionCode?: string;
   customerCode?: string;
   invoiceCode?: string;
+  /** Which gateway delivered this event. */
+  gateway: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
@@ -330,6 +366,8 @@ async function handleChargeSuccess(i: DispatchInput) {
             paystack_last_checked_at: paidAt.toISOString(),
             paystack_transaction_id: paystackId ? String(paystackId) : null,
             payment_channel: paystackChannel,
+            payment_gateway: i.gateway,
+            gateway_transaction_reference: paystackId ? String(paystackId) : null,
             classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
             last_status_change_at: paidAt.toISOString(),
             payment_currency: chargedCurrency(order as CurrencyBearingOrder),
@@ -384,6 +422,10 @@ async function handleChargeSuccess(i: DispatchInput) {
           paystack_transaction_id: paystackId ? String(paystackId) : null,
           paystack_last_checked_at: paidAt.toISOString(),
           payment_channel: paystackChannel,
+          payment_gateway: i.gateway,
+          gateway_transaction_reference: paystackId ? String(paystackId) : null,
+          source: i.gateway,
+
           access_type: order.access_type ?? null,
           billing_period: order.billing_period ?? null,
           paid_at: paidAt.toISOString(),

@@ -79,8 +79,12 @@ function PaymentProvidersPage() {
           public_key: editing.public_key ?? null,
           webhook_secret_hint: editing.webhook_secret_hint ?? null,
           enabled: editing.enabled ?? false,
+          config: Object.fromEntries(
+            Object.entries(editing.config ?? {}).map(([k, v]) => [k, v == null ? null : String(v)]),
+          ),
         },
       });
+
       toast.success("Provider saved");
       setEditing(null);
       await router.invalidate();
@@ -201,6 +205,25 @@ function PaymentProvidersPage() {
                   placeholder="Last 4 chars of the webhook signing secret for reference"
                 />
               </div>
+              {(data.catalog.find((c) => c.slug === editing.slug)?.config_fields ?? []).map((f) => (
+                <div key={f.key} className="sm:col-span-2">
+                  <Label>
+                    {f.label}
+                    {f.required ? " *" : " (optional)"}
+                  </Label>
+                  <Input
+                    value={String(editing.config?.[f.key] ?? "")}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        config: { ...(editing.config ?? {}), [f.key]: e.target.value },
+                      })
+                    }
+                    placeholder={f.key === "base_url" ? "https://api.monnify.com" : ""}
+                  />
+                </div>
+              ))}
+
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -282,7 +305,23 @@ function PaymentProvidersPage() {
                   {p.last_test_message && (
                     <div className="mt-1 text-xs text-muted-foreground">{p.last_test_message}</div>
                   )}
+                  {p.missing_secrets.length > 0 && (
+                    <div className="mt-2 rounded-lg bg-destructive/10 px-2 py-1 text-xs text-destructive">
+                      Cannot be activated until these are set: {p.missing_secrets.join(", ")}
+                    </div>
+                  )}
+                  {p.webhook_url && (
+                    <div className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+                      Webhook URL: {p.webhook_url}
+                    </div>
+                  )}
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {p.supports_recurring
+                      ? "Supports automatic renewals (subscriptions)."
+                      : "One-time payments only — renewals are charged manually each cycle."}
+                  </div>
                 </div>
+
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
