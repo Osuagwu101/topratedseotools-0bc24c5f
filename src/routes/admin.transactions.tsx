@@ -211,6 +211,11 @@ function AdminTransactionsPage() {
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}
+                      {t.display_currency && t.display_currency !== (t.payment_currency ?? "NGN") ? (
+                        <div className="text-[11px] text-muted-foreground">
+                          customer saw {formatAnyMoney(t.display_amount, t.display_currency)}
+                        </div>
+                      ) : null}
                       {t.payment_currency && t.payment_currency !== "NGN" ? (
                         <div className="text-[11px] text-muted-foreground">
                           base {formatAnyMoney(t.base_amount_ngn, "NGN")}
