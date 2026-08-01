@@ -12,6 +12,13 @@ import { isResendConfigured, resendSendEmail, ResendError } from "./resend";
 const MAX_ATTEMPTS = 5;
 const BACKOFF_MINUTES = [5, 30, 120, 600, 1440];
 
+/** Resend tag values allow only ASCII letters, numbers, underscores and dashes. */
+export function sanitizeTagValue(value: string): string {
+  const cleaned = (value ?? "").replace(/[^A-Za-z0-9_-]/g, "-").replace(/-{2,}/g, "-");
+  return cleaned.replace(/^-+|-+$/g, "") || "unknown";
+}
+
+
 export interface QueueEmailInput {
   eventKey: string;
   templateKey: string;
