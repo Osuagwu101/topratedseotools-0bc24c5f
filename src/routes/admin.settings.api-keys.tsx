@@ -19,6 +19,7 @@ import {
   adminSetActiveProvider,
   adminTestProviderConnection,
   adminDeletePaymentProvider,
+  adminSaveProviderSecrets,
   type PaymentProviderRow,
 } from "@/lib/payment-providers.functions";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,8 @@ function PaymentProvidersPage() {
   const setActive = useServerFn(adminSetActiveProvider);
   const test = useServerFn(adminTestProviderConnection);
   const del = useServerFn(adminDeletePaymentProvider);
+  const saveSecrets = useServerFn(adminSaveProviderSecrets);
+  const [secretDraft, setSecretDraft] = useState<Record<string, Record<string, string>>>({});
   const [editing, setEditing] = useState<Partial<PaymentProviderRow> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -114,6 +117,26 @@ function PaymentProvidersPage() {
     try {
       await setActive({ data: { id } });
       toast.success("Active provider updated");
+      await router.invalidate();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function storeSecrets(id: string) {
+    const entries = Object.entries(secretDraft[id] ?? {}).filter(([, v]) => v.trim().length > 0);
+    if (!entries.length) {
+      toast.error("Enter at least one credential first.");
+      return;
+    }
+    setBusy(`sec:${id}`);
+    try {
+      const r = await saveSecrets({ data: { id, secrets: Object.fromEntries(entries) } });
+      if (r.ok) toast.success(`Credentials saved and validated: ${r.message}`);
+      else toast.error(`Saved, but validation failed: ${r.message}`);
+      setSecretDraft((d) => ({ ...d, [id]: {} }));
       await router.invalidate();
     } catch (err) {
       toast.error((err as Error).message);
@@ -341,6 +364,51 @@ function PaymentProvidersPage() {
                   )}
                 </div>
               </div>
+              {(data.catalog.find((c) => c.slug === p.slug)?.secret_fields ?? []).length > 0 && (
+                <div className="mt-4 rounded-xl border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Credentials (stored securely — never displayed)
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {(data.catalog.find((c) => c.slug === p.slug)?.secret_fields ?? []).map((f) => {
+                      const set = (p.configured_secrets ?? []).includes(f.name);
+                      return (
+                        <div key={f.name}>
+                          <Label className="text-xs">
+                            {f.label}
+                            {f.required ? " *" : " (optional)"}{" "}
+                            {set ? (
+                              <span className="text-success">· saved</span>
+                            ) : (
+                              <span className="text-muted-foreground">· not set</span>
+                            )}
+                          </Label>
+                          <Input
+                            type="password"
+                            autoComplete="off"
+                            value={secretDraft[p.id]?.[f.name] ?? ""}
+                            onChange={(e) =>
+                              setSecretDraft((d) => ({
+                                ...d,
+                                [p.id]: { ...(d[p.id] ?? {}), [f.name]: e.target.value },
+                              }))
+                            }
+                            placeholder={set ? "Enter a new value to replace" : "Paste value"}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button size="sm" onClick={() => storeSecrets(p.id)} disabled={busy === `sec:${p.id}`}>
+                      {busy === `sec:${p.id}` ? "Saving…" : "Save & validate credentials"}
+                    </Button>
+                    {!data.is_super_admin && (
+                      <span className="text-xs text-muted-foreground">Super Admin only</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </li>
           ))}
           {data.providers.length === 0 && (
