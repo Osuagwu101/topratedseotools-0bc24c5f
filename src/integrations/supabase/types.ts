@@ -1476,6 +1476,7 @@ export type Database = {
         Row: {
           created_at: string
           event_type: string
+          gateway: string
           id: string
           idempotency_key: string
           invoice_code: string | null
@@ -1493,6 +1494,7 @@ export type Database = {
         Insert: {
           created_at?: string
           event_type: string
+          gateway?: string
           id?: string
           idempotency_key: string
           invoice_code?: string | null
@@ -1510,6 +1512,7 @@ export type Database = {
         Update: {
           created_at?: string
           event_type?: string
+          gateway?: string
           id?: string
           idempotency_key?: string
           invoice_code?: string | null
@@ -1919,6 +1922,8 @@ export type Database = {
           fulfilment_marked_by: string | null
           fulfilment_reason: string | null
           fulfilment_status: string
+          gateway_response: Json | null
+          gateway_transaction_reference: string | null
           grace_days: number
           id: string
           international_fee_amount: number
@@ -1929,6 +1934,7 @@ export type Database = {
           paid_at: string | null
           paid_through_at: string | null
           payment_currency: string
+          payment_gateway: string
           payment_status: string
           payment_type: string
           paystack_customer_code: string | null
@@ -1984,6 +1990,8 @@ export type Database = {
           fulfilment_marked_by?: string | null
           fulfilment_reason?: string | null
           fulfilment_status?: string
+          gateway_response?: Json | null
+          gateway_transaction_reference?: string | null
           grace_days?: number
           id?: string
           international_fee_amount?: number
@@ -1994,6 +2002,7 @@ export type Database = {
           paid_at?: string | null
           paid_through_at?: string | null
           payment_currency?: string
+          payment_gateway?: string
           payment_status?: string
           payment_type?: string
           paystack_customer_code?: string | null
@@ -2049,6 +2058,8 @@ export type Database = {
           fulfilment_marked_by?: string | null
           fulfilment_reason?: string | null
           fulfilment_status?: string
+          gateway_response?: Json | null
+          gateway_transaction_reference?: string | null
           grace_days?: number
           id?: string
           international_fee_amount?: number
@@ -2059,6 +2070,7 @@ export type Database = {
           paid_at?: string | null
           paid_through_at?: string | null
           payment_currency?: string
+          payment_gateway?: string
           payment_status?: string
           payment_type?: string
           paystack_customer_code?: string | null
@@ -2198,6 +2210,8 @@ export type Database = {
           final_amount: number | null
           flagged_at: string | null
           flagged_reason: string | null
+          gateway_response: Json | null
+          gateway_transaction_reference: string | null
           id: string
           initiated_at: string
           international_fee_amount: number
@@ -2207,6 +2221,7 @@ export type Database = {
           paid_at: string | null
           payment_channel: string | null
           payment_currency: string
+          payment_gateway: string
           payment_method: string | null
           payment_status: string
           payment_type: string
@@ -2249,6 +2264,8 @@ export type Database = {
           final_amount?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
+          gateway_response?: Json | null
+          gateway_transaction_reference?: string | null
           id?: string
           initiated_at?: string
           international_fee_amount?: number
@@ -2258,6 +2275,7 @@ export type Database = {
           paid_at?: string | null
           payment_channel?: string | null
           payment_currency?: string
+          payment_gateway?: string
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
@@ -2300,6 +2318,8 @@ export type Database = {
           final_amount?: number | null
           flagged_at?: string | null
           flagged_reason?: string | null
+          gateway_response?: Json | null
+          gateway_transaction_reference?: string | null
           id?: string
           initiated_at?: string
           international_fee_amount?: number
@@ -2309,6 +2329,7 @@ export type Database = {
           paid_at?: string | null
           payment_channel?: string | null
           payment_currency?: string
+          payment_gateway?: string
           payment_method?: string | null
           payment_status?: string
           payment_type?: string
