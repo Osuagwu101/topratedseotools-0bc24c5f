@@ -51,9 +51,11 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         callback_url: z.string().url(),
         payment_type: z.enum(["one_time", "recurring_subscription"]).optional(),
         payment_currency: z.enum(["NGN", "GHS", "KES", "ZAR", "USD"]).optional(),
+        coupon_code: z.string().min(1).max(64).optional().nullable(),
       })
       .parse(input),
   )
+
   .handler(async ({ data, context }) => {
     const {
       detectCheckoutEnvironment,
@@ -108,16 +110,50 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // Multi-currency: server re-validates chosen currency + recomputes the
-    // breakdown from DB rates. Never trusts client-supplied amounts.
+    // Coupons: NGN is the source of truth. The code is re-resolved here and
+    // the discount is fed into buildPricingBreakdown, so the discounted NGN
+    // base flows through conversion + the international adjustment exactly
+    // like the price shown to the customer.
     const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
     const { buildPricingBreakdown } = await import("@/lib/currency-convert");
+
+    let discount: { type: "percent" | "amount"; value: number; code: string } | null = null;
+    let couponId: string | null = null;
+    if (data.coupon_code) {
+      if (isRecurring) {
+        throw new Error(
+          "Coupon codes apply to one-time payments only. Choose One-Time Payment to use your coupon.",
+        );
+      }
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { resolveCouponForCheckout } = await import("@/lib/coupons.server");
+      const { couponRejectionMessage } = await import("@/lib/coupons");
+      const resolved = await resolveCouponForCheckout(supabaseAdmin, {
+        code: data.coupon_code,
+        userId: context.userId,
+        tool_slug: snapshot.tool_slug,
+        access_type: snapshot.access_type,
+        billing_period: snapshot.billing_period,
+        base_amount_ngn: snapshot.price_amount,
+      });
+      if (!resolved.ok) throw new Error(couponRejectionMessage(resolved.reason));
+      discount = {
+        type: resolved.discount.type,
+        value: resolved.discount.value,
+        code: resolved.discount.code as string,
+      };
+      couponId = resolved.coupon.id;
+    }
+
+    // Multi-currency: server re-validates chosen currency + recomputes the
+    // breakdown from DB rates. Never trusts client-supplied amounts.
     let currencyBreakdown = buildPricingBreakdown({
       ngn: snapshot.price_amount,
       currency: "NGN",
       rate: 1,
       surchargePercent: 0,
       surchargeEnabled: false,
+      discount,
     });
     if (chosenCurrency !== "NGN") {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -151,8 +187,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         rate,
         surchargePercent: Number(settings.surcharge_percent ?? 3),
         surchargeEnabled: !!settings.surcharge_enabled,
+        discount,
       });
     }
+    if (currencyBreakdown.minor_units_amount <= 0) {
+      throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
+    }
+
 
     let planCode: string | null = null;
     if (isRecurring) {
@@ -178,6 +219,9 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       payment_type: paymentType,
       payment_currency: currencyBreakdown.payment_currency,
       base_amount_ngn: currencyBreakdown.base_amount_ngn,
+      coupon_code: currencyBreakdown.discount_code,
+      discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
+      discounted_amount_ngn: currencyBreakdown.discounted_amount_ngn,
       exchange_rate: currencyBreakdown.exchange_rate,
       international_fee_amount: currencyBreakdown.international_fee_amount,
       final_amount: currencyBreakdown.final_amount,
@@ -228,6 +272,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         exchange_rate_snapshot: currencyBreakdown.exchange_rate,
         international_fee_amount: currencyBreakdown.international_fee_amount,
         final_amount_charged: currencyBreakdown.final_amount,
+        coupon_id: couponId,
+        coupon_code: currencyBreakdown.discount_code,
+        discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
+        discounted_amount_ngn: currencyBreakdown.discounted_amount_ngn,
       })
       .eq("id", orderSafe.id);
 
@@ -263,6 +311,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             initiated_at: new Date().toISOString(),
             last_status_change_at: new Date().toISOString(),
             base_amount_ngn: currencyBreakdown.base_amount_ngn,
+            coupon_code: currencyBreakdown.discount_code,
+            discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
             payment_currency: currencyBreakdown.payment_currency,
             exchange_rate: currencyBreakdown.exchange_rate,
             converted_amount: currencyBreakdown.converted_amount,
@@ -348,7 +398,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
@@ -469,7 +519,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
             amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
             currency: (orderSafe.currency as string | null) ?? "NGN",
-            base_amount_ngn: (orderSafe.price_amount as number | null) ?? null,
+            // Coupon-aware: the NGN amount that actually flowed into the
+            // conversion pipeline, plus the discount taken off the base.
+            base_amount_ngn:
+              ((order as { discounted_amount_ngn?: number | null }).discounted_amount_ngn) ??
+              (orderSafe.price_amount as number | null) ??
+              null,
+            coupon_code: ((order as { coupon_code?: string | null }).coupon_code) ?? null,
+            discount_amount_ngn:
+              Number((order as { discount_amount_ngn?: number | null }).discount_amount_ngn ?? 0) || 0,
             payment_currency: chargedCurrency,
             exchange_rate:
               ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
@@ -508,6 +566,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         }
       }
     }
+
+    // Coupon usage is counted once per order (enforced in the database), so
+    // the verify path and the webhook can both call this safely.
+    if ((order as { coupon_code?: string | null }).coupon_code) {
+      const { recordCouponRedemption } = await import("@/lib/coupons.server");
+      await recordCouponRedemption(supabaseAdmin, orderSafe.id as string, tx.reference ?? null);
+    }
+
+
 
     // Helper — best-effort recipient lookup for post-payment emails.
     async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {

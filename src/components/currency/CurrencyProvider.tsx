@@ -8,7 +8,12 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicCurrencyConfig, type SupportedCurrency } from "@/lib/currency.functions";
-import { buildPricingBreakdown, formatMoney, type PricingBreakdown } from "@/lib/currency-convert";
+import {
+  buildPricingBreakdown,
+  formatMoney,
+  type DiscountInput,
+  type PricingBreakdown,
+} from "@/lib/currency-convert";
 import { billingSuffix, formatCurrency, getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const STORAGE_KEY = "ts_currency";
@@ -18,11 +23,15 @@ type Ctx = {
   setCurrency: (c: SupportedCurrency) => void;
   config: Awaited<ReturnType<typeof getPublicCurrencyConfig>> | undefined;
   isLoading: boolean;
-  /** Convert an NGN price into the selected currency + apply surcharge. */
-  price: (ngn: number) => PricingBreakdown | null;
+  /**
+   * Base NGN → coupon discount → conversion → international adjustment.
+   * Same function the server uses to build the Paystack charge.
+   */
+  price: (ngn: number, discount?: DiscountInput | null) => PricingBreakdown | null;
   /** Whether the switcher UI should render (feature-flagged by admin). */
   switcherEnabled: boolean;
 };
+
 
 const CurrencyContext = createContext<Ctx | null>(null);
 
@@ -67,7 +76,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<Ctx>(() => {
-    const price = (ngn: number): PricingBreakdown | null => {
+    const price = (ngn: number, discount?: DiscountInput | null): PricingBreakdown | null => {
       if (!ngn || !Number.isFinite(ngn)) return null;
       const cur = currency;
       const rate = cur === "NGN" ? 1 : config?.rates.find((r) => r.currency === cur)?.rate ?? 0;
@@ -79,6 +88,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
           rate,
           surchargePercent: config?.surcharge_percent ?? 3,
           surchargeEnabled: config?.surcharge_enabled ?? true,
+          discount: discount ?? null,
         });
       } catch {
         return null;
@@ -108,20 +118,21 @@ export function useCurrency(): Ctx {
 /**
  * Customer-facing money formatter.
  *
- * Takes a base NGN amount and returns the localized display string in the
- * selected currency, with the admin-configured international adjustment
- * already folded into the number. Customers never see the rate or the
- * adjustment as separate values.
+ * Takes a base NGN amount (plus an optional server-resolved coupon) and
+ * returns the localized display string in the selected currency, with the
+ * coupon discount taken off the NGN base first and the admin-configured
+ * international adjustment already folded into the number. Customers never
+ * see the rate or the adjustment as separate values.
  */
 export function useMoney() {
   const { currency, price } = useCurrency();
 
-  const fmt = (ngn: number | null | undefined): string => {
+  const fmt = (ngn: number | null | undefined, discount?: DiscountInput | null): string => {
     const n = Number(ngn);
     if (!Number.isFinite(n)) return "";
-    if (currency === "NGN") return formatCurrency(n, "₦");
-    const b = price(n);
+    const b = price(n, discount ?? null);
     if (!b) return formatCurrency(n, "₦");
+    if (currency === "NGN") return formatCurrency(b.final_amount, "₦");
     return formatMoney(b.final_amount, currency);
   };
 
@@ -133,9 +144,10 @@ export function useMoney() {
       contact_admin?: boolean | null;
     },
     variant: "full" | "compact" = "full",
+    discount?: DiscountInput | null,
   ): string => {
     if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
-    const money = fmt(Number(opt.amount));
+    const money = fmt(Number(opt.amount), discount ?? null);
     if (variant === "compact") {
       const kind = normaliseBillingKind(getBillingKind(opt));
       if (kind === "monthly") return `${money}/month`;
@@ -149,3 +161,4 @@ export function useMoney() {
 
   return { currency, fmt, plan };
 }
+

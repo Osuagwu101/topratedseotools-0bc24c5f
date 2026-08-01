@@ -484,6 +484,7 @@ function AdminSidebar() {
                       { title: "Access Health", to: "/admin/access-health" as const, perm: null },
                       { title: "Awaiting Assignment", to: "/admin/awaiting-assignments" as const, perm: null },
                       { title: "Promotions & Rewards", to: "/admin/settings/promotions" as const, perm: "promotions.manage" },
+                      { title: "Coupons", to: "/admin/settings/coupons" as const, perm: "promotions.manage" },
                       { title: "Business Rules", to: "/admin/settings/business-rules" as const, perm: null },
                       { title: "Support Tickets", to: "/admin/settings/support" as const, perm: "support.manage" },
                       { title: "Customer Communications", to: "/admin/settings/communications" as const, perm: "emails.manage" },
