@@ -443,14 +443,16 @@ function OrderPage() {
               : !chosen
                 ? "Select a plan to continue"
                 : payMode === "one_time"
-                  ? `Pay ${formatPrice(chosen)} once with Paystack`
-                  : `Subscribe · ${formatPrice(chosen)} with Paystack`}
+                  ? `Pay ${money.fmt(chosen.amount)} once with Paystack`
+                  : `Subscribe · ${money.fmt(chosen.amount)} with Paystack`}
           </button>
 
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <Info className="mt-0.5 h-3 w-3 shrink-0" />
-            Payments processed in Nigerian Naira. Cards, bank transfer, and USSD are supported.
+            {money.currency === "NGN"
+              ? "Payments processed in Nigerian Naira. Cards, bank transfer, and USSD are supported."
+              : `Payments processed in ${money.currency}. Cards and supported local channels are available.`}
           </p>
         </form>
       </section>
