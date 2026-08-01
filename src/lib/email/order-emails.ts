@@ -45,7 +45,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const { data: order } = await admin
       .from("tool_orders")
       .select(
-        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
+        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
       )
       .eq("id", i.orderId)
       .maybeSingle();
@@ -60,13 +60,35 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     if (!to) return;
     const name = (profile as { full_name?: string } | null)?.full_name ?? "there";
 
+    // Emails must state what the customer was actually charged: international
+    // orders pay `final_amount_charged` in `payment_currency`, NGN orders pay
+    // the base price. Legacy rows have neither column set and fall back to NGN.
+    const payCurrency = String(order.payment_currency ?? order.currency ?? "NGN").toUpperCase();
+    const isIntl = payCurrency !== "NGN";
+    const charged = Number(order.final_amount_charged ?? order.price_amount ?? 0) || 0;
+    const baseNgn = Number(order.price_amount ?? 0) || 0;
+    const fee = Number(order.international_fee_amount ?? 0) || 0;
+    const rate = Number(order.exchange_rate_snapshot ?? 0) || 0;
+    const money = (n: number) =>
+      n.toLocaleString("en-US", {
+        minimumFractionDigits: isIntl ? 2 : 0,
+        maximumFractionDigits: isIntl ? 2 : 0,
+      });
+    const currencyNote = isIntl
+      ? `Converted from ₦${baseNgn.toLocaleString()}${rate ? ` at 1 NGN = ${rate} ${payCurrency}` : ""}, including a ${payCurrency} ${money(fee)} international payment fee.`
+      : "";
+
     const basePayload: TemplateVars = {
       name,
       tool: order.tool_slug ?? "your tool",
       access_type: order.access_type ?? "shared",
       billing_period: order.billing_period ?? "monthly",
-      amount: order.price_amount ?? "",
-      currency: order.currency ?? "NGN",
+      amount: charged ? money(charged) : "",
+      currency: payCurrency,
+      base_amount_ngn: baseNgn ? `₦${baseNgn.toLocaleString()}` : "",
+      exchange_rate: rate ? String(rate) : "",
+      international_fee: isIntl ? `${payCurrency} ${money(fee)}` : "",
+      currency_note: currencyNote,
       reference: i.reference ?? "",
       dashboard_url: "https://topratedseotools.com/dashboard",
       ...((i.extraPayload ?? {}) as TemplateVars),
