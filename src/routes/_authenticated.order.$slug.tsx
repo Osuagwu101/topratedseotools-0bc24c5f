@@ -114,6 +114,15 @@ function OrderPage() {
   const [couponBusy, setCouponBusy] = useState(false);
   const applyCoupon = useServerFn(previewCoupon);
 
+  // A coupon is validated against one specific plan, and coupons apply to
+  // one-time payments only, so drop it whenever either changes.
+  useEffect(() => {
+    setCoupon(null);
+  }, [selected]);
+  useEffect(() => {
+    if (payMode !== "one_time") setCoupon(null);
+  }, [payMode]);
+
   if (!tool) {
     return (
       <SiteLayout>
@@ -152,6 +161,34 @@ function OrderPage() {
 
   const chosen = options.find((o) => o.id === selected) ?? null;
   const oneTimeBlocked = payMode === "one_time" && !oneTimeAcknowledged;
+  // Coupons are resolved by the server against the base NGN price. The same
+  // discount object is fed to the display pipeline and to the checkout call,
+  // so what the customer sees is exactly what Paystack is asked to charge.
+  const discount: DiscountInput | null = coupon
+    ? { type: coupon.discount_type, value: coupon.discount_value, code: coupon.code }
+    : null;
+
+  async function submitCoupon() {
+    if (!chosen) {
+      toast.error("Please select a plan first");
+      return;
+    }
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponBusy(true);
+    try {
+      const preview = await applyCoupon({
+        data: { code, tool_slug: slug, pricing_option_id: chosen.id },
+      });
+      setCoupon(preview);
+      toast.success(`Coupon ${preview.code} applied`);
+    } catch (err) {
+      setCoupon(null);
+      toast.error(err instanceof Error ? err.message : "That coupon could not be applied");
+    } finally {
+      setCouponBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -336,7 +373,7 @@ function OrderPage() {
           </div>
 
 
-          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} currency={currency} price={price} config={config} /> : null}
+          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} currency={currency} price={price} config={config} discount={discount} coupon={coupon} /> : null}
 
           {chosen ? (
             <div className="rounded-2xl border bg-card p-6 shadow-card">
@@ -412,6 +449,66 @@ function OrderPage() {
             </div>
           ) : null}
 
+          {chosen && payMode === "one_time" ? (
+            <div className="rounded-2xl border bg-card p-6 shadow-card">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <TicketPercent className="h-4 w-4 text-primary" /> Coupon code
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Discounts are calculated on the Naira price, then converted into your selected
+                currency.
+              </p>
+              {coupon ? (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-sm">
+                  <span>
+                    <span className="font-semibold">{coupon.code}</span> applied —{" "}
+                    {coupon.discount_type === "percent"
+                      ? `${coupon.discount_value}% off`
+                      : `${money.fmt(coupon.discount_value)} off`}
+                    {coupon.description ? (
+                      <span className="block text-xs text-muted-foreground">{coupon.description}</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoupon(null);
+                      setCouponInput("");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                  >
+                    <X className="h-3 w-3" /> Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    aria-label="Coupon code"
+                    maxLength={64}
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm uppercase outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={submitCoupon}
+                    disabled={couponBusy || !couponInput.trim()}
+                    className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+                  >
+                    {couponBusy ? "Checking…" : "Apply"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : chosen ? (
+            <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+              <TicketPercent className="mt-0.5 h-3 w-3 shrink-0" />
+              Have a coupon code? Choose <strong className="mx-1">One-Time Payment</strong> above to
+              apply it.
+            </p>
+          ) : null}
+
           <div className="rounded-2xl border bg-card p-6 shadow-card">
             <label className="text-sm font-semibold" htmlFor="notes">
               Notes <span className="font-normal text-muted-foreground">(optional)</span>
@@ -450,7 +547,7 @@ function OrderPage() {
               : !chosen
                 ? "Select a plan to continue"
                 : payMode === "one_time"
-                  ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} once with Paystack`
+                  ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with Paystack`
                   : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with Paystack`}
           </button>
 
@@ -473,9 +570,13 @@ function CheckoutSummary({
   currency,
   price,
   config,
+  discount,
+  coupon,
 }: {
   chosen: ToolPricingOption;
   allOptions: ToolPricingOption[];
+  discount: import("@/lib/currency-convert").DiscountInput | null;
+  coupon: CouponPreview | null;
   currency: import("@/lib/currency-convert").SupportedCurrency;
   price: (ngn: number) => import("@/lib/currency-convert").PricingBreakdown | null;
   config: Awaited<ReturnType<typeof import("@/lib/currency.functions").getPublicCurrencyConfig>> | undefined;
@@ -525,7 +626,7 @@ function CheckoutSummary({
   const ngn = Number(chosen.amount ?? 0);
   // Total payable in the selected currency; the international adjustment is
   // already folded in and is never itemised for the customer.
-  const totalPayable = money.plan(chosen);
+  const totalPayable = money.plan(chosen, "full", discount);
   void price;
   void config;
   void ngn;
@@ -559,6 +660,15 @@ function CheckoutSummary({
           <div className="flex items-center justify-between">
             <dt className="text-muted-foreground">Billing</dt>
             <dd>{billing}</dd>
+          </div>
+        ) : null}
+
+        {coupon ? (
+          <div className="flex items-center justify-between">
+            <dt className="text-muted-foreground">Coupon {coupon.code}</dt>
+            <dd className="font-medium text-success">
+              −{money.fmt(coupon.discount_amount_ngn)}
+            </dd>
           </div>
         ) : null}
 
