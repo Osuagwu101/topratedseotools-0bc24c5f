@@ -416,17 +416,21 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { detectCheckoutEnvironment, validatePaymentVerification, VERIFY_FAILURE_MESSAGE } =
       await import("@/lib/paystack-checkout");
 
-    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
-    if (!env) throw new Error(VERIFY_FAILURE_MESSAGE);
+    // Which gateway issued this reference decides how it is verified. The
+    // adapter returns a Paystack-shaped transaction (amount in minor units),
+    // so every check and side effect below is gateway-agnostic.
+    const { supabaseAdmin: adminForVerify } = await import("@/integrations/supabase/client.server");
+    const { resolveGatewayForReference } = await import("@/lib/gateways/registry");
+    const gateway = await resolveGatewayForReference(adminForVerify, data.reference);
 
-    const tx = await paystack<{
-      status: string;
-      reference: string;
-      amount: number;
-      currency: string;
-      metadata: { order_id?: string; user_id?: string };
-      customer?: { customer_code?: string };
-    }>(`/transaction/verify/${encodeURIComponent(data.reference)}`);
+    const env =
+      (gateway.slug === "paystack"
+        ? detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY)
+        : gateway.environment) ?? "live";
+
+    const tx = await gateway.adapter.verify(data.reference);
+    if (tx.status !== "success") throw new Error(VERIFY_FAILURE_MESSAGE);
+
 
     const orderId = tx.metadata?.order_id;
     if (!orderId) throw new Error(VERIFY_FAILURE_MESSAGE);
