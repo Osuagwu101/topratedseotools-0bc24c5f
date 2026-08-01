@@ -689,6 +689,122 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_redemptions: {
+        Row: {
+          base_amount_ngn: number | null
+          coupon_code: string
+          coupon_id: string
+          created_at: string
+          discount_amount_ngn: number
+          final_amount: number | null
+          id: string
+          order_id: string
+          payment_currency: string | null
+          paystack_reference: string | null
+          user_id: string
+        }
+        Insert: {
+          base_amount_ngn?: number | null
+          coupon_code: string
+          coupon_id: string
+          created_at?: string
+          discount_amount_ngn?: number
+          final_amount?: number | null
+          id?: string
+          order_id: string
+          payment_currency?: string | null
+          paystack_reference?: string | null
+          user_id: string
+        }
+        Update: {
+          base_amount_ngn?: number | null
+          coupon_code?: string
+          coupon_id?: string
+          created_at?: string
+          discount_amount_ngn?: number
+          final_amount?: number | null
+          id?: string
+          order_id?: string
+          payment_currency?: string | null
+          paystack_reference?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          access_type: string | null
+          billing_period: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          discount_type: string
+          discount_value: number
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          max_per_user: number
+          max_redemptions: number | null
+          min_amount_ngn: number | null
+          redemptions_count: number
+          starts_at: string | null
+          tool_slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_type?: string | null
+          billing_period?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          discount_type?: string
+          discount_value: number
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_per_user?: number
+          max_redemptions?: number | null
+          min_amount_ngn?: number | null
+          redemptions_count?: number
+          starts_at?: string | null
+          tool_slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_type?: string | null
+          billing_period?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_per_user?: number
+          max_redemptions?: number | null
+          min_amount_ngn?: number | null
+          redemptions_count?: number
+          starts_at?: string | null
+          tool_slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       currency_settings: {
         Row: {
           created_at: string
@@ -1780,11 +1896,15 @@ export type Database = {
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          coupon_code: string | null
+          coupon_id: string | null
           created_at: string
           created_by_admin: string | null
           currency: string
           current_period_end: string | null
           current_period_start: string | null
+          discount_amount_ngn: number
+          discounted_amount_ngn: number | null
           duration_days: number | null
           exchange_rate_snapshot: number | null
           expires_at: string | null
@@ -1839,11 +1959,15 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string
           created_by_admin?: string | null
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          discount_amount_ngn?: number
+          discounted_amount_ngn?: number | null
           duration_days?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
@@ -1898,11 +2022,15 @@ export type Database = {
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string
           created_by_admin?: string | null
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          discount_amount_ngn?: number
+          discounted_amount_ngn?: number | null
           duration_days?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
@@ -2049,10 +2177,12 @@ export type Database = {
           billing_period: string | null
           classification: string
           converted_amount: number | null
+          coupon_code: string | null
           created_at: string
           currency: string
           customer_email: string | null
           customer_name: string | null
+          discount_amount_ngn: number
           exchange_rate: number | null
           final_amount: number | null
           flagged_at: string | null
@@ -2096,10 +2226,12 @@ export type Database = {
           billing_period?: string | null
           classification?: string
           converted_amount?: number | null
+          coupon_code?: string | null
           created_at?: string
           currency?: string
           customer_email?: string | null
           customer_name?: string | null
+          discount_amount_ngn?: number
           exchange_rate?: number | null
           final_amount?: number | null
           flagged_at?: string | null
@@ -2143,10 +2275,12 @@ export type Database = {
           billing_period?: string | null
           classification?: string
           converted_amount?: number | null
+          coupon_code?: string | null
           created_at?: string
           currency?: string
           customer_email?: string | null
           customer_name?: string | null
+          discount_amount_ngn?: number
           exchange_rate?: number | null
           final_amount?: number | null
           flagged_at?: string | null
@@ -2556,6 +2690,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      record_coupon_redemption: {
+        Args: { _order_id: string; _paystack_reference?: string }
+        Returns: boolean
+      }
       release_assignments_for_order: {
         Args: { _order_id: string; _reason: string }
         Returns: number
