@@ -245,9 +245,26 @@ function AnalyticsPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <RevTable title="By tool" rows={revenue.data.byTool} />
                   <RevTable title="By subscription plan" rows={revenue.data.byPlan} />
-                  <RevTable title="By payment provider / method" rows={revenue.data.byProvider} />
+                  <RevTable
+                    title="By payment gateway (NGN equivalent)"
+                    rows={revenue.data.byProvider.map((r) => ({
+                      ...r,
+                      label: GATEWAY_LABELS[r.label] ?? r.label,
+                    }))}
+                  />
                   <RevTable title="By access type" rows={revenue.data.byAccess} />
                 </div>
+                <SimpleTable
+                  title="By charged currency (what customers actually paid)"
+                  head={["Currency", "Payments", "Original amount paid", "NGN accounting"]}
+                  rows={revenue.data.byCurrency.map((r) => [
+                    r.label,
+                    String(r.count),
+                    `${r.label} ${r.original.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+                    money(r.revenue),
+                  ])}
+                />
+
               </>
             )}
           </TabsContent>
