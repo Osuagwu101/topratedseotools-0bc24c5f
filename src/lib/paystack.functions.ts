@@ -272,6 +272,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         exchange_rate_snapshot: currencyBreakdown.exchange_rate,
         international_fee_amount: currencyBreakdown.international_fee_amount,
         final_amount_charged: currencyBreakdown.final_amount,
+        coupon_id: couponId,
+        coupon_code: currencyBreakdown.discount_code,
+        discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
+        discounted_amount_ngn: currencyBreakdown.discounted_amount_ngn,
       })
       .eq("id", orderSafe.id);
 
