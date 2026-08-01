@@ -10,9 +10,9 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock } from "lucide-react";
+import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, TicketPercent, X } from "lucide-react";
 import { useCurrency, useMoney } from "@/components/currency/CurrencyProvider";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -30,6 +30,8 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
+import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
+import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
 import {
   trackBeginCheckout,
@@ -107,6 +109,10 @@ function OrderPage() {
     "recurring_subscription",
   );
   const [oneTimeAcknowledged, setOneTimeAcknowledged] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<CouponPreview | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
+  const applyCoupon = useServerFn(previewCoupon);
 
   if (!tool) {
     return (
@@ -211,6 +217,7 @@ function OrderPage() {
           callback_url: callback,
           payment_type: payMode,
           payment_currency: currency,
+          coupon_code: coupon?.code ?? null,
         },
       });
       window.location.href = authorization_url;
