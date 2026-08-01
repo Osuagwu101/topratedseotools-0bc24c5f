@@ -61,8 +61,46 @@ export function applySurcharge(
   return { fee, total, percent };
 }
 
+/**
+ * Coupon discount, always expressed against the base NGN amount.
+ * NGN is the single source of truth for promotions: percentage coupons are
+ * applied to the base NGN price, and fixed-value coupons are defined in NGN.
+ */
+export type CouponDiscountType = "percent" | "amount";
+
+export interface DiscountInput {
+  type: CouponDiscountType;
+  /** Percent (0–100) when type = "percent", NGN amount when type = "amount". */
+  value: number;
+  code?: string | null;
+}
+
+/**
+ * Discount in NGN, rounded to whole naira and clamped to [0, base].
+ * A coupon can never make an order negative or produce a refund.
+ */
+export function computeDiscountNgn(
+  baseNgn: number,
+  discount: DiscountInput | null | undefined,
+): number {
+  const base = Number(baseNgn);
+  if (!discount || !Number.isFinite(base) || base <= 0) return 0;
+  const value = Number(discount.value);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const raw =
+    discount.type === "percent" ? (base * Math.min(value, 100)) / 100 : value;
+  const rounded = roundForCurrency(raw, "NGN");
+  return Math.max(0, Math.min(base, rounded));
+}
+
 export interface PricingBreakdown {
   base_amount_ngn: number;
+  /** Coupon code applied to this breakdown, if any. */
+  discount_code: string | null;
+  /** Discount in NGN taken off the base price before conversion. */
+  discount_amount_ngn: number;
+  /** base_amount_ngn − discount_amount_ngn — the amount that gets converted. */
+  discounted_amount_ngn: number;
   payment_currency: SupportedCurrency;
   exchange_rate: number; // 1 for NGN, otherwise the rate used
   converted_amount: number;
@@ -72,23 +110,38 @@ export interface PricingBreakdown {
   minor_units_amount: number; // final_amount × minorMultiplier
 }
 
+/**
+ * The one and only pricing pipeline — used for display, checkout, the Paystack
+ * charge, verification and payment records so they can never diverge:
+ *
+ *   base NGN → coupon discount → currency conversion → international
+ *   adjustment → final amount (+ minor units for Paystack)
+ */
 export function buildPricingBreakdown(input: {
   ngn: number;
   currency: SupportedCurrency;
   rate: number | null;
   surchargePercent: number;
   surchargeEnabled: boolean;
+  /** Optional coupon, resolved server-side. Applied to the base NGN amount. */
+  discount?: DiscountInput | null;
 }): PricingBreakdown {
   const { ngn, currency, surchargePercent, surchargeEnabled } = input;
   const rate = currency === "NGN" ? 1 : Number(input.rate);
   if (!Number.isFinite(rate) || rate <= 0) {
     throw new Error(`Missing exchange rate for ${currency}`);
   }
-  const converted = convertFromNgn(ngn, rate, currency);
+  const base = roundForCurrency(ngn, "NGN");
+  const discountNgn = computeDiscountNgn(base, input.discount);
+  const discountedNgn = roundForCurrency(base - discountNgn, "NGN");
+  const converted = convertFromNgn(discountedNgn, rate, currency);
   const { fee, total, percent } = applySurcharge(converted, currency, surchargePercent, surchargeEnabled);
   const minor = Math.round(total * CURRENCY_META[currency].minorMultiplier);
   return {
-    base_amount_ngn: roundForCurrency(ngn, "NGN"),
+    base_amount_ngn: base,
+    discount_code: input.discount?.code ?? null,
+    discount_amount_ngn: discountNgn,
+    discounted_amount_ngn: discountedNgn,
     payment_currency: currency,
     exchange_rate: rate,
     converted_amount: converted,
@@ -98,6 +151,7 @@ export function buildPricingBreakdown(input: {
     minor_units_amount: minor,
   };
 }
+
 
 /** Locale-aware format, e.g. "GH₵ 12.34" / "₦5,000". */
 export function formatMoney(amount: number, currency: SupportedCurrency): string {
