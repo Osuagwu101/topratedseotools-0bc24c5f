@@ -105,6 +105,7 @@ import { Route as AdminBlogAiGeneratorRouteImport } from './routes/admin.blog.ai
 import { Route as AuthenticatedReceiptReferenceRouteImport } from './routes/_authenticated.receipt.$reference'
 import { Route as AuthenticatedOrderSlugRouteImport } from './routes/_authenticated.order.$slug'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api.public.webhooks.paystack'
+import { Route as ApiPublicWebhooksMonnifyRouteImport } from './routes/api.public.webhooks.monnify'
 import { Route as ApiPublicWebhooksFlutterwaveRouteImport } from './routes/api.public.webhooks.flutterwave'
 import { Route as ApiPublicHooksEmailDispatcherRouteImport } from './routes/api.public.hooks.email-dispatcher'
 import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
@@ -605,6 +606,12 @@ const ApiPublicWebhooksPaystackRoute =
     path: '/api/public/webhooks/paystack',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWebhooksMonnifyRoute =
+  ApiPublicWebhooksMonnifyRouteImport.update({
+    id: '/api/public/webhooks/monnify',
+    path: '/api/public/webhooks/monnify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksFlutterwaveRoute =
   ApiPublicWebhooksFlutterwaveRouteImport.update({
     id: '/api/public/webhooks/flutterwave',
@@ -728,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/monnify': typeof ApiPublicWebhooksMonnifyRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -822,6 +830,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/monnify': typeof ApiPublicWebhooksMonnifyRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -925,6 +934,7 @@ export interface FileRoutesById {
   '/api/public/hooks/auto-fulfil-private': typeof ApiPublicHooksAutoFulfilPrivateRoute
   '/api/public/hooks/email-dispatcher': typeof ApiPublicHooksEmailDispatcherRoute
   '/api/public/webhooks/flutterwave': typeof ApiPublicWebhooksFlutterwaveRoute
+  '/api/public/webhooks/monnify': typeof ApiPublicWebhooksMonnifyRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -1028,6 +1038,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/monnify'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1122,6 +1133,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/monnify'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -1224,6 +1236,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-fulfil-private'
     | '/api/public/hooks/email-dispatcher'
     | '/api/public/webhooks/flutterwave'
+    | '/api/public/webhooks/monnify'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -1262,6 +1275,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
+  ApiPublicWebhooksMonnifyRoute: typeof ApiPublicWebhooksMonnifyRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -1939,6 +1953,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksPaystackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/monnify': {
+      id: '/api/public/webhooks/monnify'
+      path: '/api/public/webhooks/monnify'
+      fullPath: '/api/public/webhooks/monnify'
+      preLoaderRoute: typeof ApiPublicWebhooksMonnifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/flutterwave': {
       id: '/api/public/webhooks/flutterwave'
       path: '/api/public/webhooks/flutterwave'
@@ -2211,6 +2232,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,
+  ApiPublicWebhooksMonnifyRoute: ApiPublicWebhooksMonnifyRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport
