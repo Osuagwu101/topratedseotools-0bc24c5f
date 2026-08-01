@@ -147,6 +147,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
 
     // Multi-currency: server re-validates chosen currency + recomputes the
     // breakdown from DB rates. Never trusts client-supplied amounts.
+    // `chosenCurrency` is the *display* currency the customer selected — the
+    // currency Paystack is charged in is resolved separately below.
     let currencyBreakdown = buildPricingBreakdown({
       ngn: snapshot.price_amount,
       currency: "NGN",
@@ -155,12 +157,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       surchargeEnabled: false,
       discount,
     });
+    let merchantCurrencies: string[] = ["NGN"];
     if (chosenCurrency !== "NGN") {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const [{ data: cs }, { data: rateRow }] = await Promise.all([
         supabaseAdmin
           .from("currency_settings")
-          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies")
+          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies, merchant_currencies")
           .eq("id", true)
           .maybeSingle(),
         supabaseAdmin
@@ -170,11 +173,12 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
           .eq("quote_currency", chosenCurrency)
           .maybeSingle(),
       ]);
-      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[] } | null;
+      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[]; merchant_currencies?: string[] | null } | null;
       if (!settings?.switching_enabled) throw new Error("Currency switching is currently disabled.");
       if (!settings.supported_currencies.includes(chosenCurrency)) {
         throw new Error(`${chosenCurrency} is not supported at the moment.`);
       }
+      merchantCurrencies = settings.merchant_currencies?.length ? settings.merchant_currencies : ["NGN"];
       const rate = Number((rateRow as { rate?: number } | null)?.rate ?? 0);
       const expires = (rateRow as { expires_at?: string } | null)?.expires_at;
       if (!rate || rate <= 0) throw new Error(`No exchange rate available for ${chosenCurrency}. Please try again shortly or pay in NGN.`);
@@ -190,7 +194,12 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         discount,
       });
     }
-    if (currencyBreakdown.minor_units_amount <= 0) {
+    // Display currency vs. payment currency. Our Paystack account can only
+    // charge its merchant currencies (NGN today), so for GHS/KES/ZAR/USD the
+    // customer-facing total is converted back to NGN for the actual charge.
+    const { resolveChargePlan } = await import("@/lib/currency-convert");
+    const charge = resolveChargePlan(currencyBreakdown, merchantCurrencies);
+    if (charge.payment_minor_units <= 0) {
       throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
     }
 
@@ -199,8 +208,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (isRecurring) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const res = await ensurePlanFromSnapshot(supabaseAdmin, paystackApi(), snapshot, {
-        currency: currencyBreakdown.payment_currency,
-        priceAmount: currencyBreakdown.final_amount,
+        currency: charge.payment_currency,
+        priceAmount: charge.payment_amount,
       });
       planCode = res.plan_code;
     }
@@ -217,7 +226,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         billing_period: snapshot.billing_period,
       }),
       payment_type: paymentType,
-      payment_currency: currencyBreakdown.payment_currency,
+      payment_currency: charge.payment_currency,
+      payment_amount: charge.payment_amount,
+      customer_display_currency: charge.display_currency,
+      customer_display_amount: charge.display_amount,
       base_amount_ngn: currencyBreakdown.base_amount_ngn,
       coupon_code: currencyBreakdown.discount_code,
       discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
@@ -232,8 +244,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
     const initBody: Record<string, unknown> = {
       email,
-      amount: currencyBreakdown.minor_units_amount,
-      currency: currencyBreakdown.payment_currency,
+      amount: charge.payment_minor_units,
+      currency: charge.payment_currency,
       reference,
       callback_url: data.callback_url,
       metadata,
@@ -242,6 +254,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       initBody.plan = planCode;
       initBody.channels = ["card", "direct_debit"];
     }
+
 
     const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
       "/transaction/initialize",
