@@ -311,6 +311,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             initiated_at: new Date().toISOString(),
             last_status_change_at: new Date().toISOString(),
             base_amount_ngn: currencyBreakdown.base_amount_ngn,
+            coupon_code: currencyBreakdown.discount_code,
+            discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
             payment_currency: currencyBreakdown.payment_currency,
             exchange_rate: currencyBreakdown.exchange_rate,
             converted_amount: currencyBreakdown.converted_amount,
