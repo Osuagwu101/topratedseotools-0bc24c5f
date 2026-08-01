@@ -9,7 +9,7 @@
  */
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, TicketPercent, X } from "lucide-react";
@@ -133,6 +133,12 @@ function OrderPage() {
   useEffect(() => {
     if (payMode !== "one_time") setCoupon(null);
   }, [payMode]);
+
+  // Some gateways cannot charge automatically each cycle — keep the customer
+  // on the one-time flow instead of promising a renewal we can't deliver.
+  useEffect(() => {
+    if (!gatewayRecurring) setPayMode("one_time");
+  }, [gatewayRecurring]);
 
   if (!tool) {
     return (
@@ -394,16 +400,17 @@ function OrderPage() {
               </p>
               <div className="mt-3 space-y-3">
                 <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
+                  className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     payMode === "recurring_subscription"
                       ? "border-primary ring-1 ring-primary/40"
                       : "hover:border-primary/40"
-                  }`}
+                  } ${gatewayRecurring ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
                 >
                   <input
                     type="radio"
                     name="paymode"
                     className="mt-1 h-4 w-4"
+                    disabled={!gatewayRecurring}
                     checked={payMode === "recurring_subscription"}
                     onChange={() => setPayMode("recurring_subscription")}
                   />
