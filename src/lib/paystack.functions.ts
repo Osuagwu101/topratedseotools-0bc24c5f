@@ -415,14 +415,14 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const { data: order } = await context.supabase
       .from("tool_orders")
       .select(
-        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
+        "id, user_id, status, price_amount, currency, paystack_reference, paystack_environment, duration_days, grace_days, access_type, fulfilment_status, payment_type, payment_currency, final_amount_charged, display_currency, display_amount, exchange_rate_snapshot, international_fee_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
       )
       .eq("id", orderId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!order) throw new Error(VERIFY_FAILURE_MESSAGE);
     const orderSafe = order;
-    // Charged money = what Paystack actually took (multi-currency aware),
+    // Charged money = what Paystack actually took (merchant currency),
     // falling back to the NGN order price for legacy rows.
     const chargedCurrency =
       ((order as { payment_currency?: string | null }).payment_currency ?? tx.currency ?? "NGN").toUpperCase();
@@ -430,6 +430,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       ((order as { final_amount_charged?: number | null }).final_amount_charged) ??
       (orderSafe.price_amount as number | null) ??
       tx.amount / 100;
+    // What the customer saw and should see again in receipts/emails.
+    const displayCurrency =
+      ((order as { display_currency?: string | null }).display_currency ?? chargedCurrency).toUpperCase();
+    const displayAmount =
+      ((order as { display_amount?: number | null }).display_amount) ?? chargedAmount;
     if (order.status === "approved") {
       const { data: orderFull } = await context.supabase
         .from("tool_orders")
