@@ -246,20 +246,30 @@ async function dispatchEvent(i: DispatchInput) {
 }
 
 /**
- * Multi-currency: the amount/currency Paystack actually charged.
- * Falls back to the legacy NGN order price for pre-multi-currency rows.
+ * Payment vs. display money.
+ * `charged*` = what Paystack actually took (merchant/settlement currency).
+ * `display*` = what the customer selected and sees in receipts/emails.
+ * Both fall back to the legacy NGN order price for pre-multi-currency rows.
  */
 type CurrencyBearingOrder = {
   price_amount?: number | null;
   currency?: string | null;
   payment_currency?: string | null;
   final_amount_charged?: number | null;
+  display_currency?: string | null;
+  display_amount?: number | null;
 };
 function chargedAmount(order: CurrencyBearingOrder): number {
   return Number(order.final_amount_charged ?? order.price_amount) || 0;
 }
 function chargedCurrency(order: CurrencyBearingOrder): string {
   return (order.payment_currency ?? order.currency ?? "NGN").toUpperCase();
+}
+function displayAmountOf(order: CurrencyBearingOrder): number {
+  return Number(order.display_amount ?? chargedAmount(order)) || 0;
+}
+function displayCurrencyOf(order: CurrencyBearingOrder): string {
+  return (order.display_currency ?? chargedCurrency(order)).toUpperCase();
 }
 
 async function findOrder(i: DispatchInput) {
