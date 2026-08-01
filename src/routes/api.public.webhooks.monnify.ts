@@ -11,6 +11,9 @@ export const Route = createFileRoute("/api/public/webhooks/monnify")({
     handlers: {
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        // Admin-entered gateway credentials (webhook hash) live in the DB.
+        const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
+        await loadGatewaySecrets(supabaseAdmin, true);
         const { createMonnifyAdapter } = await import("@/lib/gateways/monnify");
         const { data } = await supabaseAdmin
           .from("payment_providers")
