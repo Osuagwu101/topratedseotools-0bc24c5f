@@ -422,15 +422,35 @@ function PaymentProvidersPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                   <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
                   </Button>
+                  {p.enabled ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toggleEnabled(p.id, false)}
+                      disabled={busy === `en:${p.id}` || p.is_active}
+                      title={p.is_active ? "Make another provider active first" : undefined}
+                    >
+                      <PowerOff className="mr-1 h-3.5 w-3.5" /> Disable
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => toggleEnabled(p.id, true)}
+                      disabled={busy === `en:${p.id}`}
+                    >
+                      <Power className="mr-1 h-3.5 w-3.5" /> Enable
+                    </Button>
+                  )}
                   {!p.is_active && (
-                    <Button size="sm" onClick={() => activate(p.id)} disabled={busy === `act:${p.id}`}>
+                    <Button size="sm" variant={p.enabled ? "default" : "secondary"} onClick={() => activate(p.id)} disabled={busy === `act:${p.id}`}>
                       Make active
                     </Button>
                   )}
+
                   <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
                     Edit
                   </Button>
