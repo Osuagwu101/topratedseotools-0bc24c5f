@@ -77,6 +77,7 @@ import { Route as AdminSettingsEmergencyRouteImport } from './routes/admin.setti
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
 import { Route as AdminSettingsCurrencyRouteImport } from './routes/admin.settings.currency'
 import { Route as AdminSettingsCredentialsRouteImport } from './routes/admin.settings.credentials'
+import { Route as AdminSettingsCouponsRouteImport } from './routes/admin.settings.coupons'
 import { Route as AdminSettingsContentRouteImport } from './routes/admin.settings.content'
 import { Route as AdminSettingsCommunicationsRouteImport } from './routes/admin.settings.communications'
 import { Route as AdminSettingsBusinessRulesRouteImport } from './routes/admin.settings.business-rules'
@@ -458,6 +459,11 @@ const AdminSettingsCredentialsRoute =
     path: '/credentials',
     getParentRoute: () => AdminSettingsRoute,
   } as any)
+const AdminSettingsCouponsRoute = AdminSettingsCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => AdminSettingsRoute,
+} as any)
 const AdminSettingsContentRoute = AdminSettingsContentRouteImport.update({
   id: '/content',
   path: '/content',
@@ -685,6 +691,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
@@ -777,6 +784,7 @@ export interface FileRoutesByTo {
   '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
@@ -878,6 +886,7 @@ export interface FileRoutesById {
   '/admin/settings/business-rules': typeof AdminSettingsBusinessRulesRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/content': typeof AdminSettingsContentRoute
+  '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/credentials': typeof AdminSettingsCredentialsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
@@ -979,6 +988,7 @@ export interface FileRouteTypes {
     | '/admin/settings/business-rules'
     | '/admin/settings/communications'
     | '/admin/settings/content'
+    | '/admin/settings/coupons'
     | '/admin/settings/credentials'
     | '/admin/settings/currency'
     | '/admin/settings/email'
@@ -1071,6 +1081,7 @@ export interface FileRouteTypes {
     | '/admin/settings/business-rules'
     | '/admin/settings/communications'
     | '/admin/settings/content'
+    | '/admin/settings/coupons'
     | '/admin/settings/credentials'
     | '/admin/settings/currency'
     | '/admin/settings/email'
@@ -1171,6 +1182,7 @@ export interface FileRouteTypes {
     | '/admin/settings/business-rules'
     | '/admin/settings/communications'
     | '/admin/settings/content'
+    | '/admin/settings/coupons'
     | '/admin/settings/credentials'
     | '/admin/settings/currency'
     | '/admin/settings/email'
@@ -1717,6 +1729,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsCredentialsRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/coupons': {
+      id: '/admin/settings/coupons'
+      path: '/coupons'
+      fullPath: '/admin/settings/coupons'
+      preLoaderRoute: typeof AdminSettingsCouponsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/content': {
       id: '/admin/settings/content'
       path: '/content'
@@ -2069,6 +2088,7 @@ interface AdminSettingsRouteChildren {
   AdminSettingsBusinessRulesRoute: typeof AdminSettingsBusinessRulesRoute
   AdminSettingsCommunicationsRoute: typeof AdminSettingsCommunicationsRoute
   AdminSettingsContentRoute: typeof AdminSettingsContentRoute
+  AdminSettingsCouponsRoute: typeof AdminSettingsCouponsRoute
   AdminSettingsCredentialsRoute: typeof AdminSettingsCredentialsRoute
   AdminSettingsCurrencyRoute: typeof AdminSettingsCurrencyRoute
   AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
@@ -2097,6 +2117,7 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsBusinessRulesRoute: AdminSettingsBusinessRulesRoute,
   AdminSettingsCommunicationsRoute: AdminSettingsCommunicationsRoute,
   AdminSettingsContentRoute: AdminSettingsContentRoute,
+  AdminSettingsCouponsRoute: AdminSettingsCouponsRoute,
   AdminSettingsCredentialsRoute: AdminSettingsCredentialsRoute,
   AdminSettingsCurrencyRoute: AdminSettingsCurrencyRoute,
   AdminSettingsEmailRoute: AdminSettingsEmailRoute,
