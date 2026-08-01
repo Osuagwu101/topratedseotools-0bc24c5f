@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { APP_NAME } from "@/lib/site-config";
 import { getIsAdmin } from "@/lib/site-settings.functions";
+import { useHydrated } from "@/hooks/use-hydrated";
+
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
