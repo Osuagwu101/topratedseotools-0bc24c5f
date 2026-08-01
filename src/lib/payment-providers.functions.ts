@@ -347,3 +347,29 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+/**
+ * Public, non-sensitive info about the gateway customers will be sent to.
+ * Used for checkout copy ("You'll be redirected to <gateway>") so switching
+ * the active gateway in Admin updates the customer experience with no deploy.
+ */
+export const getActiveGatewayPublic = createServerFn({ method: "GET" }).handler(async () => {
+  const fallback = { slug: "paystack", display_name: "Paystack", supports_recurring: true };
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await (supabaseAdmin as any)
+      .from("payment_providers")
+      .select("slug, display_name, enabled")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!data || data.enabled === false) return fallback;
+    const slug = String(data.slug);
+    return {
+      slug,
+      display_name: (data.display_name as string) || KNOWN[slug]?.display_name || slug,
+      supports_recurring: KNOWN[slug]?.supports_recurring ?? false,
+    };
+  } catch {
+    return fallback;
+  }
+});
