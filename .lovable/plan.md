@@ -1,99 +1,66 @@
+# Flutterwave Browser Verification and Runtime Fix
 
-# Multi-Currency & International Payment Surcharge
+Verify the exact preview Admin workflow using the supplied credentials without storing or reproducing them. Treat browser/network evidence as authoritative, fix the runtime path only if the live action still reaches stale validation, then validate activation and customer checkout.
 
-Add customer-facing currency switching (NGN, GHS, KES, ZAR, USD) with a transparent 3% international surcharge on non-NGN payments, without disturbing existing NGN customers or Paystack webhook security.
+## 1. Actual Admin button verification
 
-## 1. Database (single migration)
+- Sign in through the preview as the supplied Admin account.
+- Open Admin → Settings → Payment Providers and capture the Flutterwave card’s initial status.
+- Click the real **Test** control while recording the browser request, response, console output, toast, and persisted card status.
+- Confirm the UI reports exactly `Connection successful — merchant account reachable` and no request reaches `/v3/subaccounts`.
 
-New table `currency_settings` (singleton row):
-- `switching_enabled boolean` (default true)
-- `surcharge_enabled boolean` (default true)
-- `surcharge_percent numeric` (default 3.00)
-- `supported_currencies text[]` (default `{NGN,GHS,KES,ZAR,USD}`)
-- timestamps
+## 2. Runtime diagnosis and targeted fix if it still fails
 
-New table `exchange_rates`:
-- `base_currency` (always `NGN`), `quote_currency`, `rate numeric`, `source text`, `fetched_at`, `expires_at`
-- unique on (`base_currency`,`quote_currency`)
+The current source trace is:
 
-New table `exchange_rate_logs` (append-only) for admin visibility: currency, rate, source, fetched_at.
+```text
+Payment Providers Test button
+  → runTest
+  → adminTestProviderConnection
+  → loadGatewaySecrets(admin, true)
+  → dynamic import provider-validation.server
+  → GET /v3/transactions?page=1
+```
 
-Add columns to `tool_payments`:
-- `base_amount_ngn`, `payment_currency`, `exchange_rate`, `converted_amount`,
-  `international_fee_percent`, `international_fee_amount`, `final_amount`
+If browser evidence still returns `Subaccounts not found`:
 
-Add columns to `tool_orders`:
-- `payment_currency` (default `NGN`), `exchange_rate_snapshot`, `international_fee_amount`, `final_amount_charged`
+- Identify the exact served server-function bundle/request and compare it with the current source path.
+- Search every reachable provider-validation implementation for `/subaccounts` and remove the stale reachable branch, without changing unrelated gateway behavior.
+- Ensure all provider actions—Test, Save & validate, Enable, and Make active—use the same merchant-only validator.
+- Re-run the actual Admin button after the change; automated tests alone will not count as completion.
 
-Add columns to `user_subscriptions` / `paystack_plan_mappings`:
-- `subscription_currency` (default `NGN`), `renewal_currency`
+## 3. Credential and webhook alignment
 
-Grants + RLS: admin-only for `currency_settings`, `exchange_rates`, `exchange_rate_logs`. New columns inherit table policies.
+- Verify by credential names/status only that secure storage supplies Flutterwave public key, secret key, encryption key, and webhook hash; never display or log their values.
+- Confirm the Admin card exposes `https://topratedseotools.com/api/public/webhooks/flutterwave`.
+- Verify the endpoint force-refreshes secure credentials and compares the stored webhook hash with the `verif-hash` header.
+- Exercise valid and invalid signature cases safely; confirm invalid signatures return 401 and valid, structurally safe test events are accepted without creating a false paid order.
 
-## 2. Exchange rates
+## 4. Activate Flutterwave in the Admin UI
 
-- Server function `refreshExchangeRates` (admin-only) — fetches NGN→{GHS,KES,ZAR,USD} from a free provider (exchangerate.host, no key) and upserts into `exchange_rates`, appending an audit row to `exchange_rate_logs`.
-- Public server function `getPublicCurrencyConfig` — returns `{ enabled, surcharge_percent, currencies: [{code, rate, fetched_at}] }` from `exchange_rates` (never calls external API on the hot path).
-- Cron entry documented in the migration guide; caches are read from DB.
+- Enable Flutterwave through the actual edit/save workflow after its test passes.
+- Click **Make active** and verify the visible card state becomes enabled and active, with the successful last-test status persisted after refresh.
+- Capture browser evidence of the final provider status.
 
-## 3. Pricing conversion helpers (`src/lib/currency-convert.ts`)
+## 5. Customer checkout browser verification
 
-Pure functions:
-- `convertFromNgn(ngn, rate)` → converted amount, rounded per-currency (USD: 2dp; GHS/KES/ZAR: 2dp; NGN: 0dp).
-- `applySurcharge(amount, pct)` → `{ fee, total }`; skipped for NGN.
-- `buildPricingBreakdown(ngn, currency, rate, surchargePct)` returning base/converted/fee/total for display and checkout.
+- Sign out cleanly, then sign in through the preview using the supplied customer account.
+- Select an inexpensive eligible test tool, choose a one-time option where required, switch display/payment currency to GHS, and initialize checkout.
+- Verify the customer is redirected to a genuine Flutterwave-hosted checkout URL and that Ghana Mobile Money is offered.
+- Capture the order reference and return/callback behavior without exposing credentials or sensitive payment data.
 
-## 4. Client currency context
+## 6. Real transaction boundary
 
-- `src/components/currency/CurrencyProvider.tsx` — React context holding selected currency in `sessionStorage` (`ts_currency`), default `NGN`, hydrated from `getPublicCurrencyConfig` on mount.
-- `src/components/currency/CurrencySwitcher.tsx` — compact dropdown; hidden when `switching_enabled=false` or only NGN available.
-- Mount switcher in Navbar (desktop + mobile) and above the pricing cards on `/pricing` and `/tools/$slug`.
+- Do not invent card/mobile-money details, bypass provider authorization, or claim success without a completed provider transaction.
+- If the checkout can be completed with already available authorized payment context, use the smallest legitimate amount and verify the full chain.
+- Otherwise stop at the hosted Flutterwave payment authorization screen and mark completion as requiring the user’s payment authorization.
+- After a genuine success, verify database/runtime evidence for one accepted webhook, duplicate-safe replay, approved order, immediate eligible access assignment, updated customer dashboard, Resend confirmation delivery, and an Admin transaction showing Flutterwave with correct GHS amount/currency.
 
-## 5. Display
+## 7. Regression checks and final report
 
-Pricing cards / order page show:
-- Original: `₦X,XXX`
-- When non-NGN: converted amount, `1 NGN = x CUR`, rate updated `<relative time>`, and a breakdown row before the CTA — Base / Intl fee (3%) / Total payable.
-- All existing NGN copy unchanged.
-
-## 6. Checkout (`src/lib/paystack-checkout.ts`)
-
-- Accept `payment_currency` from client; server re-validates against `currency_settings.supported_currencies`.
-- Server re-fetches rate from `exchange_rates` (ignores client-sent rate) and recomputes converted + surcharge; if the rate is missing/stale (>24h) fall back to NGN with a clear error.
-- Initialize Paystack with `currency` = selected code and `amount` = final amount in that currency's minor units.
-- Persist `payment_currency`, `exchange_rate`, `converted_amount`, `international_fee_*`, `final_amount`, `base_amount_ngn` on `tool_orders` + `tool_payments`.
-
-## 7. Subscriptions / recurring
-
-- On plan creation via `paystack-plans.ts`, tag the mapping row with `currency` used and store `subscription_currency` on the order.
-- Webhook (`paystack-webhook.ts`) untouched security-wise; it now also writes `payment_currency`/`final_amount`/`base_amount_ngn` from the transaction payload into `tool_payments`. Renewals reuse the stored subscription currency (Paystack drives this automatically once the plan is created in that currency).
-- Existing NGN subscriptions: no changes, no re-charge, no schema break (all new columns nullable with NGN defaults).
-
-## 8. Admin UI (`admin.settings.payments` new tab "Currency")
-
-- Toggle: enable currency switching.
-- Toggle + numeric input: enable surcharge, percent (default 3).
-- Table: supported currencies with current rate, source, fetched_at, expires_at; "Refresh rates now" button.
-- Read-only table: recent `exchange_rate_logs`.
-- Link to Admin → Transactions filtered by non-NGN for international payment audits.
-- Existing Admin Transactions table gains columns: Currency, Final Amount, Intl Fee.
-
-## 9. Tests (`tests/currency-*.test.ts`)
-
-- `currency-convert.test.ts` — rounding, surcharge math, NGN skip.
-- `paystack-checkout-currency.test.ts` — supported/unsupported currency, stale rate fallback, correct final amount + currency sent to Paystack, DB fields written.
-- `paystack-webhook-currency.test.ts` — webhook stores currency fields without changing signature/idempotency behaviour.
-- Regression: existing 313+ tests remain green.
-
-## Guarantees
-
-- Default remains NGN; no change for existing customers.
-- Paystack webhook signature verification and idempotency logic unchanged.
-- Confirmation email templates unchanged; new merge vars (`payment_currency`, `final_amount`) added only where safe.
-- Access assignment logic (`assign_tool_account_for_order`) untouched.
-
-## Technical notes
-
-- Rate source: `https://api.exchangerate.host/latest?base=NGN&symbols=GHS,KES,ZAR,USD` (no key, permissive). Swappable via `EXCHANGE_RATE_URL` env.
-- Minor-unit conversion: NGN/GHS/KES/ZAR/USD all use ×100 for Paystack.
-- Session persistence via `sessionStorage`; SSR reads default `NGN` to avoid hydration mismatch, then swaps client-side.
+- Run focused provider-validation, Flutterwave gateway, currency, checkout, webhook/idempotency, access-assignment, and email tests after any code change.
+- Report separately:
+  1. **Browser verified** — exact Admin Test result, activation state, checkout redirect, and Ghana Mobile Money visibility.
+  2. **Automated verified** — webhook security, idempotency, order/access, currency, and email logic.
+  3. **Real transaction verified** — only facts backed by an actual completed Flutterwave payment.
+- Include the exact root cause and file/function changed only if runtime browser evidence requires a code fix; otherwise state that the issue was stale preview/deployment state and show the refreshed UI proof.
