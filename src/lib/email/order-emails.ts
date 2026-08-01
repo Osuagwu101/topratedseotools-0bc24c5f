@@ -74,9 +74,11 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
         minimumFractionDigits: isIntl ? 2 : 0,
         maximumFractionDigits: isIntl ? 2 : 0,
       });
-    const currencyNote = isIntl
-      ? `Converted from ₦${baseNgn.toLocaleString()}${rate ? ` at 1 NGN = ${rate} ${payCurrency}` : ""}, including a ${payCurrency} ${money(fee)} international payment fee.`
-      : "";
+    // Customer-facing emails never explain conversion or the international
+    // adjustment — they simply state the amount charged and the currency.
+    const currencyNote = "";
+    void fee;
+    void rate;
 
     const basePayload: TemplateVars = {
       name,
@@ -85,9 +87,6 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
       billing_period: order.billing_period ?? "monthly",
       amount: charged ? money(charged) : "",
       currency: payCurrency,
-      base_amount_ngn: baseNgn ? `₦${baseNgn.toLocaleString()}` : "",
-      exchange_rate: rate ? String(rate) : "",
-      international_fee: isIntl ? `${payCurrency} ${money(fee)}` : "",
       currency_note: currencyNote,
       reference: i.reference ?? "",
       dashboard_url: "https://topratedseotools.com/dashboard",

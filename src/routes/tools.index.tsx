@@ -6,6 +6,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ function ToolsDirectory() {
       ),
     [overrideBySlug],
   );
+  const money = useMoney();
   const priceByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
@@ -66,10 +68,16 @@ function ToolsDirectory() {
       const chosen =
         paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
         opts[0];
-      if (chosen) m.set(slug, formatPrice(chosen));
+      if (chosen)
+        m.set(
+          slug,
+          chosen.contact_admin || chosen.amount == null
+            ? formatPrice(chosen)
+            : money.plan(chosen),
+        );
     }
     return m;
-  }, [pricing.options]);
+  }, [pricing.options, money]);
 
 
 

@@ -17,11 +17,10 @@ import {
   computeQuarterlySaving,
   computeYearlySaving,
   computeYearlyVsQuarterlySaving,
-  formatCurrency,
-  formatPlanPrice,
   getBillingKind,
   normaliseBillingKind,
 } from "@/lib/currency";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -277,6 +276,7 @@ function ToolPricingCard({
   group: GroupedTool;
   tool: ReturnType<typeof getTool> & object;
 }) {
+  const money = useMoney();
   const sharedHas = bucketHasAny(group.shared);
   const privateHas = bucketHasAny(group.private);
   const lowestShared = sharedHas ? lowestPlan(group.shared) : null;
@@ -325,7 +325,7 @@ function ToolPricingCard({
           <p className="pt-1 text-[11px] text-muted-foreground">
             <span className="font-medium text-foreground">
               {lowestShared ? "Shared access" : "Private access"} from{" "}
-              {formatCurrency(Number(primary.opt.amount), primary.opt.currency || "₦")}
+              {money.fmt(Number(primary.opt.amount))}
               {periodSuffix(primary.period)}
             </span>
             {secondary ? <span> · {secondary}</span> : null}
@@ -362,6 +362,7 @@ function AccessMini({
   icon: React.ReactNode;
   bucket: AccessBucket;
 }) {
+  const money = useMoney();
   const qSave = computeQuarterlySaving(
     bucket.monthly?.amount,
     bucket.quarterly?.amount,
@@ -391,7 +392,7 @@ function AccessMini({
             label="Quarterly"
             savingBadge={
               qSave
-                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")}`
+                ? `Save ${money.fmt(qSave.amount)}`
                 : null
             }
           />
@@ -402,9 +403,9 @@ function AccessMini({
             label="Yearly"
             savingBadge={
               ySaveFromM
-                ? `Save ${formatCurrency(ySaveFromM.amount, bucket.yearly.currency || "₦")}`
+                ? `Save ${money.fmt(ySaveFromM.amount)}`
                 : ySaveFromQ
-                  ? `Save ${formatCurrency(ySaveFromQ.amount, bucket.yearly.currency || "₦")}`
+                  ? `Save ${money.fmt(ySaveFromQ.amount)}`
                   : null
             }
           />
@@ -417,11 +418,11 @@ function AccessMini({
         <p className="mt-2 flex items-center gap-1 text-[11px] text-success">
           <TrendingDown className="h-3 w-3" />
           {ySaveFromM
-            ? `Save ${formatCurrency(ySaveFromM.amount, bucket.yearly!.currency || "₦")} yearly`
+            ? `Save ${money.fmt(ySaveFromM.amount)} yearly`
             : ySaveFromQ
-              ? `Save ${formatCurrency(ySaveFromQ.amount, bucket.yearly!.currency || "₦")} compared with four quarterly payments`
+              ? `Save ${money.fmt(ySaveFromQ.amount)} compared with four quarterly payments`
               : qSave
-                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly!.currency || "₦")} every quarter`
+                ? `Save ${money.fmt(qSave.amount)} every quarter`
                 : ""}
         </p>
       ) : null}
@@ -438,6 +439,7 @@ function PlanLine({
   label: string;
   savingBadge?: string | null;
 }) {
+  const money = useMoney();
   return (
     <li className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-muted-foreground">
@@ -454,7 +456,7 @@ function PlanLine({
             {savingBadge}
           </span>
         ) : null}
-        <span className="text-sm font-semibold">{formatPlanPrice(opt)}</span>
+        <span className="text-sm font-semibold">{money.plan(opt)}</span>
       </span>
     </li>
   );
@@ -464,6 +466,7 @@ function PlanLine({
 void billingPeriodLabel;
 
 function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
+  const money = useMoney();
   const perUse = tool.perUse!;
   const currency = perUse.currency || "₦";
   return (
@@ -480,7 +483,7 @@ function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
           Per-{perUse.unit} pricing
         </div>
         <div className="mt-1 text-lg font-bold">
-          {formatCurrency(perUse.amount, currency)} per {perUse.unit}
+          {money.fmt(perUse.amount)} per {perUse.unit}
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           One-time payment. No Monthly, Quarterly or Yearly billing. No Shared or
