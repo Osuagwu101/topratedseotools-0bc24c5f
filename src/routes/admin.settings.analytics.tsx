@@ -20,6 +20,12 @@ import {
 } from "@/lib/analytics.functions";
 import { getMarketingAnalytics } from "@/lib/marketing/analytics.functions";
 import { TOOLS } from "@/lib/tools-data";
+import {
+  PAYMENT_GATEWAYS,
+  PAYMENT_CURRENCIES,
+  GATEWAY_LABELS,
+} from "@/lib/transaction-display";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,12 +63,16 @@ function AnalyticsPage() {
   const [to, setTo] = useState<string>(defaultTo());
   const [toolFilter, setToolFilter] = useState<string>("");
   const [methodFilter, setMethodFilter] = useState<string>("");
+  const [gatewayFilter, setGatewayFilter] = useState<string>("");
+  const [currencyFilter, setCurrencyFilter] = useState<string>("");
 
   const rangePayload = {
     from: new Date(from + "T00:00:00Z").toISOString(),
     to: new Date(to + "T23:59:59Z").toISOString(),
     tool_slug: toolFilter || undefined,
     payment_method: methodFilter || undefined,
+    gateway: gatewayFilter || undefined,
+    payment_currency: currencyFilter || undefined,
   };
 
   const revenue = useQuery({
@@ -70,9 +80,16 @@ function AnalyticsPage() {
     queryFn: () => getRevenueAnalytics({ data: rangePayload }),
   });
   const customers = useQuery({
-    queryKey: ["analytics-customers", { from: rangePayload.from, to: rangePayload.to }],
+    queryKey: ["analytics-customers", rangePayload],
     queryFn: () =>
-      getCustomerAnalytics({ data: { from: rangePayload.from, to: rangePayload.to } }),
+      getCustomerAnalytics({
+        data: {
+          from: rangePayload.from,
+          to: rangePayload.to,
+          gateway: rangePayload.gateway,
+          payment_currency: rangePayload.payment_currency,
+        },
+      }),
   });
   const tools = useQuery({
     queryKey: ["analytics-tools"],
@@ -86,7 +103,15 @@ function AnalyticsPage() {
   async function downloadCsv(report: "revenue" | "customers" | "orders") {
     try {
       const res = await exportAnalyticsCsv({
-        data: { report, from: rangePayload.from, to: rangePayload.to },
+        data: {
+          report,
+          from: rangePayload.from,
+          to: rangePayload.to,
+          tool_slug: rangePayload.tool_slug,
+          payment_method: rangePayload.payment_method,
+          gateway: rangePayload.gateway,
+          payment_currency: rangePayload.payment_currency,
+        },
       });
       const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -102,6 +127,7 @@ function AnalyticsPage() {
       toast.error((e as Error).message);
     }
   }
+
 
   return (
     <AdminShell>
@@ -156,7 +182,40 @@ function AnalyticsPage() {
               ))}
             </select>
           </div>
+          <div>
+            <Label htmlFor="gateway" className="text-xs">Payment gateway</Label>
+            <select
+              id="gateway"
+              value={gatewayFilter}
+              onChange={(e) => setGatewayFilter(e.target.value)}
+              className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+            >
+              <option value="">All gateways</option>
+              {PAYMENT_GATEWAYS.map((g) => (
+                <option key={g} value={g}>{GATEWAY_LABELS[g] ?? g}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="currency" className="text-xs">Payment currency</Label>
+            <select
+              id="currency"
+              value={currencyFilter}
+              onChange={(e) => setCurrencyFilter(e.target.value)}
+              className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+            >
+              <option value="">All currencies</option>
+              {PAYMENT_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Revenue totals always use NGN accounting values. Currency filters and the
+          charged-currency table show what customers actually paid.
+        </p>
+
 
         <Tabs defaultValue="revenue">
           <TabsList>
@@ -186,9 +245,26 @@ function AnalyticsPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <RevTable title="By tool" rows={revenue.data.byTool} />
                   <RevTable title="By subscription plan" rows={revenue.data.byPlan} />
-                  <RevTable title="By payment provider / method" rows={revenue.data.byProvider} />
+                  <RevTable
+                    title="By payment gateway (NGN equivalent)"
+                    rows={revenue.data.byProvider.map((r) => ({
+                      ...r,
+                      label: GATEWAY_LABELS[r.label] ?? r.label,
+                    }))}
+                  />
                   <RevTable title="By access type" rows={revenue.data.byAccess} />
                 </div>
+                <SimpleTable
+                  title="By charged currency (what customers actually paid)"
+                  head={["Currency", "Payments", "Original amount paid", "NGN accounting"]}
+                  rows={revenue.data.byCurrency.map((r) => [
+                    r.label,
+                    String(r.count),
+                    `${r.label} ${r.original.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+                    money(r.revenue),
+                  ])}
+                />
+
               </>
             )}
           </TabsContent>

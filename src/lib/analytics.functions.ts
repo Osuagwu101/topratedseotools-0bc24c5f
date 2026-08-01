@@ -29,6 +29,10 @@ const rangeInput = z.object({
   to: z.string().optional(),
   tool_slug: z.string().trim().max(120).optional(),
   payment_method: z.string().trim().max(60).optional(),
+  /** paystack | flutterwave | monnify | offline */
+  gateway: z.string().trim().max(40).optional(),
+  /** NGN | GHS | KES | USD | ZAR */
+  payment_currency: z.string().trim().max(10).optional(),
 });
 
 function defaultRange(from?: string, to?: string) {
@@ -36,6 +40,43 @@ function defaultRange(from?: string, to?: string) {
   const fromIso = from ?? new Date(Date.now() - 30 * 86400_000).toISOString();
   return { fromIso, toIso };
 }
+
+/** Presentation-only classification, mirrors `src/lib/transaction-display.ts`. */
+function rowGateway(p: Record<string, unknown>): string {
+  if ((p.source as string) === "offline") return "offline";
+  return String(p.payment_gateway ?? p.source ?? "paystack").toLowerCase();
+}
+function rowCurrency(p: Record<string, unknown>): string {
+  return String(p.payment_currency ?? p.display_currency ?? "NGN").toUpperCase();
+}
+/** Amount actually charged to the customer, in `rowCurrency`. */
+function rowPaidAmount(p: Record<string, unknown>): number {
+  const cur = rowCurrency(p);
+  if (p.display_currency && String(p.display_currency).toUpperCase() === cur && p.display_amount != null) {
+    return Number(p.display_amount);
+  }
+  if (p.final_amount != null) return Number(p.final_amount);
+  if (p.converted_amount != null) return Number(p.converted_amount);
+  return Number(p.amount ?? 0);
+}
+/** NGN accounting value — the only figure revenue totals ever use. */
+function rowNgn(p: Record<string, unknown>): number {
+  return Number(p.amount ?? p.base_amount_ngn ?? 0);
+}
+
+/** Payment-level gateway / currency filters (never touches revenue maths). */
+function matchesPaymentFilters(
+  p: Record<string, unknown>,
+  f: { gateway?: string | undefined; payment_currency?: string | undefined },
+): boolean {
+  if (f.gateway && rowGateway(p) !== f.gateway.toLowerCase()) return false;
+  if (f.payment_currency && rowCurrency(p) !== f.payment_currency.toUpperCase()) return false;
+  return true;
+}
+
+const PAYMENT_SELECT =
+  "id, order_id, user_id, tool_slug, amount, currency, payment_currency, display_currency, display_amount, converted_amount, final_amount, base_amount_ngn, exchange_rate, international_fee_amount, coupon_code, discount_amount_ngn, payment_gateway, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paystack_reference, gateway_transaction_reference, customer_email, paid_at, created_at";
+
 
 // ---------- Revenue Dashboard ----------
 
@@ -48,9 +89,7 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
 
     let query = admin
       .from("tool_payments")
-      .select(
-        "id, tool_slug, amount, currency, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paid_at, created_at",
-      )
+      .select(PAYMENT_SELECT)
       .gte("created_at", fromIso)
       .lte("created_at", toIso);
     if (data.tool_slug) query = query.eq("tool_slug", data.tool_slug);
@@ -58,7 +97,16 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
-    const payments = rows ?? [];
+    const allRows = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+
+    // Option lists come from the unfiltered range so the dropdowns stay usable.
+    const gatewayOptions = Array.from(new Set(allRows.map(rowGateway))).sort();
+    const currencyOptions = Array.from(new Set(allRows.map(rowCurrency))).sort();
+    const methodOptions = Array.from(
+      new Set(allRows.map((p) => (p.payment_method as string) || "").filter(Boolean)),
+    ).sort();
+
+    const payments = allRows.filter((p) => matchesPaymentFilters(p, data));
 
     const now = new Date();
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -69,45 +117,49 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
       (p) => p.payment_status === "refunded" || p.payment_status === "reversed",
     );
 
-    const totalRevenue = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    // Revenue is always the NGN accounting value — unchanged behaviour.
+    const totalRevenue = successful.reduce((s, p) => s + rowNgn(p), 0);
     const revenueThisMonth = successful
       .filter((p) => new Date((p.paid_at as string) ?? (p.created_at as string)) >= startOfMonth)
-      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+      .reduce((s, p) => s + rowNgn(p), 0);
 
-    const bucket = <K extends string>(
-      items: typeof successful,
-      key: (p: (typeof successful)[number]) => K | null | undefined,
-      fallback: K,
+    const bucket = (
+      items: Array<Record<string, unknown>>,
+      key: (p: Record<string, unknown>) => string | null | undefined,
+      fallback: string,
     ) => {
-      const m = new Map<K, { revenue: number; count: number }>();
+      const m = new Map<string, { revenue: number; count: number }>();
       for (const p of items) {
-        const k = (key(p) ?? fallback) as K;
+        const k = key(p) ?? fallback;
         const cur = m.get(k) ?? { revenue: 0, count: 0 };
-        cur.revenue += Number(p.amount ?? 0);
+        cur.revenue += rowNgn(p);
         cur.count += 1;
         m.set(k, cur);
       }
       return Array.from(m.entries())
-        .map(([label, v]) => ({ label: String(label), ...v }))
+        .map(([label, v]) => ({ label, ...v }))
         .sort((a, b) => b.revenue - a.revenue);
     };
 
     const byTool = bucket(successful, (p) => p.tool_slug as string | null, "unknown");
     const byPlan = bucket(successful, (p) => (p.billing_period as string | null) ?? null, "unknown");
     const byAccess = bucket(successful, (p) => (p.access_type as string | null) ?? null, "unknown");
-    const byProvider = bucket(
-      successful,
-      (p) => {
-        const src = (p.source as string | null) ?? "paystack";
-        if (src === "offline") return (p.payment_method as string | null) ?? "offline";
-        return src;
-      },
-      "paystack",
-    );
+    const byProvider = bucket(successful, (p) => rowGateway(p), "paystack");
 
-    const methodOptions = Array.from(
-      new Set(payments.map((p) => (p.payment_method as string) || "").filter(Boolean)),
-    ).sort();
+    // Charged-currency breakdown: NGN accounting revenue plus the original
+    // amount customers actually paid in that currency.
+    const curMap = new Map<string, { revenue: number; count: number; original: number }>();
+    for (const p of successful) {
+      const c = rowCurrency(p);
+      const cur = curMap.get(c) ?? { revenue: 0, count: 0, original: 0 };
+      cur.revenue += rowNgn(p);
+      cur.original += rowPaidAmount(p);
+      cur.count += 1;
+      curMap.set(c, cur);
+    }
+    const byCurrency = Array.from(curMap.entries())
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.revenue - a.revenue);
 
     return {
       range: { from: fromIso, to: toIso },
@@ -120,9 +172,13 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
       byPlan,
       byAccess,
       byProvider,
+      byCurrency,
       methodOptions,
+      gatewayOptions,
+      currencyOptions,
     };
   });
+
 
 // ---------- Customer Growth ----------
 
@@ -143,14 +199,27 @@ export const getCustomerAnalytics = createServerFn({ method: "POST" })
           "id, user_id, tool_slug, status, access_type, expires_at, renewal_status, subscription_status, created_at",
         ),
     ]);
-    const profiles = profilesRes.data ?? [];
-    const orders = ordersRes.data ?? [];
+    let profiles = profilesRes.data ?? [];
+    let orders = ordersRes.data ?? [];
+
+    // Gateway / currency filters scope customers to those who paid that way.
+    if (data.gateway || data.payment_currency) {
+      const { data: payRows } = await admin.from("tool_payments").select(PAYMENT_SELECT);
+      const allowed = new Set(
+        ((payRows ?? []) as unknown as Array<Record<string, unknown>>)
+          .filter((p) => matchesPaymentFilters(p, data))
+          .map((p) => String(p.user_id ?? "")),
+      );
+      profiles = profiles.filter((p) => allowed.has(p.id as string));
+      orders = orders.filter((o) => allowed.has(o.user_id as string));
+    }
 
     const totalCustomers = profiles.length;
     const newCustomers = profiles.filter((p) => {
       const at = new Date(p.created_at as string);
       return at >= new Date(fromIso) && at <= new Date(toIso);
     }).length;
+
 
     const activeUserSet = new Set<string>();
     const expiredUserSet = new Set<string>();
@@ -321,6 +390,10 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
         report: z.enum(["revenue", "customers", "orders"]),
         from: z.string().optional(),
         to: z.string().optional(),
+        tool_slug: z.string().trim().max(120).optional(),
+        payment_method: z.string().trim().max(60).optional(),
+        gateway: z.string().trim().max(40).optional(),
+        payment_currency: z.string().trim().max(10).optional(),
       })
       .parse(input),
   )
@@ -328,34 +401,61 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
     const admin = await assertAdminAndGetAdmin(context);
     const { fromIso, toIso } = defaultRange(data.from, data.to);
 
-    if (data.report === "revenue") {
-      const { data: rows } = await admin
+    /** Transparency row: original charged money + NGN accounting value. */
+    const paymentRow = (p: Record<string, unknown>) => ({
+      date: (p.paid_at as string) ?? (p.created_at as string) ?? "",
+      customer: (p.customer_email as string) ?? "",
+      tool: (p.tool_slug as string) ?? "",
+      payment_gateway: rowGateway(p),
+      payment_currency: rowCurrency(p),
+      original_amount_paid: rowPaidAmount(p),
+      exchange_rate: p.exchange_rate ?? "",
+      ngn_accounting_amount: rowNgn(p),
+      coupon_used: (p.coupon_code as string) ?? "",
+      discount_ngn: p.discount_amount_ngn ?? "",
+      payment_reference:
+        (p.paystack_reference as string) ?? (p.gateway_transaction_reference as string) ?? "",
+      status: (p.payment_status as string) ?? "",
+      payment_method: (p.payment_method as string) ?? "",
+      billing_period: (p.billing_period as string) ?? "",
+      access_type: (p.access_type as string) ?? "",
+    });
+    const PAYMENT_HEADERS = [
+      "date",
+      "customer",
+      "tool",
+      "payment_gateway",
+      "payment_currency",
+      "original_amount_paid",
+      "exchange_rate",
+      "ngn_accounting_amount",
+      "coupon_used",
+      "discount_ngn",
+      "payment_reference",
+      "status",
+      "payment_method",
+      "billing_period",
+      "access_type",
+    ];
+
+    async function loadPayments() {
+      let q = admin
         .from("tool_payments")
-        .select(
-          "created_at, paid_at, tool_slug, amount, currency, payment_status, payment_type, classification, payment_method, source, billing_period, access_type, paystack_reference, customer_email",
-        )
+        .select(PAYMENT_SELECT)
         .gte("created_at", fromIso)
         .lte("created_at", toIso)
         .order("created_at", { ascending: false });
-      const csv = toCsv(
-        [
-          "created_at",
-          "paid_at",
-          "tool_slug",
-          "amount",
-          "currency",
-          "payment_status",
-          "payment_type",
-          "classification",
-          "payment_method",
-          "source",
-          "billing_period",
-          "access_type",
-          "paystack_reference",
-          "customer_email",
-        ],
-        rows ?? [],
+      if (data.tool_slug) q = q.eq("tool_slug", data.tool_slug);
+      if (data.payment_method) q = q.eq("payment_method", data.payment_method);
+      const { data: rows } = await q;
+      return ((rows ?? []) as unknown as Array<Record<string, unknown>>).filter((p) =>
+        matchesPaymentFilters(p, data),
       );
+    }
+
+    if (data.report === "revenue") {
+      const payments = await loadPayments();
+      const csv = toCsv(PAYMENT_HEADERS, payments.map(paymentRow));
       return { filename: `revenue-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
     }
 
@@ -366,41 +466,96 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
         .gte("created_at", fromIso)
         .lte("created_at", toIso)
         .order("created_at", { ascending: false });
-      const csv = toCsv(
-        ["id", "email", "full_name", "created_at"],
-        rows ?? [],
-      );
+      let profiles = rows ?? [];
+      if (data.gateway || data.payment_currency) {
+        const { data: payRows } = await admin.from("tool_payments").select(PAYMENT_SELECT);
+        const allowed = new Set(
+          ((payRows ?? []) as unknown as Array<Record<string, unknown>>)
+            .filter((p) => matchesPaymentFilters(p, data))
+            .map((p) => String(p.user_id ?? "")),
+        );
+        profiles = profiles.filter((p) => allowed.has(p.id as string));
+      }
+      const csv = toCsv(["id", "email", "full_name", "created_at"], profiles);
       return { filename: `customers-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
     }
 
-    // orders
-    const { data: rows } = await admin
-      .from("tool_orders")
-      .select(
-        "id, user_id, tool_slug, status, access_type, billing_period, payment_type, payment_status, price_amount, expires_at, fulfilment_status, renewal_status, subscription_status, created_at, approved_at",
-      )
-      .gte("created_at", fromIso)
-      .lte("created_at", toIso)
-      .order("created_at", { ascending: false });
+    // orders — enriched with the gateway/currency actually used to pay.
+    const [ordersRes, payments] = await Promise.all([
+      admin
+        .from("tool_orders")
+        .select(
+          "id, user_id, tool_slug, status, access_type, billing_period, payment_type, payment_status, price_amount, payment_currency, final_amount_charged, exchange_rate, coupon_code, discount_amount_ngn, paystack_reference, expires_at, fulfilment_status, renewal_status, subscription_status, created_at, approved_at",
+        )
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+        .order("created_at", { ascending: false }),
+      loadPayments(),
+    ]);
+    const payByOrder = new Map<string, Record<string, unknown>>();
+    for (const p of payments) {
+      const oid = String(p.order_id ?? "");
+      if (oid && !payByOrder.has(oid)) payByOrder.set(oid, p);
+    }
+    let orders = (ordersRes.data ?? []) as unknown as Array<Record<string, unknown>>;
+    if (data.tool_slug) orders = orders.filter((o) => o.tool_slug === data.tool_slug);
+    if (data.gateway || data.payment_currency) {
+      orders = orders.filter((o) => payByOrder.has(String(o.id)));
+    }
+
     const csv = toCsv(
       [
-        "id",
-        "user_id",
-        "tool_slug",
+        "order_id",
+        "date",
+        "customer_id",
+        "tool",
         "status",
         "access_type",
         "billing_period",
         "payment_type",
         "payment_status",
-        "price_amount",
+        "payment_gateway",
+        "payment_currency",
+        "original_amount_paid",
+        "exchange_rate",
+        "ngn_accounting_amount",
+        "coupon_used",
+        "discount_ngn",
+        "payment_reference",
         "expires_at",
         "fulfilment_status",
         "renewal_status",
         "subscription_status",
-        "created_at",
         "approved_at",
       ],
-      rows ?? [],
+      orders.map((o) => {
+        const p = payByOrder.get(String(o.id));
+        return {
+          order_id: o.id,
+          date: o.created_at,
+          customer_id: o.user_id,
+          tool: o.tool_slug,
+          status: o.status,
+          access_type: o.access_type,
+          billing_period: o.billing_period,
+          payment_type: o.payment_type,
+          payment_status: o.payment_status,
+          payment_gateway: p ? rowGateway(p) : "",
+          payment_currency: p ? rowCurrency(p) : (o.payment_currency ?? "NGN"),
+          original_amount_paid: p ? rowPaidAmount(p) : (o.final_amount_charged ?? ""),
+          exchange_rate: (p?.exchange_rate ?? o.exchange_rate) ?? "",
+          ngn_accounting_amount: p ? rowNgn(p) : (o.price_amount ?? ""),
+          coupon_used: (p?.coupon_code ?? o.coupon_code) ?? "",
+          discount_ngn: (p?.discount_amount_ngn ?? o.discount_amount_ngn) ?? "",
+          payment_reference: (p?.paystack_reference ?? o.paystack_reference) ?? "",
+          expires_at: o.expires_at,
+          fulfilment_status: o.fulfilment_status,
+          renewal_status: o.renewal_status,
+          subscription_status: o.subscription_status,
+          approved_at: o.approved_at,
+        };
+      }),
     );
     return { filename: `orders-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
+
   });

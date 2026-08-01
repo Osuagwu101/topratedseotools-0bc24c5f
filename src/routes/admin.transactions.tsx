@@ -16,6 +16,14 @@ import {
 import { RECEIPT_STATUS_LABEL, type PaymentStatus } from "@/lib/transaction-status";
 import { getTool } from "@/lib/tools-data";
 import { formatAnyMoney } from "@/lib/currency-convert";
+import {
+  gatewayLabel,
+  formatPaid,
+  formatAccounting,
+  paidCurrency,
+  rateHint,
+} from "@/lib/transaction-display";
+
 import { Search, RefreshCw, Flag, Copy } from "lucide-react";
 
 const txQuery = queryOptions({
@@ -121,9 +129,12 @@ function AdminTransactionsPage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
         <p className="text-sm text-muted-foreground">
-          Every Paystack payment attempt. Use Recheck to re-verify with
-          Paystack and Reconcile to flag mismatches.
+          Every payment attempt across all gateways. Customer paid shows the real
+          charged currency; Accounting is the NGN equivalent used for revenue.
         </p>
+
+
+
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1.5">
@@ -158,8 +169,11 @@ function AdminTransactionsPage() {
                 <th className="px-3 py-2 text-left">Reference</th>
                 <th className="px-3 py-2 text-left">Customer</th>
                 <th className="px-3 py-2 text-left">Tool / plan</th>
-                <th className="px-3 py-2 text-left">Amount</th>
+                <th className="px-3 py-2 text-left">Gateway</th>
+                <th className="px-3 py-2 text-left">Customer paid</th>
+                <th className="px-3 py-2 text-left">Accounting (NGN)</th>
                 <th className="px-3 py-2 text-left">Channel</th>
+
                 <th className="px-3 py-2 text-left">Env</th>
                 <th className="px-3 py-2 text-left">Initiated</th>
                 <th className="px-3 py-2 text-left">Status</th>
@@ -210,19 +224,26 @@ function AdminTransactionsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-xs">
-                      {formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}
-                      {t.display_currency && t.display_currency !== (t.payment_currency ?? "NGN") ? (
-                        <div className="text-[11px] text-muted-foreground">
-                          customer saw {formatAnyMoney(t.display_amount, t.display_currency)}
-                        </div>
-                      ) : null}
-                      {t.payment_currency && t.payment_currency !== "NGN" ? (
-                        <div className="text-[11px] text-muted-foreground">
-                          base {formatAnyMoney(t.base_amount_ngn, "NGN")}
-                          {t.international_fee_amount ? ` · fee ${formatAnyMoney(t.international_fee_amount, t.payment_currency)}` : ""}
-                        </div>
-                      ) : null}
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
+                        {gatewayLabel(t)}
+                      </span>
                     </td>
+                    <td className="px-3 py-2 text-xs">
+                      <div className="font-medium">{formatPaid(t)}</div>
+                      <div className="text-[11px] uppercase text-muted-foreground">
+                        {paidCurrency(t)}
+                        {t.international_fee_amount
+                          ? ` · fee ${formatAnyMoney(t.international_fee_amount, paidCurrency(t))}`
+                          : ""}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      <div>{formatAccounting(t)}</div>
+                      {rateHint(t) && (
+                        <div className="text-[11px] text-muted-foreground">{rateHint(t)}</div>
+                      )}
+                    </td>
+
                     <td className="px-3 py-2 text-xs">{t.payment_channel ?? "—"}</td>
                     <td className="px-3 py-2 text-xs uppercase">{t.paystack_environment}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -290,7 +311,7 @@ function AdminTransactionsPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={11} className="px-3 py-12 text-center text-sm text-muted-foreground">
                     No transactions match this filter.
                   </td>
                 </tr>

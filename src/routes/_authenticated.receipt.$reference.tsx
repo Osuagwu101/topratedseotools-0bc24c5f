@@ -11,7 +11,14 @@ import {
   type PaymentStatus,
 } from "@/lib/transaction-status";
 import { getTool } from "@/lib/tools-data";
-import { formatAnyMoney } from "@/lib/currency-convert";
+import {
+  gatewayLabel,
+  formatPaid,
+  formatAccounting,
+  paidCurrency,
+  rateHint,
+} from "@/lib/transaction-display";
+
 import { ArrowLeft, Copy, Receipt } from "lucide-react";
 import { toast } from "sonner";
 const CONTACT_EMAIL = "support@topratedseotools.com";
@@ -102,14 +109,17 @@ function ReceiptPage() {
             <Field label="Tool">{tool?.name ?? t.tool_slug}</Field>
             <Field label="Access type">{t.access_type ?? "—"}</Field>
             <Field label="Billing period">{t.billing_period ?? "—"}</Field>
-            <Field label="Amount">
-              {formatAnyMoney(
-                t.display_amount ?? t.final_amount ?? t.amount,
-                t.display_currency ?? t.payment_currency,
-              )}
+            <Field label="Payment gateway">{gatewayLabel(t)}</Field>
+            <Field label="Customer paid">
+              {formatPaid(t)}{" "}
+              <span className="text-[11px] uppercase text-muted-foreground">
+                {paidCurrency(t)}
+              </span>
             </Field>
-            <Field label="Currency">{t.display_currency ?? t.payment_currency ?? "NGN"}</Field>
+            <Field label="Accounting value (NGN)">{formatAccounting(t)}</Field>
+            {rateHint(t) && <Field label="Exchange rate">{rateHint(t)}</Field>}
             <Field label="Payment channel">{t.payment_channel ?? "—"}</Field>
+
             <Field label="Paid at">
               {t.paid_at ? new Date(t.paid_at).toLocaleString() : "—"}
             </Field>
