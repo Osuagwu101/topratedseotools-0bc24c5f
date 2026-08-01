@@ -519,7 +519,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             tool_slug: (orderFull?.tool_slug as string) ?? "unknown",
             amount: (orderSafe.price_amount as number | null) ?? tx.amount / 100,
             currency: (orderSafe.currency as string | null) ?? "NGN",
-            base_amount_ngn: (orderSafe.price_amount as number | null) ?? null,
+            // Coupon-aware: the NGN amount that actually flowed into the
+            // conversion pipeline, plus the discount taken off the base.
+            base_amount_ngn:
+              ((order as { discounted_amount_ngn?: number | null }).discounted_amount_ngn) ??
+              (orderSafe.price_amount as number | null) ??
+              null,
+            coupon_code: ((order as { coupon_code?: string | null }).coupon_code) ?? null,
+            discount_amount_ngn:
+              Number((order as { discount_amount_ngn?: number | null }).discount_amount_ngn ?? 0) || 0,
             payment_currency: chargedCurrency,
             exchange_rate:
               ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
