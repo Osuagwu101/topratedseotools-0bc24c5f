@@ -63,7 +63,7 @@ function PaymentProvidersPage() {
   const router = useRouter();
   const upsert = useServerFn(adminUpsertPaymentProvider);
   const setActive = useServerFn(adminSetActiveProvider);
-  const test = useServerFn(adminTestProviderConnection);
+  const setEnabled = useServerFn(adminSetProviderEnabled);
   const del = useServerFn(adminDeletePaymentProvider);
   const saveSecrets = useServerFn(adminSaveProviderSecrets);
   const [secretDraft, setSecretDraft] = useState<Record<string, Record<string, string>>>({});
