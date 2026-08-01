@@ -76,7 +76,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<Ctx>(() => {
-    const price = (ngn: number): PricingBreakdown | null => {
+    const price = (ngn: number, discount?: DiscountInput | null): PricingBreakdown | null => {
       if (!ngn || !Number.isFinite(ngn)) return null;
       const cur = currency;
       const rate = cur === "NGN" ? 1 : config?.rates.find((r) => r.currency === cur)?.rate ?? 0;
@@ -88,6 +88,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
           rate,
           surchargePercent: config?.surcharge_percent ?? 3,
           surchargeEnabled: config?.surcharge_enabled ?? true,
+          discount: discount ?? null,
         });
       } catch {
         return null;
@@ -117,20 +118,21 @@ export function useCurrency(): Ctx {
 /**
  * Customer-facing money formatter.
  *
- * Takes a base NGN amount and returns the localized display string in the
- * selected currency, with the admin-configured international adjustment
- * already folded into the number. Customers never see the rate or the
- * adjustment as separate values.
+ * Takes a base NGN amount (plus an optional server-resolved coupon) and
+ * returns the localized display string in the selected currency, with the
+ * coupon discount taken off the NGN base first and the admin-configured
+ * international adjustment already folded into the number. Customers never
+ * see the rate or the adjustment as separate values.
  */
 export function useMoney() {
   const { currency, price } = useCurrency();
 
-  const fmt = (ngn: number | null | undefined): string => {
+  const fmt = (ngn: number | null | undefined, discount?: DiscountInput | null): string => {
     const n = Number(ngn);
     if (!Number.isFinite(n)) return "";
-    if (currency === "NGN") return formatCurrency(n, "₦");
-    const b = price(n);
+    const b = price(n, discount ?? null);
     if (!b) return formatCurrency(n, "₦");
+    if (currency === "NGN") return formatCurrency(b.final_amount, "₦");
     return formatMoney(b.final_amount, currency);
   };
 
@@ -142,9 +144,10 @@ export function useMoney() {
       contact_admin?: boolean | null;
     },
     variant: "full" | "compact" = "full",
+    discount?: DiscountInput | null,
   ): string => {
     if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
-    const money = fmt(Number(opt.amount));
+    const money = fmt(Number(opt.amount), discount ?? null);
     if (variant === "compact") {
       const kind = normaliseBillingKind(getBillingKind(opt));
       if (kind === "monthly") return `${money}/month`;
@@ -158,3 +161,4 @@ export function useMoney() {
 
   return { currency, fmt, plan };
 }
+
