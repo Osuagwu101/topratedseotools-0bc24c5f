@@ -176,7 +176,40 @@ function AnalyticsPage() {
               ))}
             </select>
           </div>
+          <div>
+            <Label htmlFor="gateway" className="text-xs">Payment gateway</Label>
+            <select
+              id="gateway"
+              value={gatewayFilter}
+              onChange={(e) => setGatewayFilter(e.target.value)}
+              className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+            >
+              <option value="">All gateways</option>
+              {PAYMENT_GATEWAYS.map((g) => (
+                <option key={g} value={g}>{GATEWAY_LABELS[g] ?? g}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="currency" className="text-xs">Payment currency</Label>
+            <select
+              id="currency"
+              value={currencyFilter}
+              onChange={(e) => setCurrencyFilter(e.target.value)}
+              className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm"
+            >
+              <option value="">All currencies</option>
+              {PAYMENT_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Revenue totals always use NGN accounting values. Currency filters and the
+          charged-currency table show what customers actually paid.
+        </p>
+
 
         <Tabs defaultValue="revenue">
           <TabsList>
