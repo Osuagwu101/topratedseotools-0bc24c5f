@@ -414,6 +414,64 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
   });
 
 /**
+ * Enable / disable a gateway for checkout without opening the edit dialog.
+ * Enabling runs the same credential + live-connection checks as activation so a
+ * broken gateway can never be exposed to customers.
+ */
+export const adminSetProviderEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await assertSuperAdmin(context);
+    const { data: target } = await admin
+      .from("payment_providers")
+      .select("id, slug, config, is_active")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!target) throw new Error("Provider not found");
+
+    if (data.enabled) {
+      await loadGatewaySecrets(admin, true);
+      const known = KNOWN[target.slug as string];
+      if (known) {
+        const missing = missingSecrets(known.required_env);
+        const cfg = (target.config ?? {}) as Record<string, unknown>;
+        for (const f of known.config_fields) {
+          if (f.required && !cfg[f.key]) missing.push(f.label);
+        }
+        if (missing.length) {
+          throw new Error(`Cannot enable ${known.display_name} — missing: ${missing.join(", ")}.`);
+        }
+        const { recordProviderTestResult, runProviderConnectionTest } = await import(
+          "@/lib/gateways/provider-validation.server"
+        );
+        const test = await runProviderConnectionTest(target);
+        await recordProviderTestResult(admin, data.id, test);
+        if (!test.ok) throw new Error(`Cannot enable — credential check failed: ${test.message}`);
+      }
+    } else if (target.is_active) {
+      throw new Error("Cannot disable the active provider — make another provider active first.");
+    }
+
+    const { error } = await admin
+      .from("payment_providers")
+      .update({ enabled: data.enabled })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAdminActivity(context, {
+      action: data.enabled ? "payment_provider.enable" : "payment_provider.disable",
+      area: "payments",
+      target_type: "payment_provider",
+      target_id: data.id,
+      details: target.slug as string,
+    });
+    return { ok: true, enabled: data.enabled };
+  });
+
+
+/**
  * Public, non-sensitive info about the gateway customers will be sent to.
  * Used for checkout copy ("You'll be redirected to <gateway>") so switching
  * the active gateway in Admin updates the customer experience with no deploy.
