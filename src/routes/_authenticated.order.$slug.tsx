@@ -13,7 +13,7 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, Globe } from "lucide-react";
-import { useCurrency } from "@/components/currency/CurrencyProvider";
+import { useCurrency, useMoney } from "@/components/currency/CurrencyProvider";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { formatMoney, formatRateHint } from "@/lib/currency-convert";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -473,6 +473,7 @@ function CheckoutSummary({
   price: (ngn: number) => import("@/lib/currency-convert").PricingBreakdown | null;
   config: Awaited<ReturnType<typeof import("@/lib/currency.functions").getPublicCurrencyConfig>> | undefined;
 }) {
+  const money = useMoney();
   const kind = normaliseBillingKind(getBillingKind(chosen));
   const billing = billingDescription(kind);
   const renewal = renewalText(kind);
@@ -489,18 +490,18 @@ function CheckoutSummary({
   if (kind === "quarterly" && monthly) {
     const s = computeQuarterlySaving(monthly.amount, chosen.amount);
     if (s) {
-      savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with three monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+      savingLine = `You save ${money.fmt(s.amount)} compared with three monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
     }
   } else if (kind === "yearly") {
     if (monthly) {
       const s = computeYearlySaving(monthly.amount, chosen.amount);
       if (s) {
-        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with twelve monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+        savingLine = `You save ${money.fmt(s.amount)} compared with twelve monthly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
       }
     } else if (quarterly) {
       const s = computeYearlyVsQuarterlySaving(quarterly.amount, chosen.amount);
       if (s) {
-        savingLine = `You save ${formatCurrency(s.amount, chosen.currency || "₦")} compared with four quarterly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
+        savingLine = `You save ${money.fmt(s.amount)} compared with four quarterly payments${s.percent > 0 ? ` (${s.percent}%)` : ""}.`;
       }
     }
   }
@@ -515,8 +516,12 @@ function CheckoutSummary({
           : chosen.label ?? "Standard";
 
   const ngn = Number(chosen.amount ?? 0);
-  const breakdown = currency === "NGN" ? null : price(ngn);
-  const rateRow = currency === "NGN" ? null : config?.rates.find((r) => r.currency === currency);
+  // Total payable in the selected currency; the international adjustment is
+  // already folded in and is never itemised for the customer.
+  const totalPayable = money.plan(chosen);
+  void price;
+  void config;
+  void ngn;
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card" aria-label="Order summary">
@@ -551,48 +556,9 @@ function CheckoutSummary({
         ) : null}
 
         <div className="flex items-center justify-between border-t pt-2">
-          <dt className="text-muted-foreground">Base price</dt>
-          <dd className="font-medium">{formatPlanPrice(chosen)}</dd>
+          <dt className="text-muted-foreground">Amount due today</dt>
+          <dd className="text-base font-bold">{totalPayable}</dd>
         </div>
-
-        {breakdown ? (
-          <>
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Converted price ({currency})</dt>
-              <dd>{formatMoney(breakdown.converted_amount, currency)}</dd>
-            </div>
-            {breakdown.international_fee_amount > 0 ? (
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">
-                  International processing fee ({breakdown.international_fee_percent}%)
-                </dt>
-                <dd>{formatMoney(breakdown.international_fee_amount, currency)}</dd>
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between border-t pt-2">
-              <dt className="text-muted-foreground">Total payable</dt>
-              <dd className="text-base font-bold">
-                {formatMoney(breakdown.final_amount, currency)}
-              </dd>
-            </div>
-            {rateRow ? (
-              <div className="flex items-start gap-1 text-[11px] text-muted-foreground">
-                <Globe className="mt-0.5 h-3 w-3" />
-                <span>
-                  {formatRateHint(currency, breakdown.exchange_rate)}
-                  {rateRow.fetched_at
-                    ? ` · Rate updated ${new Date(rateRow.fetched_at).toLocaleString()}`
-                    : ""}
-                </span>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div className="flex items-center justify-between border-t pt-2">
-            <dt className="text-muted-foreground">Amount due today</dt>
-            <dd className="text-base font-bold">{formatPlanPrice(chosen)}</dd>
-          </div>
-        )}
 
         {savingLine ? (
           <div className="flex items-start gap-1 text-[11px] text-success">
