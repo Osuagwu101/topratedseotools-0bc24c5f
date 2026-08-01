@@ -91,22 +91,44 @@ export async function handlePaystackWebhook(
   const env = detectEnvironmentStrict(secret);
   if (!env) return new Response("server configuration error", { status: 503 });
 
-  const signature = request.headers.get("x-paystack-signature") ?? "";
+  const { secret, supabaseAdmin, adapter } = deps;
+  const gatewaySlug = adapter?.slug ?? "paystack";
+
   const raw = await request.text();
-  const expected = createHmac("sha512", secret).update(raw).digest("hex");
-  const sig = Buffer.from(signature);
-  const exp = Buffer.from(expected);
-  if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
-    return new Response("invalid signature", { status: 401 });
+  let env: Env;
+
+  if (adapter) {
+    const detected = adapter.environment();
+    if (!detected) return new Response("not configured", { status: 503 });
+    if (!adapter.verifyWebhook(raw, request.headers)) {
+      return new Response("invalid signature", { status: 401 });
+    }
+    env = detected;
+  } else {
+    if (!secret) return new Response("not configured", { status: 503 });
+    const detected = detectEnvironmentStrict(secret);
+    if (!detected) return new Response("server configuration error", { status: 503 });
+    env = detected;
+    const signature = request.headers.get("x-paystack-signature") ?? "";
+    const expected = createHmac("sha512", secret).update(raw).digest("hex");
+    const sig = Buffer.from(signature);
+    const exp = Buffer.from(expected);
+    if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
+      return new Response("invalid signature", { status: 401 });
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payload: any;
+  let parsed: any;
   try {
-    payload = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     return new Response("bad json", { status: 400 });
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: any = adapter ? adapter.normalizeWebhook(parsed) : parsed;
+  if (!payload) return new Response("ignored", { status: 200 });
 
   const eventType: string = payload?.event ?? "";
   if (!HANDLED_EVENTS.has(eventType)) {
@@ -126,6 +148,7 @@ export async function handlePaystackWebhook(
   const naturalId =
     reference ?? invoiceCode ?? subscriptionCode ?? (orderId ? `order:${orderId}` : "");
   if (!naturalId) return new Response("no identifier", { status: 400 });
+
 
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
