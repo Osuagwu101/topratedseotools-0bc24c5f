@@ -2,10 +2,12 @@
  * Payment providers — server functions.
  *
  * Admin can add, edit, enable/disable, activate, and test payment
- * providers from the dashboard without code changes. The secret key is
- * NOT stored in this table (it lives in encrypted secret storage) — the
- * admin edits it via the secrets form. This table stores public keys,
- * environment, enabled/active flags and last connection-test result.
+ * providers from the dashboard without code changes. Secret keys are NOT
+ * stored in this table (they live in encrypted secret storage) — this table
+ * stores public keys, environment, non-secret config (e.g. Monnify contract
+ * code), enabled/active flags and the last connection-test result.
+ *
+ * Only a Super Admin may change gateway settings.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -23,6 +25,15 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   return supabaseAdmin as any;
 }
 
+/** Gateway settings are Super-Admin-only (money movement). */
+async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
+  const admin = await assertAdmin(ctx);
+  const { data, error } = await ctx.supabase.rpc("is_super_admin", { _user_id: ctx.userId });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Only a Super Admin can change payment gateway settings.");
+  return admin;
+}
+
 export interface PaymentProviderRow {
   id: string;
   slug: string;
@@ -38,13 +49,54 @@ export interface PaymentProviderRow {
   last_test_message: string | null;
   updated_at: string;
   has_secret_configured: boolean; // computed
+  missing_secrets: string[]; // computed
+  webhook_url: string | null; // computed
+  supports_recurring: boolean; // computed
 }
 
-const KNOWN: Record<string, { display_name: string; secret_env: string; supports_recurring: boolean }> = {
-  paystack: { display_name: "Paystack", secret_env: "PAYSTACK_SECRET_KEY", supports_recurring: true },
-  monnify: { display_name: "Monnify", secret_env: "MONNIFY_SECRET_KEY", supports_recurring: true },
-  flutterwave: { display_name: "Flutterwave", secret_env: "FLUTTERWAVE_SECRET_KEY", supports_recurring: true },
+const KNOWN: Record<
+  string,
+  {
+    display_name: string;
+    secret_env: string;
+    /** Every secret/credential the gateway needs before it can be activated. */
+    required_env: string[];
+    supports_recurring: boolean;
+    webhook_path: string;
+    /** Non-secret config fields the admin fills in here. */
+    config_fields: { key: string; label: string; required: boolean }[];
+  }
+> = {
+  paystack: {
+    display_name: "Paystack",
+    secret_env: "PAYSTACK_SECRET_KEY",
+    required_env: ["PAYSTACK_SECRET_KEY"],
+    supports_recurring: true,
+    webhook_path: "/api/public/webhooks/paystack",
+    config_fields: [],
+  },
+  flutterwave: {
+    display_name: "Flutterwave",
+    secret_env: "FLUTTERWAVE_SECRET_KEY",
+    required_env: ["FLUTTERWAVE_SECRET_KEY", "FLUTTERWAVE_WEBHOOK_HASH"],
+    supports_recurring: false,
+    webhook_path: "/api/public/webhooks/flutterwave",
+    config_fields: [],
+  },
+  monnify: {
+    display_name: "Monnify",
+    secret_env: "MONNIFY_SECRET_KEY",
+    required_env: ["MONNIFY_API_KEY", "MONNIFY_SECRET_KEY"],
+    supports_recurring: false,
+    webhook_path: "/api/public/webhooks/monnify",
+    config_fields: [
+      { key: "contract_code", label: "Contract Code", required: true },
+      { key: "base_url", label: "API Base URL", required: false },
+    ],
+  },
 };
+
+const SITE_ORIGIN = "https://topratedseotools.com";
 
 export const adminListPaymentProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -55,14 +107,36 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
       .select("*")
       .order("display_name", { ascending: true });
     if (error) throw new Error(error.message);
+    const { data: isSuper } = await context.supabase.rpc("is_super_admin", {
+      _user_id: context.userId,
+    });
     const rows: PaymentProviderRow[] = (data ?? []).map((r: any) => {
       const known = KNOWN[r.slug];
-      const secretEnv = known?.secret_env;
-      const hasSecret = secretEnv ? !!process.env[secretEnv] : false;
-      return { ...r, has_secret_configured: hasSecret } as PaymentProviderRow;
+      const hasSecret = known?.secret_env ? !!process.env[known.secret_env] : false;
+      const missing = (known?.required_env ?? []).filter((k) => !process.env[k]);
+      const cfg = (r.config ?? {}) as Record<string, unknown>;
+      // Monnify also needs its contract code before it can be activated.
+      for (const f of known?.config_fields ?? []) {
+        if (f.required && !cfg[f.key]) missing.push(f.label);
+      }
+      return {
+        ...r,
+        has_secret_configured: hasSecret,
+        missing_secrets: missing,
+        webhook_url: known ? `${SITE_ORIGIN}${known.webhook_path}` : null,
+        supports_recurring: known?.supports_recurring ?? false,
+      } as PaymentProviderRow;
     });
-    const catalog = Object.entries(KNOWN).map(([slug, meta]) => ({ slug, ...meta }));
-    return { providers: rows, catalog };
+    const catalog = Object.entries(KNOWN).map(([slug, meta]) => ({
+      slug,
+      display_name: meta.display_name,
+      secret_env: meta.secret_env,
+      required_env: meta.required_env,
+      supports_recurring: meta.supports_recurring,
+      config_fields: meta.config_fields,
+      webhook_url: `${SITE_ORIGIN}${meta.webhook_path}`,
+    }));
+    return { providers: rows, catalog, is_super_admin: !!isSuper };
   });
 
 export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
@@ -77,11 +151,22 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
         public_key: z.string().max(400).optional().nullable(),
         webhook_secret_hint: z.string().max(120).optional().nullable(),
         enabled: z.boolean().optional(),
+        /** Non-secret gateway config (e.g. Monnify contract code). */
+        config: z.record(z.string(), z.string().max(200).nullable()).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertSuperAdmin(context);
+    const { data: existingRow } = await admin
+      .from("payment_providers")
+      .select("id, config")
+      .eq("slug", data.slug)
+      .maybeSingle();
+    const mergedConfig = {
+      ...(((existingRow as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>),
+      ...(data.config ?? {}),
+    };
     const patch = {
       slug: data.slug,
       display_name: data.display_name,
@@ -89,6 +174,7 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
       public_key: data.public_key ?? null,
       webhook_secret_hint: data.webhook_secret_hint ?? null,
       enabled: data.enabled ?? false,
+      config: mergedConfig,
     };
     let row: any;
     if (data.id) {
@@ -123,7 +209,27 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertSuperAdmin(context);
+    const { data: target } = await admin
+      .from("payment_providers")
+      .select("id, slug, config")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!target) throw new Error("Provider not found");
+
+    // Never make a half-configured gateway live — customers would be stranded.
+    const known = KNOWN[target.slug as string];
+    if (known) {
+      const missing = known.required_env.filter((k) => !process.env[k]);
+      const cfg = (target.config ?? {}) as Record<string, unknown>;
+      for (const f of known.config_fields) {
+        if (f.required && !cfg[f.key]) missing.push(f.label);
+      }
+      if (missing.length) {
+        throw new Error(`Cannot activate ${known.display_name} — missing: ${missing.join(", ")}.`);
+      }
+    }
+
     // clear existing active, then set new
     await admin.from("payment_providers").update({ is_active: false }).eq("is_active", true);
     const { error } = await admin
@@ -136,6 +242,7 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
       area: "payments",
       target_type: "payment_provider",
       target_id: data.id,
+      details: target.slug as string,
     });
     return { ok: true };
   });
@@ -162,6 +269,37 @@ export const adminTestProviderConnection = createServerFn({ method: "POST" })
           const body = (await res.json()) as { status?: boolean; message?: string };
           ok = res.ok && !!body.status;
           msg = body.message ?? (ok ? "Connection successful" : `HTTP ${res.status}`);
+        }
+      } else if (p.slug === "flutterwave") {
+        const secret = process.env.FLUTTERWAVE_SECRET_KEY;
+        if (!secret) {
+          msg = "FLUTTERWAVE_SECRET_KEY is not set.";
+        } else {
+          const res = await fetch("https://api.flutterwave.com/v3/banks/NG", {
+            headers: { Authorization: `Bearer ${secret}` },
+          });
+          const body = (await res.json()) as { status?: string; message?: string };
+          ok = res.ok && body.status === "success";
+          msg = ok ? "Connection successful" : body.message ?? `HTTP ${res.status}`;
+        }
+      } else if (p.slug === "monnify") {
+        const apiKey = process.env.MONNIFY_API_KEY;
+        const secretKey = process.env.MONNIFY_SECRET_KEY;
+        const cfg = (p.config ?? {}) as Record<string, unknown>;
+        const base = (cfg.base_url as string) || "https://api.monnify.com";
+        if (!apiKey || !secretKey) {
+          msg = "MONNIFY_API_KEY and MONNIFY_SECRET_KEY must both be set.";
+        } else if (!cfg.contract_code) {
+          msg = "Monnify contract code is missing.";
+        } else {
+          const basic = Buffer.from(`${apiKey}:${secretKey}`).toString("base64");
+          const res = await fetch(`${base}/api/v1/auth/login`, {
+            method: "POST",
+            headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/json" },
+          });
+          const body = (await res.json()) as { requestSuccessful?: boolean; responseMessage?: string };
+          ok = res.ok && !!body.requestSuccessful;
+          msg = ok ? "Connection successful" : body.responseMessage ?? `HTTP ${res.status}`;
         }
       } else {
         msg = "Test connection is not implemented for this provider yet.";
@@ -195,7 +333,7 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertSuperAdmin(context);
     const { data: p } = await admin.from("payment_providers").select("slug, is_active").eq("id", data.id).maybeSingle();
     if (p?.is_active) throw new Error("Cannot delete the active provider — activate another first.");
     const { error } = await admin.from("payment_providers").delete().eq("id", data.id);
