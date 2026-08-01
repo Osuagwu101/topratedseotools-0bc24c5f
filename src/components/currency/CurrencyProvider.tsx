@@ -103,3 +103,48 @@ export function useCurrency(): Ctx {
   if (!ctx) throw new Error("useCurrency must be used inside CurrencyProvider");
   return ctx;
 }
+
+/**
+ * Customer-facing money formatter.
+ *
+ * Takes a base NGN amount and returns the localized display string in the
+ * selected currency, with the admin-configured international adjustment
+ * already folded into the number. Customers never see the rate or the
+ * adjustment as separate values.
+ */
+export function useMoney() {
+  const { currency, price } = useCurrency();
+
+  const fmt = (ngn: number | null | undefined): string => {
+    const n = Number(ngn);
+    if (!Number.isFinite(n)) return "";
+    if (currency === "NGN") return formatCurrency(n, "₦");
+    const b = price(n);
+    if (!b) return formatCurrency(n, "₦");
+    return formatMoney(b.final_amount, currency);
+  };
+
+  const plan = (
+    opt: {
+      amount: number | null;
+      unit?: string | null;
+      billing_period?: string | null;
+      contact_admin?: boolean | null;
+    },
+    variant: "full" | "compact" = "full",
+  ): string => {
+    if (opt.contact_admin || opt.amount == null) return "Pricing confirmed on WhatsApp";
+    const money = fmt(Number(opt.amount));
+    if (variant === "compact") {
+      const kind = normaliseBillingKind(getBillingKind(opt));
+      if (kind === "monthly") return `${money}/month`;
+      if (kind === "quarterly") return `${money}/quarter`;
+      if (kind === "yearly") return `${money}/year`;
+      return opt.unit ? `${money} / ${opt.unit}` : money;
+    }
+    const suffix = billingSuffix(opt);
+    return suffix ? `${money} ${suffix}` : money;
+  };
+
+  return { currency, fmt, plan };
+}
