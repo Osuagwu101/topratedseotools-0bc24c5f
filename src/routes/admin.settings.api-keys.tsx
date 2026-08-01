@@ -72,8 +72,9 @@ function PaymentProvidersPage() {
   async function save() {
     if (!editing) return;
     setBusy("save");
+    const wasNew = !editing.id;
     try {
-      await upsert({
+      const res = await upsert({
         data: {
           id: editing.id,
           slug: (editing.slug ?? "").toLowerCase().trim(),
@@ -89,14 +90,16 @@ function PaymentProvidersPage() {
       });
 
       toast.success("Provider saved");
-      setEditing(null);
       await router.invalidate();
+      // Keep the form open on a brand-new provider so credentials can be added.
+      setEditing(wasNew && res?.provider ? (res.provider as PaymentProviderRow) : null);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setBusy(null);
     }
   }
+
 
   async function runTest(id: string) {
     setBusy(`test:${id}`);
@@ -246,6 +249,62 @@ function PaymentProvidersPage() {
                   />
                 </div>
               ))}
+
+              {(data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []).length > 0 && (
+                <div className="sm:col-span-2 rounded-xl border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Secret credentials (write-only — stored in encrypted secret storage)
+                  </div>
+                  {!editing.id ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Save the provider first, then enter its secret credentials here.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {(data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []).map((f) => {
+                          const set = (
+                            data.providers.find((x) => x.id === editing.id)?.configured_secrets ?? []
+                          ).includes(f.name);
+                          return (
+                            <div key={f.name}>
+                              <Label className="text-xs">
+                                {f.label}
+                                {f.required ? " *" : " (optional)"}{" "}
+                                {set ? (
+                                  <span className="text-success">· saved</span>
+                                ) : (
+                                  <span className="text-muted-foreground">· not set</span>
+                                )}
+                              </Label>
+                              <Input
+                                type="password"
+                                autoComplete="off"
+                                value={secretDraft[editing.id!]?.[f.name] ?? ""}
+                                onChange={(e) =>
+                                  setSecretDraft((d) => ({
+                                    ...d,
+                                    [editing.id!]: { ...(d[editing.id!] ?? {}), [f.name]: e.target.value },
+                                  }))
+                                }
+                                placeholder={set ? "Enter a new value to replace" : "Paste value"}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        className="mt-3"
+                        size="sm"
+                        onClick={() => storeSecrets(editing.id!)}
+                        disabled={busy === `sec:${editing.id}`}
+                      >
+                        {busy === `sec:${editing.id}` ? "Saving…" : "Save & validate credentials"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
 
               <label className="flex items-center gap-2 text-sm">
                 <input
