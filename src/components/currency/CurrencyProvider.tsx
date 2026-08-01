@@ -8,7 +8,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicCurrencyConfig, type SupportedCurrency } from "@/lib/currency.functions";
-import { buildPricingBreakdown, type PricingBreakdown } from "@/lib/currency-convert";
+import { buildPricingBreakdown, formatMoney, type PricingBreakdown } from "@/lib/currency-convert";
+import { billingSuffix, formatCurrency, getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const STORAGE_KEY = "ts_currency";
 
