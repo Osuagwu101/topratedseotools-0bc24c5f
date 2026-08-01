@@ -29,6 +29,10 @@ const rangeInput = z.object({
   to: z.string().optional(),
   tool_slug: z.string().trim().max(120).optional(),
   payment_method: z.string().trim().max(60).optional(),
+  /** paystack | flutterwave | monnify | offline */
+  gateway: z.string().trim().max(40).optional(),
+  /** NGN | GHS | KES | USD | ZAR */
+  payment_currency: z.string().trim().max(10).optional(),
 });
 
 function defaultRange(from?: string, to?: string) {
@@ -36,6 +40,43 @@ function defaultRange(from?: string, to?: string) {
   const fromIso = from ?? new Date(Date.now() - 30 * 86400_000).toISOString();
   return { fromIso, toIso };
 }
+
+/** Presentation-only classification, mirrors `src/lib/transaction-display.ts`. */
+function rowGateway(p: Record<string, unknown>): string {
+  if ((p.source as string) === "offline") return "offline";
+  return String(p.payment_gateway ?? p.source ?? "paystack").toLowerCase();
+}
+function rowCurrency(p: Record<string, unknown>): string {
+  return String(p.payment_currency ?? p.display_currency ?? "NGN").toUpperCase();
+}
+/** Amount actually charged to the customer, in `rowCurrency`. */
+function rowPaidAmount(p: Record<string, unknown>): number {
+  const cur = rowCurrency(p);
+  if (p.display_currency && String(p.display_currency).toUpperCase() === cur && p.display_amount != null) {
+    return Number(p.display_amount);
+  }
+  if (p.final_amount != null) return Number(p.final_amount);
+  if (p.converted_amount != null) return Number(p.converted_amount);
+  return Number(p.amount ?? 0);
+}
+/** NGN accounting value — the only figure revenue totals ever use. */
+function rowNgn(p: Record<string, unknown>): number {
+  return Number(p.amount ?? p.base_amount_ngn ?? 0);
+}
+
+/** Payment-level gateway / currency filters (never touches revenue maths). */
+function matchesPaymentFilters(
+  p: Record<string, unknown>,
+  f: { gateway?: string | undefined; payment_currency?: string | undefined },
+): boolean {
+  if (f.gateway && rowGateway(p) !== f.gateway.toLowerCase()) return false;
+  if (f.payment_currency && rowCurrency(p) !== f.payment_currency.toUpperCase()) return false;
+  return true;
+}
+
+const PAYMENT_SELECT =
+  "id, order_id, user_id, tool_slug, amount, currency, payment_currency, display_currency, display_amount, converted_amount, final_amount, base_amount_ngn, exchange_rate, international_fee_amount, coupon_code, discount_amount_ngn, payment_gateway, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paystack_reference, gateway_transaction_reference, customer_email, paid_at, created_at";
+
 
 // ---------- Revenue Dashboard ----------
 

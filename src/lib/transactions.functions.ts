@@ -37,6 +37,13 @@ export interface TransactionRow {
   /** Customer-facing currency + amount (may differ from what Paystack charged). */
   display_currency?: string | null;
   display_amount?: number | null;
+  /** Gateway that actually processed the charge (paystack/flutterwave/monnify). */
+  payment_gateway?: string | null;
+  payment_method?: string | null;
+  gateway_transaction_reference?: string | null;
+  coupon_code?: string | null;
+  discount_amount_ngn?: number | null;
+
   payment_status: PaymentStatus;
   payment_type: string;
   classification: string;

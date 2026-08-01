@@ -7,7 +7,14 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { listMyTransactions } from "@/lib/transactions.functions";
 import { RECEIPT_STATUS_LABEL, type PaymentStatus } from "@/lib/transaction-status";
 import { getTool } from "@/lib/tools-data";
-import { formatAnyMoney } from "@/lib/currency-convert";
+import {
+  gatewayLabel,
+  formatPaid,
+  formatAccounting,
+  paidCurrency,
+  isForeignCharge,
+} from "@/lib/transaction-display";
+
 import { Receipt, ExternalLink } from "lucide-react";
 
 const txQuery = queryOptions({
@@ -66,7 +73,9 @@ function TransactionsPage() {
                 <tr>
                   <th className="px-3 py-2 text-left">Reference</th>
                   <th className="px-3 py-2 text-left">Tool</th>
-                  <th className="px-3 py-2 text-left">Amount</th>
+                  <th className="px-3 py-2 text-left">Gateway</th>
+                  <th className="px-3 py-2 text-left">You paid</th>
+
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2"></th>
@@ -82,12 +91,16 @@ function TransactionsPage() {
                         {t.paystack_reference ?? "—"}
                       </td>
                       <td className="px-3 py-2">{tool?.name ?? t.tool_slug}</td>
+                      <td className="px-3 py-2 text-xs">{gatewayLabel(t)}</td>
+
                       <td className="px-3 py-2">
-                        {formatAnyMoney(
-                          t.display_amount ?? t.final_amount ?? t.amount,
-                          t.display_currency ?? t.payment_currency,
-                        )}
+                        <div className="font-medium">{formatPaid(t)}</div>
+                        <div className="text-[11px] uppercase text-muted-foreground">
+                          {paidCurrency(t)}
+                          {isForeignCharge(t) ? ` · ${formatAccounting(t)} equivalent` : ""}
+                        </div>
                       </td>
+
                       <td className="px-3 py-2 text-muted-foreground">
                         {new Date(t.initiated_at).toLocaleString()}
                       </td>
