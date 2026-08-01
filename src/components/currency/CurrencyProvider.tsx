@@ -109,10 +109,32 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }
 
+/**
+ * Safe fallback so a component that renders before/outside the provider
+ * (route code-split race, isolated re-render) degrades to plain NGN pricing
+ * instead of throwing and blanking the page.
+ */
+const NGN_FALLBACK: Ctx = {
+  currency: "NGN",
+  setCurrency: () => {},
+  config: undefined,
+  isLoading: false,
+  price: (ngn) =>
+    !ngn || !Number.isFinite(ngn)
+      ? null
+      : buildPricingBreakdown({
+          ngn,
+          currency: "NGN",
+          rate: 1,
+          surchargePercent: 0,
+          surchargeEnabled: false,
+          discount: null,
+        }),
+  switcherEnabled: false,
+};
+
 export function useCurrency(): Ctx {
-  const ctx = useContext(CurrencyContext);
-  if (!ctx) throw new Error("useCurrency must be used inside CurrencyProvider");
-  return ctx;
+  return useContext(CurrencyContext) ?? NGN_FALLBACK;
 }
 
 /**
