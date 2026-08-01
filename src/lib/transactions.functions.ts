@@ -34,6 +34,9 @@ export interface TransactionRow {
   converted_amount?: number | null;
   international_fee_amount?: number | null;
   final_amount?: number | null;
+  /** Customer-facing currency + amount (may differ from what Paystack charged). */
+  display_currency?: string | null;
+  display_amount?: number | null;
   payment_status: PaymentStatus;
   payment_type: string;
   classification: string;
