@@ -76,11 +76,24 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
     if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
 
-    const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
-    if (!env) throw new Error("Payments are temporarily unavailable. Please contact support.");
+    // Which gateway processes this payment is an admin setting — the pricing,
+    // coupon, currency, order and access pipelines below are gateway-agnostic.
+    const { supabaseAdmin: adminForGateway } = await import("@/integrations/supabase/client.server");
+    const { resolveActiveGateway } = await import("@/lib/gateways/registry");
+    const gateway = await resolveActiveGateway(adminForGateway);
 
-    const paymentType = data.payment_type ?? "recurring_subscription";
+    const env =
+      detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY) ?? gateway.environment ?? "live";
+
+    const requestedType = data.payment_type ?? "recurring_subscription";
+    // Gateways without native subscriptions charge one-time; renewals are then
+    // handled by our own reminder/renewal flow instead of the gateway's.
+    const paymentType =
+      requestedType === "recurring_subscription" && !gateway.adapter.supportsRecurring
+        ? "one_time"
+        : requestedType;
     const isRecurring = paymentType === "recurring_subscription";
+
 
     const { data: order, error } = await context.supabase
       .from("tool_orders")
