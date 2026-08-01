@@ -83,7 +83,10 @@ function TransactionsPage() {
                       </td>
                       <td className="px-3 py-2">{tool?.name ?? t.tool_slug}</td>
                       <td className="px-3 py-2">
-                        {formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}
+                        {formatAnyMoney(
+                          t.display_amount ?? t.final_amount ?? t.amount,
+                          t.display_currency ?? t.payment_currency,
+                        )}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {new Date(t.initiated_at).toLocaleString()}
