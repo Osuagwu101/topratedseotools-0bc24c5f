@@ -79,8 +79,12 @@ function PaymentProvidersPage() {
           public_key: editing.public_key ?? null,
           webhook_secret_hint: editing.webhook_secret_hint ?? null,
           enabled: editing.enabled ?? false,
+          config: Object.fromEntries(
+            Object.entries(editing.config ?? {}).map(([k, v]) => [k, v == null ? null : String(v)]),
+          ),
         },
       });
+
       toast.success("Provider saved");
       setEditing(null);
       await router.invalidate();
