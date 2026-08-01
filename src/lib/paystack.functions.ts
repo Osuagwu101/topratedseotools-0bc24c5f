@@ -328,12 +328,14 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
             base_amount_ngn: currencyBreakdown.base_amount_ngn,
             coupon_code: currencyBreakdown.discount_code,
             discount_amount_ngn: currencyBreakdown.discount_amount_ngn,
-            payment_currency: currencyBreakdown.payment_currency,
+            payment_currency: charge.payment_currency,
             exchange_rate: currencyBreakdown.exchange_rate,
             converted_amount: currencyBreakdown.converted_amount,
             international_fee_percent: currencyBreakdown.international_fee_percent,
             international_fee_amount: currencyBreakdown.international_fee_amount,
-            final_amount: currencyBreakdown.final_amount,
+            final_amount: charge.payment_amount,
+            display_currency: charge.display_currency,
+            display_amount: charge.display_amount,
           } as never)
           .select("id")
           .maybeSingle();
