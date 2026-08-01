@@ -599,8 +599,13 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             payment_channel: paystackChannel,
             access_type: orderFull?.access_type ?? null,
             billing_period: orderFull?.billing_period ?? null,
+            payment_gateway: gateway.slug,
+            gateway_transaction_reference: paystackId ? String(paystackId) : null,
+            gateway_response: (tx.raw ?? null) as never,
+            source: gateway.slug,
             paid_at: paidAt.toISOString(),
             last_status_change_at: paidAt.toISOString(),
+
           } as never)
           .select("id")
           .maybeSingle();
