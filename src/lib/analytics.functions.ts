@@ -199,14 +199,27 @@ export const getCustomerAnalytics = createServerFn({ method: "POST" })
           "id, user_id, tool_slug, status, access_type, expires_at, renewal_status, subscription_status, created_at",
         ),
     ]);
-    const profiles = profilesRes.data ?? [];
-    const orders = ordersRes.data ?? [];
+    let profiles = profilesRes.data ?? [];
+    let orders = ordersRes.data ?? [];
+
+    // Gateway / currency filters scope customers to those who paid that way.
+    if (data.gateway || data.payment_currency) {
+      const { data: payRows } = await admin.from("tool_payments").select(PAYMENT_SELECT);
+      const allowed = new Set(
+        ((payRows ?? []) as unknown as Array<Record<string, unknown>>)
+          .filter((p) => matchesPaymentFilters(p, data))
+          .map((p) => String(p.user_id ?? "")),
+      );
+      profiles = profiles.filter((p) => allowed.has(p.id as string));
+      orders = orders.filter((o) => allowed.has(o.user_id as string));
+    }
 
     const totalCustomers = profiles.length;
     const newCustomers = profiles.filter((p) => {
       const at = new Date(p.created_at as string);
       return at >= new Date(fromIso) && at <= new Date(toIso);
     }).length;
+
 
     const activeUserSet = new Set<string>();
     const expiredUserSet = new Set<string>();
