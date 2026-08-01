@@ -147,7 +147,7 @@ export async function handlePaystackWebhook(
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
     env,
-    reference: naturalId,
+    reference: gatewaySlug === "paystack" ? naturalId : `${gatewaySlug}:${naturalId}`,
     status: txStatus,
   });
   const payloadHash = createHash("sha256").update(raw).digest("hex");
@@ -157,7 +157,9 @@ export async function handlePaystackWebhook(
     .insert({
       idempotency_key: idempotencyKey,
       event_type: eventType,
+      gateway: gatewaySlug,
       transaction_reference: reference ?? null,
+
       subscription_code: subscriptionCode ?? null,
       invoice_code: invoiceCode ?? null,
       paystack_environment: env,
