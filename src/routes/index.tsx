@@ -4,7 +4,8 @@ import { ArrowRight, Check, Sparkles, Zap, Shield, Users, Star, HelpCircle } fro
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { listToolPricing } from "@/lib/tool-pricing.functions";
+import { baseMonthlyLines } from "@/lib/base-pricing";
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
@@ -91,14 +92,12 @@ function Home() {
 
   const showcase = TOOLS.slice(0, 8).map((t) => {
     if (t.pricingModel === "per_use" && t.perUse) {
-      return { tool: t, price: null, perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
+      return { tool: t, baseLines: [], perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
     }
-    const enabled = pricing.options.filter((o) => o.tool_slug === t.slug && o.enabled);
-    const paid = enabled.filter((o) => !o.contact_admin && o.amount != null);
-    const primary =
-      paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
-      enabled[0];
-    return { tool: t, price: primary, perUseLabel: null as string | null };
+    const lines = baseMonthlyLines(
+      pricing.options.filter((o) => o.tool_slug === t.slug),
+    );
+    return { tool: t, baseLines: lines, perUseLabel: null as string | null };
   });
 
 
@@ -206,7 +205,7 @@ function Home() {
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {showcase.map(({ tool, price, perUseLabel }) => (
+          {showcase.map(({ tool, baseLines, perUseLabel }) => (
             <Link
               key={tool.slug}
               to="/tools/$slug"
@@ -229,12 +228,16 @@ function Home() {
                     <div className="text-lg font-bold">{perUseLabel}</div>
                     <div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div>
                   </>
-                ) : price ? (
-                  <div className={price.contact_admin ? "text-sm font-medium text-primary" : "text-lg font-bold"}>
-                    {price.contact_admin || price.amount == null ? formatPrice(price) : money.plan(price)}
+                ) : baseLines.length > 0 ? (
+                  <div className="space-y-1">
+                    {baseLines.map((line) => (
+                      <div key={line.access} className="text-sm font-semibold">
+                        {line.text}
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-sm font-medium text-primary">Contact admin</div>
+                  <div className="text-sm font-medium text-primary">Pricing confirmed on WhatsApp</div>
                 )}
               </div>
             </Link>

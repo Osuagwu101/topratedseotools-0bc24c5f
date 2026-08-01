@@ -5,8 +5,8 @@ import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
-import { useMoney } from "@/components/currency/CurrencyProvider";
+import { listToolPricing } from "@/lib/tool-pricing.functions";
+import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 
@@ -53,31 +53,18 @@ function ToolsDirectory() {
       ),
     [overrideBySlug],
   );
-  const money = useMoney();
-  const priceByTool = useMemo(() => {
+  const baseLinesByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
-      if (!opt.enabled) continue;
       const arr = bySlug.get(opt.tool_slug) ?? [];
       arr.push(opt);
       bySlug.set(opt.tool_slug, arr);
     }
-    const m = new Map<string, ReturnType<typeof formatPrice>>();
-    for (const [slug, opts] of bySlug) {
-      const paid = opts.filter((o) => !o.contact_admin && o.amount != null);
-      const chosen =
-        paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
-        opts[0];
-      if (chosen)
-        m.set(
-          slug,
-          chosen.contact_admin || chosen.amount == null
-            ? formatPrice(chosen)
-            : money.plan(chosen),
-        );
-    }
+    const m = new Map<string, ReturnType<typeof baseMonthlyLines>>();
+    for (const [slug, opts] of bySlug) m.set(slug, baseMonthlyLines(opts));
     return m;
-  }, [pricing.options, money]);
+  }, [pricing.options]);
+
 
 
 
@@ -172,13 +159,19 @@ function ToolsDirectory() {
                   </span>
                 </div>
                 <div className="mt-4 text-lg font-semibold">{t.name}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t.category}</span>
-                  <span className="font-semibold text-foreground">
-                    {priceByTool.get(t.slug) ?? "Contact admin"}
-                  </span>
+                <div className="mt-1 text-sm text-muted-foreground">{t.category}</div>
+                <div className="mt-4 space-y-1 text-xs">
+                  {(baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
+                    (baseLinesByTool.get(t.slug) ?? []).map((line) => (
+                      <div key={line.access} className="font-semibold text-foreground">
+                        {line.text}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="font-medium text-primary">Pricing confirmed on WhatsApp</div>
+                  )}
                 </div>
+
               </Link>
             ))}
           </div>

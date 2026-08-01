@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
 import type { Tool } from "@/lib/tools-data";
@@ -18,6 +19,7 @@ import {
   renewalText,
 } from "@/lib/currency";
 import { useMoney } from "@/components/currency/CurrencyProvider";
+import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -275,6 +277,7 @@ function SubscriptionCard({
       }
     | undefined;
 }) {
+  const [showPlans, setShowPlans] = useState(false);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
     (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
@@ -292,42 +295,71 @@ function SubscriptionCard({
   const hasShared = sharedAllowed && bucketHas(shared);
   const hasPrivate = privateAllowed && bucketHas(priv);
 
+  // Public summary: base monthly price per available access type only.
+  const baseLines = baseMonthlyLines(options, setting);
+
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <Tag className="h-4 w-4 text-primary" /> Choose Your Subscription
+        <Tag className="h-4 w-4 text-primary" /> Pricing
       </h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Pick Shared or Private access, then choose Monthly, Quarterly, or Yearly billing.
-      </p>
 
-      {(!hasShared && !hasPrivate) || contactOnly ? (
+      {(!hasShared && !hasPrivate) || contactOnly || baseLines.length === 0 ? (
         <p className="mt-4 rounded-lg border bg-background/40 px-3 py-3 text-sm text-primary">
           Pricing confirmed on WhatsApp
         </p>
       ) : (
-        <div className="mt-4 space-y-5">
-          {hasShared ? (
-            <AccessSection
-              slug={slug}
-              title="Shared Access"
-              icon={<Users className="h-4 w-4" />}
-              bucket={shared}
-            />
-          ) : null}
-          {hasPrivate ? (
-            <AccessSection
-              slug={slug}
-              title="Private Access"
-              icon={<Lock className="h-4 w-4" />}
-              bucket={priv}
-            />
-          ) : null}
-        </div>
+        <>
+          <div className="mt-4 space-y-2">
+            {baseLines.map((line) => (
+              <div key={line.access} className="flex items-center gap-2 text-sm font-semibold">
+                {line.access === "shared" ? (
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span>{line.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {!showPlans ? (
+            <button
+              type="button"
+              onClick={() => setShowPlans(true)}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+            >
+              View Plans
+            </button>
+          ) : (
+            <div className="mt-5 space-y-5">
+              <p className="text-xs text-muted-foreground">
+                Pick Shared or Private access, then choose Monthly, Quarterly, or Yearly billing.
+              </p>
+              {hasShared ? (
+                <AccessSection
+                  slug={slug}
+                  title="Shared Access"
+                  icon={<Users className="h-4 w-4" />}
+                  bucket={shared}
+                />
+              ) : null}
+              {hasPrivate ? (
+                <AccessSection
+                  slug={slug}
+                  title="Private Access"
+                  icon={<Lock className="h-4 w-4" />}
+                  bucket={priv}
+                />
+              ) : null}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
+
 
 function AccessSection({
   slug,
