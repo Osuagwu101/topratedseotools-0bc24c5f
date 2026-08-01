@@ -390,6 +390,15 @@ async function handleChargeSuccess(i: DispatchInput) {
     }
   }
 
+  // Coupon usage counted once per order (DB-enforced), so verify + webhook
+  // can both call this without double-counting.
+  if (order.coupon_code) {
+    const { recordCouponRedemption } = await import("@/lib/coupons.server");
+    await recordCouponRedemption(i.supabaseAdmin, order.id as string, i.reference ?? null);
+  }
+
+
+
   if (isRenewal) {
     const base = Math.max(
       order.expires_at ? new Date(order.expires_at).getTime() : 0,
