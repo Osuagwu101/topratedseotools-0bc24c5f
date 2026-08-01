@@ -89,9 +89,7 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
 
     let query = admin
       .from("tool_payments")
-      .select(
-        "id, tool_slug, amount, currency, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paid_at, created_at",
-      )
+      .select(PAYMENT_SELECT)
       .gte("created_at", fromIso)
       .lte("created_at", toIso);
     if (data.tool_slug) query = query.eq("tool_slug", data.tool_slug);
@@ -99,7 +97,16 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
-    const payments = rows ?? [];
+    const allRows = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+
+    // Option lists come from the unfiltered range so the dropdowns stay usable.
+    const gatewayOptions = Array.from(new Set(allRows.map(rowGateway))).sort();
+    const currencyOptions = Array.from(new Set(allRows.map(rowCurrency))).sort();
+    const methodOptions = Array.from(
+      new Set(allRows.map((p) => (p.payment_method as string) || "").filter(Boolean)),
+    ).sort();
+
+    const payments = allRows.filter((p) => matchesPaymentFilters(p, data));
 
     const now = new Date();
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -110,45 +117,49 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
       (p) => p.payment_status === "refunded" || p.payment_status === "reversed",
     );
 
-    const totalRevenue = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    // Revenue is always the NGN accounting value — unchanged behaviour.
+    const totalRevenue = successful.reduce((s, p) => s + rowNgn(p), 0);
     const revenueThisMonth = successful
       .filter((p) => new Date((p.paid_at as string) ?? (p.created_at as string)) >= startOfMonth)
-      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+      .reduce((s, p) => s + rowNgn(p), 0);
 
-    const bucket = <K extends string>(
-      items: typeof successful,
-      key: (p: (typeof successful)[number]) => K | null | undefined,
-      fallback: K,
+    const bucket = (
+      items: Array<Record<string, unknown>>,
+      key: (p: Record<string, unknown>) => string | null | undefined,
+      fallback: string,
     ) => {
-      const m = new Map<K, { revenue: number; count: number }>();
+      const m = new Map<string, { revenue: number; count: number }>();
       for (const p of items) {
-        const k = (key(p) ?? fallback) as K;
+        const k = key(p) ?? fallback;
         const cur = m.get(k) ?? { revenue: 0, count: 0 };
-        cur.revenue += Number(p.amount ?? 0);
+        cur.revenue += rowNgn(p);
         cur.count += 1;
         m.set(k, cur);
       }
       return Array.from(m.entries())
-        .map(([label, v]) => ({ label: String(label), ...v }))
+        .map(([label, v]) => ({ label, ...v }))
         .sort((a, b) => b.revenue - a.revenue);
     };
 
     const byTool = bucket(successful, (p) => p.tool_slug as string | null, "unknown");
     const byPlan = bucket(successful, (p) => (p.billing_period as string | null) ?? null, "unknown");
     const byAccess = bucket(successful, (p) => (p.access_type as string | null) ?? null, "unknown");
-    const byProvider = bucket(
-      successful,
-      (p) => {
-        const src = (p.source as string | null) ?? "paystack";
-        if (src === "offline") return (p.payment_method as string | null) ?? "offline";
-        return src;
-      },
-      "paystack",
-    );
+    const byProvider = bucket(successful, (p) => rowGateway(p), "paystack");
 
-    const methodOptions = Array.from(
-      new Set(payments.map((p) => (p.payment_method as string) || "").filter(Boolean)),
-    ).sort();
+    // Charged-currency breakdown: NGN accounting revenue plus the original
+    // amount customers actually paid in that currency.
+    const curMap = new Map<string, { revenue: number; count: number; original: number }>();
+    for (const p of successful) {
+      const c = rowCurrency(p);
+      const cur = curMap.get(c) ?? { revenue: 0, count: 0, original: 0 };
+      cur.revenue += rowNgn(p);
+      cur.original += rowPaidAmount(p);
+      cur.count += 1;
+      curMap.set(c, cur);
+    }
+    const byCurrency = Array.from(curMap.entries())
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.revenue - a.revenue);
 
     return {
       range: { from: fromIso, to: toIso },
@@ -161,9 +172,13 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
       byPlan,
       byAccess,
       byProvider,
+      byCurrency,
       methodOptions,
+      gatewayOptions,
+      currencyOptions,
     };
   });
+
 
 // ---------- Customer Growth ----------
 
