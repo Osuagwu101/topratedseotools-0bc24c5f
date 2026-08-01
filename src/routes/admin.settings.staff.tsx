@@ -32,7 +32,7 @@ const staffQuery = queryOptions({
   queryKey: ["admin-staff"],
   queryFn: () => listStaff(),
 });
-const ctxQuery = queryOptions({
+export const ctxQuery = queryOptions({
   queryKey: ["admin-my-context"],
   queryFn: () => getMyAdminContext(),
 });

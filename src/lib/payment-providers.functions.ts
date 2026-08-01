@@ -330,23 +330,34 @@ async function runConnectionTest(p: any): Promise<{ ok: boolean; message: string
       if (!secret) {
         msg = "Flutterwave secret key is not set.";
       } else {
-        // Authenticated endpoint: rejects an invalid/incorrect secret key.
-        const res = await fetch("https://api.flutterwave.com/v3/subaccounts?page=1", {
+        // Merchant-account probe only. We do NOT use subaccounts, split
+        // payments or revenue sharing, so an empty-resource response
+        // ("Subaccounts not found", "No transactions") must never fail the
+        // test — only an authentication/authorisation rejection does.
+        const res = await fetch("https://api.flutterwave.com/v3/transactions?page=1", {
           headers: { Authorization: `Bearer ${secret}` },
         });
-        const body = (await res.json()) as { status?: string; message?: string };
-        ok = res.ok && body.status === "success";
+        const body = (await res.json().catch(() => ({}))) as { status?: string; message?: string };
+        const authFailed =
+          res.status === 401 ||
+          res.status === 403 ||
+          /authorization|unauthori|invalid.*(key|token)|token.*(expired|invalid)/i.test(
+            body.message ?? "",
+          );
+        ok = !authFailed && res.status < 500;
         if (ok) {
           const extras: string[] = [];
+          if (!process.env.FLUTTERWAVE_PUBLIC_KEY) extras.push("public key missing");
           if (!process.env.FLUTTERWAVE_WEBHOOK_HASH) extras.push("webhook hash missing");
           if (!process.env.FLUTTERWAVE_ENCRYPTION_KEY) extras.push("encryption key missing");
           msg = extras.length
             ? `Credentials valid (${extras.join(", ")})`
-            : "Connection successful";
+            : "Connection successful — merchant account reachable";
         } else {
           msg = body.message ?? `HTTP ${res.status}`;
         }
       }
+
     } else if (p.slug === "monnify") {
       const apiKey = process.env.MONNIFY_API_KEY;
       const secretKey = process.env.MONNIFY_SECRET_KEY;
