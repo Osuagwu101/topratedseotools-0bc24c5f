@@ -182,6 +182,7 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
+    await loadGatewaySecrets(admin, true);
     const { data: existingRow } = await admin
       .from("payment_providers")
       .select("id, config")
@@ -191,6 +192,28 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
       ...(((existingRow as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>),
       ...(data.config ?? {}),
     };
+
+    // A gateway can only be enabled for checkout once its credentials exist and
+    // the gateway itself accepts them.
+    if (data.enabled) {
+      const known = KNOWN[data.slug];
+      if (known) {
+        const missing = missingSecrets(known.required_env);
+        for (const f of known.config_fields) {
+          if (f.required && !mergedConfig[f.key]) missing.push(f.label);
+        }
+        if (missing.length) {
+          throw new Error(`Cannot enable ${known.display_name} — missing: ${missing.join(", ")}.`);
+        }
+        const test = await runConnectionTest({ slug: data.slug, config: mergedConfig });
+        if (!test.ok) {
+          throw new Error(
+            `Cannot enable ${known.display_name} — credential check failed: ${test.message}`,
+          );
+        }
+      }
+    }
+
     const patch = {
       slug: data.slug,
       display_name: data.display_name,
