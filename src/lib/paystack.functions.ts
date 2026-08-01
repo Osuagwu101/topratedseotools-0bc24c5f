@@ -554,11 +554,13 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             exchange_rate:
               ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
             converted_amount:
-              chargedAmount -
+              displayAmount -
               (Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0),
             international_fee_amount:
               Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0,
             final_amount: chargedAmount,
+            display_currency: displayCurrency,
+            display_amount: displayAmount,
             payment_status: "successful",
             payment_type: isOneTime ? "one_time" : "recurring_subscription",
             classification: isOneTime ? "one_time" : "initial",
