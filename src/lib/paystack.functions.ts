@@ -622,8 +622,9 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
           tool: orderFull?.tool_slug ?? "your tool",
           access_type: orderFull?.access_type ?? "shared",
           billing_period: orderFull?.billing_period ?? "monthly",
-          amount: chargedAmount,
-          currency: chargedCurrency,
+          // Customer-facing emails always show the currency the customer chose.
+          amount: displayAmount,
+          currency: displayCurrency,
           reference: tx.reference,
           dashboard_url: "https://topratedseotools.com/dashboard",
           ...extra,
