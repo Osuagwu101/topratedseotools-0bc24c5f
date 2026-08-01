@@ -72,8 +72,9 @@ function PaymentProvidersPage() {
   async function save() {
     if (!editing) return;
     setBusy("save");
+    const wasNew = !editing.id;
     try {
-      await upsert({
+      const res = await upsert({
         data: {
           id: editing.id,
           slug: (editing.slug ?? "").toLowerCase().trim(),
@@ -89,14 +90,16 @@ function PaymentProvidersPage() {
       });
 
       toast.success("Provider saved");
-      setEditing(null);
       await router.invalidate();
+      // Keep the form open on a brand-new provider so credentials can be added.
+      setEditing(wasNew && res?.provider ? (res.provider as PaymentProviderRow) : null);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setBusy(null);
     }
   }
+
 
   async function runTest(id: string) {
     setBusy(`test:${id}`);
