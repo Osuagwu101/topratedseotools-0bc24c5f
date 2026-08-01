@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { Search, TrendingDown, Users, Lock } from "lucide-react";
+import { Search, Users, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
@@ -12,11 +12,8 @@ import {
   type AccessType,
 } from "@/lib/tool-pricing.functions";
 import { listToolSettings, type ToolSetting } from "@/lib/access.functions";
+import { formatBaseMonthly } from "@/lib/base-pricing";
 import {
-  billingPeriodLabel,
-  computeQuarterlySaving,
-  computeYearlySaving,
-  computeYearlyVsQuarterlySaving,
   getBillingKind,
   normaliseBillingKind,
 } from "@/lib/currency";
@@ -249,26 +246,6 @@ function PricingPage() {
   );
 }
 
-/** Lowest-price hint for the compact catalogue card. */
-function lowestPlan(bucket: AccessBucket): {
-  opt: ToolPricingOption;
-  period: Period;
-} | null {
-  const candidates: Array<{ opt: ToolPricingOption; period: Period }> = [];
-  if (bucket.monthly) candidates.push({ opt: bucket.monthly, period: "monthly" });
-  if (bucket.quarterly) candidates.push({ opt: bucket.quarterly, period: "quarterly" });
-  if (bucket.yearly) candidates.push({ opt: bucket.yearly, period: "yearly" });
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => Number(a.opt.amount ?? 0) - Number(b.opt.amount ?? 0));
-  return candidates[0];
-}
-
-function periodSuffix(p: Period): string {
-  if (p === "monthly") return "/month";
-  if (p === "quarterly") return "/quarter";
-  return "/year";
-}
-
 function ToolPricingCard({
   group,
   tool,
@@ -345,118 +322,6 @@ function ToolPricingCard({
     </div>
   );
 }
-
-function AccessMini({
-  title,
-  icon,
-  bucket,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  bucket: AccessBucket;
-}) {
-  const money = useMoney();
-  const qSave = computeQuarterlySaving(
-    bucket.monthly?.amount,
-    bucket.quarterly?.amount,
-  );
-  const ySaveFromM = computeYearlySaving(
-    bucket.monthly?.amount,
-    bucket.yearly?.amount,
-  );
-  const ySaveFromQ =
-    !bucket.monthly && bucket.quarterly && bucket.yearly
-      ? computeYearlyVsQuarterlySaving(bucket.quarterly.amount, bucket.yearly.amount)
-      : null;
-
-  return (
-    <div className="rounded-lg border bg-background/40 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {title}
-      </div>
-      <ul className="space-y-1.5">
-        {bucket.monthly ? (
-          <PlanLine opt={bucket.monthly} label="Monthly" />
-        ) : null}
-        {bucket.quarterly ? (
-          <PlanLine
-            opt={bucket.quarterly}
-            label="Quarterly"
-            savingBadge={
-              qSave
-                ? `Save ${money.fmt(qSave.amount)}`
-                : null
-            }
-          />
-        ) : null}
-        {bucket.yearly ? (
-          <PlanLine
-            opt={bucket.yearly}
-            label="Yearly"
-            savingBadge={
-              ySaveFromM
-                ? `Save ${money.fmt(ySaveFromM.amount)}`
-                : ySaveFromQ
-                  ? `Save ${money.fmt(ySaveFromQ.amount)}`
-                  : null
-            }
-          />
-        ) : null}
-        {bucket.other.map((o) => (
-          <PlanLine key={o.id} opt={o} label={o.label ?? "Standard"} />
-        ))}
-      </ul>
-      {qSave || ySaveFromM || ySaveFromQ ? (
-        <p className="mt-2 flex items-center gap-1 text-[11px] text-success">
-          <TrendingDown className="h-3 w-3" />
-          {ySaveFromM
-            ? `Save ${money.fmt(ySaveFromM.amount)} yearly`
-            : ySaveFromQ
-              ? `Save ${money.fmt(ySaveFromQ.amount)} compared with four quarterly payments`
-              : qSave
-                ? `Save ${money.fmt(qSave.amount)} every quarter`
-                : ""}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function PlanLine({
-  opt,
-  label,
-  savingBadge,
-}: {
-  opt: ToolPricingOption;
-  label: string;
-  savingBadge?: string | null;
-}) {
-  const money = useMoney();
-  return (
-    <li className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-muted-foreground">
-        {label}
-        {opt.badge ? (
-          <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-            {opt.badge}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex items-baseline gap-2">
-        {savingBadge ? (
-          <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-            {savingBadge}
-          </span>
-        ) : null}
-        <span className="text-sm font-semibold">{money.plan(opt)}</span>
-      </span>
-    </li>
-  );
-}
-
-// Silence "unused" warning for the shared label helper in some builds.
-void billingPeriodLabel;
 
 function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
   const money = useMoney();
