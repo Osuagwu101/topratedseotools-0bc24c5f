@@ -27,6 +27,13 @@ export interface TransactionRow {
   tool_slug: string;
   amount: number | null;
   currency: string;
+  /** Multi-currency columns (null on legacy NGN-only rows). */
+  payment_currency?: string | null;
+  base_amount_ngn?: number | null;
+  exchange_rate?: number | null;
+  converted_amount?: number | null;
+  international_fee_amount?: number | null;
+  final_amount?: number | null;
   payment_status: PaymentStatus;
   payment_type: string;
   classification: string;

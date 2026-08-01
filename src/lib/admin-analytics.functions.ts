@@ -133,7 +133,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
         .limit(2000),
       admin
         .from("tool_payments")
-        .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, payment_status, paid_at, created_at, source")
+        .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, base_amount_ngn, payment_currency, payment_status, paid_at, created_at, source")
         .order("created_at", { ascending: false })
         .limit(5000),
     ]);
@@ -149,6 +149,10 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     );
 
     const successful = payments.filter((p) => p.payment_status === "successful");
+    // Revenue is always reported in NGN: international rows store the NGN base
+    // price in `base_amount_ngn` while `amount` holds the charged FX amount.
+    const ngnAmount = (r: { amount?: number | null; base_amount_ngn?: number | null }) =>
+      Number(r.base_amount_ngn ?? r.amount ?? 0) || 0;
     const uniqueBuyerSet = new Set(successful.map((p) => p.user_id as string));
 
     // ---- cards ----
@@ -169,7 +173,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
 
     // ---- revenue ----
     const sum = (rows: typeof successful, pred?: (r: (typeof successful)[number]) => boolean) =>
-      rows.reduce((acc, r) => (pred && !pred(r) ? acc : acc + Number(r.amount ?? 0)), 0);
+      rows.reduce((acc, r) => (pred && !pred(r) ? acc : acc + ngnAmount(r)), 0);
     const paidAtDate = (r: (typeof successful)[number]) =>
       new Date((r.paid_at as string) ?? (r.created_at as string));
     const revenue = {
@@ -243,7 +247,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     for (const p of successful) {
       const slug = p.tool_slug as string;
       const t = toolMap.get(slug) ?? { purchases: 0, active: 0, revenue: 0 };
-      t.revenue += Number(p.amount ?? 0);
+      t.revenue += ngnAmount(p);
       toolMap.set(slug, t);
     }
     const topTools = Array.from(toolMap.entries())
@@ -289,7 +293,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       const at = (p.paid_at as string) ?? (p.created_at as string);
       const i = bucket(at);
       if (i < 0) continue;
-      const amt = Number(p.amount ?? 0);
+      const amt = ngnAmount(p);
       revenueTotal[i] += amt;
       if (p.payment_type === "recurring_subscription") revenueRecurring[i] += amt;
       else revenueOneTime[i] += amt;
@@ -349,7 +353,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
           at: (p.paid_at as string) ?? (p.created_at as string),
           kind: p.classification === "renewal" ? "renewal_success" : "purchase",
           label: p.classification === "renewal" ? "Successful renewal" : "Successful purchase",
-          detail: `${p.tool_slug} · ₦${Number(p.amount ?? 0).toLocaleString()}`,
+          detail: `${p.tool_slug} · ₦${ngnAmount(p).toLocaleString()}`,
           orderId: (p.order_id as string) ?? null,
           userId: p.user_id as string,
         });
@@ -437,7 +441,7 @@ export const listPlatformCustomers = createServerFn({ method: "POST" })
         .in("status", ["approved", "pending", "cancelled", "rejected", "expired"]),
       admin
         .from("tool_payments")
-        .select("user_id, amount, payment_status, paid_at, created_at"),
+        .select("user_id, amount, base_amount_ngn, payment_status, paid_at, created_at"),
     ]);
 
     const profiles = profilesRes.data ?? [];
@@ -461,7 +465,7 @@ export const listPlatformCustomers = createServerFn({ method: "POST" })
       const at = (p.paid_at as string) ?? (p.created_at as string);
       const cur = succByUser.get(uid) ?? { count: 0, total: 0, last: null };
       cur.count += 1;
-      cur.total += Number(p.amount ?? 0);
+      cur.total += Number(p.base_amount_ngn ?? p.amount ?? 0) || 0;
       if (!cur.last || new Date(at) > new Date(cur.last)) cur.last = at;
       succByUser.set(uid, cur);
     }

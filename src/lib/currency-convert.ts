@@ -121,3 +121,12 @@ export function formatRateHint(currency: SupportedCurrency, rate: number): strin
   });
   return `1 NGN = ${shown} ${currency}`;
 }
+
+/**
+ * Tolerant formatter for stored payment rows: falls back to NGN when the
+ * currency column is empty or holds an unsupported code.
+ */
+export function formatAnyMoney(amount: number | null | undefined, currency?: string | null): string {
+  const code = isSupportedCurrency((currency ?? "").toUpperCase()) ? ((currency as string).toUpperCase() as SupportedCurrency) : "NGN";
+  return formatMoney(Number(amount ?? 0), code);
+}
