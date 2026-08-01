@@ -15,6 +15,7 @@ import {
 } from "@/lib/transactions.functions";
 import { RECEIPT_STATUS_LABEL, type PaymentStatus } from "@/lib/transaction-status";
 import { getTool } from "@/lib/tools-data";
+import { formatAnyMoney } from "@/lib/currency-convert";
 import { Search, RefreshCw, Flag, Copy } from "lucide-react";
 
 const txQuery = queryOptions({

@@ -7,6 +7,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { listMyTransactions } from "@/lib/transactions.functions";
 import { RECEIPT_STATUS_LABEL, type PaymentStatus } from "@/lib/transaction-status";
 import { getTool } from "@/lib/tools-data";
+import { formatAnyMoney } from "@/lib/currency-convert";
 import { Receipt, ExternalLink } from "lucide-react";
 
 const txQuery = queryOptions({
