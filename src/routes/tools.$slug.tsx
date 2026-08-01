@@ -318,7 +318,7 @@ function SubscriptionCard({
                 ) : (
                   <Lock className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span>{line.text}</span>
+                <span>{`${line.title} from ${money.fmt(line.amount)}/month`}</span>
               </div>
             ))}
           </div>
