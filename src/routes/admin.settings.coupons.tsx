@@ -16,7 +16,9 @@ import {
 } from "@/lib/coupons.functions";
 import type { CouponRow } from "@/lib/coupons";
 import { TOOLS } from "@/lib/tools-data";
-import { formatNaira } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
+
+const formatNaira = (n: number) => formatCurrency(n, "₦");
 
 const couponsQuery = queryOptions({
   queryKey: ["admin-coupons"],
@@ -362,7 +364,7 @@ function CouponsAdmin() {
                       {[c.tool_slug ?? "All tools", c.access_type ?? "any access", c.billing_period ?? "any period"].join(" · ")}
                     </td>
                     <td className="px-4 py-3">
-                      {c.times_redeemed ?? 0}
+                      {c.redemptions_count ?? 0}
                       {c.max_redemptions ? ` / ${c.max_redemptions}` : ""}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
