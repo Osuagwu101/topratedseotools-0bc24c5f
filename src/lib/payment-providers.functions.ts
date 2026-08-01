@@ -14,10 +14,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
 import { loadGatewaySecrets, missingSecrets, isGatewaySecretName } from "@/lib/gateways/secrets.server";
-import {
-  recordProviderTestResult,
-  runProviderConnectionTest,
-} from "@/lib/gateways/provider-validation.server";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -214,6 +210,9 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
         if (missing.length) {
           throw new Error(`Cannot enable ${known.display_name} — missing: ${missing.join(", ")}.`);
         }
+        const { runProviderConnectionTest } = await import(
+          "@/lib/gateways/provider-validation.server"
+        );
         const test = await runProviderConnectionTest({ slug: data.slug, config: mergedConfig });
         if (!test.ok) {
           throw new Error(
@@ -286,6 +285,9 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
         throw new Error(`Cannot activate ${known.display_name} — missing: ${missing.join(", ")}.`);
       }
       // Never activate on credentials the gateway itself rejects.
+      const { recordProviderTestResult, runProviderConnectionTest } = await import(
+        "@/lib/gateways/provider-validation.server"
+      );
       const test = await runProviderConnectionTest(target);
       await recordProviderTestResult(admin, data.id, test);
       if (!test.ok) {
@@ -321,6 +323,9 @@ export const adminTestProviderConnection = createServerFn({ method: "POST" })
     const { data: p } = await admin.from("payment_providers").select("*").eq("id", data.id).maybeSingle();
     if (!p) throw new Error("Provider not found");
 
+    const { recordProviderTestResult, runProviderConnectionTest } = await import(
+      "@/lib/gateways/provider-validation.server"
+    );
     const r = await runProviderConnectionTest(p);
     await recordProviderTestResult(admin, data.id, r);
     await logAdminActivity(context, {
@@ -372,6 +377,9 @@ export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     await loadGatewaySecrets(admin, true);
 
+    const { recordProviderTestResult, runProviderConnectionTest } = await import(
+      "@/lib/gateways/provider-validation.server"
+    );
     const r = await runProviderConnectionTest(p);
     await recordProviderTestResult(admin, data.id, r);
     await logAdminActivity(context, {
