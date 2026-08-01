@@ -232,7 +232,7 @@ function Home() {
                   <div className="space-y-1">
                     {baseLines.map((line) => (
                       <div key={line.access} className="text-sm font-semibold">
-                        {line.text}
+                        {`${line.title} from ${money.fmt(line.amount)}/month`}
                       </div>
                     ))}
                   </div>

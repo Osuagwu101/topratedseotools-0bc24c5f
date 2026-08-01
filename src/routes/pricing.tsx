@@ -12,7 +12,6 @@ import {
   type AccessType,
 } from "@/lib/tool-pricing.functions";
 import { listToolSettings, type ToolSetting } from "@/lib/access.functions";
-import { formatBaseMonthly } from "@/lib/base-pricing";
 import {
   getBillingKind,
   normaliseBillingKind,
@@ -247,6 +246,7 @@ function ToolPricingCard({
   group: GroupedTool;
   tool: ReturnType<typeof getTool> & object;
 }) {
+  const money = useMoney();
   // Public catalogue shows base monthly pricing only — no billing periods,
   // savings badges or currency adjustment. Full plan matrix lives behind
   // "View Plans" on the tool page.
@@ -254,13 +254,13 @@ function ToolPricingCard({
     group.shared.monthly
       ? {
           access: "shared" as const,
-          text: `Shared access from ${formatBaseMonthly(Number(group.shared.monthly.amount), group.shared.monthly.currency)}`,
+          text: `Shared access from ${money.fmt(Number(group.shared.monthly.amount))}/month`,
         }
       : null,
     group.private.monthly
       ? {
           access: "private" as const,
-          text: `Private access from ${formatBaseMonthly(Number(group.private.monthly.amount), group.private.monthly.currency)}`,
+          text: `Private access from ${money.fmt(Number(group.private.monthly.amount))}/month`,
         }
       : null,
   ].filter(Boolean) as Array<{ access: "shared" | "private"; text: string }>;

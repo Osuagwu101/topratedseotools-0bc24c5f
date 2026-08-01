@@ -277,6 +277,7 @@ function SubscriptionCard({
       }
     | undefined;
 }) {
+  const money = useMoney();
   const [showPlans, setShowPlans] = useState(false);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
@@ -318,7 +319,7 @@ function SubscriptionCard({
                 ) : (
                   <Lock className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span>{line.text}</span>
+                <span>{`${line.title} from ${money.fmt(line.amount)}/month`}</span>
               </div>
             ))}
           </div>

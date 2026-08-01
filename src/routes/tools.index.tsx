@@ -9,6 +9,7 @@ import { listToolPricing } from "@/lib/tool-pricing.functions";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/tools/")({
 });
 
 function ToolsDirectory() {
+  const money = useMoney();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);
@@ -164,7 +166,7 @@ function ToolsDirectory() {
                   {(baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
                     (baseLinesByTool.get(t.slug) ?? []).map((line) => (
                       <div key={line.access} className="font-semibold text-foreground">
-                        {line.text}
+                        {`${line.title} from ${money.fmt(line.amount)}/month`}
                       </div>
                     ))
                   ) : (
