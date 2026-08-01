@@ -281,6 +281,9 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .update({
         paystack_reference: init.reference,
         paystack_plan_code: planCode,
+        payment_gateway: gateway.slug,
+        gateway_transaction_reference: init.gateway_reference,
+
         access_type: snapshot.access_type,
         billing_period: snapshot.billing_period,
         price_amount: snapshot.price_amount,
