@@ -276,7 +276,7 @@ async function findOrder(i: DispatchInput) {
   const q = i.supabaseAdmin
     .from("tool_orders")
     .select(
-      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, discounted_amount_ngn",
+      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, display_currency, display_amount, coupon_code, discount_amount_ngn, discounted_amount_ngn",
     );
   const { data } = i.orderId
     ? await q.eq("id", i.orderId).maybeSingle()
