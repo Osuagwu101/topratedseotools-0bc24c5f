@@ -110,16 +110,50 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // Multi-currency: server re-validates chosen currency + recomputes the
-    // breakdown from DB rates. Never trusts client-supplied amounts.
+    // Coupons: NGN is the source of truth. The code is re-resolved here and
+    // the discount is fed into buildPricingBreakdown, so the discounted NGN
+    // base flows through conversion + the international adjustment exactly
+    // like the price shown to the customer.
     const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
     const { buildPricingBreakdown } = await import("@/lib/currency-convert");
+
+    let discount: { type: "percent" | "amount"; value: number; code: string } | null = null;
+    let couponId: string | null = null;
+    if (data.coupon_code) {
+      if (isRecurring) {
+        throw new Error(
+          "Coupon codes apply to one-time payments only. Choose One-Time Payment to use your coupon.",
+        );
+      }
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { resolveCouponForCheckout } = await import("@/lib/coupons.server");
+      const { couponRejectionMessage } = await import("@/lib/coupons");
+      const resolved = await resolveCouponForCheckout(supabaseAdmin, {
+        code: data.coupon_code,
+        userId: context.userId,
+        tool_slug: snapshot.tool_slug,
+        access_type: snapshot.access_type,
+        billing_period: snapshot.billing_period,
+        base_amount_ngn: snapshot.price_amount,
+      });
+      if (!resolved.ok) throw new Error(couponRejectionMessage(resolved.reason));
+      discount = {
+        type: resolved.discount.type,
+        value: resolved.discount.value,
+        code: resolved.discount.code as string,
+      };
+      couponId = resolved.coupon.id;
+    }
+
+    // Multi-currency: server re-validates chosen currency + recomputes the
+    // breakdown from DB rates. Never trusts client-supplied amounts.
     let currencyBreakdown = buildPricingBreakdown({
       ngn: snapshot.price_amount,
       currency: "NGN",
       rate: 1,
       surchargePercent: 0,
       surchargeEnabled: false,
+      discount,
     });
     if (chosenCurrency !== "NGN") {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -153,8 +187,13 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         rate,
         surchargePercent: Number(settings.surcharge_percent ?? 3),
         surchargeEnabled: !!settings.surcharge_enabled,
+        discount,
       });
     }
+    if (currencyBreakdown.minor_units_amount <= 0) {
+      throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
+    }
+
 
     let planCode: string | null = null;
     if (isRecurring) {
