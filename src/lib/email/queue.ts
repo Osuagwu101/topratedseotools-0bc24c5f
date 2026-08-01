@@ -141,10 +141,13 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
       replyTo: settings.reply_to_email,
       subject,
       html,
+      // Resend only accepts ASCII letters, numbers, underscores and dashes in
+      // tag values — event keys contain ':' and other separators, so sanitize.
       tags: [
-        { name: "template", value: row.template_key },
-        { name: "event", value: row.event_key.slice(0, 60) },
+        { name: "template", value: sanitizeTagValue(row.template_key) },
+        { name: "event", value: sanitizeTagValue(row.event_key).slice(0, 60) },
       ],
+
     });
     await admin
       .from("email_messages")
