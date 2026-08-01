@@ -102,8 +102,13 @@ function ReceiptPage() {
             <Field label="Tool">{tool?.name ?? t.tool_slug}</Field>
             <Field label="Access type">{t.access_type ?? "—"}</Field>
             <Field label="Billing period">{t.billing_period ?? "—"}</Field>
-            <Field label="Amount">{formatAnyMoney(t.final_amount ?? t.amount, t.payment_currency)}</Field>
-            <Field label="Currency">{t.payment_currency ?? "NGN"}</Field>
+            <Field label="Amount">
+              {formatAnyMoney(
+                t.display_amount ?? t.final_amount ?? t.amount,
+                t.display_currency ?? t.payment_currency,
+              )}
+            </Field>
+            <Field label="Currency">{t.display_currency ?? t.payment_currency ?? "NGN"}</Field>
             <Field label="Payment channel">{t.payment_channel ?? "—"}</Field>
             <Field label="Paid at">
               {t.paid_at ? new Date(t.paid_at).toLocaleString() : "—"}
