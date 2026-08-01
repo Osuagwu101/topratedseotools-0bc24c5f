@@ -53,31 +53,18 @@ function ToolsDirectory() {
       ),
     [overrideBySlug],
   );
-  const money = useMoney();
-  const priceByTool = useMemo(() => {
+  const baseLinesByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();
     for (const opt of pricing.options) {
-      if (!opt.enabled) continue;
       const arr = bySlug.get(opt.tool_slug) ?? [];
       arr.push(opt);
       bySlug.set(opt.tool_slug, arr);
     }
-    const m = new Map<string, ReturnType<typeof formatPrice>>();
-    for (const [slug, opts] of bySlug) {
-      const paid = opts.filter((o) => !o.contact_admin && o.amount != null);
-      const chosen =
-        paid.sort((a, b) => Number(a.amount ?? 0) - Number(b.amount ?? 0))[0] ??
-        opts[0];
-      if (chosen)
-        m.set(
-          slug,
-          chosen.contact_admin || chosen.amount == null
-            ? formatPrice(chosen)
-            : money.plan(chosen),
-        );
-    }
+    const m = new Map<string, ReturnType<typeof baseMonthlyLines>>();
+    for (const [slug, opts] of bySlug) m.set(slug, baseMonthlyLines(opts));
     return m;
-  }, [pricing.options, money]);
+  }, [pricing.options]);
+
 
 
 
