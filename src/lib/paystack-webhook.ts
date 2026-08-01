@@ -30,7 +30,21 @@ export interface WebhookDeps {
   secret: string | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any;
+  /**
+   * Non-Paystack gateway (Flutterwave, Monnify). When supplied, the adapter
+   * verifies the signature and maps its payload onto the Paystack event
+   * vocabulary, so order completion, access assignment, emails and
+   * idempotency stay identical across gateways.
+   */
+  adapter?: {
+    slug: string;
+    environment(): Env | null;
+    verifyWebhook(raw: string, headers: Headers): boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    normalizeWebhook(payload: unknown): { event: string; data: any } | null;
+  };
 }
+
 
 export function detectEnvironmentStrict(secret: string): Env | null {
   if (secret.startsWith("sk_test_")) return "test";
