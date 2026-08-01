@@ -13,12 +13,11 @@ import {
   computeQuarterlySaving,
   computeYearlySaving,
   computeYearlyVsQuarterlySaving,
-  formatCurrency,
-  formatPlanPrice,
   getBillingKind,
   normaliseBillingKind,
   renewalText,
 } from "@/lib/currency";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -341,6 +340,7 @@ function AccessSection({
   icon: React.ReactNode;
   bucket: AccessBucket;
 }) {
+  const money = useMoney();
   const qSave = computeQuarterlySaving(bucket.monthly?.amount, bucket.quarterly?.amount);
   const ySave = computeYearlySaving(bucket.monthly?.amount, bucket.yearly?.amount);
   const yFromQ =
@@ -435,6 +435,7 @@ function PlanTile({
   savingText?: string | null;
   monthlyEquivalent?: string | null;
 }) {
+  const money = useMoney();
   const kind = getBillingKind(opt);
   const billing = billingDescription(kind);
   const renewal = renewalText(kind);
@@ -496,6 +497,7 @@ function PlanTile({
  * place the order.
  */
 function PerUsePanel({ tool }: { tool: Tool }) {
+  const money = useMoney();
   const perUse = tool.perUse!;
   const { data: siteSettings } = useQuery({
     queryKey: ["public-site-settings"],
@@ -560,6 +562,7 @@ function QuantityCalculator({
 }: {
   perUse: NonNullable<Tool["perUse"]>;
 }) {
+  const money = useMoney();
   const currency = perUse.currency || "₦";
   const [qty, setQty] = useStateNumber(1);
   const total = Math.max(0, qty) * perUse.amount;

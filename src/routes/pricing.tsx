@@ -17,11 +17,10 @@ import {
   computeQuarterlySaving,
   computeYearlySaving,
   computeYearlyVsQuarterlySaving,
-  formatCurrency,
-  formatPlanPrice,
   getBillingKind,
   normaliseBillingKind,
 } from "@/lib/currency";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -277,6 +276,7 @@ function ToolPricingCard({
   group: GroupedTool;
   tool: ReturnType<typeof getTool> & object;
 }) {
+  const money = useMoney();
   const sharedHas = bucketHasAny(group.shared);
   const privateHas = bucketHasAny(group.private);
   const lowestShared = sharedHas ? lowestPlan(group.shared) : null;
@@ -362,6 +362,7 @@ function AccessMini({
   icon: React.ReactNode;
   bucket: AccessBucket;
 }) {
+  const money = useMoney();
   const qSave = computeQuarterlySaving(
     bucket.monthly?.amount,
     bucket.quarterly?.amount,
@@ -438,6 +439,7 @@ function PlanLine({
   label: string;
   savingBadge?: string | null;
 }) {
+  const money = useMoney();
   return (
     <li className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-muted-foreground">
@@ -464,6 +466,7 @@ function PlanLine({
 void billingPeriodLabel;
 
 function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
+  const money = useMoney();
   const perUse = tool.perUse!;
   const currency = perUse.currency || "₦";
   return (
