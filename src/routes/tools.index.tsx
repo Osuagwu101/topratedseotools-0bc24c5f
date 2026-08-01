@@ -5,8 +5,8 @@ import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
-import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
-import { useMoney } from "@/components/currency/CurrencyProvider";
+import { listToolPricing } from "@/lib/tool-pricing.functions";
+import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 
