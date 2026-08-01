@@ -12,6 +12,13 @@ import { isResendConfigured, resendSendEmail, ResendError } from "./resend";
 const MAX_ATTEMPTS = 5;
 const BACKOFF_MINUTES = [5, 30, 120, 600, 1440];
 
+/** Resend tag values allow only ASCII letters, numbers, underscores and dashes. */
+export function sanitizeTagValue(value: string): string {
+  const cleaned = (value ?? "").replace(/[^A-Za-z0-9_-]/g, "-").replace(/-{2,}/g, "-");
+  return cleaned.replace(/^-+|-+$/g, "") || "unknown";
+}
+
+
 export interface QueueEmailInput {
   eventKey: string;
   templateKey: string;
@@ -141,10 +148,13 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
       replyTo: settings.reply_to_email,
       subject,
       html,
+      // Resend only accepts ASCII letters, numbers, underscores and dashes in
+      // tag values — event keys contain ':' and other separators, so sanitize.
       tags: [
-        { name: "template", value: row.template_key },
-        { name: "event", value: row.event_key.slice(0, 60) },
+        { name: "template", value: sanitizeTagValue(row.template_key) },
+        { name: "event", value: sanitizeTagValue(row.event_key).slice(0, 60) },
       ],
+
     });
     await admin
       .from("email_messages")
