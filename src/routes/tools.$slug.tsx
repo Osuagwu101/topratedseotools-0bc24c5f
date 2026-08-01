@@ -366,12 +366,12 @@ function AccessSection({
 
             badge={
               qSave
-                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")}`
+                ? `Save ${money.fmt(qSave.amount)}`
                 : null
             }
             savingText={
               qSave
-                ? `Save ${formatCurrency(qSave.amount, bucket.quarterly.currency || "₦")} compared with three monthly payments`
+                ? `Save ${money.fmt(qSave.amount)} compared with three monthly payments`
                 : null
             }
           />
@@ -384,23 +384,22 @@ function AccessSection({
 
             badge={
               ySave
-                ? `Save ${formatCurrency(ySave.amount, bucket.yearly.currency || "₦")}`
+                ? `Save ${money.fmt(ySave.amount)}`
                 : yFromQ
-                  ? `Save ${formatCurrency(yFromQ.amount, bucket.yearly.currency || "₦")}`
+                  ? `Save ${money.fmt(yFromQ.amount)}`
                   : null
             }
             savingText={
               ySave
-                ? `Save ${formatCurrency(ySave.amount, bucket.yearly.currency || "₦")} yearly compared with monthly billing`
+                ? `Save ${money.fmt(ySave.amount)} yearly compared with monthly billing`
                 : yFromQ
-                  ? `Save ${formatCurrency(yFromQ.amount, bucket.yearly.currency || "₦")} compared with four quarterly payments`
+                  ? `Save ${money.fmt(yFromQ.amount)} compared with four quarterly payments`
                   : null
             }
             monthlyEquivalent={
               ySave || yFromQ
-                ? `Equivalent to approximately ${formatCurrency(
+                ? `Equivalent to approximately ${money.fmt(
                     Math.round(Number(bucket.yearly.amount) / 12),
-                    bucket.yearly.currency || "₦",
                   )} per month`
                 : null
             }
@@ -456,8 +455,8 @@ function PlanTile({
           ) : null}
         </div>
         <div className="text-right">
-          <div className="text-base font-bold" aria-label={formatPlanPrice(opt)}>
-            {formatPlanPrice(opt)}
+          <div className="text-base font-bold" aria-label={money.plan(opt)}>
+            {money.plan(opt)}
           </div>
           {billing ? (
             <div className="text-[11px] text-muted-foreground">{billing}</div>
@@ -505,7 +504,7 @@ function PerUsePanel({ tool }: { tool: Tool }) {
   });
   const whatsapp = (siteSettings?.adminWhatsappNumber ?? "").replace(/\D/g, "");
   const currency = perUse.currency || "₦";
-  const perUnit = formatCurrency(perUse.amount, currency);
+  const perUnit = money.fmt(perUse.amount);
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
@@ -578,9 +577,9 @@ function QuantityCalculator({
           className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
         />
         <div className="text-sm text-muted-foreground">
-          × {formatCurrency(perUse.amount, currency)} ={" "}
+          × {money.fmt(perUse.amount)} ={" "}
           <span className="text-base font-bold text-foreground">
-            {formatCurrency(total, currency)}
+            {money.fmt(total)}
           </span>
         </div>
       </div>
