@@ -57,12 +57,16 @@ function AnalyticsPage() {
   const [to, setTo] = useState<string>(defaultTo());
   const [toolFilter, setToolFilter] = useState<string>("");
   const [methodFilter, setMethodFilter] = useState<string>("");
+  const [gatewayFilter, setGatewayFilter] = useState<string>("");
+  const [currencyFilter, setCurrencyFilter] = useState<string>("");
 
   const rangePayload = {
     from: new Date(from + "T00:00:00Z").toISOString(),
     to: new Date(to + "T23:59:59Z").toISOString(),
     tool_slug: toolFilter || undefined,
     payment_method: methodFilter || undefined,
+    gateway: gatewayFilter || undefined,
+    payment_currency: currencyFilter || undefined,
   };
 
   const revenue = useQuery({
@@ -70,9 +74,16 @@ function AnalyticsPage() {
     queryFn: () => getRevenueAnalytics({ data: rangePayload }),
   });
   const customers = useQuery({
-    queryKey: ["analytics-customers", { from: rangePayload.from, to: rangePayload.to }],
+    queryKey: ["analytics-customers", rangePayload],
     queryFn: () =>
-      getCustomerAnalytics({ data: { from: rangePayload.from, to: rangePayload.to } }),
+      getCustomerAnalytics({
+        data: {
+          from: rangePayload.from,
+          to: rangePayload.to,
+          gateway: rangePayload.gateway,
+          payment_currency: rangePayload.payment_currency,
+        },
+      }),
   });
   const tools = useQuery({
     queryKey: ["analytics-tools"],
@@ -86,7 +97,15 @@ function AnalyticsPage() {
   async function downloadCsv(report: "revenue" | "customers" | "orders") {
     try {
       const res = await exportAnalyticsCsv({
-        data: { report, from: rangePayload.from, to: rangePayload.to },
+        data: {
+          report,
+          from: rangePayload.from,
+          to: rangePayload.to,
+          tool_slug: rangePayload.tool_slug,
+          payment_method: rangePayload.payment_method,
+          gateway: rangePayload.gateway,
+          payment_currency: rangePayload.payment_currency,
+        },
       });
       const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -102,6 +121,7 @@ function AnalyticsPage() {
       toast.error((e as Error).message);
     }
   }
+
 
   return (
     <AdminShell>
