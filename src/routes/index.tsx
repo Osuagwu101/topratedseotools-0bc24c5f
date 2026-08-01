@@ -5,6 +5,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { TOOLS } from "@/lib/tools-data";
 import { listToolPricing, formatPrice } from "@/lib/tool-pricing.functions";
+import { useMoney } from "@/components/currency/CurrencyProvider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
 const pricingQuery = queryOptions({
@@ -84,12 +85,13 @@ const FAQ = [
 ];
 
 function Home() {
+  const money = useMoney();
   const featured = TOOLS.filter((t) => t.featured);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
 
   const showcase = TOOLS.slice(0, 8).map((t) => {
     if (t.pricingModel === "per_use" && t.perUse) {
-      return { tool: t, price: null, perUseLabel: `₦${t.perUse.amount.toLocaleString("en-NG")} / ${t.perUse.unit}` };
+      return { tool: t, price: null, perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
     }
     const enabled = pricing.options.filter((o) => o.tool_slug === t.slug && o.enabled);
     const paid = enabled.filter((o) => !o.contact_admin && o.amount != null);
@@ -229,7 +231,7 @@ function Home() {
                   </>
                 ) : price ? (
                   <div className={price.contact_admin ? "text-sm font-medium text-primary" : "text-lg font-bold"}>
-                    {formatPrice(price)}
+                    {price.contact_admin || price.amount == null ? formatPrice(price) : money.plan(price)}
                   </div>
                 ) : (
                   <div className="text-sm font-medium text-primary">Contact admin</div>
