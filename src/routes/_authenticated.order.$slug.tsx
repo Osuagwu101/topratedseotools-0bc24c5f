@@ -443,8 +443,8 @@ function OrderPage() {
               : !chosen
                 ? "Select a plan to continue"
                 : payMode === "one_time"
-                  ? `Pay ${money.fmt(chosen.amount)} once with Paystack`
-                  : `Subscribe · ${money.fmt(chosen.amount)} with Paystack`}
+                  ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} once with Paystack`
+                  : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with Paystack`}
           </button>
 
 
