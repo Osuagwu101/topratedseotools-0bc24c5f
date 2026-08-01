@@ -24,7 +24,6 @@ import {
   computeQuarterlySaving,
   computeYearlySaving,
   computeYearlyVsQuarterlySaving,
-  formatPlanPrice,
   getBillingKind,
   normaliseBillingKind,
   renewalText,
@@ -72,6 +71,7 @@ function OrderPage() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { currency, price, config } = useCurrency();
+  const money = useMoney();
   const setting = settings.settings.find((s) => s.tool_slug === slug);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
