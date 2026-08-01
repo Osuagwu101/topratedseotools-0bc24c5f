@@ -252,27 +252,27 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       final_amount: currencyBreakdown.final_amount,
     };
 
-    // Recurring: restrict to channels Paystack supports for subscriptions.
-    // One-time: omit `channels` so every one-time channel enabled on the
-    // Paystack account (bank transfer, USSD, pay with bank, QR, etc.) shows.
-    const initBody: Record<string, unknown> = {
-      email,
-      amount: charge.payment_minor_units,
-      currency: charge.payment_currency,
-      reference,
-      callback_url: data.callback_url,
-      metadata,
-    };
+    // Recurring (Paystack): restrict to channels Paystack supports for
+    // subscriptions. One-time: omit `channels` so every one-time channel
+    // enabled on the account (bank transfer, USSD, QR, etc.) shows.
+    const extra: Record<string, unknown> = {};
     if (isRecurring && planCode) {
-      initBody.plan = planCode;
-      initBody.channels = ["card", "direct_debit"];
+      extra.plan = planCode;
+      extra.channels = ["card", "direct_debit"];
     }
 
+    const init = await gateway.adapter.initialize({
+      reference,
+      amountMinor: charge.payment_minor_units,
+      currency: charge.payment_currency,
+      email,
+      callbackUrl: data.callback_url,
+      customerName: (context.claims as { name?: string } | undefined)?.name ?? null,
+      description: `${snapshot.tool_slug} · ${snapshot.access_type} ${snapshot.billing_period}`,
+      metadata,
+      extra,
+    });
 
-    const init = await paystack<{ authorization_url: string; access_code: string; reference: string }>(
-      "/transaction/initialize",
-      { method: "POST", body: JSON.stringify(initBody) },
-    );
 
     const fulfilment = snapshot.access_type === "private" ? "pending" : "not_required";
 
