@@ -44,7 +44,8 @@ describe("localized display rounding + checkout parity", () => {
   it("stored breakdown keeps every reporting field", () => {
     const b = buildPricingBreakdown({ ngn: 8500, currency: "USD", rate: 0.00065, surchargePercent: 3, surchargeEnabled: true });
     expect(Object.keys(b).sort()).toEqual([
-      "base_amount_ngn","converted_amount","exchange_rate","final_amount",
+      "base_amount_ngn","converted_amount","discount_amount_ngn","discount_code","discounted_amount_ngn",
+      "exchange_rate","final_amount",
       "international_fee_amount","international_fee_percent","minor_units_amount","payment_currency",
     ]);
     expect(b.base_amount_ngn).toBe(8500);
