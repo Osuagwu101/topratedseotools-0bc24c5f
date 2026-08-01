@@ -276,16 +276,23 @@ function ToolPricingCard({
   group: GroupedTool;
   tool: ReturnType<typeof getTool> & object;
 }) {
-  const money = useMoney();
-  const sharedHas = bucketHasAny(group.shared);
-  const privateHas = bucketHasAny(group.private);
-  const lowestShared = sharedHas ? lowestPlan(group.shared) : null;
-  const lowestPrivate = privateHas ? lowestPlan(group.private) : null;
-
-  // Primary "from" line: prefer Shared, fall back to Private.
-  const primary = lowestShared ?? lowestPrivate;
-  const secondary =
-    lowestShared && lowestPrivate ? "Private access also available" : null;
+  // Public catalogue shows base monthly pricing only — no billing periods,
+  // savings badges or currency adjustment. Full plan matrix lives behind
+  // "View Plans" on the tool page.
+  const lines = [
+    group.shared.monthly
+      ? {
+          access: "shared" as const,
+          text: `Shared access from ${formatBaseMonthly(Number(group.shared.monthly.amount), group.shared.monthly.currency)}`,
+        }
+      : null,
+    group.private.monthly
+      ? {
+          access: "private" as const,
+          text: `Private access from ${formatBaseMonthly(Number(group.private.monthly.amount), group.private.monthly.currency)}`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ access: "shared" | "private"; text: string }>;
 
   return (
     <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40">
@@ -299,39 +306,25 @@ function ToolPricingCard({
         </div>
       </div>
 
-      <div className="mt-5 flex-1 space-y-3">
-        {sharedHas ? (
-          <AccessMini
-            title="Shared Access"
-            icon={<Users className="h-3.5 w-3.5" />}
-            bucket={group.shared}
-          />
-        ) : null}
-        {privateHas ? (
-          <AccessMini
-            title="Private Access"
-            icon={<Lock className="h-3.5 w-3.5" />}
-            bucket={group.private}
-          />
-        ) : null}
-
-        {!group.hasAny ? (
+      <div className="mt-5 flex-1 space-y-2">
+        {lines.length > 0 ? (
+          lines.map((line) => (
+            <div key={line.access} className="flex items-center gap-2 text-sm font-semibold">
+              {line.access === "shared" ? (
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <span>{line.text}</span>
+            </div>
+          ))
+        ) : (
           <p className="rounded-lg border bg-background/40 px-3 py-2 text-xs text-primary">
             Pricing confirmed on WhatsApp
           </p>
-        ) : null}
-
-        {primary ? (
-          <p className="pt-1 text-[11px] text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {lowestShared ? "Shared access" : "Private access"} from{" "}
-              {money.fmt(Number(primary.opt.amount))}
-              {periodSuffix(primary.period)}
-            </span>
-            {secondary ? <span> · {secondary}</span> : null}
-          </p>
-        ) : null}
+        )}
       </div>
+
 
       <div className="mt-5 flex gap-2">
         <Link
