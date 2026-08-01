@@ -305,7 +305,23 @@ function PaymentProvidersPage() {
                   {p.last_test_message && (
                     <div className="mt-1 text-xs text-muted-foreground">{p.last_test_message}</div>
                   )}
+                  {p.missing_secrets.length > 0 && (
+                    <div className="mt-2 rounded-lg bg-destructive/10 px-2 py-1 text-xs text-destructive">
+                      Cannot be activated until these are set: {p.missing_secrets.join(", ")}
+                    </div>
+                  )}
+                  {p.webhook_url && (
+                    <div className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+                      Webhook URL: {p.webhook_url}
+                    </div>
+                  )}
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {p.supports_recurring
+                      ? "Supports automatic renewals (subscriptions)."
+                      : "One-time payments only — renewals are charged manually each cycle."}
+                  </div>
                 </div>
+
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
