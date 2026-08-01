@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
 import type { Tool } from "@/lib/tools-data";
@@ -18,6 +19,7 @@ import {
   renewalText,
 } from "@/lib/currency";
 import { useMoney } from "@/components/currency/CurrencyProvider";
+import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -275,6 +277,7 @@ function SubscriptionCard({
       }
     | undefined;
 }) {
+  const [showPlans, setShowPlans] = useState(false);
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
     (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
