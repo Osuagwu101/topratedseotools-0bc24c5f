@@ -567,6 +567,15 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       }
     }
 
+    // Coupon usage is counted once per order (enforced in the database), so
+    // the verify path and the webhook can both call this safely.
+    if ((order as { coupon_code?: string | null }).coupon_code) {
+      const { recordCouponRedemption } = await import("@/lib/coupons.server");
+      await recordCouponRedemption(supabaseAdmin, orderSafe.id as string, tx.reference ?? null);
+    }
+
+
+
     // Helper — best-effort recipient lookup for post-payment emails.
     async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
       try {
