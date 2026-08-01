@@ -206,6 +206,7 @@ export async function handlePaystackWebhook(
     const result = await dispatchEvent({
       supabaseAdmin,
       env,
+      gateway: gatewaySlug,
       eventType,
       eventId,
       orderId,
@@ -254,6 +255,8 @@ interface DispatchInput {
   subscriptionCode?: string;
   customerCode?: string;
   invoiceCode?: string;
+  /** Which gateway delivered this event. */
+  gateway: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
@@ -363,6 +366,8 @@ async function handleChargeSuccess(i: DispatchInput) {
             paystack_last_checked_at: paidAt.toISOString(),
             paystack_transaction_id: paystackId ? String(paystackId) : null,
             payment_channel: paystackChannel,
+            payment_gateway: i.gateway,
+            gateway_transaction_reference: paystackId ? String(paystackId) : null,
             classification: isOneTime ? "one_time" : isRenewal ? "renewal" : "initial",
             last_status_change_at: paidAt.toISOString(),
             payment_currency: chargedCurrency(order as CurrencyBearingOrder),
