@@ -205,6 +205,25 @@ function PaymentProvidersPage() {
                   placeholder="Last 4 chars of the webhook signing secret for reference"
                 />
               </div>
+              {(data.catalog.find((c) => c.slug === editing.slug)?.config_fields ?? []).map((f) => (
+                <div key={f.key} className="sm:col-span-2">
+                  <Label>
+                    {f.label}
+                    {f.required ? " *" : " (optional)"}
+                  </Label>
+                  <Input
+                    value={String(editing.config?.[f.key] ?? "")}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        config: { ...(editing.config ?? {}), [f.key]: e.target.value },
+                      })
+                    }
+                    placeholder={f.key === "base_url" ? "https://api.monnify.com" : ""}
+                  />
+                </div>
+              ))}
+
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
