@@ -13,6 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
+import { loadGatewaySecrets, missingSecrets, isGatewaySecretName } from "@/lib/gateways/secrets.server";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -52,6 +53,7 @@ export interface PaymentProviderRow {
   missing_secrets: string[]; // computed
   webhook_url: string | null; // computed
   supports_recurring: boolean; // computed
+  configured_secrets?: string[]; // computed — names only, never values
 }
 
 const KNOWN: Record<
@@ -65,6 +67,11 @@ const KNOWN: Record<
     webhook_path: string;
     /** Non-secret config fields the admin fills in here. */
     config_fields: { key: string; label: string; required: boolean }[];
+    /**
+     * Credentials the admin can enter securely from the dashboard. Values are
+     * written to encrypted server-side storage and never returned to the UI.
+     */
+    secret_fields: { name: string; label: string; required: boolean }[];
   }
 > = {
   paystack: {
@@ -74,6 +81,7 @@ const KNOWN: Record<
     supports_recurring: true,
     webhook_path: "/api/public/webhooks/paystack",
     config_fields: [],
+    secret_fields: [{ name: "PAYSTACK_SECRET_KEY", label: "Secret key", required: true }],
   },
   flutterwave: {
     display_name: "Flutterwave",
@@ -82,6 +90,12 @@ const KNOWN: Record<
     supports_recurring: false,
     webhook_path: "/api/public/webhooks/flutterwave",
     config_fields: [],
+    secret_fields: [
+      { name: "FLUTTERWAVE_SECRET_KEY", label: "Secret key", required: true },
+      { name: "FLUTTERWAVE_PUBLIC_KEY", label: "Public key", required: false },
+      { name: "FLUTTERWAVE_ENCRYPTION_KEY", label: "Encryption key", required: false },
+      { name: "FLUTTERWAVE_WEBHOOK_HASH", label: "Webhook secret hash (verif-hash)", required: true },
+    ],
   },
   monnify: {
     display_name: "Monnify",
@@ -93,6 +107,10 @@ const KNOWN: Record<
       { key: "contract_code", label: "Contract Code", required: true },
       { key: "base_url", label: "API Base URL", required: false },
     ],
+    secret_fields: [
+      { name: "MONNIFY_API_KEY", label: "API key", required: true },
+      { name: "MONNIFY_SECRET_KEY", label: "Secret key", required: true },
+    ],
   },
 };
 
@@ -102,6 +120,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context);
+    await loadGatewaySecrets(admin, true);
     const { data, error } = await admin
       .from("payment_providers")
       .select("*")
@@ -112,8 +131,11 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
     });
     const rows: PaymentProviderRow[] = (data ?? []).map((r: any) => {
       const known = KNOWN[r.slug];
-      const hasSecret = known?.secret_env ? !!process.env[known.secret_env] : false;
-      const missing = (known?.required_env ?? []).filter((k) => !process.env[k]);
+      const hasSecret = known?.secret_env ? missingSecrets([known.secret_env]).length === 0 : false;
+      const missing = missingSecrets(known?.required_env ?? []);
+      const configured_secrets = (known?.secret_fields ?? [])
+        .filter((f) => missingSecrets([f.name]).length === 0)
+        .map((f) => f.name);
       const cfg = (r.config ?? {}) as Record<string, unknown>;
       // Monnify also needs its contract code before it can be activated.
       for (const f of known?.config_fields ?? []) {
@@ -123,6 +145,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
         ...r,
         has_secret_configured: hasSecret,
         missing_secrets: missing,
+        configured_secrets,
         webhook_url: known ? `${SITE_ORIGIN}${known.webhook_path}` : null,
         supports_recurring: known?.supports_recurring ?? false,
       } as PaymentProviderRow;
@@ -134,6 +157,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
       required_env: meta.required_env,
       supports_recurring: meta.supports_recurring,
       config_fields: meta.config_fields,
+      secret_fields: meta.secret_fields,
       webhook_url: `${SITE_ORIGIN}${meta.webhook_path}`,
     }));
     return { providers: rows, catalog, is_super_admin: !!isSuper };
