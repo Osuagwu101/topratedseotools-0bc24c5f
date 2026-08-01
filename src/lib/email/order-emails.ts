@@ -45,7 +45,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const { data: order } = await admin
       .from("tool_orders")
       .select(
-        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
+        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
       )
       .eq("id", i.orderId)
       .maybeSingle();
@@ -80,6 +80,14 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     void fee;
     void rate;
 
+    // Receipts state the discounted amount charged; when a coupon was used we
+    // also name it so the customer can see the saving they were given.
+    const couponCode = (order.coupon_code as string | null) ?? "";
+    const discountNgn = Number(order.discount_amount_ngn ?? 0) || 0;
+    const couponNote = couponCode
+      ? `Coupon ${couponCode} applied${discountNgn ? ` — you saved ₦${discountNgn.toLocaleString("en-US")}` : ""}.`
+      : "";
+
     const basePayload: TemplateVars = {
       name,
       tool: order.tool_slug ?? "your tool",
@@ -88,6 +96,8 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
       amount: charged ? money(charged) : "",
       currency: payCurrency,
       currency_note: currencyNote,
+      coupon_code: couponCode,
+      coupon_note: couponNote,
       reference: i.reference ?? "",
       dashboard_url: "https://topratedseotools.com/dashboard",
       ...((i.extraPayload ?? {}) as TemplateVars),
