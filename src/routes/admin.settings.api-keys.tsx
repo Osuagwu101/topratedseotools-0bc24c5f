@@ -273,8 +273,9 @@ function PaymentProvidersPage() {
             <div>
               <div className="font-medium">Where do secret keys go?</div>
               <p className="mt-1 text-muted-foreground">
-                Secret keys (Paystack secret, Monnify secret, Flutterwave secret) are never stored in this page. They live in encrypted secret storage. To add or rotate a secret, open <b>Lovable Cloud → Secrets</b> and add e.g. <code>PAYSTACK_SECRET_KEY</code>. Test the connection here to confirm it is picked up.
+                Secret keys (Paystack secret, Flutterwave secret &amp; webhook hash, Monnify secret) are entered in the <b>Credentials</b> box on each provider below. They are written straight to encrypted secret storage — never saved in this page, never shown again, and never sent to the browser. Use <b>Save &amp; validate</b> or <b>Test</b> to confirm the gateway accepts them.
               </p>
+
             </div>
           </div>
         </div>
