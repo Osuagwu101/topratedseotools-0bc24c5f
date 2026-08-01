@@ -422,6 +422,10 @@ async function handleChargeSuccess(i: DispatchInput) {
           paystack_transaction_id: paystackId ? String(paystackId) : null,
           paystack_last_checked_at: paidAt.toISOString(),
           payment_channel: paystackChannel,
+          payment_gateway: i.gateway,
+          gateway_transaction_reference: paystackId ? String(paystackId) : null,
+          source: i.gateway,
+
           access_type: order.access_type ?? null,
           billing_period: order.billing_period ?? null,
           paid_at: paidAt.toISOString(),
