@@ -74,9 +74,12 @@ function LoginPage() {
       }
     >
       <button
+        type="button"
         onClick={onGoogle}
-        className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted"
+        disabled={!hydrated}
+        className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
       >
+
         <GoogleIcon /> Continue with Google
       </button>
 
