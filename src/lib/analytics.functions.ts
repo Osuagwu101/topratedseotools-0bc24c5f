@@ -390,6 +390,10 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
         report: z.enum(["revenue", "customers", "orders"]),
         from: z.string().optional(),
         to: z.string().optional(),
+        tool_slug: z.string().trim().max(120).optional(),
+        payment_method: z.string().trim().max(60).optional(),
+        gateway: z.string().trim().max(40).optional(),
+        payment_currency: z.string().trim().max(10).optional(),
       })
       .parse(input),
   )
@@ -397,34 +401,61 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
     const admin = await assertAdminAndGetAdmin(context);
     const { fromIso, toIso } = defaultRange(data.from, data.to);
 
-    if (data.report === "revenue") {
-      const { data: rows } = await admin
+    /** Transparency row: original charged money + NGN accounting value. */
+    const paymentRow = (p: Record<string, unknown>) => ({
+      date: (p.paid_at as string) ?? (p.created_at as string) ?? "",
+      customer: (p.customer_email as string) ?? "",
+      tool: (p.tool_slug as string) ?? "",
+      payment_gateway: rowGateway(p),
+      payment_currency: rowCurrency(p),
+      original_amount_paid: rowPaidAmount(p),
+      exchange_rate: p.exchange_rate ?? "",
+      ngn_accounting_amount: rowNgn(p),
+      coupon_used: (p.coupon_code as string) ?? "",
+      discount_ngn: p.discount_amount_ngn ?? "",
+      payment_reference:
+        (p.paystack_reference as string) ?? (p.gateway_transaction_reference as string) ?? "",
+      status: (p.payment_status as string) ?? "",
+      payment_method: (p.payment_method as string) ?? "",
+      billing_period: (p.billing_period as string) ?? "",
+      access_type: (p.access_type as string) ?? "",
+    });
+    const PAYMENT_HEADERS = [
+      "date",
+      "customer",
+      "tool",
+      "payment_gateway",
+      "payment_currency",
+      "original_amount_paid",
+      "exchange_rate",
+      "ngn_accounting_amount",
+      "coupon_used",
+      "discount_ngn",
+      "payment_reference",
+      "status",
+      "payment_method",
+      "billing_period",
+      "access_type",
+    ];
+
+    async function loadPayments() {
+      let q = admin
         .from("tool_payments")
-        .select(
-          "created_at, paid_at, tool_slug, amount, currency, payment_status, payment_type, classification, payment_method, source, billing_period, access_type, paystack_reference, customer_email",
-        )
+        .select(PAYMENT_SELECT)
         .gte("created_at", fromIso)
         .lte("created_at", toIso)
         .order("created_at", { ascending: false });
-      const csv = toCsv(
-        [
-          "created_at",
-          "paid_at",
-          "tool_slug",
-          "amount",
-          "currency",
-          "payment_status",
-          "payment_type",
-          "classification",
-          "payment_method",
-          "source",
-          "billing_period",
-          "access_type",
-          "paystack_reference",
-          "customer_email",
-        ],
-        rows ?? [],
+      if (data.tool_slug) q = q.eq("tool_slug", data.tool_slug);
+      if (data.payment_method) q = q.eq("payment_method", data.payment_method);
+      const { data: rows } = await q;
+      return ((rows ?? []) as unknown as Array<Record<string, unknown>>).filter((p) =>
+        matchesPaymentFilters(p, data),
       );
+    }
+
+    if (data.report === "revenue") {
+      const payments = await loadPayments();
+      const csv = toCsv(PAYMENT_HEADERS, payments.map(paymentRow));
       return { filename: `revenue-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
     }
 
@@ -435,41 +466,96 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
         .gte("created_at", fromIso)
         .lte("created_at", toIso)
         .order("created_at", { ascending: false });
-      const csv = toCsv(
-        ["id", "email", "full_name", "created_at"],
-        rows ?? [],
-      );
+      let profiles = rows ?? [];
+      if (data.gateway || data.payment_currency) {
+        const { data: payRows } = await admin.from("tool_payments").select(PAYMENT_SELECT);
+        const allowed = new Set(
+          ((payRows ?? []) as unknown as Array<Record<string, unknown>>)
+            .filter((p) => matchesPaymentFilters(p, data))
+            .map((p) => String(p.user_id ?? "")),
+        );
+        profiles = profiles.filter((p) => allowed.has(p.id as string));
+      }
+      const csv = toCsv(["id", "email", "full_name", "created_at"], profiles);
       return { filename: `customers-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
     }
 
-    // orders
-    const { data: rows } = await admin
-      .from("tool_orders")
-      .select(
-        "id, user_id, tool_slug, status, access_type, billing_period, payment_type, payment_status, price_amount, expires_at, fulfilment_status, renewal_status, subscription_status, created_at, approved_at",
-      )
-      .gte("created_at", fromIso)
-      .lte("created_at", toIso)
-      .order("created_at", { ascending: false });
+    // orders — enriched with the gateway/currency actually used to pay.
+    const [ordersRes, payments] = await Promise.all([
+      admin
+        .from("tool_orders")
+        .select(
+          "id, user_id, tool_slug, status, access_type, billing_period, payment_type, payment_status, price_amount, payment_currency, final_amount_charged, exchange_rate, coupon_code, discount_amount_ngn, paystack_reference, expires_at, fulfilment_status, renewal_status, subscription_status, created_at, approved_at",
+        )
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+        .order("created_at", { ascending: false }),
+      loadPayments(),
+    ]);
+    const payByOrder = new Map<string, Record<string, unknown>>();
+    for (const p of payments) {
+      const oid = String(p.order_id ?? "");
+      if (oid && !payByOrder.has(oid)) payByOrder.set(oid, p);
+    }
+    let orders = (ordersRes.data ?? []) as unknown as Array<Record<string, unknown>>;
+    if (data.tool_slug) orders = orders.filter((o) => o.tool_slug === data.tool_slug);
+    if (data.gateway || data.payment_currency) {
+      orders = orders.filter((o) => payByOrder.has(String(o.id)));
+    }
+
     const csv = toCsv(
       [
-        "id",
-        "user_id",
-        "tool_slug",
+        "order_id",
+        "date",
+        "customer_id",
+        "tool",
         "status",
         "access_type",
         "billing_period",
         "payment_type",
         "payment_status",
-        "price_amount",
+        "payment_gateway",
+        "payment_currency",
+        "original_amount_paid",
+        "exchange_rate",
+        "ngn_accounting_amount",
+        "coupon_used",
+        "discount_ngn",
+        "payment_reference",
         "expires_at",
         "fulfilment_status",
         "renewal_status",
         "subscription_status",
-        "created_at",
         "approved_at",
       ],
-      rows ?? [],
+      orders.map((o) => {
+        const p = payByOrder.get(String(o.id));
+        return {
+          order_id: o.id,
+          date: o.created_at,
+          customer_id: o.user_id,
+          tool: o.tool_slug,
+          status: o.status,
+          access_type: o.access_type,
+          billing_period: o.billing_period,
+          payment_type: o.payment_type,
+          payment_status: o.payment_status,
+          payment_gateway: p ? rowGateway(p) : "",
+          payment_currency: p ? rowCurrency(p) : (o.payment_currency ?? "NGN"),
+          original_amount_paid: p ? rowPaidAmount(p) : (o.final_amount_charged ?? ""),
+          exchange_rate: (p?.exchange_rate ?? o.exchange_rate) ?? "",
+          ngn_accounting_amount: p ? rowNgn(p) : (o.price_amount ?? ""),
+          coupon_used: (p?.coupon_code ?? o.coupon_code) ?? "",
+          discount_ngn: (p?.discount_amount_ngn ?? o.discount_amount_ngn) ?? "",
+          payment_reference: (p?.paystack_reference ?? o.paystack_reference) ?? "",
+          expires_at: o.expires_at,
+          fulfilment_status: o.fulfilment_status,
+          renewal_status: o.renewal_status,
+          subscription_status: o.subscription_status,
+          approved_at: o.approved_at,
+        };
+      }),
     );
     return { filename: `orders-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
+
   });
