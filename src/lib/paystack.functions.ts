@@ -537,7 +537,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
               paystack_last_checked_at: paidAt.toISOString(),
               paystack_transaction_id: paystackId ? String(paystackId) : null,
               payment_channel: paystackChannel,
+              payment_gateway: gateway.slug,
+              gateway_transaction_reference: paystackId ? String(paystackId) : null,
+              gateway_response: (tx.raw ?? null) as never,
               last_status_change_at: paidAt.toISOString(),
+
             } as never)
             .eq("id", dupPay.id);
           await supabaseAdmin.from("tool_payment_status_history").insert({
