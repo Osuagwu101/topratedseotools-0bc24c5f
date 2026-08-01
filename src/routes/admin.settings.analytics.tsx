@@ -20,6 +20,12 @@ import {
 } from "@/lib/analytics.functions";
 import { getMarketingAnalytics } from "@/lib/marketing/analytics.functions";
 import { TOOLS } from "@/lib/tools-data";
+import {
+  PAYMENT_GATEWAYS,
+  PAYMENT_CURRENCIES,
+  GATEWAY_LABELS,
+} from "@/lib/transaction-display";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
