@@ -159,13 +159,19 @@ function ToolsDirectory() {
                   </span>
                 </div>
                 <div className="mt-4 text-lg font-semibold">{t.name}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{t.category}</span>
-                  <span className="font-semibold text-foreground">
-                    {priceByTool.get(t.slug) ?? "Contact admin"}
-                  </span>
+                <div className="mt-1 text-sm text-muted-foreground">{t.category}</div>
+                <div className="mt-4 space-y-1 text-xs">
+                  {(baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
+                    (baseLinesByTool.get(t.slug) ?? []).map((line) => (
+                      <div key={line.access} className="font-semibold text-foreground">
+                        {line.text}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="font-medium text-primary">Pricing confirmed on WhatsApp</div>
+                  )}
                 </div>
+
               </Link>
             ))}
           </div>
