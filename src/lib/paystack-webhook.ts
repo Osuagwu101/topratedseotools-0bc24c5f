@@ -266,7 +266,7 @@ async function findOrder(i: DispatchInput) {
   const q = i.supabaseAdmin
     .from("tool_orders")
     .select(
-      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged",
+      "id, user_id, tool_slug, status, duration_days, grace_days, warning_days, access_type, paystack_plan_code, paystack_subscription_code, paystack_reference, current_period_end, next_payment_at, expires_at, subscription_status, renewal_status, fulfilment_status, fulfilment_deadline_at, subscription_started_at, price_amount, currency, paystack_environment, payment_type, payment_currency, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, discounted_amount_ngn",
     );
   const { data } = i.orderId
     ? await q.eq("id", i.orderId).maybeSingle()
@@ -325,7 +325,9 @@ async function handleChargeSuccess(i: DispatchInput) {
             payment_currency: chargedCurrency(order as CurrencyBearingOrder),
             currency: chargedCurrency(order as CurrencyBearingOrder),
             final_amount: chargedAmount(order as CurrencyBearingOrder),
-            base_amount_ngn: order.price_amount ?? null,
+            base_amount_ngn: order.discounted_amount_ngn ?? order.price_amount ?? null,
+            coupon_code: order.coupon_code ?? null,
+            discount_amount_ngn: Number(order.discount_amount_ngn ?? 0) || 0,
             exchange_rate: order.exchange_rate_snapshot ?? null,
             international_fee_amount: order.international_fee_amount ?? 0,
           })
@@ -348,12 +350,14 @@ async function handleChargeSuccess(i: DispatchInput) {
           tool_slug: order.tool_slug,
           amount: chargedAmount(order as CurrencyBearingOrder),
           currency: chargedCurrency(order as CurrencyBearingOrder),
-          base_amount_ngn: order.price_amount ?? null,
+          base_amount_ngn: order.discounted_amount_ngn ?? order.price_amount ?? null,
+          coupon_code: order.coupon_code ?? null,
+          discount_amount_ngn: Number(order.discount_amount_ngn ?? 0) || 0,
           payment_currency: chargedCurrency(order as CurrencyBearingOrder),
           exchange_rate: order.exchange_rate_snapshot ?? null,
           converted_amount:
             chargedCurrency(order as CurrencyBearingOrder) === "NGN"
-              ? (order.price_amount ?? null)
+              ? (order.discounted_amount_ngn ?? order.price_amount ?? null)
               : Number(order.final_amount_charged ?? 0) - Number(order.international_fee_amount ?? 0),
           international_fee_amount: order.international_fee_amount ?? 0,
           final_amount: chargedAmount(order as CurrencyBearingOrder),
