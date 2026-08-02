@@ -47,10 +47,11 @@ function SettingsOverviewPage() {
 
           <Card icon={<Zap className="h-4 w-4" />} title="Quick Actions">
             <div className="grid gap-2 text-sm">
-              <Link to="/admin/settings/staff" className="rounded-md border px-3 py-2 hover:bg-muted">Manage staff, roles & permissions</Link>
-              <Link to="/admin/access-health" className="rounded-md border px-3 py-2 hover:bg-muted">Check access health</Link>
-              <Link to="/admin/settings/activity" className="rounded-md border px-3 py-2 hover:bg-muted">View admin activity</Link>
-              <Link to="/admin/settings/analytics" className="rounded-md border px-3 py-2 hover:bg-muted">Business analytics</Link>
+              <Link to="/admin/settings/staff" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Manage staff, roles &amp; permissions</Link>
+              <Link to="/admin/access-health" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Check access health</Link>
+              <Link to="/admin/settings/activity" className="truncate rounded-md border px-3 py-2 hover:bg-muted">View admin activity</Link>
+              <Link to="/admin/settings/analytics" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Business analytics</Link>
+
             </div>
           </Card>
 
