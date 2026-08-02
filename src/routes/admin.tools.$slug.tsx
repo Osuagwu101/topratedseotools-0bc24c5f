@@ -408,7 +408,8 @@ function AccessTab({ slug }: { slug: string }) {
   const upsert = useServerFn(adminUpsertToolSetting);
   const [busy, setBusy] = useState(false);
 
-  const tool = TOOLS.find((t) => t.slug === slug)!;
+  const { data: ovForAccess } = useSuspenseQuery(overridesQuery);
+  const tool = findCatalogTool(ovForAccess.overrides, slug)!;
   const toolOpts = pricingData.options.filter((o) => o.tool_slug === slug);
 
   const [enabled, setEnabled] = useState(setting?.enabled ?? true);
@@ -994,7 +995,7 @@ function PriceRow({
 
 /* ---------------------------- Credentials ---------------------------- */
 
-function CredentialsTab({ tool }: { tool: (typeof TOOLS)[number] }) {
+function CredentialsTab({ tool }: { tool: CatalogTool }) {
   const { data } = useSuspenseQuery(credsQuery);
   const current = data.credentials.find((c) => c.tool_slug === tool.slug);
   const upsert = useServerFn(adminUpsertToolCredential);
