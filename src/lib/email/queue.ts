@@ -7,6 +7,9 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderTemplate, wrapHtmlEmail, type TemplateVars } from "./templates";
+import { normalizeBranding } from "./branding";
+import { resolveToolDisplay } from "./tool-display";
+
 import { isResendConfigured, resendSendEmail, ResendError } from "./resend";
 
 const MAX_ATTEMPTS = 5;
