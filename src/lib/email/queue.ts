@@ -129,17 +129,39 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
   if (!tpl) return await markCancelled(admin, id, "template_missing");
   if (tpl.enabled === false) return await markCancelled(admin, id, "template_disabled");
 
+  // Branding is presentation-only: it changes how the email looks, never
+  // whether or when it is sent.
+  const branding = normalizeBranding(settings as unknown as Record<string, unknown>);
+  const payload = (row.payload ?? {}) as Record<string, unknown>;
+  const slug = String(payload.tool_slug ?? payload.tool ?? "");
+  let toolName = String(payload.tool_name ?? "");
+  let toolIcon = String(payload.tool_icon ?? "");
+  if (slug && (!toolName || !toolIcon)) {
+    const display = await resolveToolDisplay(admin, slug);
+    toolName = toolName || display.name;
+    toolIcon = toolIcon || display.icon;
+  }
+
   const vars: TemplateVars = {
     ...(row.payload ?? {}),
+    tool_name: toolName || String(payload.tool ?? ""),
+    tool_icon: toolIcon,
+    tool: toolName || String(payload.tool ?? ""),
     sender_name: settings.sender_name,
     reply_to: settings.reply_to_email,
+    brand_name: branding.brandName,
+    brand_color: branding.brandColor,
+    support_email: branding.supportEmail,
+    site_url: String(payload.site_url ?? branding.websiteUrl),
   };
   const subject = renderTemplate(tpl.subject, vars);
   const bodyInner = renderTemplate(tpl.html_body, vars);
   const html = wrapHtmlEmail(bodyInner, {
     senderName: settings.sender_name,
-    siteUrl: (row.payload as any)?.site_url ?? "https://topratedseotools.com",
+    siteUrl: (row.payload as any)?.site_url ?? branding.websiteUrl,
+    branding,
   });
+
 
   try {
     const res = await resendSendEmail({
