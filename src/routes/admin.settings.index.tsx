@@ -61,14 +61,15 @@ function SettingsOverviewPage() {
             ) : (
               <ul className="divide-y text-sm">
                 {data.recentActivity.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between py-2">
-                    <span className="truncate">
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                    <span className="min-w-0 truncate">
                       <span className="font-medium">{r.action}</span>
                       {r.actorEmail && <span className="text-muted-foreground"> · {r.actorEmail}</span>}
                     </span>
-                    <span className={`text-xs ${r.success ? "text-emerald-600" : "text-destructive"}`}>
+                    <span className={`shrink-0 text-xs ${r.success ? "text-emerald-600" : "text-destructive"}`}>
                       {r.success ? "ok" : "failed"}
                     </span>
+
                   </li>
                 ))}
               </ul>
