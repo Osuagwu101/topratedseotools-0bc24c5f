@@ -219,13 +219,14 @@ function AnalyticsPage() {
 
 
         <Tabs defaultValue="revenue">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="revenue">Revenue</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="marketing">Marketing</TabsTrigger>
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="export">Export</TabsTrigger>
           </TabsList>
+
 
           {/* Revenue */}
           <TabsContent value="revenue" className="space-y-4">
