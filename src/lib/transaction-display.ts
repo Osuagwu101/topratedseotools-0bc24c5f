@@ -1,3 +1,4 @@
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 /**
  * Transaction transparency helpers (presentation only).
  *
@@ -40,7 +41,7 @@ export interface TxDisplaySource {
 /** Canonical gateway key for a payment row (offline records win over gateway). */
 export function gatewayKey(t: TxDisplaySource): string {
   if ((t.source ?? "") === "offline") return "offline";
-  return (t.payment_gateway || t.source || "paystack").toLowerCase();
+  return (t.payment_gateway || t.source || DEFAULT_GATEWAY).toLowerCase();
 }
 
 /** Human label: "Flutterwave", "Offline / manual (bank_transfer)". */

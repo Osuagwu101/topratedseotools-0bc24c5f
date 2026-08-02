@@ -11,6 +11,11 @@ import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
 import { loadGatewaySecrets } from "./secrets.server";
 import { gatewayForCurrency } from "@/lib/gateway-routing";
+import {
+  CURRENCY_UNAVAILABLE_MESSAGE,
+  DEFAULT_GATEWAY,
+  gatewaySupportsCurrency,
+} from "./metadata";
 
 export interface ResolvedGateway {
   slug: GatewaySlug;
@@ -76,7 +81,7 @@ export async function resolveGatewayForCurrency(db: any, currency: string): Prom
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function resolveGatewayForReference(db: any, reference: string): Promise<ResolvedGateway> {
   await loadGatewaySecrets(db);
-  let slug: GatewaySlug = "paystack";
+  let slug: GatewaySlug = DEFAULT_GATEWAY;
   try {
     const { data: pay } = await db
       .from("tool_payments")
