@@ -976,8 +976,15 @@ export type Database = {
       email_settings: {
         Row: {
           abandoned_delay_hours: number
+          brand_color: string
+          brand_logo_url: string | null
+          brand_name: string
           created_at: string
           enabled_types: Json
+          footer_company: string
+          footer_message: string
+          footer_support_email: string
+          footer_website_url: string
           from_email: string
           id: boolean
           last_verified_at: string | null
@@ -993,8 +1000,15 @@ export type Database = {
         }
         Insert: {
           abandoned_delay_hours?: number
+          brand_color?: string
+          brand_logo_url?: string | null
+          brand_name?: string
           created_at?: string
           enabled_types?: Json
+          footer_company?: string
+          footer_message?: string
+          footer_support_email?: string
+          footer_website_url?: string
           from_email?: string
           id?: boolean
           last_verified_at?: string | null
@@ -1010,8 +1024,15 @@ export type Database = {
         }
         Update: {
           abandoned_delay_hours?: number
+          brand_color?: string
+          brand_logo_url?: string | null
+          brand_name?: string
           created_at?: string
           enabled_types?: Json
+          footer_company?: string
+          footer_message?: string
+          footer_support_email?: string
+          footer_website_url?: string
           from_email?: string
           id?: boolean
           last_verified_at?: string | null

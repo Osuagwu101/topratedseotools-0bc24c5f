@@ -8,6 +8,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { queueEmail } from "./queue";
+import { gatewayLabel } from "@/lib/transaction-display";
 import type { TemplateVars } from "./templates";
 
 
@@ -45,7 +46,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const { data: order } = await admin
       .from("tool_orders")
       .select(
-        "id, user_id, tool_slug, access_type, billing_period, price_amount, currency, payment_currency, display_currency, display_amount, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
+        "id, user_id, tool_slug, payment_gateway, access_type, billing_period, price_amount, currency, payment_currency, display_currency, display_amount, exchange_rate_snapshot, international_fee_amount, final_amount_charged, coupon_code, discount_amount_ngn, fulfilment_deadline_at, current_period_end, next_payment_at, expires_at",
       )
       .eq("id", i.orderId)
       .maybeSingle();
@@ -94,6 +95,8 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const basePayload: TemplateVars = {
       name,
       tool: order.tool_slug ?? "your tool",
+      tool_slug: order.tool_slug ?? "",
+      gateway_label: gatewayLabel({ payment_gateway: order.payment_gateway ?? null }),
       access_type: order.access_type ?? "shared",
       billing_period: order.billing_period ?? "monthly",
       amount: charged ? money(charged) : "",

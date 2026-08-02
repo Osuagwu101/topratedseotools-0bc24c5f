@@ -58,3 +58,33 @@ export const uploadToolIcon = createServerFn({ method: "POST" })
     if (sErr || !signed?.signedUrl) throw new Error("Failed to sign icon URL");
     return { url: signed.signedUrl as string, path };
   });
+
+/**
+ * Email header logo upload. Same private bucket as tool icons, but stored under
+ * `branding/` and returned as a long-lived signed URL so email clients can load
+ * it without a public bucket.
+ */
+export const uploadEmailLogo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        contentType: z.string().regex(/^image\/(png|webp|jpeg)$/, "Only PNG, WEBP, or JPEG allowed"),
+        base64: z.string().min(10).max(3_000_000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as never);
+    const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+    if (bytes.byteLength > 1024 * 1024) throw new Error("Logo exceeds 1MB after optimisation");
+    const ext = (data.contentType.split("/")[1] ?? "png").replace("jpeg", "jpg");
+    const path = `branding/email-logo-${Date.now()}.${ext}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storage = (context.supabase as any).storage.from(BUCKET);
+    const { error: upErr } = await storage.upload(path, bytes, { contentType: data.contentType, upsert: true });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+    const { data: signed, error: sErr } = await storage.createSignedUrl(path, SIGNED_TTL);
+    if (sErr || !signed?.signedUrl) throw new Error("Failed to sign logo URL");
+    return { url: signed.signedUrl as string, path };
+  });
