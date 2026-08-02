@@ -304,6 +304,9 @@ export async function queueAbandonedReminders(admin: any): Promise<{ queued: num
       payload: {
         name: p.name ?? "there",
         tool: o.tool_slug,
+        tool_slug: o.tool_slug,
+        price_label: o.price_label ?? "",
+
         amount: o.price_amount ?? "",
         currency: o.currency ?? "NGN",
         access_type: o.access_type ?? "",
