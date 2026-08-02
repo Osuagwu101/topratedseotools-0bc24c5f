@@ -23,6 +23,7 @@
  * start once the admin marks fulfilled OR the cron auto-fulfils after 6h.
  */
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 
 export type Env = "test" | "live";
 

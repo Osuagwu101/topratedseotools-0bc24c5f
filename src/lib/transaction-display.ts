@@ -1,4 +1,3 @@
-import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 /**
  * Transaction transparency helpers (presentation only).
  *
@@ -8,6 +7,7 @@ import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
  *
  * No revenue, verification, webhook or conversion logic lives here.
  */
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 import { formatAnyMoney } from "@/lib/currency-convert";
 
 export const PAYMENT_GATEWAYS = ["paystack", "flutterwave", "monnify", "offline"] as const;
