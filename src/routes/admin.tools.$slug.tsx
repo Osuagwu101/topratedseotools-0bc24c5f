@@ -29,7 +29,8 @@ import {
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AccountsCapacityTab } from "@/components/admin/AccountsCapacityTab";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { TOOLS } from "@/lib/tools-data";
+import { findCatalogTool, type CatalogTool } from "@/lib/tool-catalog";
+import { ToolIconUpload } from "@/components/admin/ToolIconUpload";
 import {
   listToolSettings,
   adminUpsertToolSetting,
@@ -85,16 +86,18 @@ export const Route = createFileRoute("/admin/tools/$slug")({
     ],
   }),
   loader: async ({ context, params }) => {
-    const tool = TOOLS.find((t) => t.slug === params.slug);
+    // Custom (admin-created) tools live in tool_overrides, so the overrides
+    // must be loaded before the slug can be resolved.
+    const { overrides } = await context.queryClient.ensureQueryData(overridesQuery);
+    const tool = findCatalogTool(overrides, params.slug);
     if (!tool) throw notFound();
     await Promise.all([
       context.queryClient.ensureQueryData(settingsQuery),
       context.queryClient.ensureQueryData(pricingQuery),
       context.queryClient.ensureQueryData(credsQuery),
       context.queryClient.ensureQueryData(ordersQuery),
-      context.queryClient.ensureQueryData(overridesQuery),
     ]);
-    return { tool };
+    return { slug: tool.slug };
   },
   component: AdminToolPage,
   notFoundComponent: () => (
@@ -113,9 +116,10 @@ type Tab = "overview" | "access" | "pricing" | "accounts" | "credentials" | "ord
 
 function AdminToolPage() {
   const { slug } = Route.useParams();
-  const tool = TOOLS.find((t) => t.slug === slug)!;
   const [tab, setTab] = useState<Tab>("overview");
 
+  const { data: overridesForTool } = useSuspenseQuery(overridesQuery);
+  const tool = findCatalogTool(overridesForTool.overrides, slug)!;
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
   const setting = settingsData.settings.find((s) => s.tool_slug === tool.slug);
 
@@ -191,7 +195,7 @@ function AdminToolPage() {
 
 /* ------------------------------ Overview ------------------------------ */
 
-function OverviewTab({ tool }: { tool: (typeof TOOLS)[number] }) {
+function OverviewTab({ tool }: { tool: CatalogTool }) {
   const { data } = useSuspenseQuery(overridesQuery);
   const existing = data.overrides.find((o) => o.tool_slug === tool.slug);
   const qc = useQueryClient();
@@ -222,6 +226,7 @@ function OverviewTab({ tool }: { tool: (typeof TOOLS)[number] }) {
           domain: domain.trim() || null,
           image_url: imageUrl.trim() || null,
           is_visible: isVisible,
+          is_custom: existing?.is_custom ?? false,
         },
       });
       toast.success("Saved");
@@ -317,23 +322,8 @@ function OverviewTab({ tool }: { tool: (typeof TOOLS)[number] }) {
             className="w-full rounded-md border bg-background px-3 py-2 text-sm"
           />
         </EditField>
-        <EditField label="Custom image URL (optional, overrides logo)" full>
-          <div className="flex gap-2">
-            <input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://…"
-              maxLength={600}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-            {imageUrl && (
-              <img
-                src={imageUrl}
-                alt=""
-                className="h-10 w-10 rounded-lg border object-cover"
-              />
-            )}
-          </div>
+        <EditField label="Tool icon (uploaded icons are resized & optimised)" full>
+          <ToolIconUpload slug={tool.slug} value={imageUrl} onChange={setImageUrl} />
         </EditField>
         <EditField label="Tagline" full>
           <input
