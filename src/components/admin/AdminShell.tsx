@@ -14,13 +14,11 @@ import {
   ClipboardList,
   Users,
   BookOpen,
-  Palette,
   LogOut,
   ChevronDown,
   ChevronRight,
   Search,
   ShieldCheck,
-  Cog,
   UserCog,
   Star,
   Megaphone,
@@ -29,7 +27,6 @@ import {
 import { getMyAdminContext } from "@/lib/admin-permissions.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import {
   Sidebar,
   SidebarContent,
@@ -505,7 +502,6 @@ function AdminSidebar() {
                       { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage" },
                       { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage" },
                       { title: "Staff, Roles & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
-                      { title: "Security Centre", to: "/admin/settings/security" as const, perm: null },
                       { title: "System Health & Repair", to: "/admin/settings/system-health" as const, perm: "system_health.access" },
                       { title: "Backup & Recovery", to: "/admin/settings/backup" as const, perm: "backups.access" },
                       { title: "Emergency Controls", to: "/admin/settings/emergency" as const, perm: "emergency.use" },
