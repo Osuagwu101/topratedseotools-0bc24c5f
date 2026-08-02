@@ -94,6 +94,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     const basePayload: TemplateVars = {
       name,
       tool: order.tool_slug ?? "your tool",
+      tool_slug: order.tool_slug ?? "",
       access_type: order.access_type ?? "shared",
       billing_period: order.billing_period ?? "monthly",
       amount: charged ? money(charged) : "",
