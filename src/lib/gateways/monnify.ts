@@ -8,7 +8,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import type {
-import { GATEWAY_METADATA } from "./metadata";
+
   GatewayAdapter,
   GatewayConfig,
   GatewayInitInput,
