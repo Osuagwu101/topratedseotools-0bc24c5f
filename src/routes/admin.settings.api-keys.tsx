@@ -184,20 +184,25 @@ function PaymentProvidersPage() {
   return (
     <AdminShell>
       <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 flex flex-wrap items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
+        <header className="mb-6 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:flex sm:flex-wrap">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
             <Plug className="h-5 w-5" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight">Payment Providers</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Payment Providers</h1>
             <p className="text-sm text-muted-foreground">
               Add, enable, and switch payment providers without deploying code. Secret keys are stored in encrypted secret storage and never shown here.
             </p>
           </div>
-          <Button size="sm" onClick={() => setEditing({ slug: "", display_name: "", environment: "test", enabled: false })}>
+          <Button
+            size="sm"
+            className="col-span-2 w-full sm:w-auto"
+            onClick={() => setEditing({ slug: "", display_name: "", environment: "test", enabled: false })}
+          >
             <Plus className="mr-1 h-4 w-4" /> Add provider
           </Button>
         </header>
+
 
         {editing && (
           <div className="mb-6 rounded-2xl border bg-card p-4 shadow-card">
