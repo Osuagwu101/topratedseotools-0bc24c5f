@@ -18,6 +18,7 @@ import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { findCatalogTool } from "@/lib/tool-catalog";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
