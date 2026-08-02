@@ -79,11 +79,12 @@ function SettingsOverviewPage() {
           <Card icon={<ListChecks className="h-4 w-4" />} title="Phase Progress">
             <ul className="divide-y text-sm">
               {data.phaseProgress.map((p) => (
-                <li key={p.phase} className="flex items-center justify-between py-2">
-                  <span>Phase {p.phase} — {p.name}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                <li key={p.phase} className="flex items-center justify-between gap-3 py-2">
+                  <span className="min-w-0 truncate">Phase {p.phase} — {p.name}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
                     p.status === "Active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                   }`}>{p.status}</span>
+
                 </li>
               ))}
             </ul>
