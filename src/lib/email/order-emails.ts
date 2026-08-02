@@ -96,7 +96,7 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
       name,
       tool: order.tool_slug ?? "your tool",
       tool_slug: order.tool_slug ?? "",
-      gateway_label: gatewayLabel({ payment_gateway: order.payment_gateway ?? null } as never),
+      gateway_label: gatewayLabel({ payment_gateway: order.payment_gateway ?? null }),
       access_type: order.access_type ?? "shared",
       billing_period: order.billing_period ?? "monthly",
       amount: charged ? money(charged) : "",

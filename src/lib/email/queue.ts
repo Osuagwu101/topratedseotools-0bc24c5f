@@ -149,6 +149,9 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
     ...(row.payload ?? {}),
     tool_name: toolName || String(payload.tool ?? ""),
     tool_icon: toolIcon,
+    tool_icon_img: toolIcon
+      ? `<img src="${toolIcon.replace(/"/g, "&quot;")}" width="28" height="28" alt="" style="display:block;border:0;border-radius:6px;width:28px;height:28px;" />`
+      : "",
     tool: toolName || String(payload.tool ?? ""),
     sender_name: settings.sender_name,
     reply_to: settings.reply_to_email,
