@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { adminAssignTool } from "@/lib/customer-admin.functions";
-import { TOOLS } from "@/lib/tools-data";
+import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -26,8 +26,9 @@ export function AssignToolDialog({
   userId: string;
   onDone?: () => void;
 }) {
+  const catalog = useCatalogRegistration();
   const [open, setOpen] = useState(false);
-  const [toolSlug, setToolSlug] = useState(TOOLS[0]?.slug ?? "");
+  const [toolSlug, setToolSlug] = useState(catalog[0]?.slug ?? "");
   const [accessType, setAccessType] = useState<"shared" | "private">("shared");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "quarterly" | "yearly">("monthly");
   const today = new Date().toISOString().slice(0, 10);
@@ -97,7 +98,7 @@ export function AssignToolDialog({
                 onChange={(e) => setToolSlug(e.target.value)}
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
-                {TOOLS.map((t) => (
+                {catalog.map((t) => (
                   <option key={t.slug} value={t.slug}>{t.name}</option>
                 ))}
               </select>

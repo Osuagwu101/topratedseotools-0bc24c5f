@@ -44,6 +44,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { TOOLS } from "@/lib/tools-data";
+import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 
 type NavItem = {
   title: string;
