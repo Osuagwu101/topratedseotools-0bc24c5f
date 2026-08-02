@@ -50,6 +50,14 @@ const settingsInput = z.object({
   abandoned_delay_hours: z.number().int().min(0).max(720).optional(),
   production_sending: z.boolean().optional(),
   enabled_types: z.record(z.string(), z.boolean()).optional(),
+  // Email branding (presentation only).
+  brand_name: z.string().trim().min(1).max(120).optional(),
+  brand_color: z.string().trim().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #5b62f9").optional(),
+  brand_logo_url: z.string().trim().max(500).optional().or(z.literal("")),
+  footer_company: z.string().trim().min(1).max(160).optional(),
+  footer_support_email: z.string().trim().email().max(200).optional(),
+  footer_website_url: z.string().trim().url().max(300).optional(),
+  footer_message: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
 export const adminUpdateEmailSettings = createServerFn({ method: "POST" })
@@ -233,12 +241,14 @@ export const adminSendTestEmail = createServerFn({ method: "POST" })
     const { data: settings } = await admin.from("email_settings").select("*").eq("id", true).maybeSingle();
     if (!settings) throw new Error("Email settings missing.");
     const s = settings as any;
+    const { normalizeBranding } = await import("./branding");
+    const branding = normalizeBranding(s);
     const html = wrapHtmlEmail(
       renderTemplate(
-        "<p>Hi {{name}},</p><p>This is a test email from your Top Rated SEO Tools admin panel. If you got this, sending is working.</p>",
-        { name: "there" },
+        "<h1 style=\"margin:0 0 12px;font-size:21px;font-weight:700;letter-spacing:-0.3px;\">Sending works</h1><p style=\"margin:0 0 14px;\">Hi {{name}}, this is a test email from your {{brand_name}} admin panel. If it looks right here, your branded emails look right everywhere.</p>",
+        { name: "there", brand_name: branding.brandName },
       ),
-      { senderName: s.sender_name, siteUrl: "https://topratedseotools.com" },
+      { senderName: s.sender_name, siteUrl: branding.websiteUrl, branding, preheader: "Test email — sending is working." },
     );
     const { resendSendEmail } = await import("./resend");
     try {
