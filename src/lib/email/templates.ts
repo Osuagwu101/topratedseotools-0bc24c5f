@@ -1,4 +1,6 @@
+import { DEFAULT_EMAIL_BRANDING, renderBrandedEmail, type EmailBranding } from "./branding";
 /**
+
  * Simple {{variable}} placeholder renderer. Escapes HTML in variables to
  * prevent injection unless the key is explicitly marked raw with {{{var}}}.
  */
