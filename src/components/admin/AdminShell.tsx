@@ -103,24 +103,28 @@ const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
 
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
-    <SiteLayout>
-      <SidebarProvider defaultOpen>
-        <div className="flex w-full min-h-[calc(100vh-4rem)]">
-          <AdminSidebar />
-          <div className="flex-1 min-w-0">
-            <div className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur">
-              <SidebarTrigger />
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Admin
-              </span>
-            </div>
-            <div className="min-h-full">{children}</div>
-          </div>
+    <SidebarProvider defaultOpen>
+      <div className="flex h-svh w-full overflow-hidden">
+        <AdminSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background px-3">
+            <SidebarTrigger />
+            <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Admin
+            </span>
+            <Link to="/" className="shrink-0 text-xs text-muted-foreground hover:underline">
+              View site
+            </Link>
+          </header>
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+            {children}
+          </main>
         </div>
-      </SidebarProvider>
-    </SiteLayout>
+      </div>
+    </SidebarProvider>
   );
 }
+
 
 function AdminSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
