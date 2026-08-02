@@ -2108,11 +2108,15 @@ export type Database = {
       }
       tool_overrides: {
         Row: {
+          access: string | null
           category: string | null
           created_at: string
           description: string | null
           domain: string | null
+          featured: boolean
+          features: Json | null
           image_url: string | null
+          is_custom: boolean
           is_visible: boolean
           name: string | null
           tagline: string | null
@@ -2120,11 +2124,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
+          featured?: boolean
+          features?: Json | null
           image_url?: string | null
+          is_custom?: boolean
           is_visible?: boolean
           name?: string | null
           tagline?: string | null
@@ -2132,11 +2140,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
+          featured?: boolean
+          features?: Json | null
           image_url?: string | null
+          is_custom?: boolean
           is_visible?: boolean
           name?: string | null
           tagline?: string | null
