@@ -8,6 +8,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import type {
+import { GATEWAY_METADATA } from "./metadata";
   GatewayAdapter,
   GatewayConfig,
   GatewayInitInput,
@@ -78,10 +79,7 @@ export function createMonnifyAdapter(config: GatewayConfig = {}): GatewayAdapter
   }
 
   return {
-    slug: "monnify",
-    displayName: "Monnify",
-    supportsRecurring: false,
-    chargeCurrencies: ["NGN"],
+    ...GATEWAY_METADATA.monnify,
 
     isConfigured() {
       return !!process.env.MONNIFY_API_KEY && !!process.env.MONNIFY_SECRET_KEY && !!contractCode;

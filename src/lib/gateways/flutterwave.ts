@@ -16,6 +16,7 @@ import type {
   GatewayWebhookEvent,
 } from "./types";
 import { majorToMinor, minorToMajor } from "./types";
+import { GATEWAY_METADATA } from "./metadata";
 
 const BASE = "https://api.flutterwave.com/v3";
 
@@ -74,13 +75,9 @@ function paymentOptionsFor(currency: string): string {
 }
 
 export const flutterwaveAdapter: GatewayAdapter = {
-  slug: "flutterwave",
-  displayName: "Flutterwave",
-  // Recurring is handled by our own renewal flow; Flutterwave charges one-time.
-  supportsRecurring: false,
-  // Flutterwave settles these directly — no NGN fallback needed, so Ghanaian
-  // customers are charged in GHS and can pay with Mobile Money.
-  chargeCurrencies: ["NGN", "GHS", "KES", "ZAR", "USD"],
+  // Name, recurring support and chargeable currencies come from the shared
+  // metadata declarations so client and server can never disagree.
+  ...GATEWAY_METADATA.flutterwave,
 
   isConfigured() {
     return !!process.env.FLUTTERWAVE_SECRET_KEY;

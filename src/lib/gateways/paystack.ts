@@ -10,6 +10,7 @@ import type {
   GatewayTransaction,
   GatewayWebhookEvent,
 } from "./types";
+import { GATEWAY_METADATA } from "./metadata";
 
 const BASE = "https://api.paystack.co";
 
