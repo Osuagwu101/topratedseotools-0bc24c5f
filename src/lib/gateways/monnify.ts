@@ -17,6 +17,7 @@ import type {
   GatewayWebhookEvent,
 } from "./types";
 import { majorToMinor, minorToMajor } from "./types";
+import { GATEWAY_METADATA } from "./metadata";
 
 const DEFAULT_BASE = "https://api.monnify.com";
 
