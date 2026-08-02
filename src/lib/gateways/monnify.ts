@@ -8,6 +8,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import type {
+
   GatewayAdapter,
   GatewayConfig,
   GatewayInitInput,
@@ -16,6 +17,7 @@ import type {
   GatewayWebhookEvent,
 } from "./types";
 import { majorToMinor, minorToMajor } from "./types";
+import { GATEWAY_METADATA } from "./metadata";
 
 const DEFAULT_BASE = "https://api.monnify.com";
 
@@ -78,10 +80,7 @@ export function createMonnifyAdapter(config: GatewayConfig = {}): GatewayAdapter
   }
 
   return {
-    slug: "monnify",
-    displayName: "Monnify",
-    supportsRecurring: false,
-    chargeCurrencies: ["NGN"],
+    ...GATEWAY_METADATA.monnify,
 
     isConfigured() {
       return !!process.env.MONNIFY_API_KEY && !!process.env.MONNIFY_SECRET_KEY && !!contractCode;

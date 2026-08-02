@@ -23,6 +23,7 @@
  * start once the admin marks fulfilled OR the cron auto-fulfils after 6h.
  */
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 
 export type Env = "test" | "live";
 
@@ -86,7 +87,7 @@ export async function handlePaystackWebhook(
 ): Promise<Response> {
 
   const { secret, supabaseAdmin, adapter } = deps;
-  const gatewaySlug = adapter?.slug ?? "paystack";
+  const gatewaySlug = adapter?.slug ?? DEFAULT_GATEWAY;
 
   const raw = await request.text();
   let env: Env;
@@ -147,7 +148,7 @@ export async function handlePaystackWebhook(
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
     env,
-    reference: gatewaySlug === "paystack" ? naturalId : `${gatewaySlug}:${naturalId}`,
+    reference: gatewaySlug === DEFAULT_GATEWAY ? naturalId : `${gatewaySlug}:${naturalId}`,
     status: txStatus,
   });
   const payloadHash = createHash("sha256").update(raw).digest("hex");

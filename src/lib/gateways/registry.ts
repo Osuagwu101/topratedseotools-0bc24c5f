@@ -11,6 +11,11 @@ import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
 import { loadGatewaySecrets } from "./secrets.server";
 import { gatewayForCurrency } from "@/lib/gateway-routing";
+import {
+  CURRENCY_UNAVAILABLE_MESSAGE,
+  DEFAULT_GATEWAY,
+  gatewaySupportsCurrency,
+} from "./metadata";
 
 export interface ResolvedGateway {
   slug: GatewaySlug;
@@ -27,8 +32,15 @@ export function getAdapter(slug: GatewaySlug, config: GatewayConfig = {}): Gatew
 
 /**
  * Resolve the gateway for a checkout from the currency being charged.
- * Falls back to Paystack if the routed gateway is not configured yet, so a
- * customer is never stranded on a half-configured provider.
+ *
+ * Three explicit checks run before checkout initialisation:
+ *   1. does the routed gateway declare support for this currency?
+ *   2. are its credentials configured?
+ *   3. is it enabled by the admin?
+ *
+ * A non-NGN currency NEVER silently falls back to Paystack — the customer gets
+ * a clear message instead of being charged on the wrong gateway. The legacy
+ * Paystack fallback remains only for the NGN/default route.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function resolveGatewayForCurrency(db: any, currency: string): Promise<ResolvedGateway> {
@@ -36,20 +48,27 @@ export async function resolveGatewayForCurrency(db: any, currency: string): Prom
   await loadGatewaySecrets(db);
   const slug: GatewaySlug = gatewayForCurrency(currency);
   let config: GatewayConfig = {};
+  let enabled = true;
   try {
     const { data } = await db
       .from("payment_providers")
-      .select("config")
+      .select("config, enabled")
       .eq("slug", slug)
       .maybeSingle();
     config = (data?.config ?? {}) as GatewayConfig;
+    if (data && data.enabled === false) enabled = false;
   } catch {
     /* credentials come from secrets; config is optional */
   }
+
+  if (!gatewaySupportsCurrency(slug, currency)) throw new Error(CURRENCY_UNAVAILABLE_MESSAGE);
+
   const adapter = getAdapter(slug, config);
-  if (!adapter.isConfigured()) {
-    if (slug !== "paystack" && paystackAdapter.isConfigured()) {
-      return { slug: "paystack", adapter: paystackAdapter, config: {}, environment: paystackAdapter.environment() };
+  if (!adapter.isConfigured() || !enabled) {
+    // Non-NGN currencies must not be re-routed to an NGN-only gateway.
+    if (slug !== DEFAULT_GATEWAY) throw new Error(CURRENCY_UNAVAILABLE_MESSAGE);
+    if (paystackAdapter.isConfigured()) {
+      return { slug: DEFAULT_GATEWAY, adapter: paystackAdapter, config: {}, environment: paystackAdapter.environment() };
     }
     throw new Error("Payments are temporarily unavailable. Please contact support.");
   }
@@ -57,11 +76,12 @@ export async function resolveGatewayForCurrency(db: any, currency: string): Prom
 }
 
 
+
 /** Which gateway processed a given reference — used by verify + receipts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function resolveGatewayForReference(db: any, reference: string): Promise<ResolvedGateway> {
   await loadGatewaySecrets(db);
-  let slug: GatewaySlug = "paystack";
+  let slug: GatewaySlug = DEFAULT_GATEWAY;
   try {
     const { data: pay } = await db
       .from("tool_payments")

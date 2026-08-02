@@ -7,20 +7,36 @@
  *   NGN            → Paystack     (one-time OR recurring)
  *   anything else  → Flutterwave  (one-time only)
  *
- * Keep this module free of server-only imports: both the checkout UI and the
- * server-side registry read from it so the two can never disagree.
+ * Capability data is NOT duplicated here: name, recurring support and
+ * chargeable currencies all come from `@/lib/gateways/metadata`, the same
+ * declarations the server-side adapters use.
  */
+import {
+  CURRENCY_UNAVAILABLE_MESSAGE,
+  GATEWAY_METADATA,
+  gatewaySupportsCurrency,
+  normalizeCurrency,
+} from "@/lib/gateways/metadata";
 
 export type RoutedGatewaySlug = "paystack" | "flutterwave";
 
+export { CURRENCY_UNAVAILABLE_MESSAGE };
+
+/** Derived view of the shared metadata — kept for existing callers. */
 export const GATEWAY_DISPLAY: Record<RoutedGatewaySlug, { name: string; supportsRecurring: boolean }> = {
-  paystack: { name: "Paystack", supportsRecurring: true },
-  flutterwave: { name: "Flutterwave", supportsRecurring: false },
+  paystack: {
+    name: GATEWAY_METADATA.paystack.displayName,
+    supportsRecurring: GATEWAY_METADATA.paystack.supportsRecurring,
+  },
+  flutterwave: {
+    name: GATEWAY_METADATA.flutterwave.displayName,
+    supportsRecurring: GATEWAY_METADATA.flutterwave.supportsRecurring,
+  },
 };
 
 /** NGN is settled by Paystack; every other currency routes to Flutterwave. */
 export function gatewayForCurrency(currency: string | null | undefined): RoutedGatewaySlug {
-  return String(currency ?? "NGN").toUpperCase() === "NGN" ? "paystack" : "flutterwave";
+  return normalizeCurrency(currency) === "NGN" ? "paystack" : "flutterwave";
 }
 
 /** Recurring billing is only available on the NGN (Paystack) route. */
@@ -30,4 +46,9 @@ export function supportsRecurringForCurrency(currency: string | null | undefined
 
 export function gatewayNameForCurrency(currency: string | null | undefined): string {
   return GATEWAY_DISPLAY[gatewayForCurrency(currency)].name;
+}
+
+/** Can the routed gateway actually charge this currency at all? */
+export function isCurrencyRoutable(currency: string | null | undefined): boolean {
+  return gatewaySupportsCurrency(gatewayForCurrency(currency), currency);
 }

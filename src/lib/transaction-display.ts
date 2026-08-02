@@ -7,6 +7,7 @@
  *
  * No revenue, verification, webhook or conversion logic lives here.
  */
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 import { formatAnyMoney } from "@/lib/currency-convert";
 
 export const PAYMENT_GATEWAYS = ["paystack", "flutterwave", "monnify", "offline"] as const;
@@ -40,7 +41,7 @@ export interface TxDisplaySource {
 /** Canonical gateway key for a payment row (offline records win over gateway). */
 export function gatewayKey(t: TxDisplaySource): string {
   if ((t.source ?? "") === "offline") return "offline";
-  return (t.payment_gateway || t.source || "paystack").toLowerCase();
+  return (t.payment_gateway || t.source || DEFAULT_GATEWAY).toLowerCase();
 }
 
 /** Human label: "Flutterwave", "Offline / manual (bank_transfer)". */

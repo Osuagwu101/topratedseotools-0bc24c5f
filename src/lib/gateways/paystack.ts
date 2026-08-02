@@ -10,6 +10,7 @@ import type {
   GatewayTransaction,
   GatewayWebhookEvent,
 } from "./types";
+import { GATEWAY_METADATA } from "./metadata";
 
 const BASE = "https://api.paystack.co";
 
@@ -41,9 +42,8 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
 }
 
 export const paystackAdapter: GatewayAdapter = {
-  slug: "paystack",
-  displayName: "Paystack",
-  supportsRecurring: true,
+  ...GATEWAY_METADATA.paystack,
+
 
   isConfigured() {
     return !!process.env.PAYSTACK_SECRET_KEY;

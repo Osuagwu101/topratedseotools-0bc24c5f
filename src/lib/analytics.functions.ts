@@ -8,6 +8,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEFAULT_GATEWAY } from "@/lib/gateways/metadata";
 
 async function assertAdminAndGetAdmin(context: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,7 +45,7 @@ function defaultRange(from?: string, to?: string) {
 /** Presentation-only classification, mirrors `src/lib/transaction-display.ts`. */
 function rowGateway(p: Record<string, unknown>): string {
   if ((p.source as string) === "offline") return "offline";
-  return String(p.payment_gateway ?? p.source ?? "paystack").toLowerCase();
+  return String(p.payment_gateway ?? p.source ?? DEFAULT_GATEWAY).toLowerCase();
 }
 function rowCurrency(p: Record<string, unknown>): string {
   return String(p.payment_currency ?? p.display_currency ?? "NGN").toUpperCase();
@@ -144,7 +145,7 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
     const byTool = bucket(successful, (p) => p.tool_slug as string | null, "unknown");
     const byPlan = bucket(successful, (p) => (p.billing_period as string | null) ?? null, "unknown");
     const byAccess = bucket(successful, (p) => (p.access_type as string | null) ?? null, "unknown");
-    const byProvider = bucket(successful, (p) => rowGateway(p), "paystack");
+    const byProvider = bucket(successful, (p) => rowGateway(p), DEFAULT_GATEWAY);
 
     // Charged-currency breakdown: NGN accounting revenue plus the original
     // amount customers actually paid in that currency.
