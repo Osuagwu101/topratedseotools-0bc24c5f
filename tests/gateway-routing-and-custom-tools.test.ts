@@ -4,6 +4,13 @@ import {
   gatewayNameForCurrency,
   supportsRecurringForCurrency,
 } from "../src/lib/gateway-routing";
+import {
+  CURRENCY_UNAVAILABLE_MESSAGE,
+  DEFAULT_GATEWAY,
+  GATEWAY_METADATA,
+  gatewaySupportsCurrency,
+} from "../src/lib/gateways/metadata";
+import { isCurrencyRoutable, GATEWAY_DISPLAY } from "../src/lib/gateway-routing";
 import { mergeToolCatalog, slugTaken, toolFromOverride } from "../src/lib/tool-catalog";
 import type { ToolOverride } from "../src/lib/tool-overrides.functions";
 
@@ -22,6 +29,33 @@ describe("automatic gateway routing", () => {
       expect(supportsRecurringForCurrency(c)).toBe(false);
       expect(gatewayNameForCurrency(c)).toBe("Flutterwave");
     }
+  });
+});
+
+describe("gateway metadata single source of truth", () => {
+  it("derives client-safe display data from the shared metadata", () => {
+    expect(GATEWAY_DISPLAY.paystack.name).toBe(GATEWAY_METADATA.paystack.displayName);
+    expect(GATEWAY_DISPLAY.flutterwave.supportsRecurring).toBe(
+      GATEWAY_METADATA.flutterwave.supportsRecurring,
+    );
+    expect(DEFAULT_GATEWAY).toBe("paystack");
+  });
+
+  it("declares supported currencies per gateway", () => {
+    expect(GATEWAY_METADATA.paystack.chargeCurrencies).toEqual(["NGN"]);
+    expect(GATEWAY_METADATA.monnify.chargeCurrencies).toEqual(["NGN"]);
+    expect(GATEWAY_METADATA.monnify.routable).toBe(false);
+    for (const c of ["GHS", "KES", "USD", "ZAR"]) {
+      expect(gatewaySupportsCurrency("flutterwave", c)).toBe(true);
+      expect(gatewaySupportsCurrency("paystack", c)).toBe(false);
+    }
+  });
+
+  it("flags unsupported currencies as non-routable with a customer-safe message", () => {
+    expect(isCurrencyRoutable("NGN")).toBe(true);
+    expect(isCurrencyRoutable("GHS")).toBe(true);
+    expect(isCurrencyRoutable("EUR")).toBe(false);
+    expect(CURRENCY_UNAVAILABLE_MESSAGE).toMatch(/temporarily unavailable for this currency/i);
   });
 });
 
