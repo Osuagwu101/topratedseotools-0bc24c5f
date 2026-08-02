@@ -26,7 +26,7 @@ function SettingsOverviewPage() {
           <p className="text-sm text-muted-foreground">Everything you need to run and monitor the platform.</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
           <Card icon={<AlertTriangle className="h-4 w-4" />} title="Requires Attention">
             {data.attention.length === 0 ? (
               <p className="text-sm text-muted-foreground">All clear.</p>
