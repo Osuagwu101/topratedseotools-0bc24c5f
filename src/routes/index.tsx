@@ -3,7 +3,7 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, Sparkles, Zap, Shield, Users, Star, HelpCircle } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { TOOLS } from "@/lib/tools-data";
+import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 import { listToolPricing } from "@/lib/tool-pricing.functions";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { useMoney } from "@/components/currency/CurrencyProvider";
@@ -87,10 +87,12 @@ const FAQ = [
 
 function Home() {
   const money = useMoney();
-  const featured = TOOLS.filter((t) => t.featured);
+  // Built-in tools (with admin edits) plus admin-created tools.
+  const catalog = useCatalogRegistration().filter((t) => t.is_visible);
+  const featured = catalog.filter((t) => t.featured);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
 
-  const showcase = TOOLS.slice(0, 8).map((t) => {
+  const showcase = catalog.slice(0, 8).map((t) => {
     if (t.pricingModel === "per_use" && t.perUse) {
       return { tool: t, baseLines: [], perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
     }

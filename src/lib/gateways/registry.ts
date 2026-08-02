@@ -1,15 +1,16 @@
 /**
- * Gateway registry — resolves the admin-selected gateway at runtime.
+ * Gateway registry — resolves the gateway for a payment at runtime.
  *
- * Server-only: reads secrets from process.env inside the adapters. The active
- * gateway is `payment_providers.is_active = true`, edited from
- * Admin → Settings → Payments, so switching gateways needs no code change.
+ * Server-only: reads secrets from process.env inside the adapters. Routing is
+ * automatic and currency-driven (NGN → Paystack, everything else →
+ * Flutterwave); there is no admin-controlled "active gateway".
  */
 import { paystackAdapter } from "./paystack";
 import { flutterwaveAdapter } from "./flutterwave";
 import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
 import { loadGatewaySecrets } from "./secrets.server";
+import { gatewayForCurrency } from "@/lib/gateway-routing";
 
 export interface ResolvedGateway {
   slug: GatewaySlug;
@@ -24,29 +25,29 @@ export function getAdapter(slug: GatewaySlug, config: GatewayConfig = {}): Gatew
   return createMonnifyAdapter(config);
 }
 
-/** Read the active provider row (falls back to Paystack). */
+/**
+ * Resolve the gateway for a checkout from the currency being charged.
+ * Falls back to Paystack if the routed gateway is not configured yet, so a
+ * customer is never stranded on a half-configured provider.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveActiveGateway(db: any): Promise<ResolvedGateway> {
+export async function resolveGatewayForCurrency(db: any, currency: string): Promise<ResolvedGateway> {
   // Admin-entered credentials live in the database — hydrate them first.
   await loadGatewaySecrets(db);
-  let slug: GatewaySlug = "paystack";
+  const slug: GatewaySlug = gatewayForCurrency(currency);
   let config: GatewayConfig = {};
   try {
     const { data } = await db
       .from("payment_providers")
-      .select("slug, config, enabled, is_active")
-      .eq("is_active", true)
+      .select("config")
+      .eq("slug", slug)
       .maybeSingle();
-    if (data && isGatewaySlug(data.slug) && data.enabled !== false) {
-      slug = data.slug;
-      config = (data.config ?? {}) as GatewayConfig;
-    }
+    config = (data?.config ?? {}) as GatewayConfig;
   } catch {
-    /* fall back to Paystack */
+    /* credentials come from secrets; config is optional */
   }
   const adapter = getAdapter(slug, config);
   if (!adapter.isConfigured()) {
-    // Never strand a customer on a half-configured gateway.
     if (slug !== "paystack" && paystackAdapter.isConfigured()) {
       return { slug: "paystack", adapter: paystackAdapter, config: {}, environment: paystackAdapter.environment() };
     }
@@ -54,6 +55,7 @@ export async function resolveActiveGateway(db: any): Promise<ResolvedGateway> {
   }
   return { slug, adapter, config, environment: adapter.environment() };
 }
+
 
 /** Which gateway processed a given reference — used by verify + receipts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

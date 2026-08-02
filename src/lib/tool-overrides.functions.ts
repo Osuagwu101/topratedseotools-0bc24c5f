@@ -25,6 +25,11 @@ export interface ToolOverride {
   image_url: string | null;
   is_visible: boolean;
   updated_at: string;
+  /** True when this row *is* the tool (admin-created), not an override of a built-in one. */
+  is_custom?: boolean | null;
+  access?: string | null;
+  features?: string[] | null;
+  featured?: boolean | null;
 }
 
 function publicClient() {
@@ -73,6 +78,10 @@ const upsertInput = z.object({
   domain: z.string().max(160).nullable().optional(),
   image_url: z.string().url().max(600).nullable().optional(),
   is_visible: z.boolean().optional(),
+  is_custom: z.boolean().optional(),
+  access: z.enum(["free", "pro"]).optional(),
+  features: z.array(z.string().max(240)).max(20).nullable().optional(),
+  featured: z.boolean().optional(),
 });
 
 export const adminUpsertToolOverride = createServerFn({ method: "POST" })
@@ -89,6 +98,10 @@ export const adminUpsertToolOverride = createServerFn({ method: "POST" })
       domain: data.domain ?? null,
       image_url: data.image_url ?? null,
       is_visible: data.is_visible ?? true,
+      is_custom: data.is_custom ?? false,
+      access: data.access ?? null,
+      features: data.features ?? null,
+      featured: data.featured ?? false,
     };
     const { error } = await context.supabase
       .from("tool_overrides")

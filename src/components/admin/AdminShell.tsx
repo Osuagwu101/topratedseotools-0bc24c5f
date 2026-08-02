@@ -44,6 +44,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { TOOLS } from "@/lib/tools-data";
+import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 
 type NavItem = {
   title: string;
@@ -99,6 +100,8 @@ const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  // Makes admin-created tools resolvable across every admin page.
+  useCatalogRegistration();
   return (
     <SidebarProvider defaultOpen>
       {/* Mobile: one natural page scroll (no nested overflow / fixed heights).

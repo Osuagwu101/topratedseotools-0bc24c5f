@@ -76,11 +76,14 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
     if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
 
-    // Which gateway processes this payment is an admin setting — the pricing,
-    // coupon, currency, order and access pipelines below are gateway-agnostic.
+    // Gateway routing is automatic and currency-driven: NGN → Paystack,
+    // every other currency → Flutterwave. The customer never picks a gateway
+    // and admins cannot switch it; the pricing, coupon, currency, order and
+    // access pipelines below stay gateway-agnostic.
+    const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
     const { supabaseAdmin: adminForGateway } = await import("@/integrations/supabase/client.server");
-    const { resolveActiveGateway } = await import("@/lib/gateways/registry");
-    const gateway = await resolveActiveGateway(adminForGateway);
+    const { resolveGatewayForCurrency } = await import("@/lib/gateways/registry");
+    const gateway = await resolveGatewayForCurrency(adminForGateway, chosenCurrency);
 
     const env =
       detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY) ?? gateway.environment ?? "live";
@@ -93,6 +96,7 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         ? "one_time"
         : requestedType;
     const isRecurring = paymentType === "recurring_subscription";
+
 
 
     const { data: order, error } = await context.supabase
@@ -127,7 +131,8 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     // the discount is fed into buildPricingBreakdown, so the discounted NGN
     // base flows through conversion + the international adjustment exactly
     // like the price shown to the customer.
-    const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
+    // `chosenCurrency` was resolved above (it also decides the gateway).
+
     const { buildPricingBreakdown } = await import("@/lib/currency-convert");
 
     let discount: { type: "percent" | "amount"; value: number; code: string } | null = null;

@@ -4,10 +4,11 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { CATEGORIES, TOOLS, type ToolCategory } from "@/lib/tools-data";
+import { CATEGORIES, type ToolCategory } from "@/lib/tools-data";
+import { mergeToolCatalog } from "@/lib/tool-catalog";
 import { listToolPricing } from "@/lib/tool-pricing.functions";
 import { baseMonthlyLines } from "@/lib/base-pricing";
-import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 import { useMoney } from "@/components/currency/CurrencyProvider";
 
@@ -43,17 +44,10 @@ function ToolsDirectory() {
   const [cat, setCat] = useState<ToolCategory | "All">("All");
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: overridesData } = useSuspenseQuery(overridesQuery);
-  const overrideBySlug = useMemo(() => {
-    const m = new Map<string, (typeof overridesData.overrides)[number]>();
-    for (const o of overridesData.overrides) m.set(o.tool_slug, o);
-    return m;
-  }, [overridesData]);
+  // Built-in tools (with admin edits applied) plus admin-created tools.
   const effectiveTools = useMemo(
-    () =>
-      TOOLS.map((t) => applyOverride(t, overrideBySlug.get(t.slug))).filter(
-        (t) => t.is_visible,
-      ),
-    [overrideBySlug],
+    () => mergeToolCatalog(overridesData.overrides).filter((t) => t.is_visible),
+    [overridesData],
   );
   const baseLinesByTool = useMemo(() => {
     const bySlug = new Map<string, typeof pricing.options>();

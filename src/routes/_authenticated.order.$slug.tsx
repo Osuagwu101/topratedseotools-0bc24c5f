@@ -17,7 +17,8 @@ import { useCurrency, useMoney } from "@/components/currency/CurrencyProvider";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { getTool } from "@/lib/tools-data";
+import { findCatalogTool } from "@/lib/tool-catalog";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
@@ -30,7 +31,7 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
-import { getActiveGatewayPublic } from "@/lib/payment-providers.functions";
+import { gatewayNameForCurrency, supportsRecurringForCurrency } from "@/lib/gateway-routing";
 import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
 import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
@@ -50,6 +51,11 @@ const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
 });
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
+});
+
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   validateSearch: (search: Record<string, unknown>): { plan?: string } =>
@@ -62,6 +68,7 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
   }),
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(pricingQuery);
+    context.queryClient.ensureQueryData(overridesQuery);
     return context.queryClient.ensureQueryData(settingsQuery);
   },
   component: OrderPage,
@@ -70,7 +77,9 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
 function OrderPage() {
   const { slug } = Route.useParams();
   const { plan: preselected } = Route.useSearch();
-  const tool = getTool(slug);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
+  // Admin-created tools live in tool_overrides, so resolve against the merged catalogue.
+  const tool = findCatalogTool(overridesData.overrides, slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { currency, price, config } = useCurrency();
@@ -84,16 +93,12 @@ function OrderPage() {
     (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
-  // Which gateway the customer is sent to is an Admin setting — keep the copy
-  // in sync so switching gateways needs no code change.
-  const fetchGateway = useServerFn(getActiveGatewayPublic);
-  const { data: gateway } = useQuery({
-    queryKey: ["active-gateway"],
-    queryFn: () => fetchGateway(),
-    staleTime: 60_000,
-  });
-  const gatewayName = gateway?.display_name ?? "our secure payment provider";
-  const gatewayRecurring = gateway?.supports_recurring ?? true;
+  // Gateway routing is automatic and derived from the payment currency:
+  // NGN → Paystack (recurring available), any other currency → Flutterwave
+  // (one-time only). The customer never picks a gateway.
+  const gatewayName = gatewayNameForCurrency(money.currency);
+  const gatewayRecurring = supportsRecurringForCurrency(money.currency);
+
   const router = useRouter();
   // Turnitin (and any future per-use tool) has no subscription checkout —
   // block any old/direct link from opening the subscription flow.

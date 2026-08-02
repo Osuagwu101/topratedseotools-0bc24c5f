@@ -7,7 +7,7 @@ import { getPublicSiteSettings } from "@/lib/site-settings.functions";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
-import { getTool, TOOLS } from "@/lib/tools-data";
+import { mergeToolCatalog, findCatalogTool } from "@/lib/tool-catalog";
 import { listToolPricing, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
@@ -21,7 +21,7 @@ import {
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolSettings } from "@/lib/access.functions";
-import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 
@@ -47,12 +47,14 @@ const sessionQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/tools/$slug")({
-  loader: ({ params, context }) => {
-    const tool = getTool(params.slug);
+  loader: async ({ params, context }) => {
+    // Overrides carry both admin edits and admin-created (custom) tools, so the
+    // slug is resolved against the merged catalogue.
+    const { overrides } = await context.queryClient.ensureQueryData(overridesQuery);
+    const tool = findCatalogTool(overrides, params.slug);
     if (!tool) throw notFound();
     context.queryClient.ensureQueryData(pricingQuery);
     context.queryClient.ensureQueryData(settingsQuery);
-    context.queryClient.ensureQueryData(overridesQuery);
     return {
       slug: tool.slug,
       name: tool.name,
@@ -104,19 +106,16 @@ export const Route = createFileRoute("/tools/$slug")({
 
 function ToolPage() {
   const data = Route.useLoaderData();
-  const baseTool = getTool(data.slug)!;
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { data: overridesData } = useSuspenseQuery(overridesQuery);
   const { data: session } = useQuery(sessionQuery);
-  const override = overridesData.overrides.find((o) => o.tool_slug === baseTool.slug);
-  const tool = { ...baseTool, ...applyOverride(baseTool, override) };
+  const catalog = mergeToolCatalog(overridesData.overrides);
+  const tool = catalog.find((t) => t.slug === data.slug)!;
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
   const setting = settings.settings.find((s) => s.tool_slug === tool.slug);
-  const overrideBySlug = new Map(overridesData.overrides.map((o) => [o.tool_slug, o]));
-  const related = TOOLS.filter((t) => t.category === tool.category && t.slug !== tool.slug)
-    .map((t) => ({ ...t, ...applyOverride(t, overrideBySlug.get(t.slug)) }))
-    .filter((t) => t.is_visible)
+  const related = catalog
+    .filter((t) => t.category === tool.category && t.slug !== tool.slug && t.is_visible)
     .slice(0, 3);
 
   if (!tool.is_visible) {

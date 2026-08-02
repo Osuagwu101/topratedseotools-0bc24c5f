@@ -6,7 +6,7 @@ import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Save, Tag, Trash2, ShieldAlert, Lock, Users, AlertTriangle } from "lucide-react";
-import { TOOLS } from "@/lib/tools-data";
+import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import {
   listToolPricing,
@@ -96,6 +96,8 @@ function AdminPricingPage() {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(pricingQuery);
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
+  // Built-in tools plus admin-created ones.
+  const catalog = useCatalogRegistration();
   const upsert = useServerFn(upsertToolPricing);
   const remove = useServerFn(deleteToolPricing);
   const upsertSetting = useServerFn(adminUpsertToolSetting);
@@ -213,7 +215,7 @@ function AdminPricingPage() {
         </div>
 
         <div className="mt-8 space-y-6">
-          {TOOLS.map((t) => {
+          {catalog.map((t) => {
             const opts = byTool.get(t.slug) ?? [];
             const hasEnabled = opts.some((o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true));
             const setting = settingsBySlug.get(t.slug);

@@ -1,8 +1,9 @@
 /**
  * Admin — Payment Providers & API keys.
  *
- * Lets a non-technical admin add/edit payment providers, switch the
- * active provider, and test the live connection. Sensitive secret
+ * Lets a non-technical admin add/edit payment provider credentials and
+ * test the live connection. Gateway selection is automatic and
+ * currency-driven (NGN uses Paystack, other currencies use Flutterwave). Sensitive secret
  * keys stay in encrypted secret storage and are only edited through
  * the secure form; this page never displays them.
  */
@@ -16,7 +17,6 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
   adminListPaymentProviders,
   adminUpsertPaymentProvider,
-  adminSetActiveProvider,
   adminSetProviderEnabled,
   adminTestProviderConnection,
   adminDeletePaymentProvider,
@@ -64,7 +64,6 @@ function PaymentProvidersPage() {
   const { data } = useSuspenseQuery(providersQuery);
   const router = useRouter();
   const upsert = useServerFn(adminUpsertPaymentProvider);
-  const setActive = useServerFn(adminSetActiveProvider);
   const setEnabled = useServerFn(adminSetProviderEnabled);
   const test = useServerFn(adminTestProviderConnection);
   const del = useServerFn(adminDeletePaymentProvider);
@@ -119,18 +118,9 @@ function PaymentProvidersPage() {
     }
   }
 
-  async function activate(id: string) {
-    setBusy(`act:${id}`);
-    try {
-      await setActive({ data: { id } });
-      toast.success("Active provider updated");
-      await router.invalidate();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  }
+  // Gateway selection is automatic (NGN → Paystack, other currencies →
+  // Flutterwave), so there is no "make active" action here any more.
+
 
   async function toggleEnabled(id: string, enabled: boolean) {
     setBusy(`en:${id}`);
@@ -373,11 +363,17 @@ function PaymentProvidersPage() {
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                       {p.environment}
                     </span>
-                    {p.is_active && (
+                    {p.slug === "paystack" && (
                       <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                        Active
+                        Used for NGN
                       </span>
                     )}
+                    {p.slug === "flutterwave" && (
+                      <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                        Used for GHS · KES · ZAR · USD
+                      </span>
+                    )}
+
                     {!p.enabled && (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Disabled
@@ -414,7 +410,7 @@ function PaymentProvidersPage() {
                   )}
                   {p.missing_secrets.length > 0 && (
                     <div className="mt-2 rounded-lg bg-destructive/10 px-2 py-1 text-xs text-destructive">
-                      Cannot be activated until these are set: {p.missing_secrets.join(", ")}
+                      Cannot be enabled until these are set: {p.missing_secrets.join(", ")}
                     </div>
                   )}
                   {p.webhook_url && (
@@ -438,9 +434,9 @@ function PaymentProvidersPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => toggleEnabled(p.id, false)}
-                      disabled={busy === `en:${p.id}` || p.is_active}
-                      title={p.is_active ? "Make another provider active first" : undefined}
+                      disabled={busy === `en:${p.id}`}
                     >
+
                       <PowerOff className="mr-1 h-3.5 w-3.5" /> Disable
                     </Button>
                   ) : (
@@ -452,20 +448,13 @@ function PaymentProvidersPage() {
                       <Power className="mr-1 h-3.5 w-3.5" /> Enable
                     </Button>
                   )}
-                  {!p.is_active && (
-                    <Button size="sm" variant={p.enabled ? "default" : "secondary"} onClick={() => activate(p.id)} disabled={busy === `act:${p.id}`}>
-                      Make active
-                    </Button>
-                  )}
-
                   <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
                     Edit
                   </Button>
-                  {!p.is_active && (
-                    <Button size="sm" variant="ghost" onClick={() => remove(p.id)} disabled={busy === `del:${p.id}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                  <Button size="sm" variant="ghost" onClick={() => remove(p.id)} disabled={busy === `del:${p.id}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+
                 </div>
               </div>
               {(data.catalog.find((c) => c.slug === p.slug)?.secret_fields ?? []).length > 0 && (
