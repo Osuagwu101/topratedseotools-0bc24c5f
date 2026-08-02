@@ -52,7 +52,7 @@ const settingsInput = z.object({
   enabled_types: z.record(z.string(), z.boolean()).optional(),
   // Email branding (presentation only).
   brand_name: z.string().trim().min(1).max(120).optional(),
-  brand_color: z.string().trim().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #5b62f9").optional(),
+  brand_color: z.string().trim().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #1e4e8c").optional(),
   brand_logo_url: z.string().trim().max(500).optional().or(z.literal("")),
   footer_company: z.string().trim().min(1).max(160).optional(),
   footer_support_email: z.string().trim().email().max(200).optional(),

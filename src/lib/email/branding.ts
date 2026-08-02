@@ -18,7 +18,7 @@ export interface EmailBranding {
 
 export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
   brandName: "Top Rated SEO Tools",
-  brandColor: "#5b62f9",
+  brandColor: "#1e4e8c",
   logoUrl: "https://topratedseotools.com/__l5e/assets-v1/f3e454df-dc80-4286-a457-12dd873e04bf/top-rated-seo-tools-icon.png",
   footerCompany: "Top Rated SEO Tools",
   footerMessage: "Premium SEO, AI and productivity tools.",
