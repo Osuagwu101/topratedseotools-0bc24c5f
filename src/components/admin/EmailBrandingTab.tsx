@@ -137,7 +137,7 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
                   value={sanitizeColor(form.brand_color)}
                   onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
                 />
-                <Input value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} placeholder="#5b62f9" />
+                <Input value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} placeholder="#1e4e8c" />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">Used for buttons, links and the header accent.</p>
             </div>
