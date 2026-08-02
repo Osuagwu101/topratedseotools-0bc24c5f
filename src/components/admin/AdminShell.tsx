@@ -101,10 +101,12 @@ const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
-      <div className="flex h-svh w-full overflow-hidden">
+      {/* Mobile: one natural page scroll (no nested overflow / fixed heights).
+          Desktop (md+): fixed sidebar + independently scrolling main. */}
+      <div className="flex w-full min-h-svh md:h-svh md:overflow-hidden">
         <AdminSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background px-3">
+          <header className="sticky top-0 z-30 grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background px-3 md:static md:z-auto">
             <SidebarTrigger />
             <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Admin
@@ -113,7 +115,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               View site
             </Link>
           </header>
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <main className="min-w-0 flex-1 overflow-x-hidden md:overflow-y-auto">
             {children}
           </main>
         </div>
@@ -121,6 +123,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
 
 
 function AdminSidebar() {
