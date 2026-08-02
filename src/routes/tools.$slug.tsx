@@ -21,7 +21,7 @@ import {
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolSettings } from "@/lib/access.functions";
-import { listToolOverrides, applyOverride } from "@/lib/tool-overrides.functions";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 
