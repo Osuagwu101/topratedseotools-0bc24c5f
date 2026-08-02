@@ -17,7 +17,7 @@ import { useCurrency, useMoney } from "@/components/currency/CurrencyProvider";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { getTool } from "@/lib/tools-data";
+import { findCatalogTool } from "@/lib/tool-catalog";
 import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
@@ -62,6 +62,7 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
   }),
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(pricingQuery);
+    context.queryClient.ensureQueryData(overridesQuery);
     return context.queryClient.ensureQueryData(settingsQuery);
   },
   component: OrderPage,
@@ -70,7 +71,9 @@ export const Route = createFileRoute("/_authenticated/order/$slug")({
 function OrderPage() {
   const { slug } = Route.useParams();
   const { plan: preselected } = Route.useSearch();
-  const tool = getTool(slug);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
+  // Admin-created tools live in tool_overrides, so resolve against the merged catalogue.
+  const tool = findCatalogTool(overridesData.overrides, slug);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { currency, price, config } = useCurrency();
