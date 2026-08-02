@@ -50,6 +50,11 @@ const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
 });
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
+});
+
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   validateSearch: (search: Record<string, unknown>): { plan?: string } =>
