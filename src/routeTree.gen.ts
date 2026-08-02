@@ -60,6 +60,7 @@ import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
+import { Route as AdminToolsNewRouteImport } from './routes/admin.tools.new'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
 import { Route as AdminSettingsSystemHealthRouteImport } from './routes/admin.settings.system-health'
 import { Route as AdminSettingsStaffRouteImport } from './routes/admin.settings.staff'
@@ -360,6 +361,11 @@ const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   id: '/author/$id',
   path: '/author/$id',
   getParentRoute: () => BlogRoute,
+} as any)
+const AdminToolsNewRoute = AdminToolsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminToolsRoute,
 } as any)
 const AdminToolsSlugRoute = AdminToolsSlugRouteImport.update({
   id: '/$slug',
@@ -663,6 +669,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
+  '/admin/tools/new': typeof AdminToolsNewRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -750,6 +757,7 @@ export interface FileRoutesByTo {
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
+  '/admin/tools/new': typeof AdminToolsNewRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -846,6 +854,7 @@ export interface FileRoutesById {
   '/admin/settings/staff': typeof AdminSettingsStaffRoute
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
+  '/admin/tools/new': typeof AdminToolsNewRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -942,6 +951,7 @@ export interface FileRouteTypes {
     | '/admin/settings/staff'
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
+    | '/admin/tools/new'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1029,6 +1039,7 @@ export interface FileRouteTypes {
     | '/admin/settings/staff'
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
+    | '/admin/tools/new'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1124,6 +1135,7 @@ export interface FileRouteTypes {
     | '/admin/settings/staff'
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
+    | '/admin/tools/new'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1537,6 +1549,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/author/$id'
       preLoaderRoute: typeof BlogAuthorIdRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/admin/tools/new': {
+      id: '/admin/tools/new'
+      path: '/new'
+      fullPath: '/admin/tools/new'
+      preLoaderRoute: typeof AdminToolsNewRouteImport
+      parentRoute: typeof AdminToolsRoute
     }
     '/admin/tools/$slug': {
       id: '/admin/tools/$slug'
@@ -2013,11 +2032,13 @@ const AdminSettingsRouteWithChildren = AdminSettingsRoute._addFileChildren(
 
 interface AdminToolsRouteChildren {
   AdminToolsSlugRoute: typeof AdminToolsSlugRoute
+  AdminToolsNewRoute: typeof AdminToolsNewRoute
   AdminToolsIndexRoute: typeof AdminToolsIndexRoute
 }
 
 const AdminToolsRouteChildren: AdminToolsRouteChildren = {
   AdminToolsSlugRoute: AdminToolsSlugRoute,
+  AdminToolsNewRoute: AdminToolsNewRoute,
   AdminToolsIndexRoute: AdminToolsIndexRoute,
 }
 

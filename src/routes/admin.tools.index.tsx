@@ -9,16 +9,21 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Search, Settings2, ArrowRight } from "lucide-react";
+import { Search, Settings2, ArrowRight, Plus } from "lucide-react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { TOOLS } from "@/lib/tools-data";
+import { mergeToolCatalog } from "@/lib/tool-catalog";
+import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import { listToolSettings } from "@/lib/access.functions";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
   queryFn: () => listToolSettings(),
+});
+const overridesQuery = queryOptions({
+  queryKey: ["tool-overrides"],
+  queryFn: () => listToolOverrides(),
 });
 
 export const Route = createFileRoute("/admin/tools/")({
@@ -34,6 +39,7 @@ export const Route = createFileRoute("/admin/tools/")({
     const [{ isAdmin }] = await Promise.all([
       getIsAdmin(),
       context.queryClient.ensureQueryData(settingsQuery),
+      context.queryClient.ensureQueryData(overridesQuery),
     ]);
     return { isAdmin };
   },
@@ -42,20 +48,23 @@ export const Route = createFileRoute("/admin/tools/")({
 
 function AdminToolsIndex() {
   const { data } = useSuspenseQuery(settingsQuery);
+  const { data: overridesData } = useSuspenseQuery(overridesQuery);
   const [q, setQ] = useState("");
+  // Built-in tools plus admin-created ones.
+  const catalog = useMemo(() => mergeToolCatalog(overridesData.overrides), [overridesData]);
   const bySlug = useMemo(
     () => new Map(data.settings.map((s) => [s.tool_slug, s])),
     [data.settings],
   );
   const filtered = useMemo(
     () =>
-      TOOLS.filter(
+      catalog.filter(
         (t) =>
           !q ||
           t.name.toLowerCase().includes(q.toLowerCase()) ||
           t.category.toLowerCase().includes(q.toLowerCase()),
       ),
-    [q],
+    [q, catalog],
   );
 
   return (
@@ -73,7 +82,16 @@ function AdminToolsIndex() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card sm:max-w-sm">
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Link
+            to="/admin/tools/new"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add new tool
+          </Link>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card sm:max-w-sm">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
             value={q}
