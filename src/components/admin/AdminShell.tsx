@@ -477,20 +477,17 @@ function AdminSidebar() {
                   <SidebarMenuSub>
                     {[
                       { title: "Settings Overview", to: "/admin/settings" as const, perm: null },
-                      { title: "General Website Settings", to: "/admin/settings/general" as const, perm: null },
-                      { title: "Website Content", to: "/admin/settings/content" as const, perm: "content.manage" },
-                      { title: "Tools & Products", to: "/admin/settings/tools-products" as const, perm: "tools.manage" },
-                      { title: "Credentials & Capacity", to: "/admin/settings/credentials" as const, perm: "credentials.view" },
+                      { title: "Site Appearance & WhatsApp", to: "/admin/appearance" as const, perm: null },
+                      { title: "Tool Credentials Vault", to: "/admin/credentials" as const, perm: "credentials.view" },
                       { title: "Access Health", to: "/admin/access-health" as const, perm: null },
                       { title: "Awaiting Assignment", to: "/admin/awaiting-assignments" as const, perm: null },
                       { title: "Promotions & Rewards", to: "/admin/settings/promotions" as const, perm: "promotions.manage" },
                       { title: "Coupons", to: "/admin/settings/coupons" as const, perm: "promotions.manage" },
-                      { title: "Business Rules", to: "/admin/settings/business-rules" as const, perm: null },
-                      { title: "Support Tickets", to: "/admin/settings/support" as const, perm: "support.manage" },
+                      { title: "Email & Notifications", to: "/admin/settings/email" as const, perm: null },
                       { title: "Customer Communications", to: "/admin/settings/communications" as const, perm: "emails.manage" },
-                      { title: "Automations", to: "/admin/settings/automations" as const, perm: null },
                       { title: "Admin Activity", to: "/admin/settings/activity" as const, perm: "audit.view" },
                       { title: "Business Analytics", to: "/admin/settings/analytics" as const, perm: null },
+
                     ].filter((i) => !i.perm || can(i.perm)).map((i) => (
                       <SidebarMenuSubItem key={i.to}>
                         <SidebarMenuSubButton asChild isActive={path === i.to}>
