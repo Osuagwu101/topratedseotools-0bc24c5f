@@ -1,6 +1,6 @@
 /**
  * Admin — Email Settings.
- * Tabs: Setup, Domain, Templates, History.
+ * Tabs: Setup, Domain, Branding, Templates, History.
  * Every action goes through admin-gated server functions; the Resend API key
  * is never fetched or displayed here.
  */
@@ -32,6 +32,7 @@ import {
   adminScanAbandonedNow,
   adminDispatchDueEmails,
 } from "@/lib/email/settings.functions";
+import { BrandingTab } from "@/components/admin/EmailBrandingTab";
 
 export const Route = createFileRoute("/admin/settings/email")({
   head: () => ({ meta: [{ title: "Email settings — Admin" }] }),
@@ -95,9 +96,10 @@ function EmailSettingsPage() {
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
         <Tabs defaultValue="setup" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="setup">Setup</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
+            <TabsTrigger value="branding">Branding</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
@@ -107,6 +109,9 @@ function EmailSettingsPage() {
           </TabsContent>
           <TabsContent value="domain">
             <DomainTab settings={s} onChanged={() => qc.invalidateQueries({ queryKey: ["email-settings"] })} />
+          </TabsContent>
+          <TabsContent value="branding">
+            <BrandingTab settings={s} onSaved={() => qc.invalidateQueries({ queryKey: ["email-settings"] })} />
           </TabsContent>
           <TabsContent value="templates">
             <TemplatesTab />
