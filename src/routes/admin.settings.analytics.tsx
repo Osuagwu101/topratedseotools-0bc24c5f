@@ -132,17 +132,18 @@ function AnalyticsPage() {
   return (
     <AdminShell>
       <section className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <header className="flex flex-wrap items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
+        <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:flex sm:flex-wrap">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
             <TrendingUp className="h-5 w-5" />
           </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Business Analytics</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Business Analytics</h1>
             <p className="text-sm text-muted-foreground">
               Revenue, customers, marketing attribution, tool performance, and exports.
             </p>
           </div>
         </header>
+
 
         {/* Filters */}
         <div className="grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
