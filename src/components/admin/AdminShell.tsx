@@ -100,6 +100,8 @@ const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  // Makes admin-created tools resolvable across every admin page.
+  useCatalogRegistration();
   return (
     <SidebarProvider defaultOpen>
       {/* Mobile: one natural page scroll (no nested overflow / fixed heights).

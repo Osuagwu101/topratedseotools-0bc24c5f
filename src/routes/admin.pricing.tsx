@@ -96,6 +96,8 @@ function AdminPricingPage() {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(pricingQuery);
   const { data: settingsData } = useSuspenseQuery(settingsQuery);
+  // Built-in tools plus admin-created ones.
+  const catalog = useCatalogRegistration();
   const upsert = useServerFn(upsertToolPricing);
   const remove = useServerFn(deleteToolPricing);
   const upsertSetting = useServerFn(adminUpsertToolSetting);
