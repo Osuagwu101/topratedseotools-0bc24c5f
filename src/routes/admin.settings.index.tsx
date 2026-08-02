@@ -33,11 +33,12 @@ function SettingsOverviewPage() {
             ) : (
               <ul className="divide-y">
                 {data.attention.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between py-2 text-sm">
-                    <Link to={item.href} className="hover:underline">{item.label}</Link>
-                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                  <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <Link to={item.href} className="min-w-0 truncate hover:underline">{item.label}</Link>
+                    <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                       {item.count}
                     </span>
+
                   </li>
                 ))}
               </ul>
