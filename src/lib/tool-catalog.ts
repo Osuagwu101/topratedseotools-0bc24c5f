@@ -10,7 +10,7 @@
  * here so a newly created tool behaves exactly like a built-in one.
  */
 import { Sparkles } from "lucide-react";
-import { TOOLS, type Tool, type ToolCategory } from "@/lib/tools-data";
+import { TOOLS, registerExtraTools, type Tool, type ToolCategory } from "@/lib/tools-data";
 import { applyOverride, type ToolOverride } from "@/lib/tool-overrides.functions";
 
 export type CatalogTool = Tool & { image_url: string | null; is_visible: boolean };
@@ -45,6 +45,9 @@ export function mergeToolCatalog(overrides: ToolOverride[]): CatalogTool[] {
   const custom = overrides
     .filter((o) => o.is_custom === true && !builtInSlugs.has(o.tool_slug))
     .map(toolFromOverride);
+  // Keep the synchronous getTool() lookups (dashboard, orders, receipts,
+  // transactions) aware of admin-created tools.
+  registerExtraTools(custom);
   return [...builtIn, ...custom];
 }
 

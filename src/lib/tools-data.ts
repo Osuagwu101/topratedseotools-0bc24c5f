@@ -361,6 +361,22 @@ export const TOOLS: Tool[] = [
   },
 ];
 
+/**
+ * Admin-created tools are stored in the database, not in this file. They are
+ * registered here at runtime (see `registerExtraTools`, called from
+ * `mergeToolCatalog`) so every existing `getTool()` call site — dashboard,
+ * orders, receipts, transactions, emails-facing UI — resolves them too.
+ */
+const extraTools = new Map<string, Tool>();
+
+export function registerExtraTools(tools: Tool[]): void {
+  for (const t of tools) if (!TOOLS.some((b) => b.slug === t.slug)) extraTools.set(t.slug, t);
+}
+
+export function getExtraTools(): Tool[] {
+  return [...extraTools.values()];
+}
+
 export function getTool(slug: string): Tool | undefined {
-  return TOOLS.find((t) => t.slug === slug);
+  return TOOLS.find((t) => t.slug === slug) ?? extraTools.get(slug);
 }
