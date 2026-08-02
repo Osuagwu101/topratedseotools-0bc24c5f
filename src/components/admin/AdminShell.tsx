@@ -14,13 +14,11 @@ import {
   ClipboardList,
   Users,
   BookOpen,
-  Palette,
   LogOut,
   ChevronDown,
   ChevronRight,
   Search,
   ShieldCheck,
-  Cog,
   UserCog,
   Star,
   Megaphone,
@@ -29,7 +27,6 @@ import {
 import { getMyAdminContext } from "@/lib/admin-permissions.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { SiteLayout } from "@/components/site/SiteLayout";
 import {
   Sidebar,
   SidebarContent,
@@ -61,12 +58,8 @@ const NAV: NavItem[] = [
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
   { title: "Access Health", to: "/admin/access-health", icon: ShieldCheck },
   { title: "Awaiting Assignment", to: "/admin/awaiting-assignments", icon: ClipboardList },
-  
-  
-  { title: "Appearance", to: "/admin/appearance", icon: Palette },
-  { title: "Email", to: "/admin/settings/email", icon: Cog },
-  { title: "Settings", to: "/admin/appearance", icon: Cog },
 ];
+
 
 
 const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
@@ -107,24 +100,28 @@ const REVIEWS_SUBNAV: { title: string; search: ReviewsSearch }[] = [
 
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
-    <SiteLayout>
-      <SidebarProvider defaultOpen>
-        <div className="flex w-full min-h-[calc(100vh-4rem)]">
-          <AdminSidebar />
-          <div className="flex-1 min-w-0">
-            <div className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur">
-              <SidebarTrigger />
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Admin
-              </span>
-            </div>
-            <div className="min-h-full">{children}</div>
-          </div>
+    <SidebarProvider defaultOpen>
+      <div className="flex h-svh w-full overflow-hidden">
+        <AdminSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background px-3">
+            <SidebarTrigger />
+            <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Admin
+            </span>
+            <Link to="/" className="shrink-0 text-xs text-muted-foreground hover:underline">
+              View site
+            </Link>
+          </header>
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+            {children}
+          </main>
         </div>
-      </SidebarProvider>
-    </SiteLayout>
+      </div>
+    </SidebarProvider>
   );
 }
+
 
 function AdminSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
@@ -477,20 +474,17 @@ function AdminSidebar() {
                   <SidebarMenuSub>
                     {[
                       { title: "Settings Overview", to: "/admin/settings" as const, perm: null },
-                      { title: "General Website Settings", to: "/admin/settings/general" as const, perm: null },
-                      { title: "Website Content", to: "/admin/settings/content" as const, perm: "content.manage" },
-                      { title: "Tools & Products", to: "/admin/settings/tools-products" as const, perm: "tools.manage" },
-                      { title: "Credentials & Capacity", to: "/admin/settings/credentials" as const, perm: "credentials.view" },
+                      { title: "Site Appearance & WhatsApp", to: "/admin/appearance" as const, perm: null },
+                      { title: "Tool Credentials Vault", to: "/admin/credentials" as const, perm: "credentials.view" },
                       { title: "Access Health", to: "/admin/access-health" as const, perm: null },
                       { title: "Awaiting Assignment", to: "/admin/awaiting-assignments" as const, perm: null },
                       { title: "Promotions & Rewards", to: "/admin/settings/promotions" as const, perm: "promotions.manage" },
                       { title: "Coupons", to: "/admin/settings/coupons" as const, perm: "promotions.manage" },
-                      { title: "Business Rules", to: "/admin/settings/business-rules" as const, perm: null },
-                      { title: "Support Tickets", to: "/admin/settings/support" as const, perm: "support.manage" },
+                      { title: "Email & Notifications", to: "/admin/settings/email" as const, perm: null },
                       { title: "Customer Communications", to: "/admin/settings/communications" as const, perm: "emails.manage" },
-                      { title: "Automations", to: "/admin/settings/automations" as const, perm: null },
                       { title: "Admin Activity", to: "/admin/settings/activity" as const, perm: "audit.view" },
                       { title: "Business Analytics", to: "/admin/settings/analytics" as const, perm: null },
+
                     ].filter((i) => !i.perm || can(i.perm)).map((i) => (
                       <SidebarMenuSubItem key={i.to}>
                         <SidebarMenuSubButton asChild isActive={path === i.to}>
@@ -508,7 +502,6 @@ function AdminSidebar() {
                       { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage" },
                       { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage" },
                       { title: "Staff, Roles & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
-                      { title: "Security Centre", to: "/admin/settings/security" as const, perm: null },
                       { title: "System Health & Repair", to: "/admin/settings/system-health" as const, perm: "system_health.access" },
                       { title: "Backup & Recovery", to: "/admin/settings/backup" as const, perm: "backups.access" },
                       { title: "Emergency Controls", to: "/admin/settings/emergency" as const, perm: "emergency.use" },
