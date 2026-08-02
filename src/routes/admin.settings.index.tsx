@@ -97,7 +97,7 @@ function SettingsOverviewPage() {
 
 function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-card">
+    <div className="min-w-0 rounded-2xl border bg-card p-5 shadow-card">
       <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold">
         {icon} {title}
       </div>
