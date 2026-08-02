@@ -61,12 +61,8 @@ const NAV: NavItem[] = [
   { title: "Transactions", to: "/admin/transactions", icon: ClipboardList },
   { title: "Access Health", to: "/admin/access-health", icon: ShieldCheck },
   { title: "Awaiting Assignment", to: "/admin/awaiting-assignments", icon: ClipboardList },
-  
-  
-  { title: "Appearance", to: "/admin/appearance", icon: Palette },
-  { title: "Email", to: "/admin/settings/email", icon: Cog },
-  { title: "Settings", to: "/admin/appearance", icon: Cog },
 ];
+
 
 
 const CUSTOMER_SUBNAV: { title: string; to: string }[] = [
