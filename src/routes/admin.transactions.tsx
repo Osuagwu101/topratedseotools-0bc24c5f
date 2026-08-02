@@ -163,7 +163,7 @@ function AdminTransactionsPage() {
         </div>
 
         <div className="mt-4 overflow-x-auto rounded-xl border">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Reference</th>
