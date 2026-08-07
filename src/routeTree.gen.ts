@@ -52,6 +52,7 @@ import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedChangePasswordRouteImport } from './routes/_authenticated.change-password'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated.billing'
+import { Route as DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport } from './routes/[.]well-known.apple-developer-merchantid-domain-association'
 import { Route as AdminToolsIndexRouteImport } from './routes/admin.tools.index'
 import { Route as AdminSettingsIndexRouteImport } from './routes/admin.settings.index'
 import { Route as AdminMarketingIndexRouteImport } from './routes/admin.marketing.index'
@@ -322,6 +323,12 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute =
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport.update({
+    id: '/.well-known/apple-developer-merchantid-domain-association',
+    path: '/.well-known/apple-developer-merchantid-domain-association',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminToolsIndexRoute = AdminToolsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -605,6 +612,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/change-password': typeof AuthenticatedChangePasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -698,6 +706,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/change-password': typeof AuthenticatedChangePasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -790,6 +799,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/change-password': typeof AuthenticatedChangePasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -887,6 +897,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tools'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/billing'
     | '/change-password'
     | '/dashboard'
@@ -980,6 +991,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/terms'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/billing'
     | '/change-password'
     | '/dashboard'
@@ -1071,6 +1083,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tools'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/_authenticated/billing'
     | '/_authenticated/change-password'
     | '/_authenticated/dashboard'
@@ -1168,6 +1181,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   AdminAccessHealthRoute: typeof AdminAccessHealthRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAppearanceRoute: typeof AdminAppearanceRoute
@@ -1493,6 +1507,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/billing'
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/.well-known/apple-developer-merchantid-domain-association': {
+      id: '/.well-known/apple-developer-merchantid-domain-association'
+      path: '/.well-known/apple-developer-merchantid-domain-association'
+      fullPath: '/.well-known/apple-developer-merchantid-domain-association'
+      preLoaderRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/tools/': {
       id: '/admin/tools/'
@@ -2062,6 +2083,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
+    DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   AdminAccessHealthRoute: AdminAccessHealthRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAppearanceRoute: AdminAppearanceRoute,
