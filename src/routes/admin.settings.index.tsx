@@ -44,6 +44,7 @@ function SettingsOverviewPage() {
 
           <Card icon={<Zap className="h-4 w-4" />} title="Quick Actions">
             <div className="grid gap-2 text-sm">
+              <Link to="/admin/settings/custom-payments" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Create a Custom Payment link</Link>
               <Link to="/admin/settings/browser-auth" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Configure One-Click Browser Login</Link>
               <Link to="/admin/settings/staff" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Manage staff, roles &amp; permissions</Link>
               <Link to="/admin/access-health" className="truncate rounded-md border px-3 py-2 hover:bg-muted">Check access health</Link>
