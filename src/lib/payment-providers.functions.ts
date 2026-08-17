@@ -424,9 +424,72 @@ export const adminSetProviderEnabled = createServerFn({ method: "POST" })
   });
 
 
-/*
- * Checkout copy ("You'll be redirected to <gateway>") is derived on the client
- * from the selected currency via src/lib/gateway-routing.ts — no server call
- * and no admin-selected active gateway.
+/**
+ * Make one gateway the single active checkout gateway.
+ *
+ * Selection is explicit and Super-Admin-only; there is no currency-based
+ * routing. Activation deactivates every other provider first so exactly one
+ * row is ever active (the DB also enforces this with a partial unique index),
+ * and it re-runs the credential + live-connection checks so a broken gateway
+ * can never become active.
  */
+export const adminSetActiveProvider = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const admin = await assertSuperAdmin(context);
+    const { data: target } = await admin
+      .from("payment_providers")
+      .select("id, slug, config, enabled")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!target) throw new Error("Provider not found");
+
+    await loadGatewaySecrets(admin, true);
+    const known = KNOWN[target.slug as string];
+    if (known) {
+      const missing = missingSecrets(known.required_env);
+      const cfg = (target.config ?? {}) as Record<string, unknown>;
+      for (const f of known.config_fields) {
+        if (f.required && !cfg[f.key]) missing.push(f.label);
+      }
+      if (missing.length) {
+        throw new Error(`Cannot activate ${known.display_name} — missing: ${missing.join(", ")}.`);
+      }
+      const { recordProviderTestResult, runProviderConnectionTest } = await import(
+        "@/lib/gateways/provider-validation.server"
+      );
+      const test = await runProviderConnectionTest(target);
+      await recordProviderTestResult(admin, data.id, test);
+      if (!test.ok) throw new Error(`Cannot activate — credential check failed: ${test.message}`);
+    }
+
+    // Deactivate everything else first, then activate + enable the target.
+    const off = await admin
+      .from("payment_providers")
+      .update({ is_active: false })
+      .neq("id", data.id);
+    if (off.error) throw new Error(off.error.message);
+    const on = await admin
+      .from("payment_providers")
+      .update({ is_active: true, enabled: true })
+      .eq("id", data.id);
+    if (on.error) throw new Error(on.error.message);
+
+    await logAdminActivity(context, {
+      action: "payment_provider.activate",
+      area: "payments",
+      target_type: "payment_provider",
+      target_id: data.id,
+      details: target.slug as string,
+    });
+    return { ok: true, slug: target.slug as string };
+  });
+
+/*
+ * Checkout copy ("You'll be redirected to <gateway>") comes from the single
+ * active provider via src/lib/active-gateway.functions.ts — never from the
+ * customer's currency.
+ */
+
 
