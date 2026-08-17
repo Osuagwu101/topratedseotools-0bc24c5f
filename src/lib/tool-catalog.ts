@@ -45,10 +45,22 @@ export function mergeToolCatalog(overrides: ToolOverride[]): CatalogTool[] {
   const custom = overrides
     .filter((o) => o.is_custom === true && !builtInSlugs.has(o.tool_slug))
     .map(toolFromOverride);
+
+  // SneakWrite is intentionally merchandised with the other humanizers rather
+  // than being buried at the end of the custom-tool catalogue. Keep every
+  // other admin-created tool in its existing append-only order.
+  const sneakWrite = custom.find((t) => t.slug === "sneakwrite");
+  const remainingCustom = custom.filter((t) => t.slug !== "sneakwrite");
+  const orderedBuiltIn = [...builtIn];
+  if (sneakWrite) {
+    const anchor = orderedBuiltIn.findIndex((t) => t.slug === "stealthwriter");
+    orderedBuiltIn.splice(anchor >= 0 ? anchor + 1 : 0, 0, sneakWrite);
+  }
+
   // Keep the synchronous getTool() lookups (dashboard, orders, receipts,
   // transactions) aware of admin-created tools.
   registerExtraTools(custom);
-  return [...builtIn, ...custom];
+  return [...orderedBuiltIn, ...remainingCustom];
 }
 
 export function findCatalogTool(overrides: ToolOverride[], slug: string): CatalogTool | undefined {
