@@ -32,6 +32,8 @@ import {
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
 import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
+import { CURRENCY_UNAVAILABLE_MESSAGE } from "@/lib/gateways/metadata";
+
 import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
 import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
