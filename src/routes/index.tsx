@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, Sparkles, Zap, Shield, Users, Star, HelpCircle } from "lucide-react";
+import { ArrowRight, Sparkles, Zap, Shield, Users, Star, HelpCircle } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
@@ -9,10 +9,7 @@ import { baseMonthlyLines } from "@/lib/base-pricing";
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
-const pricingQuery = queryOptions({
-  queryKey: ["tool-pricing"],
-  queryFn: () => listToolPricing(),
-});
+const pricingQuery = queryOptions({ queryKey: ["tool-pricing"], queryFn: () => listToolPricing() });
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,313 +27,87 @@ export const Route = createFileRoute("/")({
 });
 
 const TESTIMONIALS = [
-  {
-    quote:
-      "The cheapest way to get Stealthwriter and ChatGPT together. Delivery was instant after payment confirmation.",
-    name: "Adaeze O.",
-    role: "Content writer, Lagos",
-  },
-  {
-    quote:
-      "I ran Semrush and Grammarly for two months and my organic traffic doubled. Worth every naira.",
-    name: "Michael K.",
-    role: "SEO Consultant",
-  },
-  {
-    quote:
-      "Support is fast and the tools work exactly as advertised — no reselling gimmicks. Highly recommended.",
-    name: "Ifeoma A.",
-    role: "Agency Owner",
-  },
+  { quote: "The cheapest way to get Stealthwriter and ChatGPT together. Delivery was instant after payment confirmation.", name: "Adaeze O.", role: "Content writer, Lagos" },
+  { quote: "I ran Semrush and Grammarly for two months and my organic traffic doubled. Worth every naira.", name: "Michael K.", role: "SEO Consultant" },
+  { quote: "Support is fast and the tools work exactly as advertised — no reselling gimmicks. Highly recommended.", name: "Ifeoma A.", role: "Agency Owner" },
 ];
 
 const FAQ = [
-  {
-    q: "How do subscriptions work?",
-    a: "Each tool is subscribed to separately. You can subscribe to one or several tools and manage all of them from the same dashboard.",
-  },
-  {
-    q: "Is there a free trial?",
-    a: "TopRatedSEOTools does not currently offer a general free trial. Creating an account is free, but access to premium tools requires an active subscription.",
-  },
-  {
-    q: "Which payment methods are supported?",
-    a: "Payments are processed securely through Paystack.",
-  },
-  {
-    q: "How do renewals work?",
-    a: "Eligible monthly, quarterly and yearly subscriptions renew automatically until renewal is disabled. You can disable renewal at any time and keep access until the end of the paid billing period. Pay-per-use tools such as Turnitin do not renew.",
-  },
-  {
-    q: "How is Shared Access activated?",
-    a: "Shared Access is activated after payment confirmation, subject to availability.",
-  },
-  {
-    q: "How is Private Access activated?",
-    a: "After payment confirmation, your Private Access order will be marked as pending fulfilment. Contact Admin through WhatsApp to complete the account assignment — usually within six hours.",
-  },
-  {
-    q: "How does Turnitin work?",
-    a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no monthly, quarterly or yearly billing and no automatic renewal. Message us with the number of checks you need and we'll send a payment link.",
-  },
-  {
-    q: "How do I get support?",
-    a: "Support is available through WhatsApp and email. Reach us any time via the Contact page.",
-  },
+  { q: "How do subscriptions work?", a: "Each tool is subscribed to separately. Access types and billing periods vary by tool, and you can manage all active subscriptions from the same dashboard." },
+  { q: "Is there a free trial?", a: "TopRatedSEOTools does not currently offer a general free trial. Creating an account is free, but access to premium tools requires an active subscription." },
+  { q: "Which payment methods are supported?", a: "Paystack is the default active payment gateway. Another configured gateway is used only if a Super Admin deliberately makes it active." },
+  { q: "How do renewals work?", a: "Eligible recurring plans renew automatically until renewal is disabled. You can disable renewal and keep access until the end of the paid billing period. Pay-per-use tools such as Turnitin do not renew." },
+  { q: "How is Shared Access activated?", a: "A verified successful payment activates the order immediately. If login credentials are not active yet, your subscriptions page shows the Admin WhatsApp contact so access can be completed." },
+  { q: "How is Private Access activated?", a: "A verified successful payment activates the order, while dedicated login fulfilment may remain pending. Contact Admin through WhatsApp if credentials have not yet been assigned." },
+  { q: "How does Turnitin work?", a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no recurring billing and no automatic renewal. Message us with the number of checks you need and we'll send a payment link." },
+  { q: "How do I get support?", a: "Support is available through WhatsApp and email. Reach us any time via the Contact page." },
 ];
 
 function Home() {
   const money = useMoney();
-  // Built-in tools (with admin edits) plus admin-created tools.
   const catalog = useCatalogRegistration().filter((t) => t.is_visible);
   const featured = catalog.filter((t) => t.featured);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
-
   const showcase = catalog.slice(0, 8).map((t) => {
-    if (t.pricingModel === "per_use" && t.perUse) {
-      return { tool: t, baseLines: [], perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
-    }
-    const lines = baseMonthlyLines(
-      pricing.options.filter((o) => o.tool_slug === t.slug),
-    );
+    if (t.pricingModel === "per_use" && t.perUse) return { tool: t, baseLines: [], perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
+    const lines = baseMonthlyLines(pricing.options.filter((o) => o.tool_slug === t.slug));
     return { tool: t, baseLines: lines, perUseLabel: null as string | null };
   });
 
-
   return (
     <SiteLayout>
-      {/* Hero */}
       <section className="bg-gradient-hero relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8 lg:pt-32">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Premium software subscriptions, priced individually
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Choose from leading SEO, AI, writing, research, design, and productivity tools.
-              Each product has its own monthly and annual subscription, with clear pricing and fast
-              access after payment.
-            </p>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-primary" /> Premium software subscriptions, priced individually</div>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.</h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">Choose from leading SEO, AI, writing, research, design, and productivity tools. Access types and billing periods vary by product, with clear pricing and fast activation after verified payment.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                to="/pricing"
-                className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90"
-              >
-                Browse Individual Plans <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                to="/tools"
-                className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted"
-              >
-                See How It Works
-              </Link>
+              <Link to="/pricing" className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90">Browse Individual Plans <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/tools" className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted">See How It Works</Link>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Clear per-tool pricing · Secure Paystack payments · Automatic activation when access is available · WhatsApp and email support
-            </p>
+            <p className="mt-4 text-xs text-muted-foreground">Clear per-tool pricing · Paystack is the default gateway · Successful payments activate immediately · WhatsApp and email support</p>
           </div>
         </div>
       </section>
 
-      {/* Featured tools */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Popular tools</h2>
-            <p className="mt-2 text-muted-foreground">
-              Hand-picked picks that our members reach for daily.
-            </p>
-          </div>
-          <Link
-            to="/tools"
-            className="hidden shrink-0 text-sm font-medium text-primary hover:underline sm:inline-flex"
-          >
-            View all →
-          </Link>
-        </div>
-
+        <div className="flex items-end justify-between gap-4"><div><h2 className="text-3xl font-bold tracking-tight">Popular tools</h2><p className="mt-2 text-muted-foreground">Hand-picked picks that our members reach for daily.</p></div><Link to="/tools" className="hidden shrink-0 text-sm font-medium text-primary hover:underline sm:inline-flex">View all →</Link></div>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((t) => (
-            <Link
-              key={t.slug}
-              to="/tools/$slug"
-              params={{ slug: t.slug }}
-              className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
-            >
-              <ToolBrandMark tool={t} className="mb-4" />
-              <div className="text-lg font-semibold">{t.name}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div>
-              <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                View plans <ArrowRight className="h-4 w-4" />
-              </div>
-            </Link>
-          ))}
+          {featured.map((t) => <Link key={t.slug} to="/tools/$slug" params={{ slug: t.slug }} className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><ToolBrandMark tool={t} className="mb-4" /><div className="text-lg font-semibold">{t.name}</div><div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div><div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">View plans <ArrowRight className="h-4 w-4" /></div></Link>)}
         </div>
       </section>
 
-      {/* Value props */}
       <section className="border-y bg-muted/30">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
           {[
             { icon: Zap, title: "Pay per tool", body: "No forced software bundle. Choose only the tools you need and subscribe to each one separately." },
             { icon: Shield, title: "One dashboard", body: "Manage every subscription, renewal, and access detail from one place — even when you subscribe to several tools." },
             { icon: Users, title: "WhatsApp & email support", body: "Talk to a real person for activation, renewals, and account questions during business hours." },
-          ].map((v) => (
-            <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <v.icon className="h-5 w-5" />
-              </div>
-              <div className="text-lg font-semibold">{v.title}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{v.body}</div>
-            </div>
-          ))}
+          ].map((v) => <div key={v.title} className="rounded-2xl border bg-card p-6 shadow-card"><div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground"><v.icon className="h-5 w-5" /></div><div className="text-lg font-semibold">{v.title}</div><div className="mt-1 text-sm text-muted-foreground">{v.body}</div></div>)}
         </div>
       </section>
 
-      {/* Pricing preview — per tool */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Premium tools without the forced bundle</h2>
-          <p className="mt-3 text-muted-foreground">
-            Subscribe separately to the tools that support your work. Add or remove subscriptions as your
-            needs change, while managing everything from one account.
-          </p>
-        </div>
+        <div className="mx-auto max-w-2xl text-center"><h2 className="text-3xl font-bold tracking-tight">Premium tools without the forced bundle</h2><p className="mt-3 text-muted-foreground">Subscribe separately to the tools that support your work. Add or remove subscriptions as your needs change, while managing everything from one account.</p></div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {showcase.map(({ tool, baseLines, perUseLabel }) => (
-            <Link
-              key={tool.slug}
-              to="/tools/$slug"
-              params={{ slug: tool.slug }}
-              className="group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
-            >
-              <div className="flex items-center gap-3">
-                <ToolBrandMark tool={tool} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">{tool.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{tool.category}</div>
-                </div>
-              </div>
-              <div className="mt-4 flex-1 text-sm text-muted-foreground line-clamp-2">
-                {tool.tagline}
-              </div>
-              <div className="mt-4 border-t pt-3">
-                {perUseLabel ? (
-                  <>
-                    <div className="text-lg font-bold">{perUseLabel}</div>
-                    <div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div>
-                  </>
-                ) : baseLines.length > 0 ? (
-                  <div className="space-y-1">
-                    {baseLines.map((line) => (
-                      <div key={line.access} className="text-sm font-semibold">
-                        {`${line.title} from ${money.fmt(line.amount)}/month`}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm font-medium text-primary">Pricing confirmed on WhatsApp</div>
-                )}
-              </div>
-            </Link>
-          ))}
+          {showcase.map(({ tool, baseLines, perUseLabel }) => <Link key={tool.slug} to="/tools/$slug" params={{ slug: tool.slug }} className="group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><div className="flex items-center gap-3"><ToolBrandMark tool={tool} size="sm" /><div className="min-w-0"><div className="truncate font-semibold">{tool.name}</div><div className="truncate text-xs text-muted-foreground">{tool.category}</div></div></div><div className="mt-4 flex-1 text-sm text-muted-foreground line-clamp-2">{tool.tagline}</div><div className="mt-4 border-t pt-3">{perUseLabel ? <><div className="text-lg font-bold">{perUseLabel}</div><div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div></> : baseLines.length > 0 ? <div className="space-y-1">{baseLines.map((line) => <div key={line.access} className="text-sm font-semibold">{`${line.title} from ${money.fmt(line.amount)}/month`}</div>)}</div> : <div className="text-sm font-medium text-primary">Pricing confirmed on WhatsApp</div>}</div></Link>)}
         </div>
-        <div className="mt-8 text-center">
-          <Link
-            to="/pricing"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            View full pricing <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+        <div className="mt-8 text-center"><Link to="/pricing" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">View full pricing <ArrowRight className="h-4 w-4" /></Link></div>
       </section>
 
-      {/* Testimonials */}
       <section className="border-y bg-muted/30">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Loved by creators & agencies</h2>
-            <p className="mt-3 text-muted-foreground">
-              Real feedback from members using our tools every day.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-2xl border bg-card p-6 shadow-card">
-                <div className="flex gap-0.5 text-warning">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-current" />
-                  ))}
-                </div>
-                <p className="mt-3 text-sm text-foreground/90">"{t.quote}"</p>
-                <div className="mt-4 text-xs">
-                  <div className="font-semibold">{t.name}</div>
-                  <div className="text-muted-foreground">{t.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-2xl text-center"><h2 className="text-3xl font-bold tracking-tight">Loved by creators & agencies</h2><p className="mt-3 text-muted-foreground">Real feedback from members using our tools every day.</p></div><div className="mt-10 grid gap-6 md:grid-cols-3">{TESTIMONIALS.map((t) => <div key={t.name} className="rounded-2xl border bg-card p-6 shadow-card"><div className="flex gap-0.5 text-warning">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div><p className="mt-3 text-sm text-foreground/90">"{t.quote}"</p><div className="mt-4 text-xs"><div className="font-semibold">{t.name}</div><div className="text-muted-foreground">{t.role}</div></div></div>)}</div></div>
       </section>
 
-      {/* FAQ */}
       <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
-            <HelpCircle className="h-5 w-5" />
-          </div>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight">Frequently asked questions</h2>
-        </div>
-        <div className="mt-10 space-y-3">
-          {FAQ.map((item) => (
-            <details
-              key={item.q}
-              className="group rounded-2xl border bg-card p-5 shadow-card open:shadow-glow"
-            >
-              <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
-                {item.q}
-                <span className="text-lg text-muted-foreground transition group-open:rotate-45">+</span>
-              </summary>
-              <p className="mt-3 text-sm text-muted-foreground">{item.a}</p>
-            </details>
-          ))}
-        </div>
+        <div className="text-center"><div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow"><HelpCircle className="h-5 w-5" /></div><h2 className="mt-4 text-3xl font-bold tracking-tight">Frequently asked questions</h2></div>
+        <div className="mt-10 space-y-3">{FAQ.map((item) => <details key={item.q} className="group rounded-2xl border bg-card p-5 shadow-card open:shadow-glow"><summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">{item.q}<span className="text-lg text-muted-foreground transition group-open:rotate-45">+</span></summary><p className="mt-3 text-sm text-muted-foreground">{item.a}</p></details>)}</div>
       </section>
 
-      {/* CTA */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-3xl border bg-gradient-primary p-10 text-center text-primary-foreground shadow-glow sm:p-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to pick your first tool?
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
-            Create a free account, subscribe only to the tools you need, and manage every subscription
-            from one dashboard.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 rounded-md bg-background px-5 py-3 text-sm font-medium text-foreground shadow hover:opacity-90"
-            >
-              Create account <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/tools"
-              className="inline-flex items-center rounded-md border border-primary-foreground/40 px-5 py-3 text-sm font-medium hover:bg-primary-foreground/10"
-            >
-              Explore all tools
-            </Link>
-          </div>
-        </div>
+        <div className="overflow-hidden rounded-3xl border bg-gradient-primary p-10 text-center text-primary-foreground shadow-glow sm:p-16"><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ready to pick your first tool?</h2><p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">Create a free account, subscribe only to the tools you need, and manage every subscription from one dashboard.</p><div className="mt-6 flex flex-wrap items-center justify-center gap-3"><Link to="/register" className="inline-flex items-center gap-2 rounded-md bg-background px-5 py-3 text-sm font-medium text-foreground shadow hover:opacity-90">Create account <ArrowRight className="h-4 w-4" /></Link><Link to="/tools" className="inline-flex items-center rounded-md border border-primary-foreground/40 px-5 py-3 text-sm font-medium hover:bg-primary-foreground/10">Explore all tools</Link></div></div>
       </section>
     </SiteLayout>
   );
 }
-
-/* Ensure the following exists in tool-pricing.functions.ts:
-   export function formatPrice(o: ToolPricingOption): string
-   — already exported. */
