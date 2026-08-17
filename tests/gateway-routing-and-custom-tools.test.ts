@@ -11,32 +11,50 @@ import {
   GATEWAY_METADATA,
   gatewaySupportsCurrency,
 } from "../src/lib/gateways/metadata";
+import { buildPricingBreakdown, resolveChargePlan } from "../src/lib/currency-convert";
 import { mergeToolCatalog, slugTaken, toolFromOverride } from "../src/lib/tool-catalog";
 import type { ToolOverride } from "../src/lib/tool-overrides.functions";
 
 describe("explicit single active gateway", () => {
-  it("defaults to Paystack, which supports recurring and every checkout currency", () => {
+  it("defaults to Paystack and keeps provider selection independent of display currency", () => {
     expect(DEFAULT_GATEWAY).toBe("paystack");
     expect(gatewayName("paystack")).toBe("Paystack");
     expect(gatewayName(null)).toBe("Paystack");
     expect(gatewaySupportsRecurring("paystack")).toBe(true);
-    for (const c of ["NGN", "GHS", "KES", "ZAR", "USD", "ngn"]) {
-      expect(gatewayCanCharge("paystack", c)).toBe(true);
-    }
+    expect(GATEWAY_METADATA.paystack.selectable).toBe(true);
   });
 
-  it("treats Flutterwave as a one-time alternative, never chosen by currency", () => {
+  it("keeps Paystack direct settlement truthful while converting foreign display totals to NGN", () => {
+    expect(gatewayCanCharge("paystack", "NGN")).toBe(true);
+    expect(gatewayCanCharge("paystack", "GHS")).toBe(false);
+
+    const displayed = buildPricingBreakdown({
+      ngn: 10_000,
+      currency: "GHS",
+      rate: 0.01,
+      surchargePercent: 3,
+      surchargeEnabled: true,
+    });
+    const charge = resolveChargePlan(displayed, ["NGN"]);
+
+    expect(charge.display_currency).toBe("GHS");
+    expect(charge.payment_currency).toBe("NGN");
+    expect(charge.fallback_applied).toBe(true);
+    expect(charge.payment_minor_units).toBe(Math.round(charge.payment_amount * 100));
+  });
+
+  it("treats Flutterwave as a one-time alternative only when an admin selects it", () => {
     expect(gatewayName("flutterwave")).toBe("Flutterwave");
     expect(gatewaySupportsRecurring("flutterwave")).toBe(false);
     expect(gatewayCanCharge("flutterwave", "GHS")).toBe(true);
     expect(GATEWAY_METADATA.flutterwave.selectable).toBe(true);
   });
 
-  it("rejects currencies the chosen gateway cannot settle, with a safe message", () => {
+  it("reports direct settlement capability without changing gateway by currency", () => {
     expect(gatewayCanCharge("monnify", "NGN")).toBe(true);
     expect(gatewayCanCharge("monnify", "GHS")).toBe(false);
     expect(gatewaySupportsCurrency("paystack", "EUR")).toBe(false);
-    expect(CURRENCY_UNAVAILABLE_MESSAGE).toMatch(/temporarily unavailable for this currency/i);
+    expect(CURRENCY_UNAVAILABLE_MESSAGE).toMatch(/payment is temporarily unavailable/i);
   });
 
   it("derives client-safe display data from the shared metadata", () => {
@@ -46,7 +64,6 @@ describe("explicit single active gateway", () => {
     );
   });
 });
-
 
 const custom: ToolOverride = {
   tool_slug: "qa-temp-tool",
