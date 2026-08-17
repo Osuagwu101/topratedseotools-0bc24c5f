@@ -31,7 +31,7 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
-import { gatewayNameForCurrency, supportsRecurringForCurrency } from "@/lib/gateway-routing";
+import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
 import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
 import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
