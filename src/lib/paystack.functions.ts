@@ -76,14 +76,16 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
     if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
 
-    // Gateway routing is automatic and currency-driven: NGN → Paystack,
-    // every other currency → Flutterwave. The customer never picks a gateway
-    // and admins cannot switch it; the pricing, coupon, currency, order and
-    // access pipelines below stay gateway-agnostic.
+    // Gateway selection is explicit: the single provider a Super Admin marked
+    // active in Admin → Settings → Payment providers handles every checkout
+    // currency (Paystack by default). The currency is validated against that
+    // gateway — it never switches providers. The pricing, coupon, currency,
+    // order and access pipelines below stay gateway-agnostic.
     const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
     const { supabaseAdmin: adminForGateway } = await import("@/integrations/supabase/client.server");
-    const { resolveGatewayForCurrency } = await import("@/lib/gateways/registry");
-    const gateway = await resolveGatewayForCurrency(adminForGateway, chosenCurrency);
+    const { resolveActiveGateway } = await import("@/lib/gateways/registry");
+    const gateway = await resolveActiveGateway(adminForGateway, chosenCurrency);
+
 
     const env =
       detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY) ?? gateway.environment ?? "live";

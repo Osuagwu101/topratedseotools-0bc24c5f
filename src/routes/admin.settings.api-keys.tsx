@@ -2,8 +2,9 @@
  * Admin — Payment Providers & API keys.
  *
  * Lets a non-technical admin add/edit payment provider credentials and
- * test the live connection. Gateway selection is automatic and
- * currency-driven (NGN uses Paystack, other currencies use Flutterwave). Sensitive secret
+ * test the live connection. Exactly one gateway is active for checkout and a
+ * Super Admin selects it here (Paystack by default). Sensitive secret
+
  * keys stay in encrypted secret storage and are only edited through
  * the secure form; this page never displays them.
  */
@@ -18,6 +19,8 @@ import {
   adminListPaymentProviders,
   adminUpsertPaymentProvider,
   adminSetProviderEnabled,
+  adminSetActiveProvider,
+
   adminTestProviderConnection,
   adminDeletePaymentProvider,
   adminSaveProviderSecrets,
@@ -65,6 +68,8 @@ function PaymentProvidersPage() {
   const router = useRouter();
   const upsert = useServerFn(adminUpsertPaymentProvider);
   const setEnabled = useServerFn(adminSetProviderEnabled);
+  const makeActive = useServerFn(adminSetActiveProvider);
+
   const test = useServerFn(adminTestProviderConnection);
   const del = useServerFn(adminDeletePaymentProvider);
   const saveSecrets = useServerFn(adminSaveProviderSecrets);
@@ -118,8 +123,20 @@ function PaymentProvidersPage() {
     }
   }
 
-  // Gateway selection is automatic (NGN → Paystack, other currencies →
-  // Flutterwave), so there is no "make active" action here any more.
+  // Exactly one gateway processes checkout; a Super Admin selects it here.
+  async function activate(id: string, name: string) {
+    setBusy(`act:${id}`);
+    try {
+      await makeActive({ data: { id } });
+      toast.success(`${name} is now the active checkout gateway`);
+      await router.invalidate();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
 
 
   async function toggleEnabled(id: string, enabled: boolean) {
@@ -363,16 +380,17 @@ function PaymentProvidersPage() {
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                       {p.environment}
                     </span>
-                    {p.slug === "paystack" && (
+                    {p.is_active ? (
                       <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                        Used for NGN
+                        Active gateway
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dormant
                       </span>
                     )}
-                    {p.slug === "flutterwave" && (
-                      <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                        Used for GHS · KES · ZAR · USD
-                      </span>
-                    )}
+
+
 
                     {!p.enabled && (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -426,9 +444,19 @@ function PaymentProvidersPage() {
                 </div>
 
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  {!p.is_active && (
+                    <Button
+                      size="sm"
+                      onClick={() => activate(p.id, p.display_name)}
+                      disabled={busy === `act:${p.id}`}
+                    >
+                      <Power className="mr-1 h-3.5 w-3.5" /> Make active
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
                   </Button>
+
                   {p.enabled ? (
                     <Button
                       size="sm"

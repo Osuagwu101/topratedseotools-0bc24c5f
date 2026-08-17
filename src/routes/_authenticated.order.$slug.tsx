@@ -31,7 +31,9 @@ import {
 } from "@/lib/currency";
 import { createOrder, listToolSettings } from "@/lib/access.functions";
 import { initializePaystackPayment } from "@/lib/paystack.functions";
-import { gatewayNameForCurrency, supportsRecurringForCurrency } from "@/lib/gateway-routing";
+import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
+import { CURRENCY_UNAVAILABLE_MESSAGE } from "@/lib/gateways/metadata";
+
 import { previewCoupon, type CouponPreview } from "@/lib/coupons.functions";
 import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
@@ -93,11 +95,19 @@ function OrderPage() {
     (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
-  // Gateway routing is automatic and derived from the payment currency:
-  // NGN → Paystack (recurring available), any other currency → Flutterwave
-  // (one-time only). The customer never picks a gateway.
-  const gatewayName = gatewayNameForCurrency(money.currency);
-  const gatewayRecurring = supportsRecurringForCurrency(money.currency);
+  // One gateway is active at a time and it is chosen explicitly by an admin —
+  // never by the customer's currency. Copy below reflects the active gateway.
+  const activeGateway = useQuery({
+    queryKey: ["active-gateway"],
+    queryFn: () => getActiveGatewayInfo(),
+    staleTime: 60_000,
+  });
+  const gatewayName = activeGateway.data?.displayName ?? "our payment provider";
+  const gatewayRecurring = activeGateway.data?.supportsRecurring ?? true;
+  const currencyChargeable =
+    !activeGateway.data ||
+    activeGateway.data.chargeCurrencies.includes(String(money.currency).toUpperCase());
+
 
   const router = useRouter();
   // Turnitin (and any future per-use tool) has no subscription checkout —
@@ -567,9 +577,15 @@ function OrderPage() {
             </div>
           </div>
 
+          {!currencyChargeable ? (
+            <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+              {CURRENCY_UNAVAILABLE_MESSAGE}
+            </div>
+          ) : null}
+
           <button
             type="submit"
-            disabled={submitting || !chosen || oneTimeBlocked}
+            disabled={submitting || !chosen || oneTimeBlocked || !currencyChargeable}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
           >
             <CreditCard className="h-4 w-4" />
@@ -581,6 +597,7 @@ function OrderPage() {
                   ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with ${gatewayName}`
                   : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with ${gatewayName}`}
           </button>
+
 
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">

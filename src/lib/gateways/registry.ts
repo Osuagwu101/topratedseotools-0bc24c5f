@@ -1,16 +1,16 @@
 /**
  * Gateway registry — resolves the gateway for a payment at runtime.
  *
- * Server-only: reads secrets from process.env inside the adapters. Routing is
- * automatic and currency-driven (NGN → Paystack, everything else →
- * Flutterwave); there is no admin-controlled "active gateway".
+ * Server-only: reads secrets from process.env inside the adapters. Exactly one
+ * provider is active (`payment_providers.is_active`), selected explicitly by a
+ * Super Admin. Paystack is the default when nothing is marked active. There is
+ * no currency-based routing and no silent provider switching.
  */
 import { paystackAdapter } from "./paystack";
 import { flutterwaveAdapter } from "./flutterwave";
 import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
 import { loadGatewaySecrets } from "./secrets.server";
-import { gatewayForCurrency } from "@/lib/gateway-routing";
 import {
   CURRENCY_UNAVAILABLE_MESSAGE,
   DEFAULT_GATEWAY,
@@ -30,33 +30,44 @@ export function getAdapter(slug: GatewaySlug, config: GatewayConfig = {}): Gatew
   return createMonnifyAdapter(config);
 }
 
-/**
- * Resolve the gateway for a checkout from the currency being charged.
- *
- * Three explicit checks run before checkout initialisation:
- *   1. does the routed gateway declare support for this currency?
- *   2. are its credentials configured?
- *   3. is it enabled by the admin?
- *
- * A non-NGN currency NEVER silently falls back to Paystack — the customer gets
- * a clear message instead of being charged on the wrong gateway. The legacy
- * Paystack fallback remains only for the NGN/default route.
- */
+/** Which gateway did the admin explicitly activate? Falls back to Paystack. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveGatewayForCurrency(db: any, currency: string): Promise<ResolvedGateway> {
-  // Admin-entered credentials live in the database — hydrate them first.
-  await loadGatewaySecrets(db);
-  const slug: GatewaySlug = gatewayForCurrency(currency);
-  let config: GatewayConfig = {};
-  let enabled = true;
+export async function readActiveGatewaySlug(db: any): Promise<GatewaySlug> {
   try {
     const { data } = await db
       .from("payment_providers")
-      .select("config, enabled")
+      .select("slug")
+      .eq("is_active", true)
+      .eq("enabled", true)
+      .maybeSingle();
+    if (data && isGatewaySlug(data.slug)) return data.slug;
+  } catch {
+    /* fall back to the default gateway */
+  }
+  return DEFAULT_GATEWAY;
+}
+
+/**
+ * Resolve the single active gateway for a checkout.
+ *
+ * The currency does NOT choose the gateway — it is only validated against the
+ * active gateway's supported currencies. If the active gateway cannot charge
+ * that currency the customer sees the currency-unavailable message; we never
+ * silently switch providers.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function resolveActiveGateway(db: any, currency: string): Promise<ResolvedGateway> {
+  // Admin-entered credentials live in the database — hydrate them first.
+  await loadGatewaySecrets(db);
+  const slug = await readActiveGatewaySlug(db);
+  let config: GatewayConfig = {};
+  try {
+    const { data } = await db
+      .from("payment_providers")
+      .select("config")
       .eq("slug", slug)
       .maybeSingle();
     config = (data?.config ?? {}) as GatewayConfig;
-    if (data && data.enabled === false) enabled = false;
   } catch {
     /* credentials come from secrets; config is optional */
   }
@@ -64,16 +75,12 @@ export async function resolveGatewayForCurrency(db: any, currency: string): Prom
   if (!gatewaySupportsCurrency(slug, currency)) throw new Error(CURRENCY_UNAVAILABLE_MESSAGE);
 
   const adapter = getAdapter(slug, config);
-  if (!adapter.isConfigured() || !enabled) {
-    // Non-NGN currencies must not be re-routed to an NGN-only gateway.
-    if (slug !== DEFAULT_GATEWAY) throw new Error(CURRENCY_UNAVAILABLE_MESSAGE);
-    if (paystackAdapter.isConfigured()) {
-      return { slug: DEFAULT_GATEWAY, adapter: paystackAdapter, config: {}, environment: paystackAdapter.environment() };
-    }
+  if (!adapter.isConfigured()) {
     throw new Error("Payments are temporarily unavailable. Please contact support.");
   }
   return { slug, adapter, config, environment: adapter.environment() };
 }
+
 
 
 

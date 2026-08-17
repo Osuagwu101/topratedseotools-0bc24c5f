@@ -4,11 +4,15 @@
  * Client-safe by construction: this module has no server-only imports, so both
  * the checkout UI (via `@/lib/gateway-routing`) and the server-side adapters
  * read the same declarations. Adding a gateway means adding one entry here
- * plus an adapter — no checkout or routing code needs to change.
+ * plus an adapter — no checkout code needs to change.
+ *
+ * Gateway selection is NOT currency-driven. Exactly one provider is active
+ * (`payment_providers.is_active`), chosen explicitly by a Super Admin, with
+ * Paystack active by default.
  */
 import type { GatewaySlug } from "./types";
 
-/** Gateway assumed for legacy rows written before multi-gateway support. */
+/** Gateway used when no active provider row can be resolved. */
 export const DEFAULT_GATEWAY: GatewaySlug = "paystack";
 
 export interface GatewayMeta {
@@ -19,8 +23,8 @@ export interface GatewayMeta {
   supportsRecurring: boolean;
   /** Currencies the gateway can actually settle. */
   chargeCurrencies: string[];
-  /** Gateways kept for compatibility but not part of automatic routing. */
-  routable: boolean;
+  /** Gateway may be selected as the active checkout gateway by an admin. */
+  selectable: boolean;
 }
 
 export const GATEWAY_METADATA: Record<GatewaySlug, GatewayMeta> = {
@@ -28,8 +32,9 @@ export const GATEWAY_METADATA: Record<GatewaySlug, GatewayMeta> = {
     slug: "paystack",
     displayName: "Paystack",
     supportsRecurring: true,
-    chargeCurrencies: ["NGN"],
-    routable: true,
+    // Paystack is the default gateway and settles every checkout currency.
+    chargeCurrencies: ["NGN", "GHS", "KES", "ZAR", "USD"],
+    selectable: true,
   },
   flutterwave: {
     slug: "flutterwave",
@@ -37,15 +42,15 @@ export const GATEWAY_METADATA: Record<GatewaySlug, GatewayMeta> = {
     // Recurring is handled by our own renewal flow; Flutterwave charges one-time.
     supportsRecurring: false,
     chargeCurrencies: ["NGN", "GHS", "KES", "ZAR", "USD"],
-    routable: true,
+    // Dormant unless a Super Admin explicitly makes it the active gateway.
+    selectable: true,
   },
   monnify: {
     slug: "monnify",
     displayName: "Monnify",
     supportsRecurring: false,
     chargeCurrencies: ["NGN"],
-    // Not selected by automatic routing; credentials/tests remain available.
-    routable: false,
+    selectable: true,
   },
 };
 
@@ -57,6 +62,6 @@ export function gatewaySupportsCurrency(slug: GatewaySlug, currency: string | nu
   return GATEWAY_METADATA[slug].chargeCurrencies.includes(normalizeCurrency(currency));
 }
 
-/** Customer-safe message when no gateway can charge the chosen currency. */
+/** Customer-safe message when the active gateway cannot charge the currency. */
 export const CURRENCY_UNAVAILABLE_MESSAGE =
   "Payment is temporarily unavailable for this currency. Please try another currency or contact support.";
