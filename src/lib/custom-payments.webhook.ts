@@ -3,6 +3,11 @@
  * tool-order webhook pipeline. Returns null for ordinary tool payments.
  */
 import { createHmac, timingSafeEqual } from "crypto";
+import {
+  customPaymentMinorUnits,
+  normalizePaystackCurrency,
+  roundCustomPaymentAmount,
+} from "@/lib/custom-payment-currency";
 
 function safeEqualHex(a: string, b: string) {
   const ab = Buffer.from(a);
@@ -45,9 +50,7 @@ export async function tryHandleCustomPaystackWebhook(
   if (!safeEqualHex(got, expected)) return new Response("invalid signature", { status: 401 });
 
   const event = String(payload?.event ?? "");
-  if (event !== "charge.success" && event !== "charge.failed") {
-    return new Response("ignored", { status: 200 });
-  }
+  if (event !== "charge.success" && event !== "charge.failed") return new Response("ignored", { status: 200 });
 
   const data = payload?.data ?? {};
   const reference = String(data.reference ?? "");
@@ -57,7 +60,7 @@ export async function tryHandleCustomPaystackWebhook(
   const admin = deps.supabaseAdmin as any;
   const { data: link } = await admin
     .from("custom_payment_links")
-    .select("id, amount_ngn, currency, status, paid_reference")
+    .select("id, amount, amount_ngn, currency, status, paid_reference")
     .eq("id", linkId)
     .maybeSingle();
   if (!link) return new Response("ok", { status: 200 });
@@ -79,10 +82,12 @@ export async function tryHandleCustomPaystackWebhook(
     return new Response("ok", { status: 200 });
   }
 
-  const expectedMinor = Math.round(Number(link.amount_ngn) * 100);
+  const currency = normalizePaystackCurrency(link.currency ?? "NGN");
+  const amount = roundCustomPaymentAmount(Number(link.amount ?? link.amount_ngn), currency);
+  const expectedMinor = customPaymentMinorUnits(amount, currency);
   const actualMinor = Number(data.amount ?? 0);
-  const currency = String(data.currency ?? "").toUpperCase();
-  if (actualMinor !== expectedMinor || currency !== "NGN") {
+  const actualCurrency = String(data.currency ?? "").toUpperCase();
+  if (actualMinor !== expectedMinor || actualCurrency !== currency) {
     if (attempt) {
       await admin
         .from("custom_payment_transactions")
@@ -97,8 +102,9 @@ export async function tryHandleCustomPaystackWebhook(
     await admin.from("custom_payment_transactions").insert({
       link_id: link.id,
       reference,
-      amount_ngn: Number(link.amount_ngn),
-      currency: "NGN",
+      amount,
+      amount_ngn: currency === "NGN" ? amount : null,
+      currency,
       payer_name: null,
       payer_email: email,
       payment_gateway: "paystack",
