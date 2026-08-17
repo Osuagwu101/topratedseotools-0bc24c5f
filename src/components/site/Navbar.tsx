@@ -5,10 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
-import logoAsset from "@/assets/logo.png.asset.json";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
-
-
 
 const NAV_LINKS = [
   { to: "/tools", label: "Tools" },
@@ -32,7 +30,6 @@ export function Navbar() {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
-
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -61,16 +58,9 @@ export function Navbar() {
           className="flex items-center gap-2 font-semibold"
           aria-label={`${APP_NAME} — Home`}
         >
-          <img
-            src={logoAsset.url}
-            alt={`${APP_NAME} logo`}
-            width={36}
-            height={36}
-            className="h-9 w-9 rounded-md object-contain"
-          />
+          <BrandLogo size={36} className="h-9 w-9 rounded-md" />
           <span className="hidden text-base tracking-tight sm:inline">{APP_NAME}</span>
         </Link>
-
 
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((l) => (
