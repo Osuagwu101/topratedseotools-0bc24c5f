@@ -21,7 +21,7 @@ export interface GatewayMeta {
   displayName: string;
   /** Native recurring/subscription billing support. */
   supportsRecurring: boolean;
-  /** Currencies the gateway can actually settle. */
+  /** Currencies the gateway can actually settle directly. */
   chargeCurrencies: string[];
   /** Gateway may be selected as the active checkout gateway by an admin. */
   selectable: boolean;
@@ -32,8 +32,9 @@ export const GATEWAY_METADATA: Record<GatewaySlug, GatewayMeta> = {
     slug: "paystack",
     displayName: "Paystack",
     supportsRecurring: true,
-    // Paystack is the default gateway and settles every checkout currency.
-    chargeCurrencies: ["NGN", "GHS", "KES", "ZAR", "USD"],
+    // This merchant account settles in NGN. Customers may still select another
+    // display currency; checkout converts that total back to NGN before Paystack.
+    chargeCurrencies: ["NGN"],
     selectable: true,
   },
   flutterwave: {
@@ -62,6 +63,6 @@ export function gatewaySupportsCurrency(slug: GatewaySlug, currency: string | nu
   return GATEWAY_METADATA[slug].chargeCurrencies.includes(normalizeCurrency(currency));
 }
 
-/** Customer-safe message when the active gateway cannot charge the currency. */
+/** Customer-safe message when the active gateway cannot settle a checkout. */
 export const CURRENCY_UNAVAILABLE_MESSAGE =
-  "Payment is temporarily unavailable for this currency. Please try another currency or contact support.";
+  "Payment is temporarily unavailable. Please try again or contact support.";
