@@ -64,6 +64,32 @@ async function fetchJson(url: string, init: RequestInit): Promise<any> {
   return json;
 }
 
+async function stopBrowserUseSession(apiKey: string, sessionId: string) {
+  try {
+    await fetch(`${BROWSER_USE_BASE}/browsers/${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      headers: {
+        "X-Browser-Use-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "stop" }),
+    });
+  } catch {
+    // Best-effort cleanup. Provider timeout remains the final safety net.
+  }
+}
+
+async function closeCloudflareSession(accountId: string, token: string, sessionId: string) {
+  try {
+    await fetch(
+      `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/browser/${encodeURIComponent(sessionId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+    );
+  } catch {
+    // Best-effort cleanup. Provider timeout remains the final safety net.
+  }
+}
+
 export async function testBrowserProvider(
   admin: any,
   provider: BrowserAuthProvider,
@@ -261,7 +287,6 @@ async function injectLogin(
   );
   let stage = result?.result?.value?.stage as string | undefined;
 
-  // Common two-step login: email/username first, password on the next screen.
   if (stage === "next") {
     await delay(1200);
     await waitForDocument(client, sessionId);
@@ -325,8 +350,9 @@ export async function launchBrowserUse(
     throw new Error("Browser Use did not return a usable browser session.");
   }
 
-  const cdp = await CdpClient.connect(String(browser.cdpUrl));
+  let cdp: CdpClient | null = null;
   try {
+    cdp = await CdpClient.connect(String(browser.cdpUrl));
     const page = await attachBrowserPage(cdp);
     const automation = await injectLogin(
       cdp,
@@ -335,15 +361,21 @@ export async function launchBrowserUse(
       input.password,
       page.sessionId,
     );
+    if (!automation.submitted) {
+      throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
+    }
     return {
       provider: "browser_use",
       providerSessionId: String(browser.id),
       liveUrl: String(browser.liveUrl),
       expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
-      automationSubmitted: automation.submitted,
+      automationSubmitted: true,
     };
+  } catch (err) {
+    await stopBrowserUseSession(key, String(browser.id));
+    throw err;
   } finally {
-    cdp.close();
+    cdp?.close();
   }
 }
 
@@ -355,8 +387,6 @@ export async function launchCloudflare(
   const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
   if (!accountId || !token) throw new Error("Cloudflare Browser Run is not configured. Contact Admin.");
 
-  // Cloudflare's API keep_alive ceiling is 10 minutes. Once Live View connects,
-  // that connection keeps the interactive session active.
   const keepAliveMs = 600_000;
   const json = await fetchJson(
     `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/browser?keep_alive=${keepAliveMs}&targets=true`,
@@ -369,9 +399,13 @@ export async function launchCloudflare(
     throw new Error("Cloudflare Browser Run did not return a usable page session.");
   }
 
-  const cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
+  let cdp: CdpClient | null = null;
   try {
+    cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
     const automation = await injectLogin(cdp, input.loginUrl, input.username, input.password);
+    if (!automation.submitted) {
+      throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
+    }
     let liveUrl = String(target.devtoolsFrontendUrl ?? "");
     try {
       const view = await cdp.send("Cloudflare.getLiveView", {
@@ -380,7 +414,7 @@ export async function launchCloudflare(
       });
       if (view?.devtoolsFrontendUrl) liveUrl = String(view.devtoolsFrontendUrl);
     } catch {
-      // Target creation already returned a signed hosted Live View URL.
+      // Target creation may already include a signed hosted Live View URL.
     }
     if (!liveUrl) throw new Error("Cloudflare did not return a Live View URL.");
     return {
@@ -388,9 +422,12 @@ export async function launchCloudflare(
       providerSessionId: String(browser.sessionId),
       liveUrl,
       expiresAt: new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
-      automationSubmitted: automation.submitted,
+      automationSubmitted: true,
     };
+  } catch (err) {
+    await closeCloudflareSession(accountId, token, String(browser.sessionId));
+    throw err;
   } finally {
-    cdp.close();
+    cdp?.close();
   }
 }
