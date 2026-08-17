@@ -2,18 +2,9 @@
  * Cron endpoint — auto-fulfil Private Access orders whose 6-hour window has
  * elapsed without admin action. Scheduled via pg_cron every 5 minutes.
  *
- * SECURITY
- * --------
- * Although the URL sits under /api/public/* (which bypasses Lovable's edge
- * auth), the handler requires a shared secret in the `x-cron-secret` header
- * that must match the CRON_SECRET environment variable. Requests without a
- * secret, with the wrong secret, or when the server is missing the secret
- * are rejected with HTTP 401. The secret is never exposed to the browser —
- * it is read from process.env inside the handler and injected server-side
- * by the pg_cron schedule.
- *
- * The six-hour fulfilment rule is unchanged: rows are only processed when
- * their `fulfilment_deadline_at` (set to purchase time + 6h) has elapsed.
+ * The service-role-only database secret is authoritative. CRON_SECRET is used
+ * only when no database value exists, so database rotation invalidates any old
+ * embedded credential immediately.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { timingSafeEqual } from "crypto";
@@ -30,23 +21,15 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
     handlers: {
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-        // Accept a match against either the env-configured CRON_SECRET or
-        // the service-role-only internal_secrets row that pg_cron uses.
-        // Both are secret; the endpoint has no other way in.
-        const envSecret = process.env.CRON_SECRET ?? "";
         const { data: row } = await supabaseAdmin
           .from("internal_secrets")
           .select("value")
           .eq("name", "cron_secret")
           .maybeSingle();
-        const dbSecret = (row?.value as string | undefined) ?? "";
+        const dbSecret = String(row?.value ?? "");
+        const effectiveSecret = dbSecret || (process.env.CRON_SECRET ?? "");
         const provided = request.headers.get("x-cron-secret") ?? "";
-        const ok =
-          !!provided &&
-          ((!!envSecret && safeEqual(provided, envSecret)) ||
-            (!!dbSecret && safeEqual(provided, dbSecret)));
-        if (!ok) {
+        if (!provided || !effectiveSecret || !safeEqual(provided, effectiveSecret)) {
           console.warn("[auto-fulfil-private] rejected: missing or invalid cron secret");
           return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
             status: 401,
@@ -68,6 +51,7 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
             headers: { "content-type": "application/json" },
           });
         }
+
         let processed = 0;
         const { queueOrderEmail } = await import("@/lib/email/order-emails");
         const { queueReviewRequest } = await import("@/lib/email/review-request");
@@ -91,16 +75,13 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
               expires_at: expires.toISOString(),
             })
             .eq("id", o.id)
-            .eq("fulfilment_status", "pending"); // race guard
+            .eq("fulfilment_status", "pending");
           if (!upErr) {
             processed++;
             await queueOrderEmail(supabaseAdmin, {
               kind: "private_fulfilled",
               orderId: o.id as string,
-              extraPayload: {
-                fulfilled_at: now.toISOString(),
-                expiry_date: expires.toISOString(),
-              },
+              extraPayload: { fulfilled_at: now.toISOString(), expiry_date: expires.toISOString() },
             });
             await queueReviewRequest(supabaseAdmin, { orderId: o.id as string });
           }
