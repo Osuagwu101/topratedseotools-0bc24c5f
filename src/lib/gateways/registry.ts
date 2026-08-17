@@ -4,18 +4,14 @@
  * Server-only: reads secrets from process.env inside the adapters. Exactly one
  * provider is active (`payment_providers.is_active`), selected explicitly by a
  * Super Admin. Paystack is the default when nothing is marked active. There is
- * no currency-based routing and no silent provider switching.
+ * no currency-based provider routing and no silent provider switching.
  */
 import { paystackAdapter } from "./paystack";
 import { flutterwaveAdapter } from "./flutterwave";
 import { createMonnifyAdapter } from "./monnify";
 import { isGatewaySlug, type GatewayAdapter, type GatewayConfig, type GatewaySlug } from "./types";
 import { loadGatewaySecrets } from "./secrets.server";
-import {
-  CURRENCY_UNAVAILABLE_MESSAGE,
-  DEFAULT_GATEWAY,
-  gatewaySupportsCurrency,
-} from "./metadata";
+import { DEFAULT_GATEWAY } from "./metadata";
 
 export interface ResolvedGateway {
   slug: GatewaySlug;
@@ -50,14 +46,13 @@ export async function readActiveGatewaySlug(db: any): Promise<GatewaySlug> {
 /**
  * Resolve the single active gateway for a checkout.
  *
- * The currency does NOT choose the gateway — it is only validated against the
- * active gateway's supported currencies. If the active gateway cannot charge
- * that currency the customer sees the currency-unavailable message; we never
- * silently switch providers.
+ * The customer's display currency never chooses the provider. Whether that
+ * currency can be settled directly is handled later by `resolveChargePlan`,
+ * which converts the displayed total to one of the merchant/gateway settlement
+ * currencies (NGN for the current Paystack account) without changing provider.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveActiveGateway(db: any, currency: string): Promise<ResolvedGateway> {
-  // Admin-entered credentials live in the database — hydrate them first.
+export async function resolveActiveGateway(db: any, _displayCurrency?: string): Promise<ResolvedGateway> {
   await loadGatewaySecrets(db);
   const slug = await readActiveGatewaySlug(db);
   let config: GatewayConfig = {};
@@ -72,17 +67,12 @@ export async function resolveActiveGateway(db: any, currency: string): Promise<R
     /* credentials come from secrets; config is optional */
   }
 
-  if (!gatewaySupportsCurrency(slug, currency)) throw new Error(CURRENCY_UNAVAILABLE_MESSAGE);
-
   const adapter = getAdapter(slug, config);
   if (!adapter.isConfigured()) {
     throw new Error("Payments are temporarily unavailable. Please contact support.");
   }
   return { slug, adapter, config, environment: adapter.environment() };
 }
-
-
-
 
 /** Which gateway processed a given reference — used by verify + receipts. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
