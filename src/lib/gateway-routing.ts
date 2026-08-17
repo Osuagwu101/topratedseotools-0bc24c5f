@@ -1,13 +1,16 @@
 /**
  * Gateway capability helpers (client-safe).
  *
- * There is NO automatic currency-based routing. Exactly one gateway is active
- * at a time (`payment_providers.is_active`) and it is selected explicitly by a
- * Super Admin in Admin → Settings → Payment providers. Paystack is active by
- * default and can charge every supported checkout currency.
+ * There is NO automatic currency-based provider routing. Exactly one gateway
+ * is active at a time (`payment_providers.is_active`) and it is selected
+ * explicitly by a Super Admin in Admin → Settings → Payment providers.
+ * Paystack is active by default. Customers may select any enabled display
+ * currency; if Paystack cannot settle it directly, the existing charge-plan
+ * pipeline converts the displayed total to the merchant settlement currency
+ * (NGN for the current account) without changing gateway.
  *
- * Capability data is not duplicated here: name, recurring support and
- * chargeable currencies all come from `@/lib/gateways/metadata`, the same
+ * Capability data is not duplicated here: name, recurring support and direct
+ * settlement currencies come from `@/lib/gateways/metadata`, the same
  * declarations the server-side adapters use.
  */
 import {
@@ -52,7 +55,7 @@ export function gatewaySupportsRecurring(slug: string | null | undefined): boole
   return GATEWAY_DISPLAY[slugOrDefault(slug)].supportsRecurring;
 }
 
-/** Can the given gateway actually charge this currency at all? */
+/** Can the given gateway settle this currency directly? */
 export function gatewayCanCharge(
   slug: string | null | undefined,
   currency: string | null | undefined,
