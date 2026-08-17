@@ -15,8 +15,7 @@ export const Route = createFileRoute("/about")({
       { property: "og:title", content: "About — Top Rated SEO Tools" },
       {
         property: "og:description",
-        content:
-          "Individual premium tool subscriptions, managed in one place.",
+        content: "Individual premium tool subscriptions, managed in one place.",
       },
     ],
   }),
@@ -37,8 +36,9 @@ function AboutPage() {
             subscriptions for individual SEO, AI, writing, research, design, and productivity tools.
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Customers can choose the specific tools they need, subscribe monthly or annually, and
-            manage their access and renewals from one dashboard.
+            Customers can choose the specific tools they need and select from the billing periods available
+            for each tool — including monthly, quarterly or yearly options where offered — while managing
+            access and renewals from one dashboard.
           </p>
         </div>
       </section>
@@ -54,7 +54,7 @@ function AboutPage() {
             {
               icon: Heart,
               title: "Our approach",
-              body: "Clear per-tool pricing, monthly and annual plans, and one place to manage every subscription and renewal.",
+              body: "Clear per-tool pricing, billing periods that vary by tool, and one place to manage every subscription and renewal.",
             },
             {
               icon: Rocket,
