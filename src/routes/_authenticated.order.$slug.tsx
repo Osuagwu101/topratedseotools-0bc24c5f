@@ -575,9 +575,15 @@ function OrderPage() {
             </div>
           </div>
 
+          {!currencyChargeable ? (
+            <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+              {CURRENCY_UNAVAILABLE_MESSAGE}
+            </div>
+          ) : null}
+
           <button
             type="submit"
-            disabled={submitting || !chosen || oneTimeBlocked}
+            disabled={submitting || !chosen || oneTimeBlocked || !currencyChargeable}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
           >
             <CreditCard className="h-4 w-4" />
@@ -589,6 +595,7 @@ function OrderPage() {
                   ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with ${gatewayName}`
                   : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with ${gatewayName}`}
           </button>
+
 
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
