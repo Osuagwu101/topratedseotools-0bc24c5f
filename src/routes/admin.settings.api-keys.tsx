@@ -122,8 +122,20 @@ function PaymentProvidersPage() {
     }
   }
 
-  // Gateway selection is automatic (NGN → Paystack, other currencies →
-  // Flutterwave), so there is no "make active" action here any more.
+  // Exactly one gateway processes checkout; a Super Admin selects it here.
+  async function activate(id: string, name: string) {
+    setBusy(`act:${id}`);
+    try {
+      await makeActive({ data: { id } });
+      toast.success(`${name} is now the active checkout gateway`);
+      await router.invalidate();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
 
 
   async function toggleEnabled(id: string, enabled: boolean) {
