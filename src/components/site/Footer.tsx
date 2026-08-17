@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { APP_NAME } from "@/lib/site-config";
-import logoAsset from "@/assets/logo.png.asset.json";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { openConsentBanner } from "@/components/marketing/ConsentBanner";
-
 
 const COLS = [
   {
@@ -36,13 +35,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-12 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="col-span-2 md:col-span-1">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <img
-              src={logoAsset.url}
-              alt={`${APP_NAME} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-md object-contain"
-            />
+            <BrandLogo size={32} className="h-8 w-8 rounded-md" />
             {APP_NAME}
           </Link>
 
