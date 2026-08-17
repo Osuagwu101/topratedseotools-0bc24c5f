@@ -14,6 +14,13 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
+import {
+  BRAND_APPLE_TOUCH_ICON_PATH,
+  BRAND_FAVICON_ICO_PATH,
+  BRAND_FAVICON_PNG_PATH,
+  BRAND_LOGO_URL,
+  BRAND_MANIFEST_PATH,
+} from "@/lib/brand-assets";
 import { getActiveTheme } from "@/lib/site-settings.functions";
 import { MarketingTags } from "@/components/marketing/MarketingTags";
 import { MarketingProvider } from "@/components/marketing/MarketingProvider";
@@ -84,8 +91,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   loader: async () => {
     try {
@@ -101,19 +106,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { name: "description", content: APP_DESCRIPTION },
       { name: "author", content: APP_NAME },
+      { name: "theme-color", content: "#1e4e8c" },
       { property: "og:site_name", content: APP_NAME },
       { property: "og:title", content: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { property: "og:description", content: APP_DESCRIPTION },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image", content: BRAND_LOGO_URL },
+      { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { name: "twitter:description", content: APP_DESCRIPTION },
+      { name: "twitter:image", content: BRAND_LOGO_URL },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
-      { rel: "icon", href: "/favicon.ico", sizes: "any" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "icon", href: BRAND_FAVICON_PNG_PATH, type: "image/png", sizes: "any" },
+      { rel: "shortcut icon", href: BRAND_FAVICON_ICO_PATH },
+      { rel: "icon", href: BRAND_FAVICON_ICO_PATH, sizes: "any" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: BRAND_APPLE_TOUCH_ICON_PATH },
+      { rel: "manifest", href: BRAND_MANIFEST_PATH },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
