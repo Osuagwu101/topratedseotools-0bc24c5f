@@ -5,6 +5,7 @@
  * renders exactly the same HTML the dispatcher sends. Presentation only: this
  * module never touches triggers, the queue, or delivery.
  */
+import { BRAND_LOGO_URL } from "@/lib/brand-assets";
 
 export interface EmailBranding {
   brandName: string;
@@ -19,7 +20,7 @@ export interface EmailBranding {
 export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
   brandName: "Top Rated SEO Tools",
   brandColor: "#1e4e8c",
-  logoUrl: "https://topratedseotools.com/__l5e/assets-v1/147b0b3f-0398-4309-87ad-9624e5934639/top-rated-seo-tools-logo.png",
+  logoUrl: BRAND_LOGO_URL,
   footerCompany: "Top Rated SEO Tools",
   footerMessage: "Premium SEO, AI and productivity tools.",
   supportEmail: "support@topratedseotools.com",
@@ -107,7 +108,7 @@ export function renderBrandedEmail(opts: BrandedEmailOptions): string {
   const title = escapeHtmlValue(opts.title || b.brandName);
   const preheader = escapeHtmlValue(opts.preheader || b.footerMessage || b.brandName);
   const logo = b.logoUrl
-    ? `<img src="${escapeHtmlValue(b.logoUrl)}" width="36" height="36" alt="" style="display:block;border:0;border-radius:8px;width:36px;height:36px;object-fit:contain;" />`
+    ? `<img src="${escapeHtmlValue(b.logoUrl)}" width="36" height="36" alt="${escapeHtmlValue(b.brandName)}" style="display:block;border:0;border-radius:8px;width:36px;height:36px;object-fit:contain;" />`
     : "";
 
   return `<!doctype html>
