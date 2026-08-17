@@ -93,11 +93,19 @@ function OrderPage() {
     (setting?.private_access_authorization ?? "confirmed") === "confirmed";
   const submitOrder = useServerFn(createOrder);
   const initPay = useServerFn(initializePaystackPayment);
-  // Gateway routing is automatic and derived from the payment currency:
-  // NGN → Paystack (recurring available), any other currency → Flutterwave
-  // (one-time only). The customer never picks a gateway.
-  const gatewayName = gatewayNameForCurrency(money.currency);
-  const gatewayRecurring = supportsRecurringForCurrency(money.currency);
+  // One gateway is active at a time and it is chosen explicitly by an admin —
+  // never by the customer's currency. Copy below reflects the active gateway.
+  const activeGateway = useQuery({
+    queryKey: ["active-gateway"],
+    queryFn: () => getActiveGatewayInfo(),
+    staleTime: 60_000,
+  });
+  const gatewayName = activeGateway.data?.displayName ?? "our payment provider";
+  const gatewayRecurring = activeGateway.data?.supportsRecurring ?? true;
+  const currencyChargeable =
+    !activeGateway.data ||
+    activeGateway.data.chargeCurrencies.includes(String(money.currency).toUpperCase());
+
 
   const router = useRouter();
   // Turnitin (and any future per-use tool) has no subscription checkout —
