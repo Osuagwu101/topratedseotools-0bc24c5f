@@ -67,6 +67,8 @@ function PaymentProvidersPage() {
   const router = useRouter();
   const upsert = useServerFn(adminUpsertPaymentProvider);
   const setEnabled = useServerFn(adminSetProviderEnabled);
+  const makeActive = useServerFn(adminSetActiveProvider);
+
   const test = useServerFn(adminTestProviderConnection);
   const del = useServerFn(adminDeletePaymentProvider);
   const saveSecrets = useServerFn(adminSaveProviderSecrets);
