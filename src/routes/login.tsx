@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +7,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { APP_NAME } from "@/lib/site-config";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 const searchSchema = z.object({ redirect: z.string().optional() });
 
@@ -81,7 +81,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
     <div className="min-h-screen bg-gradient-hero">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
         <Link to="/" className="mb-8 inline-flex items-center gap-2 self-center font-semibold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-primary text-primary-foreground shadow-glow"><Sparkles className="h-4 w-4" /></span>
+          <BrandLogo size={40} className="h-10 w-10 rounded-lg shadow-glow" />
           <span>{APP_NAME}</span>
         </Link>
         <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">
