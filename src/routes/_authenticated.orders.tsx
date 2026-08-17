@@ -32,6 +32,7 @@ import {
   Repeat,
   ShieldOff,
   Hourglass,
+  MessageCircle,
 } from "lucide-react";
 import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -117,7 +118,6 @@ function MyOrdersPage() {
   const disableRenewal = useServerFn(disableOrderRenewal);
   const [verifying, setVerifying] = useState(false);
 
-  // If we came back from Paystack with a reference, verify once.
   useEffect(() => {
     const ref = search.reference ?? search.trxref;
     if (!ref || verifying) return;
@@ -145,7 +145,6 @@ function MyOrdersPage() {
         router.navigate({ to: "/orders", search: {}, replace: true });
         router.invalidate();
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.reference, search.trxref]);
 
   async function onCancel(id: string) {
@@ -183,7 +182,6 @@ function MyOrdersPage() {
     for (const s of settingsData.settings) map.set(s.tool_slug, s);
     return map;
   }, [settingsData.settings]);
-
 
   const orders = ordersData.orders.map((o) => {
     const s: ToolOrderStatus =
@@ -232,10 +230,7 @@ function MyOrdersPage() {
               const access =
                 o.effectiveStatus === "approved" ? accessBySlug.get(o.tool_slug) : null;
               return (
-                <li
-                  key={o.id}
-                  className="rounded-2xl border bg-card p-5 shadow-card"
-                >
+                <li key={o.id} className="rounded-2xl border bg-card p-5 shadow-card">
                   <div className="flex flex-wrap items-center gap-4">
                     {tool ? (
                       <ToolBrandMark tool={tool} size="sm" />
@@ -272,9 +267,7 @@ function MyOrdersPage() {
                             : "Custom pricing"}
                         </span>
                         <span>· Ordered {new Date(o.created_at).toLocaleDateString()}</span>
-                        {o.paid_at && (
-                          <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>
-                        )}
+                        {o.paid_at && <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>}
                         {o.next_payment_at && o.renewal_status === "enabled" && (
                           <span>· Next payment {new Date(o.next_payment_at).toLocaleDateString()}</span>
                         )}
@@ -315,8 +308,7 @@ function MyOrdersPage() {
                           </button>
                         )}
                       {o.effectiveStatus === "approved" &&
-                        (o.payment_type === "one_time" ||
-                          o.renewal_status === "not_applicable") &&
+                        (o.payment_type === "one_time" || o.renewal_status === "not_applicable") &&
                         tool && (
                           <Link
                             to="/order/$slug"
@@ -328,8 +320,7 @@ function MyOrdersPage() {
                         )}
                       {(o.effectiveStatus === "rejected" ||
                         o.effectiveStatus === "cancelled" ||
-                        o.effectiveStatus === "expired") &&
-                        tool && (
+                        o.effectiveStatus === "expired") && tool && (
                           <Link
                             to="/order/$slug"
                             params={{ slug: tool.slug }}
@@ -362,6 +353,7 @@ function MyOrdersPage() {
                       access={access}
                       tool={tool}
                       setting={settingBySlug.get(o.tool_slug)}
+                      whatsapp={siteData.adminWhatsappNumber}
                     />
                   )}
                 </li>
@@ -376,8 +368,7 @@ function MyOrdersPage() {
 
 function SubStatusBadge({ order }: { order: ToolOrder }) {
   const items: { label: string; cls: string; Icon: typeof Repeat }[] = [];
-  const isOneTime =
-    order.payment_type === "one_time" || order.renewal_status === "not_applicable";
+  const isOneTime = order.payment_type === "one_time" || order.renewal_status === "not_applicable";
   if (order.status === "approved") {
     if (isOneTime) {
       items.push({ label: "One-time purchase", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
@@ -411,7 +402,6 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
   );
 }
 
-
 function PrivatePendingBanner({
   order,
   toolName,
@@ -432,9 +422,7 @@ function PrivatePendingBanner({
     `Payment Status: Successful\n` +
     `Fulfilment Status: Pending\n\n` +
     `Please help me activate my Private Access order.`;
-  const waUrl = whatsapp
-    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}`
-    : null;
+  const waUrl = whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}` : null;
   return (
     <div className="mt-3 rounded-lg border border-dashed bg-muted/40 p-3 text-xs">
       <div className="flex items-start gap-2">
@@ -474,6 +462,7 @@ function CredentialCard({
   access,
   tool,
   setting,
+  whatsapp,
 }: {
   access: {
     tool_slug: string;
@@ -491,6 +480,7 @@ function CredentialCard({
   };
   tool: Tool;
   setting: ToolSetting | undefined;
+  whatsapp: string | null;
 }) {
   const [reveal, setReveal] = useState(false);
   const creds = access.credentials;
@@ -509,8 +499,7 @@ function CredentialCard({
       };
     }
     if (access.grace_days > 0 && access.paid_at && access.duration_days) {
-      const billingEnd =
-        new Date(access.paid_at).getTime() + access.duration_days * 86400_000;
+      const billingEnd = new Date(access.paid_at).getTime() + access.duration_days * 86400_000;
       if (now >= billingEnd) {
         const graceLeft = Math.max(0, Math.ceil((expiresAt - now) / 86400_000));
         return {
@@ -522,13 +511,11 @@ function CredentialCard({
     return null;
   }, [access]);
 
-  // One-Click Login mode → replace credentials with a "Launch Tool" button.
   if (oneClick) {
     return (
       <div className="mt-4 rounded-xl border bg-background/60 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <Zap className="h-3.5 w-3.5" />
-          One-Click Login
+          <Zap className="h-3.5 w-3.5" /> One-Click Login
         </div>
         {banner && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
@@ -538,8 +525,7 @@ function CredentialCard({
         )}
         <p className="mt-2 text-xs text-muted-foreground">
           Click below to open the official {tool.name} login page. Sign in with
-          your own {tool.name} account — your subscription here keeps your
-          access active.
+          your own {tool.name} account — your subscription here keeps your access active.
         </p>
         <div className="mt-3">
           <button
@@ -554,7 +540,6 @@ function CredentialCard({
     );
   }
 
-  // Manual credentials mode — hide entirely if the admin turned it off.
   if (!showManual) {
     return (
       <div className="mt-4 rounded-xl border bg-background/60 p-4 text-xs text-muted-foreground">
@@ -563,11 +548,18 @@ function CredentialCard({
     );
   }
 
+  const noLoginDetails = !creds || (!creds.email && !creds.password && !creds.login_url);
+  const whatsappDigits = (whatsapp ?? "").replace(/\D/g, "");
+  const whatsappDisplay = whatsappDigits ? `+${whatsappDigits}` : null;
+  const whatsappMessage = `Hello Admin, my ${tool.name} subscription is active but login credentials are not available yet. Please help me complete access.`;
+  const whatsappUrl = whatsappDigits
+    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappMessage)}`
+    : null;
+
   return (
     <div className="mt-4 rounded-xl border bg-background/60 p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <KeyRound className="h-3.5 w-3.5" />
-        Login details
+        <KeyRound className="h-3.5 w-3.5" /> Login details
       </div>
 
       {banner && (
@@ -577,14 +569,27 @@ function CredentialCard({
         </div>
       )}
 
-
-      {!creds || (!creds.email && !creds.password && !creds.login_url) ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Your access is active. Login details will appear here as soon as the admin adds them.
-        </p>
+      {noLoginDetails ? (
+        <div className="mt-3 rounded-lg border border-dashed bg-muted/30 p-3 text-xs">
+          <p className="text-muted-foreground">
+            Login credentials are not active yet. Contact Admin on WhatsApp to complete access.
+          </p>
+          {whatsappUrl && whatsappDisplay ? (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-2 inline-flex items-center gap-2 rounded-md bg-success px-3 py-1.5 font-semibold text-success-foreground hover:opacity-90"
+            >
+              <MessageCircle className="h-3.5 w-3.5" /> Contact Admin · {whatsappDisplay}
+            </a>
+          ) : (
+            <p className="mt-2 italic text-muted-foreground">Admin WhatsApp number is not configured yet.</p>
+          )}
+        </div>
       ) : (
         <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-          {creds.login_url && (
+          {creds?.login_url && (
             <a
               href={creds.login_url}
               target="_blank"
@@ -594,10 +599,8 @@ function CredentialCard({
               <ExternalLink className="h-3.5 w-3.5" /> Open login page
             </a>
           )}
-          {creds.email && (
-            <CredField label="Email" value={creds.email} />
-          )}
-          {creds.password && (
+          {creds?.email && <CredField label="Email" value={creds.email} />}
+          {creds?.password && (
             <CredField
               label="Password"
               value={creds.password}
@@ -605,7 +608,7 @@ function CredentialCard({
               onToggle={() => setReveal((r) => !r)}
             />
           )}
-          {creds.login_notes && (
+          {creds?.login_notes && (
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground sm:col-span-2">
               <span className="font-medium text-foreground">Notes: </span>
               {creds.login_notes}
