@@ -8,6 +8,7 @@
  * Flutterwave works in MAJOR currency units, so amounts are converted at the
  * boundary — the rest of the platform keeps using minor units.
  */
+import { timingSafeEqual } from "crypto";
 import type {
   GatewayAdapter,
   GatewayInitInput,
@@ -55,40 +56,24 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
   return "pending";
 }
 
-/**
- * Channels offered on the Flutterwave checkout. Mobile Money is the primary
- * method in Ghana/Kenya, so it is listed first for those currencies.
- */
 function paymentOptionsFor(currency: string): string {
   switch (String(currency).toUpperCase()) {
-    case "GHS":
-      return "mobilemoneyghana,card,banktransfer,ussd";
-    case "KES":
-      return "mpesa,card,banktransfer";
-    case "ZAR":
-      return "card,banktransfer";
-    case "USD":
-      return "card";
-    default:
-      return "card,banktransfer,ussd,account";
+    case "GHS": return "mobilemoneyghana,card,banktransfer,ussd";
+    case "KES": return "mpesa,card,banktransfer";
+    case "ZAR": return "card,banktransfer";
+    case "USD": return "card";
+    default: return "card,banktransfer,ussd,account";
   }
 }
 
 export const flutterwaveAdapter: GatewayAdapter = {
-  // Name, recurring support and chargeable currencies come from the shared
-  // metadata declarations so client and server can never disagree.
   ...GATEWAY_METADATA.flutterwave,
-
-  isConfigured() {
-    return !!process.env.FLUTTERWAVE_SECRET_KEY;
-  },
-
+  isConfigured() { return !!process.env.FLUTTERWAVE_SECRET_KEY; },
   environment() {
     const k = process.env.FLUTTERWAVE_SECRET_KEY;
     if (!k) return null;
     return /test/i.test(k) ? "test" : "live";
   },
-
   async initialize(input: GatewayInitInput): Promise<GatewayInitResult> {
     const data = await api<{ link: string }>("/payments", {
       method: "POST",
@@ -98,38 +83,15 @@ export const flutterwaveAdapter: GatewayAdapter = {
         currency: input.currency,
         redirect_url: input.callbackUrl,
         payment_options: paymentOptionsFor(input.currency),
-        customer: {
-          email: input.email,
-          name: input.customerName ?? undefined,
-        },
-        customizations: {
-          title: "Top Rated SEO Tools",
-          description: input.description ?? "Tool access",
-        },
+        customer: { email: input.email, name: input.customerName ?? undefined },
+        customizations: { title: "Top Rated SEO Tools", description: input.description ?? "Tool access" },
         meta: input.metadata,
       }),
     });
-    return {
-      authorization_url: data.link,
-      reference: input.reference,
-      gateway_reference: null,
-      raw: data,
-    };
+    return { authorization_url: data.link, reference: input.reference, gateway_reference: null, raw: data };
   },
-
   async verify(reference: string): Promise<GatewayTransaction> {
-    const tx = await api<{
-      id?: number;
-      tx_ref: string;
-      status: string;
-      amount: number;
-      charged_amount?: number;
-      currency: string;
-      payment_type?: string;
-      created_at?: string;
-      meta?: Record<string, unknown>;
-      customer?: { email?: string };
-    }>(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
+    const tx = await api<{ id?: number; tx_ref: string; status: string; amount: number; charged_amount?: number; currency: string; payment_type?: string; created_at?: string; meta?: Record<string, unknown>; customer?: { email?: string } }>(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
     return {
       status: mapStatus(tx.status),
       reference: tx.tx_ref ?? reference,
@@ -143,30 +105,17 @@ export const flutterwaveAdapter: GatewayAdapter = {
       raw: tx,
     };
   },
-
   verifyWebhook(_raw: string, headers: Headers): boolean {
     const hash = process.env.FLUTTERWAVE_WEBHOOK_HASH;
     if (!hash) return false;
     const got = headers.get("verif-hash") ?? "";
-    // Flutterwave sends the shared secret verbatim (not an HMAC).
-    return got.length === hash.length && got === hash;
+    const expected = Buffer.from(hash, "utf8");
+    const received = Buffer.from(got, "utf8");
+    if (received.length !== expected.length) return false;
+    return timingSafeEqual(received, expected);
   },
-
   normalizeWebhook(payload: unknown): GatewayWebhookEvent | null {
-    const p = payload as
-      | {
-          event?: string;
-          data?: {
-            tx_ref?: string;
-            status?: string;
-            amount?: number;
-            currency?: string;
-            meta?: Record<string, unknown>;
-            payment_type?: string;
-            id?: number;
-          };
-        }
-      | null;
+    const p = payload as { event?: string; data?: { tx_ref?: string; status?: string; amount?: number; currency?: string; meta?: Record<string, unknown>; payment_type?: string; id?: number } } | null;
     const d = p?.data;
     if (!d?.tx_ref) return null;
     const status = mapStatus(d.status);
