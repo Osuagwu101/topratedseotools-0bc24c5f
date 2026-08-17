@@ -49,11 +49,11 @@ export interface PaymentProviderRow {
   last_test_status: string | null;
   last_test_message: string | null;
   updated_at: string;
-  has_secret_configured: boolean; // computed
-  missing_secrets: string[]; // computed
-  webhook_url: string | null; // computed
-  supports_recurring: boolean; // computed
-  configured_secrets?: string[]; // computed — names only, never values
+  has_secret_configured: boolean;
+  missing_secrets: string[];
+  webhook_url: string | null;
+  supports_recurring: boolean;
+  configured_secrets?: string[];
 }
 
 const KNOWN: Record<
@@ -61,16 +61,10 @@ const KNOWN: Record<
   {
     display_name: string;
     secret_env: string;
-    /** Every secret/credential the gateway needs before it can be activated. */
     required_env: string[];
     supports_recurring: boolean;
     webhook_path: string;
-    /** Non-secret config fields the admin fills in here. */
     config_fields: { key: string; label: string; required: boolean }[];
-    /**
-     * Credentials the admin can enter securely from the dashboard. Values are
-     * written to encrypted server-side storage and never returned to the UI.
-     */
     secret_fields: { name: string; label: string; required: boolean }[];
   }
 > = {
@@ -142,7 +136,6 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" })
         .filter((f) => missingSecrets([f.name]).length === 0)
         .map((f) => f.name);
       const cfg = (r.config ?? {}) as Record<string, unknown>;
-      // Monnify also needs its contract code before it can be activated.
       for (const f of known?.config_fields ?? []) {
         if (f.required && !cfg[f.key]) missing.push(f.label);
       }
@@ -180,7 +173,6 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
         public_key: z.string().max(400).optional().nullable(),
         webhook_secret_hint: z.string().max(120).optional().nullable(),
         enabled: z.boolean().optional(),
-        /** Non-secret gateway config (e.g. Monnify contract code). */
         config: z.record(z.string(), z.string().max(200).nullable()).optional(),
       })
       .parse(input),
@@ -198,8 +190,6 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
       ...(data.config ?? {}),
     };
 
-    // A gateway can only be enabled for checkout once its credentials exist and
-    // the gateway itself accepts them.
     if (data.enabled) {
       const known = KNOWN[data.slug];
       if (known) {
@@ -261,12 +251,9 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
   });
 
 /*
- * There is no "set active gateway" action any more: routing is automatic and
- * currency-driven (see src/lib/gateway-routing.ts). Admins keep credentials,
- * configuration, and connection tests only.
+ * Exactly one enabled provider is active for checkout. Paystack is the default;
+ * a Super Admin may deliberately switch to another configured provider.
  */
-
-
 
 export const adminTestProviderConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -293,11 +280,6 @@ export const adminTestProviderConnection = createServerFn({ method: "POST" })
     return r;
   });
 
-/**
- * Save gateway credentials entered by a Super Admin. Values go straight into
- * server-side secret storage (never the client, never the provider row) and the
- * gateway is validated immediately afterwards.
- */
 export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -342,7 +324,6 @@ export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
       target_type: "payment_provider",
       target_id: data.id,
       success: r.ok,
-      // names only — never log credential values
       details: `${p.slug}: ${rows.map((x) => x.name).join(", ")} · ${r.message}`,
     });
     return { saved: rows.map((x) => x.name), ...r };
@@ -354,7 +335,6 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
     const { data: p } = await admin.from("payment_providers").select("slug").eq("id", data.id).maybeSingle();
-
     const { error } = await admin.from("payment_providers").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     await logAdminActivity(context, {
@@ -367,11 +347,6 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Enable / disable a gateway for checkout without opening the edit dialog.
- * Enabling runs the same credential + live-connection checks as activation so a
- * broken gateway can never be exposed to customers.
- */
 export const adminSetProviderEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -407,6 +382,9 @@ export const adminSetProviderEnabled = createServerFn({ method: "POST" })
       }
     }
 
+    if (!data.enabled && target.is_active) {
+      throw new Error("Make another gateway active before disabling the current checkout gateway.");
+    }
 
     const { error } = await admin
       .from("payment_providers")
@@ -423,16 +401,6 @@ export const adminSetProviderEnabled = createServerFn({ method: "POST" })
     return { ok: true, enabled: data.enabled };
   });
 
-
-/**
- * Make one gateway the single active checkout gateway.
- *
- * Selection is explicit and Super-Admin-only; there is no currency-based
- * routing. Activation deactivates every other provider first so exactly one
- * row is ever active (the DB also enforces this with a partial unique index),
- * and it re-runs the credential + live-connection checks so a broken gateway
- * can never become active.
- */
 export const adminSetActiveProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
@@ -464,26 +432,20 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
       if (!test.ok) throw new Error(`Cannot activate — credential check failed: ${test.message}`);
     }
 
-    // Deactivate everything else first, then activate + enable the target.
-    const off = await admin
-      .from("payment_providers")
-      .update({ is_active: false })
-      .neq("id", data.id);
-    if (off.error) throw new Error(off.error.message);
-    const on = await admin
-      .from("payment_providers")
-      .update({ is_active: true, enabled: true })
-      .eq("id", data.id);
-    if (on.error) throw new Error(on.error.message);
+    const { data: activatedSlug, error: activateError } = await admin.rpc(
+      "set_active_payment_provider",
+      { _provider_id: data.id },
+    );
+    if (activateError) throw new Error(activateError.message);
 
     await logAdminActivity(context, {
       action: "payment_provider.activate",
       area: "payments",
       target_type: "payment_provider",
       target_id: data.id,
-      details: target.slug as string,
+      details: String(activatedSlug ?? target.slug),
     });
-    return { ok: true, slug: target.slug as string };
+    return { ok: true, slug: String(activatedSlug ?? target.slug) };
   });
 
 /*
@@ -491,5 +453,3 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
  * active provider via src/lib/active-gateway.functions.ts — never from the
  * customer's currency.
  */
-
-
