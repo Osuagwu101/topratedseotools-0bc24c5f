@@ -443,9 +443,19 @@ function PaymentProvidersPage() {
                 </div>
 
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  {!p.is_active && (
+                    <Button
+                      size="sm"
+                      onClick={() => activate(p.id, p.display_name)}
+                      disabled={busy === `act:${p.id}`}
+                    >
+                      <Power className="mr-1 h-3.5 w-3.5" /> Make active
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
                   </Button>
+
                   {p.enabled ? (
                     <Button
                       size="sm"
