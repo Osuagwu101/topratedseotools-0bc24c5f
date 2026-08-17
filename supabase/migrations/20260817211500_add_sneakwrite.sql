@@ -1,5 +1,7 @@
 -- SneakWrite catalogue seed.
--- Customer-facing humanizer positioned beside Stealthwriter/Phrasly in code.
+-- SneakWrite is a built-in customer-facing humanizer positioned between
+-- Stealthwriter and Phrasly in src/lib/tools-data.ts. This row provides
+-- editable customer-facing overrides and production settings/pricing.
 
 insert into public.tool_overrides (
   tool_slug,
@@ -24,7 +26,7 @@ insert into public.tool_overrides (
   'sneakwrite.net',
   null,
   true,
-  true,
+  false,
   'pro',
   '["Humanizes AI-assisted drafts into natural, fluent writing","Preserves the original meaning while improving rhythm and phrasing","Refines tone for essays, articles, reports and professional content","Built for fast, polished rewriting with a clean human voice"]'::jsonb,
   true,
