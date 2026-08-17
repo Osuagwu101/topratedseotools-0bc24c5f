@@ -6,6 +6,7 @@ import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { APP_NAME } from "@/lib/site-config";
 import { getCustomPaymentLink, initializeCustomPayment, verifyCustomPayment } from "@/lib/custom-payments.functions";
+import { formatCustomPaymentMoney } from "@/lib/custom-payment-currency";
 
 const searchSchema = z.object({ reference: z.string().optional(), trxref: z.string().optional() });
 
@@ -29,10 +30,6 @@ export const Route = createFileRoute("/pay/$token")({
     </SiteLayout>
   ),
 });
-
-function money(amount: number) {
-  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 2 }).format(amount);
-}
 
 function CustomPaymentPage() {
   const link = Route.useLoaderData();
@@ -71,6 +68,7 @@ function CustomPaymentPage() {
   const effectiveStatus = verifyState === "paid" ? "paid" : link.status;
   const canPay = effectiveStatus === "active" && verifyState !== "checking";
   const expiryText = useMemo(() => link.expires_at ? new Date(link.expires_at).toLocaleString() : null, [link.expires_at]);
+  const amountLabel = formatCustomPaymentMoney(link.amount, link.currency);
 
   async function pay() {
     if (!payerName.trim() || !payerEmail.trim()) {
@@ -102,8 +100,8 @@ function CustomPaymentPage() {
 
             <div className="mt-6 rounded-2xl border bg-background/50 p-5 text-center">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amount due</div>
-              <div className="mt-1 text-4xl font-bold tracking-tight">{money(link.amount_ngn)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">One-time payment · NGN</div>
+              <div className="mt-1 text-4xl font-bold tracking-tight">{amountLabel}</div>
+              <div className="mt-1 text-xs text-muted-foreground">One-time payment · {link.currency}</div>
             </div>
 
             {effectiveStatus === "paid" ? (
@@ -127,7 +125,7 @@ function CustomPaymentPage() {
                     <div><label className="mb-1 block text-sm font-medium">Email</label><input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} autoComplete="email" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="you@example.com" /></div>
                     <button type="button" onClick={pay} disabled={busy || !canPay} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                      {busy ? "Opening Paystack…" : `Pay ${money(link.amount_ngn)}`}
+                      {busy ? "Opening Paystack…" : `Pay ${amountLabel}`}
                     </button>
                   </>
                 )}
