@@ -1,10 +1,5 @@
 /**
  * Admin sign-in page at /admin — separate from the public /login page.
- *
- * Public route (not gated by _authenticated). If the visitor already has an
- * admin session, redirect to /admin/dashboard. Otherwise show an admin-only
- * sign-in form. Non-admin accounts get an "Admins only" error and are signed
- * back out so nothing else in the app changes.
  */
 import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useState } from "react";
@@ -13,6 +8,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import { APP_NAME } from "@/lib/site-config";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const Route = createFileRoute("/admin/")({
   ssr: false,
@@ -23,7 +19,6 @@ export const Route = createFileRoute("/admin/")({
     ],
   }),
   beforeLoad: async () => {
-    // If already signed in as an admin, skip the login screen.
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
     try {
@@ -50,7 +45,6 @@ function AdminLoginPage() {
       setLoading(false);
       return toast.error(error.message);
     }
-    // Verify the account has the admin role before granting access.
     try {
       const { isAdmin } = await getIsAdmin();
       if (!isAdmin) {
@@ -71,9 +65,7 @@ function AdminLoginPage() {
     <div className="min-h-screen bg-gradient-hero">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
         <Link to="/" className="mb-8 inline-flex items-center gap-2 self-center font-semibold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-primary text-primary-foreground shadow-glow">
-            <ShieldCheck className="h-4 w-4" />
-          </span>
+          <BrandLogo size={40} className="h-10 w-10 rounded-lg shadow-glow" />
           <span>{APP_NAME}</span>
         </Link>
 
