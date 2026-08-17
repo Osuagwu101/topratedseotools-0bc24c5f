@@ -50,9 +50,9 @@ export interface Tool {
   pricingModel?: "subscription" | "per_use";
   /** Only relevant when pricingModel === "per_use". */
   perUse?: {
-    unit: string;          // e.g. "check"
-    amount: number;        // NGN per unit
-    currency?: string;     // default "₦"
+    unit: string;
+    amount: number;
+    currency?: string;
   };
 }
 
@@ -68,8 +68,6 @@ export const CATEGORIES: ToolCategory[] = [
   "Productivity",
 ];
 
-/** Returns a high-quality logo URL for a given brand domain. */
-/** Returns a high-quality logo URL for a given brand domain. */
 export function getToolLogo(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 }
@@ -91,6 +89,24 @@ export const TOOLS: Tool[] = [
       "Designed to bypass GPTZero, Originality.ai, Turnitin and Copyleaks",
       "Preserves original meaning, tone and keywords",
       "Multiple humanising modes for essays, blogs and reports",
+    ],
+  },
+  {
+    slug: "sneakwrite",
+    name: "SneakWrite",
+    tagline: "Next-generation AI humanizer for natural, polished writing",
+    description:
+      "SneakWrite is a premium AI humanizer built for writers who want AI-assisted drafts to read with stronger flow, more natural phrasing and a convincingly human voice. It refines essays, articles, reports and everyday content while preserving the core meaning, making it a standout option in the new generation of AI rewriting tools.",
+    icon: Wand2,
+    domain: "sneakwrite.net",
+    category: "AI Detection Bypass",
+    access: "pro",
+    featured: true,
+    features: [
+      "Humanizes AI-assisted drafts into natural, fluent writing",
+      "Preserves the original meaning while improving rhythm and phrasing",
+      "Refines tone for essays, articles, reports and professional content",
+      "Built for fast, polished rewriting with a clean human voice",
     ],
   },
   {
@@ -361,12 +377,6 @@ export const TOOLS: Tool[] = [
   },
 ];
 
-/**
- * Admin-created tools are stored in the database, not in this file. They are
- * registered here at runtime (see `registerExtraTools`, called from
- * `mergeToolCatalog`) so every existing `getTool()` call site — dashboard,
- * orders, receipts, transactions, emails-facing UI — resolves them too.
- */
 const extraTools = new Map<string, Tool>();
 
 export function registerExtraTools(tools: Tool[]): void {
