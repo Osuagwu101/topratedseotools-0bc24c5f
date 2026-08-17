@@ -379,16 +379,17 @@ function PaymentProvidersPage() {
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                       {p.environment}
                     </span>
-                    {p.slug === "paystack" && (
+                    {p.is_active ? (
                       <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                        Used for NGN
+                        Active gateway
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dormant
                       </span>
                     )}
-                    {p.slug === "flutterwave" && (
-                      <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                        Used for GHS · KES · ZAR · USD
-                      </span>
-                    )}
+
+
 
                     {!p.enabled && (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
