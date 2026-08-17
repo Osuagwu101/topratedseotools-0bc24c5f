@@ -2,8 +2,9 @@
  * Admin — Payment Providers & API keys.
  *
  * Lets a non-technical admin add/edit payment provider credentials and
- * test the live connection. Gateway selection is automatic and
- * currency-driven (NGN uses Paystack, other currencies use Flutterwave). Sensitive secret
+ * test the live connection. Exactly one gateway is active for checkout and a
+ * Super Admin selects it here (Paystack by default). Sensitive secret
+
  * keys stay in encrypted secret storage and are only edited through
  * the secure form; this page never displays them.
  */
