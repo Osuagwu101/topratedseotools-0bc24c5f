@@ -20,6 +20,37 @@ export function normalizePaystackCurrency(value: unknown): string {
   return code;
 }
 
+/**
+ * Resolve the currencies explicitly enabled for this Paystack merchant in our
+ * provider configuration. A Paystack /country response is a global catalogue,
+ * not proof that a specific integration can charge every returned currency.
+ *
+ * `supported_currencies` is preferred when present so additional currencies
+ * can be enabled deliberately later. Older provider rows fall back to their
+ * single `currency` value.
+ */
+export function merchantPaystackCurrencies(config: unknown): string[] {
+  const cfg = config && typeof config === "object" ? config as Record<string, unknown> : {};
+  const explicit = Array.isArray(cfg.supported_currencies) ? cfg.supported_currencies : [];
+  const candidates = explicit.length ? explicit : [cfg.currency];
+  const result: string[] = [];
+
+  for (const raw of candidates) {
+    try {
+      const code = normalizePaystackCurrency(raw);
+      if (!result.includes(code)) result.push(code);
+    } catch {
+      // Ignore malformed provider config instead of exposing an invalid option.
+    }
+  }
+  return result;
+}
+
+export function merchantSupportsPaystackCurrency(config: unknown, currency: unknown): boolean {
+  const code = normalizePaystackCurrency(currency);
+  return merchantPaystackCurrencies(config).includes(code);
+}
+
 export function currencyDisplayName(code: string): string {
   const normalized = normalizePaystackCurrency(code);
   if (KNOWN_NAMES[normalized]) return KNOWN_NAMES[normalized];
