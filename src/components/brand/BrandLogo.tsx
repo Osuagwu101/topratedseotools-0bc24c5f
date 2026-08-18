@@ -1,5 +1,5 @@
+import bundledLogoUrl from "@/assets/top-rated-seo-tools-logo.png";
 import { APP_NAME } from "@/lib/site-config";
-import { BRAND_LOGO_PATH } from "@/lib/brand-assets";
 import { cn } from "@/lib/utils";
 
 export function BrandLogo({
@@ -13,7 +13,7 @@ export function BrandLogo({
 }) {
   return (
     <img
-      src={BRAND_LOGO_PATH}
+      src={bundledLogoUrl}
       alt={alt}
       width={size}
       height={size}
