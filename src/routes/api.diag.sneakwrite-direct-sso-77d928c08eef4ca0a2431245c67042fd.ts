@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/diag/sneakwrite-direct-sso-77d928c08e
             method: "POST",
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             body: JSON.stringify({ email: account.login_email, password: account.login_password }),
-            redirect: "manual",
+            redirect: "follow",
           });
           const body = await response.json().catch(() => null) as
             | { ok?: boolean; launch_url?: string }
