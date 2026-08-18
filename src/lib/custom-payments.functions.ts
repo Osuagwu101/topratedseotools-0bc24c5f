@@ -13,6 +13,8 @@ import { logAdminActivity } from "@/lib/admin-audit.server";
 import {
   currencyDisplayName,
   customPaymentMinorUnits,
+  merchantPaystackCurrencies,
+  merchantSupportsPaystackCurrency,
   normalizePaystackCurrency,
   roundCustomPaymentAmount,
   type PaystackCurrencyOption,
@@ -65,7 +67,7 @@ async function loadPaystack(admin: any) {
 
   const { data: provider } = await admin
     .from("payment_providers")
-    .select("enabled, is_active, environment")
+    .select("enabled, is_active, environment, config")
     .eq("slug", "paystack")
     .maybeSingle();
   if (!provider?.enabled || !provider?.is_active) {
@@ -75,7 +77,7 @@ async function loadPaystack(admin: any) {
   const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
   if (!secret) throw new Error("Paystack is not configured. Contact Admin.");
   const environment = secret.startsWith("sk_test_") ? "test" : "live";
-  return { secret, environment } as const;
+  return { secret, environment, config: provider.config ?? {} } as const;
 }
 
 async function paystackRequest<T>(secret: string, path: string, init?: RequestInit): Promise<T> {
@@ -104,26 +106,54 @@ type PaystackCountry = {
   relationships?: { currency?: { data?: string[] } };
 };
 
-async function getPaystackCurrencyOptions(secret: string): Promise<PaystackCurrencyOption[]> {
-  const countries = await paystackRequest<PaystackCountry[]>(secret, "/country");
-  const byCode = new Map<string, Set<string>>();
-  for (const country of countries ?? []) {
-    for (const raw of country.relationships?.currency?.data ?? []) {
-      let code: string;
-      try { code = normalizePaystackCurrency(raw); } catch { continue; }
-      if (!byCode.has(code)) byCode.set(code, new Set());
-      if (country.name) byCode.get(code)!.add(country.name);
+/**
+ * Paystack /country is global catalogue metadata. It is deliberately used only
+ * to enrich the currencies already enabled in this merchant's provider config;
+ * it must never be used to decide what this integration is allowed to charge.
+ */
+async function getPaystackCurrencyOptions(secret: string, merchantCurrencies: string[]): Promise<PaystackCurrencyOption[]> {
+  const enabled = new Set(merchantCurrencies.map(normalizePaystackCurrency));
+  const countriesByCode = new Map<string, Set<string>>();
+
+  try {
+    const countries = await paystackRequest<PaystackCountry[]>(secret, "/country");
+    for (const country of countries ?? []) {
+      for (const raw of country.relationships?.currency?.data ?? []) {
+        let code: string;
+        try { code = normalizePaystackCurrency(raw); } catch { continue; }
+        if (!enabled.has(code)) continue;
+        if (!countriesByCode.has(code)) countriesByCode.set(code, new Set());
+        if (country.name) countriesByCode.get(code)!.add(country.name);
+      }
     }
+  } catch {
+    // Country metadata is display-only. Merchant-configured currencies remain
+    // authoritative even if Paystack's miscellaneous endpoint is unavailable.
   }
-  return [...byCode.entries()]
-    .map(([code, countriesForCode]) => ({ code, name: currencyDisplayName(code), countries: [...countriesForCode].sort() }))
+
+  const priority = ["NGN", "USD", "GHS", "KES", "ZAR", "XOF", "EGP"];
+  return merchantCurrencies
+    .map(normalizePaystackCurrency)
+    .filter((code, index, values) => values.indexOf(code) === index)
+    .map((code) => ({
+      code,
+      name: currencyDisplayName(code),
+      countries: [...(countriesByCode.get(code) ?? new Set<string>())].sort(),
+    }))
     .sort((a, b) => {
-      const priority = ["NGN", "USD", "GHS", "KES", "ZAR", "XOF", "EGP"];
       const ai = priority.indexOf(a.code);
       const bi = priority.indexOf(b.code);
       if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
       return a.code.localeCompare(b.code);
     });
+}
+
+function requireMerchantCurrencies(config: unknown): string[] {
+  const currencies = merchantPaystackCurrencies(config);
+  if (!currencies.length) {
+    throw new Error("No Custom Payment currency is configured for this Paystack merchant account.");
+  }
+  return currencies;
 }
 
 export interface CustomPaymentPublicLink {
@@ -142,13 +172,14 @@ export const adminGetCustomPaymentCurrencyOptions = createServerFn({ method: "GE
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertSuperAdmin(context);
-    const { secret } = await loadPaystack(admin);
-    const currencies = await getPaystackCurrencyOptions(secret);
+    const { secret, config } = await loadPaystack(admin);
+    const merchantCurrencies = requireMerchantCurrencies(config);
+    const currencies = await getPaystackCurrencyOptions(secret, merchantCurrencies);
     return {
       currencies,
       fx_preview_available: false,
       fx_source: "paystack" as const,
-      fx_note: "Paystack does not expose a public FX quote endpoint for custom API integrations. No third-party exchange rate is used for Custom Payments.",
+      fx_note: "Only currencies enabled on this Paystack merchant account are available. Paystack does not expose a public FX quote endpoint, so Custom Payments do not use third-party exchange rates.",
     };
   });
 
@@ -216,11 +247,11 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
   }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { secret } = await loadPaystack(admin);
-    const supported = await getPaystackCurrencyOptions(secret);
+    const { config } = await loadPaystack(admin);
+    requireMerchantCurrencies(config);
     const currency = normalizePaystackCurrency(data.currency);
-    if (!supported.some((c) => c.code === currency)) {
-      throw new Error(`${currency} is not currently listed by Paystack as a supported currency.`);
+    if (!merchantSupportsPaystackCurrency(config, currency)) {
+      throw new Error(`${currency} is not enabled on this Paystack merchant account.`);
     }
     const amount = roundCustomPaymentAmount(data.amount, currency);
     if (currency === "XOF" && amount !== Number(data.amount)) {
@@ -308,10 +339,15 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
     if (status === "disabled") throw new Error("This payment link has been disabled.");
     if (status === "expired") throw new Error("This payment link has expired. Contact Admin for a new link.");
 
-    const { secret, environment } = await loadPaystack(admin);
+    const { secret, environment, config } = await loadPaystack(admin);
+    requireMerchantCurrencies(config);
+    const currency = normalizePaystackCurrency(link.currency ?? "NGN");
+    if (!merchantSupportsPaystackCurrency(config, currency)) {
+      throw new Error(`${currency} is not enabled on this Paystack merchant account. Please ask the sender for a new payment link in an enabled currency.`);
+    }
+
     const { randomBytes } = await import("crypto");
     const reference = `CP-${Date.now()}-${randomBytes(6).toString("hex")}`;
-    const currency = normalizePaystackCurrency(link.currency ?? "NGN");
     const amount = roundCustomPaymentAmount(Number(link.amount ?? link.amount_ngn), currency);
     const amountMinor = customPaymentMinorUnits(amount, currency);
 
