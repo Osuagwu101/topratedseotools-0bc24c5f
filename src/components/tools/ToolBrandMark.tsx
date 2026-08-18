@@ -1,3 +1,4 @@
+import sneakWriteLogo from "@/assets/sneakwrite-logo.svg";
 import type { Tool } from "@/lib/tools-data";
 import { getToolLogo } from "@/lib/tools-data";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,8 @@ const iconSize = {
 export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
   const Icon = tool.icon;
   const hasDomain = Boolean(tool.domain);
+  const logoSrc = tool.slug === "sneakwrite" ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
+  const hasLogo = Boolean(logoSrc);
 
   return (
     <span
@@ -38,9 +41,9 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
         className,
       )}
     >
-      {hasDomain && (
+      {hasLogo && (
         <img
-          src={getToolLogo(tool.domain)}
+          src={logoSrc}
           alt={`${tool.name} logo`}
           loading="lazy"
           decoding="async"
@@ -56,7 +59,7 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
       <span
         className={cn(
           "absolute inset-0 items-center justify-center bg-gradient-primary text-primary-foreground",
-          hasDomain ? "hidden" : "flex",
+          hasLogo ? "hidden" : "flex",
         )}
         aria-hidden
       >
