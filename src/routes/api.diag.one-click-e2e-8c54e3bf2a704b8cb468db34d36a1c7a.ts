@@ -68,7 +68,7 @@ async function startTests() {
           },
           body: JSON.stringify({
             task,
-            model: "claude-sonnet-4.6",
+            model: "bu-mini",
             keepAlive: false,
             maxCostUsd: 0.25,
             enableRecording: true,
