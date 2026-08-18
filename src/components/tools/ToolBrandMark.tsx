@@ -49,6 +49,7 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
+          // SneakWrite uses a bundled, tightly cropped square brand asset.
           className={cn("object-contain", isSneakWrite ? "h-full w-full" : imageSize[size])}
           onError={(event) => {
             event.currentTarget.style.display = "none";
