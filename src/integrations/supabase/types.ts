@@ -626,6 +626,83 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_auth_sessions: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          expires_at: string | null
+          id: string
+          order_id: string | null
+          provider: string
+          provider_session_id: string | null
+          status: string
+          tool_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          expires_at?: string | null
+          id?: string
+          order_id?: string | null
+          provider: string
+          provider_session_id?: string | null
+          status?: string
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          expires_at?: string | null
+          id?: string
+          order_id?: string | null
+          provider?: string
+          provider_session_id?: string | null
+          status?: string
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_auth_sessions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "tool_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      browser_auth_settings: {
+        Row: {
+          default_provider: string
+          enabled: boolean
+          id: boolean
+          session_timeout_minutes: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          default_provider?: string
+          enabled?: boolean
+          id?: boolean
+          session_timeout_minutes?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          default_provider?: string
+          enabled?: boolean
+          id?: boolean
+          session_timeout_minutes?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       consent_choices: {
         Row: {
           analytics: boolean
@@ -840,6 +917,131 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      custom_payment_links: {
+        Row: {
+          amount: number
+          amount_ngn: number | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          paid_at: string | null
+          paid_reference: string | null
+          public_token: string
+          recipient_email: string | null
+          recipient_name: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          amount_ngn?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_reference?: string | null
+          public_token: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_ngn?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_reference?: string | null
+          public_token?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_payment_transactions: {
+        Row: {
+          amount: number
+          amount_ngn: number | null
+          created_at: string
+          currency: string
+          gateway_transaction_id: string | null
+          id: string
+          initiated_at: string
+          last_error: string | null
+          link_id: string
+          paid_at: string | null
+          payer_email: string
+          payer_name: string | null
+          payment_gateway: string
+          paystack_environment: string
+          reference: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          amount_ngn?: number | null
+          created_at?: string
+          currency?: string
+          gateway_transaction_id?: string | null
+          id?: string
+          initiated_at?: string
+          last_error?: string | null
+          link_id: string
+          paid_at?: string | null
+          payer_email: string
+          payer_name?: string | null
+          payment_gateway?: string
+          paystack_environment?: string
+          reference: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_ngn?: number | null
+          created_at?: string
+          currency?: string
+          gateway_transaction_id?: string | null
+          id?: string
+          initiated_at?: string
+          last_error?: string | null
+          link_id?: string
+          paid_at?: string | null
+          payer_email?: string
+          payer_name?: string | null
+          payment_gateway?: string
+          paystack_environment?: string
+          reference?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_payment_transactions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "custom_payment_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_admin_audit: {
         Row: {
@@ -2751,6 +2953,17 @@ export type Database = {
         Args: { _order_id: string }
         Returns: string
       }
+      finalize_custom_payment: {
+        Args: {
+          _gateway_transaction_id: string
+          _link_id: string
+          _paid_at: string
+          _payer_email: string
+          _payer_name: string
+          _reference: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2766,6 +2979,10 @@ export type Database = {
       release_assignments_for_order: {
         Args: { _order_id: string; _reason: string }
         Returns: number
+      }
+      set_active_payment_provider: {
+        Args: { _provider_id: string }
+        Returns: string
       }
       user_has_tool_access: {
         Args: { _slug: string; _user_id: string }
