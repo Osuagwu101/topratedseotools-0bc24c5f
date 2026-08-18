@@ -6,6 +6,7 @@ import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
 import { TOOLS, getTool } from "@/lib/tools-data";
 import { listMyOrders } from "@/lib/access.functions";
+import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { listMyReviewEligibility } from "@/lib/reviews.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -24,6 +25,11 @@ function Dashboard() {
   const { data: ordersData } = useQuery({
     queryKey: ["my-orders"],
     queryFn: () => listMyOrders(),
+  });
+
+  const { data: grantsData } = useQuery({
+    queryKey: ["my-granted-access"],
+    queryFn: () => getMyGrantedAccess(),
   });
 
   const { data: favorites } = useQuery({
@@ -93,7 +99,6 @@ function Dashboard() {
     const first = trimmed.split(/\s+/)[0];
     if (!first) return undefined;
     if (RESERVED_NAMES.has(first.toLowerCase())) return undefined;
-    // Skip email-shaped values
     if (first.includes("@")) return undefined;
     return first;
   };
@@ -111,6 +116,14 @@ function Dashboard() {
       o.status === "approved" &&
       (!o.expires_at || new Date(o.expires_at).getTime() > now),
   );
+  const activeGrants = grantsData?.grants ?? [];
+  const paidSlugs = new Set(activeOrders.map((o) => o.tool_slug));
+  const grantOnly = activeGrants.filter((g) => !paidSlugs.has(g.tool_slug));
+  const activeToolCount = new Set([
+    ...activeOrders.map((o) => o.tool_slug),
+    ...activeGrants.map((g) => g.tool_slug),
+  ]).size;
+
   const pendingCount = orders.filter((o) => o.status === "pending").length;
   const nextRenewalOrder = activeOrders
     .filter((o) => o.next_payment_at || o.expires_at)
@@ -163,8 +176,8 @@ function Dashboard() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             icon={CheckCircle2}
-            label="Active subscriptions"
-            value={String(activeOrders.length)}
+            label="Active tools"
+            value={String(activeToolCount)}
             hint={pendingCount ? `${pendingCount} awaiting payment` : undefined}
           />
           <StatCard icon={Clock} label="Next renewal" value={nextRenewalDate} />
@@ -174,19 +187,19 @@ function Dashboard() {
         <div className="mt-10">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Your active tools</h2>
-            <Link to="/orders" className="text-xs font-medium text-primary hover:underline">
-              Manage subscriptions →
+            <Link to="/tools" className="text-xs font-medium text-primary hover:underline">
+              Browse tools →
             </Link>
           </div>
-          {activeOrders.length === 0 ? (
+          {activeToolCount === 0 ? (
             <div className="rounded-2xl border border-dashed p-10 text-center">
               <CheckCircle2 className="mx-auto h-6 w-6 text-muted-foreground" />
               <p className="mt-2 text-sm text-muted-foreground">
-                No active subscriptions yet.{" "}
+                No active tools yet.{" "}
                 <Link to="/tools" className="text-primary hover:underline">
                   Browse tools
                 </Link>{" "}
-                to purchase access.
+                to get started.
               </p>
             </div>
           ) : (
@@ -196,8 +209,9 @@ function Dashboard() {
                 if (!t) return null;
                 return (
                   <Link
-                    key={o.id}
-                    to="/orders"
+                    key={`order:${o.id}`}
+                    to="/tools/$slug"
+                    params={{ slug: t.slug }}
                     className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
                   >
                     <ToolBrandMark tool={t} size="sm" />
@@ -207,12 +221,33 @@ function Dashboard() {
                         <span className="rounded-full bg-success/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-success">
                           Active
                         </span>
-                        {o.access_type ? (
-                          <span className="capitalize">{o.access_type}</span>
-                        ) : null}
-                        {o.billing_period ? (
-                          <span className="capitalize">· {o.billing_period}</span>
-                        ) : null}
+                        {o.access_type ? <span className="capitalize">{o.access_type}</span> : null}
+                        {o.billing_period ? <span className="capitalize">· {o.billing_period}</span> : null}
+                      </div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                  </Link>
+                );
+              })}
+
+              {grantOnly.map((g) => {
+                const t = getTool(g.tool_slug);
+                if (!t) return null;
+                return (
+                  <Link
+                    key={`grant:${g.grant_id}`}
+                    to="/tools/$slug"
+                    params={{ slug: t.slug }}
+                    className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
+                  >
+                    <ToolBrandMark tool={t} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{t.name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                        <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
+                          Lifetime
+                        </span>
+                        <span className="capitalize">{g.access_type}</span>
                       </div>
                     </div>
                     <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
@@ -311,7 +346,7 @@ function Dashboard() {
               </div>
               <div>
                 <dt className="text-muted-foreground">Active tools</dt>
-                <dd className="font-medium">{activeOrders.length}</dd>
+                <dd className="font-medium">{activeToolCount}</dd>
               </div>
             </dl>
             <div className="mt-5 flex flex-col gap-2">
