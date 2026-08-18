@@ -1,11 +1,10 @@
 /**
  * Reusable Launch Tool service.
  *
- * Normal launch opens the public tool URL. One-Click Login is different: the
- * browser asks a server function to authenticate an eligible subscriber inside
- * a remote Browser Use / Cloudflare Browser Run session, then opens only the
- * signed interactive Live View URL returned by that provider. Stored login
- * credentials are never returned to this client module.
+ * SneakWrite is an owned tool, so its One-Click Login uses a direct, short-lived
+ * SSO handoff and does not start Browser Use / Cloudflare. Other tools keep the
+ * existing remote-browser login path. Stored login credentials are never
+ * returned to this client module.
  */
 import { toast } from "sonner";
 import type { Tool } from "@/lib/tools-data";
@@ -13,6 +12,7 @@ import type { ToolSetting } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { startOneClickAuth } from "@/lib/browser-auth.functions";
 import { startGrantedOneClickAuth } from "@/lib/grant-access.functions";
+import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 
 export async function launchTool(
   tool: Tool,
@@ -43,11 +43,13 @@ export async function launchTool(
     const toastId = `launch-${tool.slug}`;
     toast.loading(`Preparing secure ${tool.name} login…`, { id: toastId });
     try {
-      const result = options?.grantAccess
-        ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
-        : await startOneClickAuth({ data: { tool_slug: tool.slug } });
+      const result = tool.slug === "sneakwrite"
+        ? await startSneakWriteDirectSso({ data: { tool_slug: "sneakwrite" } })
+        : options?.grantAccess
+          ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
+          : await startOneClickAuth({ data: { tool_slug: tool.slug } });
       const launchUrl = new URL(result.launch_url);
-      if (launchUrl.protocol !== "https:") throw new Error("The browser provider returned an invalid launch URL.");
+      if (launchUrl.protocol !== "https:") throw new Error("The secure login service returned an invalid launch URL.");
 
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
       if (mode === "same_tab") {
