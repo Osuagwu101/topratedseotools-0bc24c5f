@@ -4,12 +4,12 @@
  * Renders one of four states derived from three inputs:
  *   1. tool_settings.enabled            → "Currently unavailable"
  *   2. tool_settings.access_level       → who is required
- *   3. auth + getMyAccess()             → is the current viewer allowed?
+ *   3. auth + paid access/admin grants  → is the current viewer allowed?
  *
  * States:
  *   • disabled           — admin toggled the tool off
  *   • sign_in_required   — visitor clicked Launch; must log in
- *   • paywall            — logged-in user without an active order for this tool
+ *   • paywall            — logged-in user without active access for this tool
  *   • granted            — user has access, show "Launch tool"
  */
 import { Link } from "@tanstack/react-router";
@@ -18,6 +18,7 @@ import { Check, Lock, LogIn, Rocket, ShieldAlert, Sparkles } from "lucide-react"
 import type { Tool } from "@/lib/tools-data";
 import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
+import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { launchTool } from "@/lib/tool-launcher";
 
 interface Props {
@@ -43,7 +44,6 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
   const effective = setting ?? { tool_slug: tool.slug, ...DEFAULT_SETTING };
 
-  // Only fetch access when a) we need it AND b) the user is signed in.
   const shouldFetchAccess =
     isAuthenticated && effective.enabled && effective.access_level === "purchased";
   const { data: accessData } = useQuery({
@@ -52,10 +52,20 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
     enabled: shouldFetchAccess,
     staleTime: 30_000,
   });
-  const hasPurchased =
-    accessData?.access.some((a) => a.tool_slug === tool.slug) ?? false;
+  const { data: grantData } = useQuery({
+    queryKey: ["my-granted-access"],
+    queryFn: () => getMyGrantedAccess(),
+    enabled: shouldFetchAccess,
+    staleTime: 30_000,
+  });
 
-  const state = resolveState(effective.enabled, effective.access_level, isAuthenticated, hasPurchased);
+  const hasPaidAccess =
+    accessData?.access.some((a) => a.tool_slug === tool.slug) ?? false;
+  const hasGrant =
+    grantData?.grants.some((g) => g.tool_slug === tool.slug) ?? false;
+  const hasAccess = hasPaidAccess || hasGrant;
+
+  const state = resolveState(effective.enabled, effective.access_level, isAuthenticated, hasAccess);
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
@@ -149,14 +159,16 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
           title="You have access"
           body={
             effective.one_click_auth_enabled
-              ? "Click below to continue to the official website and sign in using your own account."
-              : "Your subscription is active for this tool. Launch it below."
+              ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
+              : hasGrant
+                ? "Lifetime access is active for this tool."
+                : "Your subscription is active for this tool. Launch it below."
           }
         >
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => launchTool(tool, effective)}
+              onClick={() => launchTool(tool, effective, { grantAccess: hasGrant })}
               className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
             >
               <Rocket className="h-4 w-4" /> Launch {tool.name}
@@ -179,16 +191,14 @@ function resolveState(
   enabled: boolean,
   level: ToolAccessLevel,
   isAuth: boolean,
-  hasPurchased: boolean,
+  hasAccess: boolean,
 ): State {
   if (!enabled) return "disabled";
   if (level === "public") return "granted";
   if (level === "logged_in") return isAuth ? "granted" : "sign_in_required";
-  // purchased
   if (!isAuth) return "sign_in_required";
-  return hasPurchased ? "granted" : "paywall";
+  return hasAccess ? "granted" : "paywall";
 }
-
 
 function StateBlock({
   icon: Icon,
