@@ -59,7 +59,6 @@ const MARKETING_ITEMS = [
 const SETTINGS_ITEMS = [
   { title: "Site Appearance", to: "/admin/appearance" as const, perm: null, superOnly: false },
   { title: "Credentials", to: "/admin/credentials" as const, perm: "credentials.view", superOnly: false },
-  { title: "Custom Payments", to: "/admin/settings/custom-payments" as const, perm: "payments.manage", superOnly: false },
   { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage", superOnly: false },
   { title: "Email & Notifications", to: "/admin/settings/email" as const, perm: null, superOnly: false },
   { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage", superOnly: false },
@@ -119,7 +118,6 @@ function AdminSidebar() {
     () =>
       path.startsWith("/admin/appearance") ||
       path.startsWith("/admin/credentials") ||
-      path.startsWith("/admin/settings/custom-payments") ||
       path.startsWith("/admin/settings/currency") ||
       path.startsWith("/admin/settings/email") ||
       path.startsWith("/admin/settings/api-keys") ||
@@ -198,6 +196,14 @@ function AdminSidebar() {
               <SimpleItem to="/admin/customers" title="Customers" icon={Users} active={path.startsWith("/admin/customers")} />
               <SimpleItem to="/admin/orders" title="Orders" icon={ClipboardList} active={path === "/admin/orders"} />
               <SimpleItem to="/admin/transactions" title="Transactions" icon={CreditCard} active={path === "/admin/transactions"} />
+              {can("payments.manage") && (
+                <SimpleItem
+                  to="/admin/settings/custom-payments"
+                  title="Custom Payments"
+                  icon={CreditCard}
+                  active={path === "/admin/settings/custom-payments"}
+                />
+              )}
 
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -264,7 +270,6 @@ function AdminSidebar() {
                   isActive={
                     path.startsWith("/admin/appearance") ||
                     path.startsWith("/admin/credentials") ||
-                    path.startsWith("/admin/settings/custom-payments") ||
                     path.startsWith("/admin/settings/currency") ||
                     path.startsWith("/admin/settings/email") ||
                     path.startsWith("/admin/settings/api-keys") ||
@@ -337,7 +342,13 @@ function SimpleItem({
   icon: Icon,
   active,
 }: {
-  to: "/admin/dashboard" | "/admin/tools" | "/admin/customers" | "/admin/orders" | "/admin/transactions";
+  to:
+    | "/admin/dashboard"
+    | "/admin/tools"
+    | "/admin/customers"
+    | "/admin/orders"
+    | "/admin/transactions"
+    | "/admin/settings/custom-payments";
   title: string;
   icon: typeof LayoutDashboard;
   active: boolean;
