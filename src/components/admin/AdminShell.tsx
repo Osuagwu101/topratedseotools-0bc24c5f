@@ -62,6 +62,7 @@ const SETTINGS_ITEMS = [
   { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage", superOnly: false },
   { title: "Email & Notifications", to: "/admin/settings/email" as const, perm: null, superOnly: false },
   { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage", superOnly: false },
+  { title: "One-Click Browser Login", to: "/admin/settings/browser-auth" as const, perm: "api_keys.manage", superOnly: false },
   { title: "Team & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
 ];
 
@@ -121,6 +122,7 @@ function AdminSidebar() {
       path.startsWith("/admin/settings/currency") ||
       path.startsWith("/admin/settings/email") ||
       path.startsWith("/admin/settings/api-keys") ||
+      path.startsWith("/admin/settings/browser-auth") ||
       path.startsWith("/admin/settings/staff"),
   );
   const [advancedOpen, setAdvancedOpen] = useState(
@@ -273,6 +275,7 @@ function AdminSidebar() {
                     path.startsWith("/admin/settings/currency") ||
                     path.startsWith("/admin/settings/email") ||
                     path.startsWith("/admin/settings/api-keys") ||
+                    path.startsWith("/admin/settings/browser-auth") ||
                     path.startsWith("/admin/settings/staff")
                   }
                   tooltip="Settings"
