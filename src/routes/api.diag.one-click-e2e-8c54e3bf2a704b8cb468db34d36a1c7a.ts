@@ -144,6 +144,69 @@ async function pollTests(url: URL) {
   return json({ checked_at: new Date().toISOString(), results });
 }
 
+async function continueWithOtp(request: Request) {
+  const apiKey = await loadBrowserSecret(supabaseAdmin, "BROWSER_USE_API_KEY");
+  if (!apiKey) return json({ error: "Browser Use API key missing" }, 500);
+
+  const body = await request.json().catch(() => null) as { key?: string; session_id?: string; otp?: string } | null;
+  if (body?.key !== DIAG_KEY) return new Response("Not found", { status: 404 });
+  const sessionId = String(body?.session_id ?? "").trim();
+  const otp = String(body?.otp ?? "").trim();
+  if (!sessionId || !/^\d{4,8}$/.test(otp)) return json({ error: "Invalid OTP continuation request" }, 400);
+
+  try {
+    await fetch(`${BROWSER_USE_BASE}/sessions/${encodeURIComponent(sessionId)}/stop`, {
+      method: "POST",
+      headers: { "X-Browser-Use-API-Key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ strategy: "task" }),
+    });
+
+    for (let i = 0; i < 10; i++) {
+      const stateRes = await fetch(`${BROWSER_USE_BASE}/sessions/${encodeURIComponent(sessionId)}`, {
+        headers: { "X-Browser-Use-API-Key": apiKey },
+      });
+      const state = await stateRes.json().catch(() => null) as Record<string, unknown> | null;
+      if (state?.status === "idle") break;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    const task = [
+      `Continue the current Phrasly login using verification code ${otp}.`,
+      "Enter the code into the verification field and submit it.",
+      "Do not change billing, password, profile, settings, or any account data.",
+      "Verify whether an authenticated Phrasly dashboard/workspace is reached.",
+      "Return only the requested structured result.",
+    ].join(" ");
+
+    const res = await fetch(`${BROWSER_USE_BASE}/sessions`, {
+      method: "POST",
+      headers: { "X-Browser-Use-API-Key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        task,
+        model: "bu-mini",
+        sessionId,
+        keepAlive: false,
+        maxCostUsd: 0.15,
+        outputSchema: {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            final_url: { type: "string" },
+            evidence: { type: "string" },
+            blocker: { type: "string" },
+          },
+          required: ["success", "final_url", "evidence", "blocker"],
+        },
+      }),
+    });
+    const result = await res.json().catch(() => null) as Record<string, unknown> | null;
+    if (!res.ok) return json({ continued: false, status_code: res.status, error: "Browser Use rejected OTP continuation" }, 502);
+    return json({ continued: true, session_id: String(result?.id ?? sessionId), status: String(result?.status ?? "created") });
+  } catch {
+    return json({ continued: false, error: "OTP continuation failed" }, 500);
+  }
+}
+
 export const Route = createFileRoute("/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a")({
   server: {
     handlers: {
@@ -152,6 +215,7 @@ export const Route = createFileRoute("/api/diag/one-click-e2e-8c54e3bf2a704b8cb4
         if (url.searchParams.get("k") !== DIAG_KEY) return new Response("Not found", { status: 404 });
         return url.searchParams.get("mode") === "poll" ? pollTests(url) : startTests();
       },
+      POST: async ({ request }) => continueWithOtp(request),
     },
   },
 });
