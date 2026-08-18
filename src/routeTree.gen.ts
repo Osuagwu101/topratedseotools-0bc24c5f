@@ -16,7 +16,6 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as HumanizeRouteImport } from './routes/humanize'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -28,6 +27,7 @@ import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
+import { Route as PayTokenRouteImport } from './routes/pay.$token'
 import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
@@ -61,6 +61,7 @@ import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
+import { Route as ApiPublicBrandLogoRouteImport } from './routes/api.public.brand-logo'
 import { Route as AdminToolsNewRouteImport } from './routes/admin.tools.new'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
 import { Route as AdminSettingsSystemHealthRouteImport } from './routes/admin.settings.system-health'
@@ -73,9 +74,11 @@ import { Route as AdminSettingsMigrationGuideRouteImport } from './routes/admin.
 import { Route as AdminSettingsMigrationRouteImport } from './routes/admin.settings.migration'
 import { Route as AdminSettingsEmergencyRouteImport } from './routes/admin.settings.emergency'
 import { Route as AdminSettingsEmailRouteImport } from './routes/admin.settings.email'
+import { Route as AdminSettingsCustomPaymentsRouteImport } from './routes/admin.settings.custom-payments'
 import { Route as AdminSettingsCurrencyRouteImport } from './routes/admin.settings.currency'
 import { Route as AdminSettingsCouponsRouteImport } from './routes/admin.settings.coupons'
 import { Route as AdminSettingsCommunicationsRouteImport } from './routes/admin.settings.communications'
+import { Route as AdminSettingsBrowserAuthRouteImport } from './routes/admin.settings.browser-auth'
 import { Route as AdminSettingsBackupRouteImport } from './routes/admin.settings.backup'
 import { Route as AdminSettingsApiKeysRouteImport } from './routes/admin.settings.api-keys'
 import { Route as AdminSettingsAnalyticsRouteImport } from './routes/admin.settings.analytics'
@@ -140,11 +143,6 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HumanizeRoute = HumanizeRouteImport.update({
-  id: '/humanize',
-  path: '/humanize',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -198,6 +196,11 @@ const ToolsSlugRoute = ToolsSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => ToolsRoute,
+} as any)
+const PayTokenRoute = PayTokenRouteImport.update({
+  id: '/pay/$token',
+  path: '/pay/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const BlogSearchRoute = BlogSearchRouteImport.update({
   id: '/search',
@@ -369,6 +372,11 @@ const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   path: '/author/$id',
   getParentRoute: () => BlogRoute,
 } as any)
+const ApiPublicBrandLogoRoute = ApiPublicBrandLogoRouteImport.update({
+  id: '/api/public/brand-logo',
+  path: '/api/public/brand-logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminToolsNewRoute = AdminToolsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -434,6 +442,12 @@ const AdminSettingsEmailRoute = AdminSettingsEmailRouteImport.update({
   path: '/email',
   getParentRoute: () => AdminSettingsRoute,
 } as any)
+const AdminSettingsCustomPaymentsRoute =
+  AdminSettingsCustomPaymentsRouteImport.update({
+    id: '/custom-payments',
+    path: '/custom-payments',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
 const AdminSettingsCurrencyRoute = AdminSettingsCurrencyRouteImport.update({
   id: '/currency',
   path: '/currency',
@@ -448,6 +462,12 @@ const AdminSettingsCommunicationsRoute =
   AdminSettingsCommunicationsRouteImport.update({
     id: '/communications',
     path: '/communications',
+    getParentRoute: () => AdminSettingsRoute,
+  } as any)
+const AdminSettingsBrowserAuthRoute =
+  AdminSettingsBrowserAuthRouteImport.update({
+    id: '/browser-auth',
+    path: '/browser-auth',
     getParentRoute: () => AdminSettingsRoute,
   } as any)
 const AdminSettingsBackupRoute = AdminSettingsBackupRouteImport.update({
@@ -604,7 +624,6 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -637,6 +656,7 @@ export interface FileRoutesByFullPath {
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
+  '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
@@ -663,9 +683,11 @@ export interface FileRoutesByFullPath {
   '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/browser-auth': typeof AdminSettingsBrowserAuthRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
+  '/admin/settings/custom-payments': typeof AdminSettingsCustomPaymentsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
@@ -678,6 +700,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -699,7 +722,6 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -726,6 +748,7 @@ export interface FileRoutesByTo {
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
+  '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin': typeof AdminIndexRoute
   '/blog': typeof BlogIndexRoute
@@ -752,9 +775,11 @@ export interface FileRoutesByTo {
   '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/browser-auth': typeof AdminSettingsBrowserAuthRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
+  '/admin/settings/custom-payments': typeof AdminSettingsCustomPaymentsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
@@ -767,6 +792,7 @@ export interface FileRoutesByTo {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -791,7 +817,6 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/humanize': typeof HumanizeRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -824,6 +849,7 @@ export interface FileRoutesById {
   '/admin/transactions': typeof AdminTransactionsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
+  '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
@@ -850,9 +876,11 @@ export interface FileRoutesById {
   '/admin/settings/analytics': typeof AdminSettingsAnalyticsRoute
   '/admin/settings/api-keys': typeof AdminSettingsApiKeysRoute
   '/admin/settings/backup': typeof AdminSettingsBackupRoute
+  '/admin/settings/browser-auth': typeof AdminSettingsBrowserAuthRoute
   '/admin/settings/communications': typeof AdminSettingsCommunicationsRoute
   '/admin/settings/coupons': typeof AdminSettingsCouponsRoute
   '/admin/settings/currency': typeof AdminSettingsCurrencyRoute
+  '/admin/settings/custom-payments': typeof AdminSettingsCustomPaymentsRoute
   '/admin/settings/email': typeof AdminSettingsEmailRoute
   '/admin/settings/emergency': typeof AdminSettingsEmergencyRoute
   '/admin/settings/migration': typeof AdminSettingsMigrationRoute
@@ -865,6 +893,7 @@ export interface FileRoutesById {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -889,7 +918,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
-    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -922,6 +950,7 @@ export interface FileRouteTypes {
     | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
+    | '/pay/$token'
     | '/tools/$slug'
     | '/admin/'
     | '/blog/'
@@ -948,9 +977,11 @@ export interface FileRouteTypes {
     | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/backup'
+    | '/admin/settings/browser-auth'
     | '/admin/settings/communications'
     | '/admin/settings/coupons'
     | '/admin/settings/currency'
+    | '/admin/settings/custom-payments'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/migration'
@@ -963,6 +994,7 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/public/brand-logo'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -984,7 +1016,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
-    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -1011,6 +1042,7 @@ export interface FileRouteTypes {
     | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
+    | '/pay/$token'
     | '/tools/$slug'
     | '/admin'
     | '/blog'
@@ -1037,9 +1069,11 @@ export interface FileRouteTypes {
     | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/backup'
+    | '/admin/settings/browser-auth'
     | '/admin/settings/communications'
     | '/admin/settings/coupons'
     | '/admin/settings/currency'
+    | '/admin/settings/custom-payments'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/migration'
@@ -1052,6 +1086,7 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/public/brand-logo'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1075,7 +1110,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
-    | '/humanize'
     | '/login'
     | '/pricing'
     | '/privacy'
@@ -1108,6 +1142,7 @@ export interface FileRouteTypes {
     | '/admin/transactions'
     | '/blog/$slug'
     | '/blog/search'
+    | '/pay/$token'
     | '/tools/$slug'
     | '/admin/'
     | '/blog/'
@@ -1134,9 +1169,11 @@ export interface FileRouteTypes {
     | '/admin/settings/analytics'
     | '/admin/settings/api-keys'
     | '/admin/settings/backup'
+    | '/admin/settings/browser-auth'
     | '/admin/settings/communications'
     | '/admin/settings/coupons'
     | '/admin/settings/currency'
+    | '/admin/settings/custom-payments'
     | '/admin/settings/email'
     | '/admin/settings/emergency'
     | '/admin/settings/migration'
@@ -1149,6 +1186,7 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/public/brand-logo'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1173,7 +1211,6 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
-  HumanizeRoute: typeof HumanizeRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -1197,7 +1234,9 @@ export interface RootRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
+  PayTokenRoute: typeof PayTokenRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ApiPublicBrandLogoRoute: typeof ApiPublicBrandLogoRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
@@ -1254,13 +1293,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/humanize': {
-      id: '/humanize'
-      path: '/humanize'
-      fullPath: '/humanize'
-      preLoaderRoute: typeof HumanizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -1339,6 +1371,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tools/$slug'
       preLoaderRoute: typeof ToolsSlugRouteImport
       parentRoute: typeof ToolsRoute
+    }
+    '/pay/$token': {
+      id: '/pay/$token'
+      path: '/pay/$token'
+      fullPath: '/pay/$token'
+      preLoaderRoute: typeof PayTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/blog/search': {
       id: '/blog/search'
@@ -1571,6 +1610,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogAuthorIdRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/api/public/brand-logo': {
+      id: '/api/public/brand-logo'
+      path: '/api/public/brand-logo'
+      fullPath: '/api/public/brand-logo'
+      preLoaderRoute: typeof ApiPublicBrandLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/tools/new': {
       id: '/admin/tools/new'
       path: '/new'
@@ -1655,6 +1701,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsEmailRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
+    '/admin/settings/custom-payments': {
+      id: '/admin/settings/custom-payments'
+      path: '/custom-payments'
+      fullPath: '/admin/settings/custom-payments'
+      preLoaderRoute: typeof AdminSettingsCustomPaymentsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
     '/admin/settings/currency': {
       id: '/admin/settings/currency'
       path: '/currency'
@@ -1674,6 +1727,13 @@ declare module '@tanstack/react-router' {
       path: '/communications'
       fullPath: '/admin/settings/communications'
       preLoaderRoute: typeof AdminSettingsCommunicationsRouteImport
+      parentRoute: typeof AdminSettingsRoute
+    }
+    '/admin/settings/browser-auth': {
+      id: '/admin/settings/browser-auth'
+      path: '/browser-auth'
+      fullPath: '/admin/settings/browser-auth'
+      preLoaderRoute: typeof AdminSettingsBrowserAuthRouteImport
       parentRoute: typeof AdminSettingsRoute
     }
     '/admin/settings/backup': {
@@ -2010,9 +2070,11 @@ interface AdminSettingsRouteChildren {
   AdminSettingsAnalyticsRoute: typeof AdminSettingsAnalyticsRoute
   AdminSettingsApiKeysRoute: typeof AdminSettingsApiKeysRoute
   AdminSettingsBackupRoute: typeof AdminSettingsBackupRoute
+  AdminSettingsBrowserAuthRoute: typeof AdminSettingsBrowserAuthRoute
   AdminSettingsCommunicationsRoute: typeof AdminSettingsCommunicationsRoute
   AdminSettingsCouponsRoute: typeof AdminSettingsCouponsRoute
   AdminSettingsCurrencyRoute: typeof AdminSettingsCurrencyRoute
+  AdminSettingsCustomPaymentsRoute: typeof AdminSettingsCustomPaymentsRoute
   AdminSettingsEmailRoute: typeof AdminSettingsEmailRoute
   AdminSettingsEmergencyRoute: typeof AdminSettingsEmergencyRoute
   AdminSettingsMigrationRoute: typeof AdminSettingsMigrationRoute
@@ -2031,9 +2093,11 @@ const AdminSettingsRouteChildren: AdminSettingsRouteChildren = {
   AdminSettingsAnalyticsRoute: AdminSettingsAnalyticsRoute,
   AdminSettingsApiKeysRoute: AdminSettingsApiKeysRoute,
   AdminSettingsBackupRoute: AdminSettingsBackupRoute,
+  AdminSettingsBrowserAuthRoute: AdminSettingsBrowserAuthRoute,
   AdminSettingsCommunicationsRoute: AdminSettingsCommunicationsRoute,
   AdminSettingsCouponsRoute: AdminSettingsCouponsRoute,
   AdminSettingsCurrencyRoute: AdminSettingsCurrencyRoute,
+  AdminSettingsCustomPaymentsRoute: AdminSettingsCustomPaymentsRoute,
   AdminSettingsEmailRoute: AdminSettingsEmailRoute,
   AdminSettingsEmergencyRoute: AdminSettingsEmergencyRoute,
   AdminSettingsMigrationRoute: AdminSettingsMigrationRoute,
@@ -2075,7 +2139,6 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
-  HumanizeRoute: HumanizeRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
@@ -2100,7 +2163,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSettingsRoute: AdminSettingsRouteWithChildren,
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
+  PayTokenRoute: PayTokenRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ApiPublicBrandLogoRoute: ApiPublicBrandLogoRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,
