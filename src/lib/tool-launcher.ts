@@ -12,6 +12,7 @@ import type { Tool } from "@/lib/tools-data";
 import type { ToolSetting } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { startOneClickAuth } from "@/lib/browser-auth.functions";
+import { startGrantedOneClickAuth } from "@/lib/grant-access.functions";
 
 export async function launchTool(
   tool: Tool,
@@ -19,13 +20,12 @@ export async function launchTool(
     ToolSetting,
     "one_click_auth_enabled" | "official_login_url" | "launch_mode"
   >,
+  options?: { grantAccess?: boolean },
 ): Promise<void> {
   const useOneClick = !!setting?.one_click_auth_enabled;
   const mode = setting?.launch_mode ?? "new_tab";
 
   if (useOneClick) {
-    // Open a placeholder synchronously so mobile/desktop popup blockers do not
-    // discard the provider Live View after the server finishes authentication.
     let handoffWindow: Window | null = null;
     if (mode !== "same_tab") {
       const features = mode === "popup" ? "width=1100,height=800" : undefined;
@@ -43,7 +43,9 @@ export async function launchTool(
     const toastId = `launch-${tool.slug}`;
     toast.loading(`Preparing secure ${tool.name} login…`, { id: toastId });
     try {
-      const result = await startOneClickAuth({ data: { tool_slug: tool.slug } });
+      const result = options?.grantAccess
+        ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
+        : await startOneClickAuth({ data: { tool_slug: tool.slug } });
       const launchUrl = new URL(result.launch_url);
       if (launchUrl.protocol !== "https:") throw new Error("The browser provider returned an invalid launch URL.");
 
@@ -53,8 +55,6 @@ export async function launchTool(
       } else if (handoffWindow && !handoffWindow.closed) {
         handoffWindow.location.href = launchUrl.toString();
       } else {
-        // If a browser blocked the placeholder, use the current tab rather than
-        // losing a paid remote session behind another blocked window.open call.
         window.location.href = launchUrl.toString();
       }
     } catch (err) {
@@ -73,7 +73,6 @@ export async function launchTool(
     return;
   }
 
-  // Best-effort usage log for ordinary (non-remote-auth) launches.
   supabase.auth.getUser().then(({ data }) => {
     if (data.user) {
       supabase
