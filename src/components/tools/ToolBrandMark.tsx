@@ -1,4 +1,4 @@
-import sneakWriteLogo from "@/assets/sneakwrite-logo.svg";
+import sneakWriteLogo from "@/assets/sneakwrite-logo.png";
 import type { Tool } from "@/lib/tools-data";
 import { getToolLogo } from "@/lib/tools-data";
 import { cn } from "@/lib/utils";
