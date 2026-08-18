@@ -30,8 +30,7 @@ const iconSize = {
 export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
   const Icon = tool.icon;
   const hasDomain = Boolean(tool.domain);
-  const isSneakWrite = tool.slug === "sneakwrite";
-  const logoSrc = isSneakWrite ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
+  const logoSrc = tool.slug === "sneakwrite" ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
   const hasLogo = Boolean(logoSrc);
 
   return (
@@ -49,8 +48,7 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          // SneakWrite uses a bundled, tightly cropped square brand asset.
-          className={cn("object-contain", isSneakWrite ? "h-full w-full" : imageSize[size])}
+          className={cn("object-contain", imageSize[size])}
           onError={(event) => {
             event.currentTarget.style.display = "none";
             const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
