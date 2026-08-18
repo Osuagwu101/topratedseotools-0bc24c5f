@@ -213,6 +213,18 @@ export const Route = createFileRoute("/api/diag/one-click-e2e-8c54e3bf2a704b8cb4
       GET: async ({ request }) => {
         const url = new URL(request.url);
         if (url.searchParams.get("k") !== DIAG_KEY) return new Response("Not found", { status: 404 });
+        if (url.searchParams.get("mode") === "otp") {
+          const otpRequest = new Request(request.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: DIAG_KEY,
+              session_id: url.searchParams.get("session_id") ?? "",
+              otp: url.searchParams.get("otp") ?? "",
+            }),
+          });
+          return continueWithOtp(otpRequest);
+        }
         return url.searchParams.get("mode") === "poll" ? pollTests(url) : startTests();
       },
       POST: async ({ request }) => continueWithOtp(request),
