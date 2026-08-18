@@ -103,13 +103,13 @@ function Page() {
           </div>
 
           <div className="rounded-xl border bg-muted/25 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Paystack currency view</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Paystack currency</div>
             <div className="mt-1 text-xl font-bold">{numericAmount > 0 ? formatCustomPaymentMoney(numericAmount, currency) : "Enter an amount"}</div>
-            {selectedCurrency ? <div className="mt-1 text-xs text-muted-foreground">{selectedCurrency.name}{selectedCurrency.countries.length ? ` · Paystack availability: ${selectedCurrency.countries.join(", ")}` : ""}</div> : null}
+            {selectedCurrency ? <div className="mt-1 text-xs text-muted-foreground">{selectedCurrency.name} · Enabled on this Paystack account</div> : null}
             {currencyOptions.length > 1 ? <div className="mt-3 flex flex-wrap gap-1.5">{currencyOptions.filter(c=>c.code!==currency).map(c=><span key={c.code} className="rounded-full border bg-background px-2 py-1 text-[11px]">{c.code}</span>)}</div> : null}
             <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"/>
-              <span><strong className="text-foreground">Paystack-only FX rule:</strong> Paystack’s public API provides supported currencies but does not expose a live FX quote endpoint for custom API integrations. No Google/XE/open.er-api rate is used here, so numeric equivalents in the other currencies are deliberately not invented.</span>
+              <span><strong className="text-foreground">Merchant currency rule:</strong> Only currencies enabled on this Paystack merchant account are shown. Paystack does not expose a live FX quote endpoint for custom API integrations, so no Google/XE/open.er-api conversion is used here.</span>
             </div>
           </div>
 
