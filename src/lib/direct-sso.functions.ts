@@ -109,7 +109,7 @@ async function requestSneakWriteActionLink(account: DirectAccount) {
         Accept: "application/json",
       },
       body: JSON.stringify({ email: account.email, password: account.password }),
-      redirect: "error",
+      redirect: "manual",
     });
   } catch {
     throw new Error("SneakWrite secure sign-in is temporarily unavailable. Please try again.");
