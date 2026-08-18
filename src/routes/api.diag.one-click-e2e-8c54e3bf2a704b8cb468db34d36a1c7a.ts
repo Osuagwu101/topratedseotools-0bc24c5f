@@ -220,7 +220,7 @@ export const Route = createFileRoute("/api/diag/one-click-e2e-8c54e3bf2a704b8cb4
             body: JSON.stringify({
               key: DIAG_KEY,
               session_id: url.searchParams.get("session_id") ?? "",
-              otp: url.searchParams.get("otp") ?? "",
+              otp: url.searchParams.get("otp") ?? await loadBrowserSecret(supabaseAdmin, "PHRASLY_E2E_OTP"),
             }),
           });
           return continueWithOtp(otpRequest);
