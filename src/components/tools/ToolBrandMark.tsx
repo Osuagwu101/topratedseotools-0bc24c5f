@@ -30,7 +30,8 @@ const iconSize = {
 export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
   const Icon = tool.icon;
   const hasDomain = Boolean(tool.domain);
-  const logoSrc = tool.slug === "sneakwrite" ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
+  const isSneakWrite = tool.slug === "sneakwrite";
+  const logoSrc = isSneakWrite ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
   const hasLogo = Boolean(logoSrc);
 
   return (
@@ -48,7 +49,10 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className={cn("object-contain", imageSize[size])}
+          className={cn(
+            isSneakWrite ? "h-full w-full object-cover" : "object-contain",
+            !isSneakWrite && imageSize[size],
+          )}
           onError={(event) => {
             event.currentTarget.style.display = "none";
             const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
