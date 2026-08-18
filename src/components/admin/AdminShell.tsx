@@ -8,23 +8,17 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-  BookOpen,
   ChevronDown,
   ChevronRight,
   ClipboardList,
   Cog as CogIcon,
   CreditCard,
-  KeyRound,
   LayoutDashboard,
   LogOut,
-  Mail,
   Megaphone,
   PackageCheck,
   Settings2,
   ShieldCheck,
-  Star,
-  Tag,
-  UserCog,
   Users,
   Wrench,
 } from "lucide-react";
