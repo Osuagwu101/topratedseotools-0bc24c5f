@@ -49,10 +49,7 @@ export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkPro
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className={cn(
-            isSneakWrite ? "h-full w-full object-cover" : "object-contain",
-            !isSneakWrite && imageSize[size],
-          )}
+          className={cn("object-contain", isSneakWrite ? "h-full w-full" : imageSize[size])}
           onError={(event) => {
             event.currentTarget.style.display = "none";
             const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
