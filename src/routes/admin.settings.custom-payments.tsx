@@ -10,6 +10,7 @@ import {
   adminListCustomPaymentLinks,
   adminSetCustomPaymentLinkStatus,
 } from "@/lib/custom-payments.functions";
+import { adminGetNgnGhsEstimateRate, estimateGhsFromNgn } from "@/lib/custom-payment-ghs-estimate.functions";
 import { formatCustomPaymentMoney } from "@/lib/custom-payment-currency";
 
 export const Route = createFileRoute("/admin/settings/custom-payments")({
@@ -24,6 +25,7 @@ function Page() {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ["custom-payment-links"], queryFn: () => adminListCustomPaymentLinks() });
   const currenciesQuery = useQuery({ queryKey: ["custom-payment-currencies"], queryFn: () => adminGetCustomPaymentCurrencyOptions(), staleTime: 5 * 60_000 });
+  const ghsRateQuery = useQuery({ queryKey: ["custom-payment-ngn-ghs-estimate"], queryFn: () => adminGetNgnGhsEstimateRate(), staleTime: 15 * 60_000, retry: 1 });
   const [title, setTitle] = useState("Custom Payment");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("NGN");
@@ -81,6 +83,12 @@ function Page() {
   const txs = query.data?.transactions ?? [];
   const numericAmount = Number(amount);
   const selectedCurrency = currencyOptions.find((c) => c.code === currency);
+  const ghsEstimate = currency === "NGN" && numericAmount > 0 && ghsRateQuery.data
+    ? estimateGhsFromNgn(numericAmount, ghsRateQuery.data)
+    : null;
+  const ghsEstimateLabel = ghsEstimate == null
+    ? null
+    : new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ghsEstimate);
 
   return <AdminShell><section className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
     <div>
@@ -103,13 +111,24 @@ function Page() {
           </div>
 
           <div className="rounded-xl border bg-muted/25 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Paystack currency</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Paystack charge</div>
             <div className="mt-1 text-xl font-bold">{numericAmount > 0 ? formatCustomPaymentMoney(numericAmount, currency) : "Enter an amount"}</div>
             {selectedCurrency ? <div className="mt-1 text-xs text-muted-foreground">{selectedCurrency.name} · Enabled on this Paystack account</div> : null}
             {currencyOptions.length > 1 ? <div className="mt-3 flex flex-wrap gap-1.5">{currencyOptions.filter(c=>c.code!==currency).map(c=><span key={c.code} className="rounded-full border bg-background px-2 py-1 text-[11px]">{c.code}</span>)}</div> : null}
+
+            {currency === "NGN" ? <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-primary">Ghana cedi estimate</div>
+              {ghsRateQuery.isLoading ? <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Loading current NGN/GHS reference…</div> : ghsRateQuery.data ? <>
+                <div className="mt-1 text-2xl font-bold">{ghsEstimateLabel ?? "Enter a Naira amount"}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Reference: GH₵1 ≈ ₦{ghsRateQuery.data.ngn_per_ghs.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{ghsRateQuery.data.source_label}{ghsRateQuery.data.as_of ? ` · ${ghsRateQuery.data.as_of}` : ""}</div>
+              </> : <div className="mt-1 text-xs text-muted-foreground">GHS estimate temporarily unavailable. The Naira payment link can still be created normally.</div>}
+              <div className="mt-2 text-[11px] leading-4 text-muted-foreground">Estimate only. Paystack will charge the exact Naira amount above. The payer’s Ghanaian bank/card network performs the final GHS conversion and may apply its own rate or fee.</div>
+            </div> : null}
+
             <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"/>
-              <span><strong className="text-foreground">Merchant currency rule:</strong> Only currencies enabled on this Paystack merchant account are shown. Paystack does not expose a live FX quote endpoint for custom API integrations, so no Google/XE/open.er-api conversion is used here.</span>
+              <span><strong className="text-foreground">Payment rule:</strong> The estimate does not change the transaction currency. The generated checkout is still an NGN Paystack payment.</span>
             </div>
           </div>
 
