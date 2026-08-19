@@ -6,7 +6,7 @@
  * (kept for client-side or encrypted-charge flows).
  *
  * Flutterwave works in MAJOR currency units, so amounts are converted at the
- * boundary — the rest of the platform keeps using minor units.
+ * boundary — the rest of the platform keeps using the canonical 1/100 unit.
  */
 import { timingSafeEqual } from "crypto";
 import type {
@@ -56,13 +56,20 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
   return "pending";
 }
 
+/** Keep checkout methods compatible with Flutterwave's documented regional methods. */
 function paymentOptionsFor(currency: string): string {
   switch (String(currency).toUpperCase()) {
-    case "GHS": return "mobilemoneyghana,card,banktransfer,ussd";
-    case "KES": return "mpesa,card,banktransfer";
-    case "ZAR": return "card,banktransfer";
-    case "USD": return "card";
-    default: return "card,banktransfer,ussd,account";
+    case "NGN": return "card,ussd,banktransfer,account,opay";
+    case "GHS": return "mobilemoneyghana,card";
+    case "KES": return "card,mpesa";
+    case "ZAR": return "card,account";
+    case "UGX": return "card,mobilemoneyuganda";
+    case "RWF": return "card,mobilemoneyrwanda";
+    case "TZS": return "card,mobilemoneytanzania";
+    case "XAF": return "card,mobilemoneyxaf";
+    case "XOF": return "card,mobilemoneyxof";
+    case "EGP": return "card,fawrypay";
+    default: return "card";
   }
 }
 
