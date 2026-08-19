@@ -1,0 +1,26 @@
+name: Custom Payment Runtime E2E Audit
+
+on:
+  push:
+    branches: [runtime-audit-custom-payments]
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright runtime only
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run live Custom Payment handoff audit
+        run: node .github/scripts/custom-payment-runtime-e2e.mjs
