@@ -3,6 +3,8 @@ name: Custom Payment Runtime E2E Audit
 on:
   push:
     branches: [runtime-audit-custom-payments]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
