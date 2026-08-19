@@ -22,6 +22,8 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: SneakWrite SSO regression test
+        run: bun tests/direct-sso-url.test.ts
       - name: Typecheck
         run: bunx tsc --noEmit
       - name: Production build
