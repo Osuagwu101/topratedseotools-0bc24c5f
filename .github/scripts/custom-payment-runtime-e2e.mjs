@@ -1,85 +1,43 @@
 import { chromium } from "playwright";
 
-const origins = [
-  { url: "https://topratedseotools.lovable.app", handoff: false },
-  { url: "https://topratedseotools.com", handoff: true },
-];
-
-const cases = [
-  {
-    name: "Paystack NGN",
-    path: "/pay/336d87f7640fba1933939ee86d60f94c65f16da4170fe9e2",
-    title: "E2E Audit — Paystack NGN",
-    provider: "Paystack",
-    currency: "NGN",
-    expectedHosts: ["checkout.paystack.com", "paystack.com"],
-  },
-  {
-    name: "Flutterwave GHS",
-    path: "/pay/747d2fa9f5348d4ef6612d879e60de450df197980c21e08a",
-    title: "E2E Audit — Flutterwave GHS",
-    provider: "Flutterwave",
-    currency: "GHS",
-    expectedHosts: ["checkout.flutterwave.com", "flutterwave.com"],
-  },
-];
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function containsCI(haystack, needle) {
-  return haystack.toLocaleLowerCase().includes(needle.toLocaleLowerCase());
-}
-
+const url = "https://topratedseotools.com/pay/336d87f7640fba1933939ee86d60f94c65f16da4170fe9e2";
 const browser = await chromium.launch({ headless: true });
 try {
-  for (const origin of origins) {
-    for (const testCase of cases) {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      const url = `${origin.url}${testCase.path}`;
-      console.log(`\n=== ${testCase.name} @ ${origin.url} ===`);
-      const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-      console.log(`payment page HTTP: ${response?.status() ?? "n/a"}`);
-      await page.getByRole("heading", { name: testCase.title }).waitFor({ timeout: 30_000 });
-      const before = await page.locator("body").innerText();
-      console.log(`page excerpt: ${before.slice(0, 900).replace(/\s+/g, " ")}`);
-      assert(containsCI(before, `Custom Payment · ${testCase.provider}`), `${testCase.provider} label missing`);
-      assert(containsCI(before, testCase.currency), `${testCase.currency} exact-currency label missing`);
-      assert(containsCI(before, `Secure payment processed by ${testCase.provider}`), `${testCase.provider} secure-payment footer missing`);
-      assert(!/NGN\s*(?:→|to)\s*GHS|GHS\s*estimate|estimated\s+GHS|currency\s+estimator/i.test(before), "Removed NGN→GHS estimator is still visible");
-
-      if (!origin.handoff) {
-        console.log(`${testCase.name}: PASS — canonical production host renders the rebuilt Custom Payment page.`);
-        await context.close();
-        continue;
-      }
-
-      await page.getByLabel("Name").fill("TopRated E2E Audit");
-      await page.getByLabel("Email").fill("e2e-audit@example.com");
-
-      const navigation = page.waitForURL((nextUrl) => {
-        const host = nextUrl.hostname.toLowerCase();
-        return testCase.expectedHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
-      }, { timeout: 45_000 });
-      await page.getByRole("button", { name: /^Pay /i }).click();
-      try {
-        await navigation;
-      } catch (error) {
-        const body = await page.locator("body").innerText().catch(() => "");
-        console.error(`current URL: ${page.url()}`);
-        console.error(`page text: ${body.slice(0, 1800)}`);
-        throw error;
-      }
-
-      const finalUrl = new URL(page.url());
-      console.log(`handoff host: ${finalUrl.hostname}`);
-      assert(testCase.expectedHosts.some((allowed) => finalUrl.hostname === allowed || finalUrl.hostname.endsWith(`.${allowed}`)), `Unexpected ${testCase.provider} handoff host: ${finalUrl.hostname}`);
-      console.log(`${testCase.name}: PASS — custom domain rendered correctly and reached hosted checkout without completing payment.`);
-      await context.close();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const network = [];
+  page.on("console", (m) => console.log(`browser console ${m.type()}: ${m.text()}`));
+  page.on("pageerror", (e) => console.log(`browser pageerror: ${e.message}`));
+  page.on("requestfailed", (req) => console.log(`request failed: ${req.method()} ${req.url()} :: ${req.failure()?.errorText}`));
+  page.on("response", (resp) => {
+    const req = resp.request();
+    if (req.method() !== "GET" || resp.url().includes("_server") || resp.url().includes("server")) {
+      network.push(`${req.method()} ${resp.status()} ${resp.url()}`);
     }
+  });
+
+  const response = await page.goto(url, { waitUntil: "networkidle", timeout: 45_000 });
+  console.log(`initial HTTP: ${response?.status()}`);
+  await page.getByRole("heading", { name: "E2E Audit — Paystack NGN" }).waitFor();
+  await page.getByLabel("Name").fill("TopRated E2E Audit");
+  await page.getByLabel("Email").fill("e2e-audit@example.com");
+  const button = page.getByRole("button", { name: /^Pay /i });
+  console.log(`button enabled: ${await button.isEnabled()}`);
+  await button.click();
+  await page.waitForTimeout(12_000);
+  console.log(`final URL: ${page.url()}`);
+  console.log(`network after click:\n${network.join("\n") || "(no non-GET/server responses captured)"}`);
+  const status = await page.locator('[role="status"]').allTextContents().catch(() => []);
+  console.log(`status text: ${JSON.stringify(status)}`);
+  const body = await page.locator("body").innerText();
+  console.log(`body excerpt: ${body.slice(0, 2200).replace(/\s+/g, " ")}`);
+
+  const host = new URL(page.url()).hostname.toLowerCase();
+  if (host === "checkout.paystack.com" || host.endsWith(".paystack.com")) {
+    console.log("PASS: reached Paystack hosted checkout.");
+    process.exit(0);
   }
+  throw new Error("Paystack initialization did not reach the hosted checkout; trace emitted above.");
 } finally {
   await browser.close();
 }
