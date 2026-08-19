@@ -1,28 +1,26 @@
 /**
- * Custom Payments — one-time admin-created Paystack payment links.
+ * Custom Payments — one-time admin-created payment links.
  *
- * These payments are deliberately separate from tool_orders so a custom bill
- * can never grant tool access or appear as a subscription. Public recipients
- * do not need a Top Rated SEO Tools account; the unguessable public token is
- * the only identifier exposed to the browser.
+ * Every link permanently records the gateway selected by the Super Admin.
+ * These payments remain isolated from tool_orders, subscriptions and access.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
 import {
-  currencyDisplayName,
+  customPaymentCurrenciesForGateway,
+  customPaymentGatewaySupportsCurrency,
   customPaymentMinorUnits,
-  merchantPaystackCurrencies,
-  merchantSupportsPaystackCurrency,
-  normalizePaystackCurrency,
+  customPaymentRequiresWholeAmount,
+  normalizeCustomPaymentCurrency,
   roundCustomPaymentAmount,
-  type PaystackCurrencyOption,
+  type CustomPaymentGateway,
 } from "@/lib/custom-payment-currency";
 
 const SITE_ORIGIN = "https://topratedseotools.com";
-const PAYSTACK_BASE = "https://api.paystack.co";
 const tokenSchema = z.string().min(20).max(120).regex(/^[A-Za-z0-9_-]+$/);
+const gatewaySchema = z.enum(["paystack", "flutterwave"]);
 const currencySchema = z.string().trim().transform((v) => v.toUpperCase()).refine((v) => /^[A-Z]{3}$/.test(v), "Invalid currency code");
 
 async function assertSuperAdmin(context: { supabase: any; userId: string }) {
@@ -61,99 +59,47 @@ function parseMetadata(value: unknown): Record<string, unknown> {
   return {};
 }
 
-async function loadPaystack(admin: any) {
-  const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
+function gatewayLabel(gateway: CustomPaymentGateway): string {
+  return gateway === "paystack" ? "Paystack" : "Flutterwave";
+}
+
+async function loadCustomPaymentGateway(admin: any, gateway: CustomPaymentGateway) {
+  const [{ loadGatewaySecrets }, { getAdapter }] = await Promise.all([
+    import("@/lib/gateways/secrets.server"),
+    import("@/lib/gateways/registry"),
+  ]);
   await loadGatewaySecrets(admin, true);
 
-  const { data: provider } = await admin
+  const { data: provider, error } = await admin
     .from("payment_providers")
-    .select("enabled, is_active, environment, config")
-    .eq("slug", "paystack")
+    .select("slug, display_name, enabled, environment, config")
+    .eq("slug", gateway)
     .maybeSingle();
-  if (!provider?.enabled || !provider?.is_active) {
-    throw new Error("Paystack must be the active payment gateway before creating a Custom Payment checkout.");
-  }
+  if (error) throw new Error(`Could not load ${gatewayLabel(gateway)} configuration.`);
+  if (!provider?.enabled) throw new Error(`${gatewayLabel(gateway)} is disabled in Payment Settings.`);
 
-  const secret = process.env.PAYSTACK_SECRET_KEY ?? "";
-  if (!secret) throw new Error("Paystack is not configured. Contact Admin.");
-  const environment = secret.startsWith("sk_test_") ? "test" : "live";
-  return { secret, environment, config: provider.config ?? {} } as const;
+  const adapter = getAdapter(gateway, (provider.config ?? {}) as Record<string, unknown>);
+  if (!adapter.isConfigured()) throw new Error(`${gatewayLabel(gateway)} is not fully configured.`);
+  const environment = adapter.environment() ?? provider.environment;
+  if (environment !== "test" && environment !== "live") {
+    throw new Error(`${gatewayLabel(gateway)} environment could not be determined.`);
+  }
+  return { adapter, provider, environment } as const;
 }
 
-async function paystackRequest<T>(secret: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${PAYSTACK_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  let payload: { status?: boolean; message?: string; data?: T } = {};
-  try {
-    payload = await res.json() as typeof payload;
-  } catch {
-    throw new Error(`Paystack request failed (${res.status}).`);
+function validateGatewayCurrency(gateway: CustomPaymentGateway, currency: string) {
+  if (!customPaymentGatewaySupportsCurrency(gateway, currency)) {
+    if (gateway === "paystack") throw new Error("Paystack Custom Payments support NGN or USD only.");
+    throw new Error(`${currency} is not in the supported Flutterwave Custom Payment currency list.`);
   }
-  if (!res.ok || !payload.status || payload.data == null) {
-    throw new Error(payload.message || `Paystack request failed (${res.status}).`);
-  }
-  return payload.data;
 }
 
-type PaystackCountry = {
-  name?: string;
-  relationships?: { currency?: { data?: string[] } };
-};
-
-/**
- * Paystack /country is global catalogue metadata. It is deliberately used only
- * to enrich the currencies already enabled in this merchant's provider config;
- * it must never be used to decide what this integration is allowed to charge.
- */
-async function getPaystackCurrencyOptions(secret: string, merchantCurrencies: string[]): Promise<PaystackCurrencyOption[]> {
-  const enabled = new Set(merchantCurrencies.map(normalizePaystackCurrency));
-  const countriesByCode = new Map<string, Set<string>>();
-
-  try {
-    const countries = await paystackRequest<PaystackCountry[]>(secret, "/country");
-    for (const country of countries ?? []) {
-      for (const raw of country.relationships?.currency?.data ?? []) {
-        let code: string;
-        try { code = normalizePaystackCurrency(raw); } catch { continue; }
-        if (!enabled.has(code)) continue;
-        if (!countriesByCode.has(code)) countriesByCode.set(code, new Set());
-        if (country.name) countriesByCode.get(code)!.add(country.name);
-      }
-    }
-  } catch {
-    // Country metadata is display-only. Merchant-configured currencies remain
-    // authoritative even if Paystack's miscellaneous endpoint is unavailable.
+function normalizeAmount(amount: number, currency: string): number {
+  const rounded = roundCustomPaymentAmount(amount, currency);
+  if (customPaymentRequiresWholeAmount(currency) && rounded !== Number(amount)) {
+    throw new Error(`${currency} custom payments must use a whole-number amount.`);
   }
-
-  const priority = ["NGN", "USD", "GHS", "KES", "ZAR", "XOF", "EGP"];
-  return merchantCurrencies
-    .map(normalizePaystackCurrency)
-    .filter((code, index, values) => values.indexOf(code) === index)
-    .map((code) => ({
-      code,
-      name: currencyDisplayName(code),
-      countries: [...(countriesByCode.get(code) ?? new Set<string>())].sort(),
-    }))
-    .sort((a, b) => {
-      const ai = priority.indexOf(a.code);
-      const bi = priority.indexOf(b.code);
-      if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      return a.code.localeCompare(b.code);
-    });
-}
-
-function requireMerchantCurrencies(config: unknown): string[] {
-  const currencies = merchantPaystackCurrencies(config);
-  if (!currencies.length) {
-    throw new Error("No Custom Payment currency is configured for this Paystack merchant account.");
-  }
-  return currencies;
+  return rounded;
 }
 
 export interface CustomPaymentPublicLink {
@@ -161,6 +107,7 @@ export interface CustomPaymentPublicLink {
   description: string | null;
   amount: number;
   currency: string;
+  payment_gateway: CustomPaymentGateway;
   recipient_name: string | null;
   recipient_email: string | null;
   status: "active" | "paid" | "disabled" | "expired";
@@ -168,18 +115,19 @@ export interface CustomPaymentPublicLink {
   paid_at: string | null;
 }
 
-export const adminGetCustomPaymentCurrencyOptions = createServerFn({ method: "GET" })
+export const adminGetCustomPaymentCurrencyOptions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input) => z.object({ gateway: gatewaySchema }).parse(input))
+  .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { secret, config } = await loadPaystack(admin);
-    const merchantCurrencies = requireMerchantCurrencies(config);
-    const currencies = await getPaystackCurrencyOptions(secret, merchantCurrencies);
+    const gateway = data.gateway as CustomPaymentGateway;
+    const { provider, environment } = await loadCustomPaymentGateway(admin, gateway);
     return {
-      currencies,
-      fx_preview_available: false,
-      fx_source: "paystack" as const,
-      fx_note: "Only currencies enabled on this Paystack merchant account are available. Paystack does not expose a public FX quote endpoint, so Custom Payments do not use third-party exchange rates.",
+      gateway,
+      display_name: gatewayLabel(gateway),
+      environment,
+      currencies: customPaymentCurrenciesForGateway(gateway),
+      provider_enabled: !!provider.enabled,
     };
   });
 
@@ -189,17 +137,19 @@ export const getCustomPaymentLink = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await (supabaseAdmin as any)
       .from("custom_payment_links")
-      .select("title, description, amount, amount_ngn, currency, recipient_name, recipient_email, status, expires_at, paid_at")
+      .select("title, description, amount, amount_ngn, currency, payment_gateway, recipient_name, recipient_email, status, expires_at, paid_at")
       .eq("public_token", data.token)
       .maybeSingle();
     if (error) throw new Error("Could not load this payment link.");
     if (!row) throw new Error("Payment link not found.");
-    const currency = normalizePaystackCurrency(row.currency ?? "NGN");
+    const currency = normalizeCustomPaymentCurrency(row.currency ?? "NGN");
+    const payment_gateway: CustomPaymentGateway = row.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
     return {
       title: row.title as string,
       description: row.description as string | null,
       amount: Number(row.amount ?? row.amount_ngn),
       currency,
+      payment_gateway,
       recipient_name: row.recipient_name as string | null,
       recipient_email: row.recipient_email as string | null,
       status: computePublicStatus(row),
@@ -222,14 +172,15 @@ export const adminListCustomPaymentLinks = createServerFn({ method: "GET" })
       links: (links ?? []).map((row: any) => ({
         ...row,
         amount: Number(row.amount ?? row.amount_ngn),
-        currency: normalizePaystackCurrency(row.currency ?? "NGN"),
+        currency: normalizeCustomPaymentCurrency(row.currency ?? "NGN"),
+        payment_gateway: row.payment_gateway === "flutterwave" ? "flutterwave" : "paystack",
         public_status: computePublicStatus(row),
         payment_url: `${SITE_ORIGIN}/pay/${row.public_token}`,
       })),
       transactions: (transactions ?? []).map((row: any) => ({
         ...row,
         amount: Number(row.amount ?? row.amount_ngn),
-        currency: normalizePaystackCurrency(row.currency ?? "NGN"),
+        currency: normalizeCustomPaymentCurrency(row.currency ?? "NGN"),
       })),
     };
   });
@@ -241,22 +192,18 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
     description: z.string().trim().max(1000).optional().nullable(),
     amount: z.coerce.number().positive().max(100_000_000),
     currency: currencySchema,
+    payment_gateway: gatewaySchema,
     recipient_name: z.string().trim().max(140).optional().nullable(),
     recipient_email: z.string().trim().email().max(254).optional().nullable().or(z.literal("")),
     expires_hours: z.coerce.number().int().min(1).max(720).optional().nullable(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { config } = await loadPaystack(admin);
-    requireMerchantCurrencies(config);
-    const currency = normalizePaystackCurrency(data.currency);
-    if (!merchantSupportsPaystackCurrency(config, currency)) {
-      throw new Error(`${currency} is not enabled on this Paystack merchant account.`);
-    }
-    const amount = roundCustomPaymentAmount(data.amount, currency);
-    if (currency === "XOF" && amount !== Number(data.amount)) {
-      throw new Error("XOF custom payments must use a whole-number amount.");
-    }
+    const gateway = data.payment_gateway as CustomPaymentGateway;
+    await loadCustomPaymentGateway(admin, gateway);
+    const currency = normalizeCustomPaymentCurrency(data.currency);
+    validateGatewayCurrency(gateway, currency);
+    const amount = normalizeAmount(data.amount, currency);
 
     const { randomBytes } = await import("crypto");
     const token = randomBytes(24).toString("base64url");
@@ -270,12 +217,13 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
         amount,
         amount_ngn: currency === "NGN" ? amount : null,
         currency,
+        payment_gateway: gateway,
         recipient_name: data.recipient_name || null,
         recipient_email: data.recipient_email || null,
         expires_at: expiresAt,
         created_by: context.userId,
       })
-      .select("id, public_token, title, amount, currency, expires_at")
+      .select("id, public_token, title, amount, currency, payment_gateway, expires_at")
       .maybeSingle();
     if (error || !row) throw new Error(error?.message || "Could not create payment link.");
     await logAdminActivity(context, {
@@ -283,13 +231,14 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
       area: "payments",
       target_type: "custom_payment_link",
       target_id: row.id as string,
-      details: `${data.title} · ${currency} ${Number(row.amount).toFixed(currency === "XOF" ? 0 : 2)}`,
+      details: `${data.title} · ${gatewayLabel(gateway)} · ${currency} ${amount}`,
     });
     return {
       id: row.id as string,
       payment_url: `${SITE_ORIGIN}/pay/${row.public_token}`,
       amount: Number(row.amount),
       currency,
+      payment_gateway: gateway,
       expires_at: row.expires_at as string | null,
     };
   });
@@ -330,7 +279,7 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
 
     const { data: link, error: linkError } = await admin
       .from("custom_payment_links")
-      .select("id, public_token, title, amount, amount_ngn, currency, status, expires_at")
+      .select("id, public_token, title, amount, amount_ngn, currency, payment_gateway, status, expires_at")
       .eq("public_token", data.token)
       .maybeSingle();
     if (linkError || !link) throw new Error("Payment link not found.");
@@ -339,16 +288,15 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
     if (status === "disabled") throw new Error("This payment link has been disabled.");
     if (status === "expired") throw new Error("This payment link has expired. Contact Admin for a new link.");
 
-    const { secret, environment, config } = await loadPaystack(admin);
-    requireMerchantCurrencies(config);
-    const currency = normalizePaystackCurrency(link.currency ?? "NGN");
-    if (!merchantSupportsPaystackCurrency(config, currency)) {
-      throw new Error(`${currency} is not enabled on this Paystack merchant account. Please ask the sender for a new payment link in an enabled currency.`);
-    }
+    const gateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+    const currency = normalizeCustomPaymentCurrency(link.currency ?? "NGN");
+    validateGatewayCurrency(gateway, currency);
+    const { adapter, environment } = await loadCustomPaymentGateway(admin, gateway);
 
     const { randomBytes } = await import("crypto");
-    const reference = `CP-${Date.now()}-${randomBytes(6).toString("hex")}`;
-    const amount = roundCustomPaymentAmount(Number(link.amount ?? link.amount_ngn), currency);
+    const prefix = gateway === "paystack" ? "PS" : "FW";
+    const reference = `CP-${prefix}-${Date.now()}-${randomBytes(6).toString("hex")}`;
+    const amount = normalizeAmount(Number(link.amount ?? link.amount_ngn), currency);
     const amountMinor = customPaymentMinorUnits(amount, currency);
 
     const { error: insertError } = await admin.from("custom_payment_transactions").insert({
@@ -359,50 +307,52 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
       currency,
       payer_name: data.payer_name,
       payer_email: data.payer_email,
-      payment_gateway: "paystack",
+      payment_gateway: gateway,
+      gateway_environment: environment,
       paystack_environment: environment,
       status: "initiated",
     });
     if (insertError) throw new Error("Could not start this payment. Please try again.");
 
     try {
-      const init = await paystackRequest<{ authorization_url: string; access_code: string; reference: string }>(secret, "/transaction/initialize", {
-        method: "POST",
-        body: JSON.stringify({
-          email: data.payer_email,
-          amount: String(amountMinor),
+      const init = await adapter.initialize({
+        reference,
+        amountMinor,
+        currency,
+        email: data.payer_email,
+        customerName: data.payer_name,
+        description: link.title,
+        callbackUrl: `${SITE_ORIGIN}/pay/${data.token}`,
+        metadata: {
+          kind: "custom_payment",
+          custom_payment_link_id: link.id,
+          custom_payment_token: data.token,
+          title: link.title,
+          amount_major: amount,
           currency,
-          reference,
-          callback_url: `${SITE_ORIGIN}/pay/${data.token}`,
-          metadata: JSON.stringify({
-            kind: "custom_payment",
-            custom_payment_link_id: link.id,
-            custom_payment_token: data.token,
-            title: link.title,
-            amount_major: amount,
-            currency,
-          }),
-        }),
+          payment_gateway: gateway,
+        },
       });
-      return { authorization_url: init.authorization_url, reference: init.reference || reference };
+      return { authorization_url: init.authorization_url, reference: init.reference || reference, payment_gateway: gateway };
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Paystack initialization failed.";
-      await admin.from("custom_payment_transactions").update({ status: "failed", last_error: message.slice(0, 500), updated_at: new Date().toISOString() }).eq("reference", reference);
-      if (/currency/i.test(message)) {
-        throw new Error(`${message} This Paystack business may not be enabled to accept ${currency}.`);
-      }
+      const message = err instanceof Error ? err.message : `${gatewayLabel(gateway)} initialization failed.`;
+      await admin.from("custom_payment_transactions").update({
+        status: "failed",
+        last_error: message.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      }).eq("reference", reference);
       throw new Error(message);
     }
   });
 
 export const verifyCustomPayment = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ token: tokenSchema, reference: z.string().min(8).max(120) }).parse(input))
+  .inputValidator((input) => z.object({ token: tokenSchema, reference: z.string().min(8).max(160) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
     const { data: link } = await admin
       .from("custom_payment_links")
-      .select("id, amount, amount_ngn, currency, status, paid_reference")
+      .select("id, amount, amount_ngn, currency, payment_gateway, status, paid_reference")
       .eq("public_token", data.token)
       .maybeSingle();
     if (!link) throw new Error("Payment link not found.");
@@ -410,25 +360,36 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
 
     const { data: attempt } = await admin
       .from("custom_payment_transactions")
-      .select("id, link_id, reference, payer_name, payer_email, amount, amount_ngn, currency, status")
+      .select("id, link_id, reference, payer_name, payer_email, amount, amount_ngn, currency, payment_gateway, status")
       .eq("reference", data.reference)
       .eq("link_id", link.id)
       .maybeSingle();
     if (!attempt) throw new Error("Payment reference does not belong to this link.");
 
-    const { secret } = await loadPaystack(admin);
-    const tx = await paystackRequest<any>(secret, `/transaction/verify/${encodeURIComponent(data.reference)}`);
-    if (String(tx.status).toLowerCase() !== "success") throw new Error("Payment is not yet confirmed.");
+    const gateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+    if (attempt.payment_gateway && attempt.payment_gateway !== gateway) {
+      throw new Error("Payment gateway did not match this bill.");
+    }
+    const { adapter } = await loadCustomPaymentGateway(admin, gateway);
+    const tx = await adapter.verify(data.reference);
+    if (tx.status === "failed") {
+      await admin.from("custom_payment_transactions").update({ status: "failed", last_error: "Gateway reported payment failed", updated_at: new Date().toISOString() }).eq("reference", data.reference);
+      throw new Error("Payment was not successful.");
+    }
+    if (tx.status !== "success") throw new Error("Payment is not yet confirmed.");
+    if (tx.reference !== data.reference) throw new Error("Payment verification reference did not match this bill.");
 
-    const currency = normalizePaystackCurrency(link.currency ?? "NGN");
-    const amount = roundCustomPaymentAmount(Number(link.amount ?? link.amount_ngn), currency);
+    const currency = normalizeCustomPaymentCurrency(link.currency ?? "NGN");
+    const amount = normalizeAmount(Number(link.amount ?? link.amount_ngn), currency);
     const expectedMinor = customPaymentMinorUnits(amount, currency);
     if (Number(tx.amount) !== expectedMinor || String(tx.currency ?? "").toUpperCase() !== currency) {
       await admin.from("custom_payment_transactions").update({ status: "failed", last_error: "Verified amount or currency mismatch", updated_at: new Date().toISOString() }).eq("reference", data.reference);
       throw new Error("Payment verification failed because the amount or currency did not match this bill.");
     }
     const metadata = parseMetadata(tx.metadata);
-    if (String(metadata.custom_payment_link_id ?? "") !== String(link.id)) throw new Error("Payment verification metadata did not match this bill.");
+    if (String(metadata.custom_payment_link_id ?? "") !== String(link.id)) {
+      throw new Error("Payment verification metadata did not match this bill.");
+    }
 
     const paidAt = tx.paid_at ? new Date(tx.paid_at).toISOString() : new Date().toISOString();
     const { data: accepted, error } = await admin.rpc("finalize_custom_payment", {
