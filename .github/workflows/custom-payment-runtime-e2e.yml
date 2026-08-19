@@ -12,7 +12,7 @@ permissions:
 jobs:
   runtime-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
       - name: Checkout audit branch
         uses: actions/checkout@v4
@@ -20,9 +20,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install Playwright runtime only
+      - name: Install isolated Playwright runtime
         run: |
-          npm install --no-save --no-package-lock playwright@1.55.0
-          npx playwright install --with-deps chromium
+          mkdir -p /tmp/custom-payment-audit
+          cd /tmp/custom-payment-audit
+          npm init -y >/dev/null 2>&1
+          npm install --silent playwright@1.55.0
+          npx playwright install chromium
+          cp "$GITHUB_WORKSPACE/.github/scripts/custom-payment-runtime-e2e.mjs" ./audit.mjs
       - name: Run live Custom Payment handoff audit
-        run: node .github/scripts/custom-payment-runtime-e2e.mjs
+        working-directory: /tmp/custom-payment-audit
+        run: node audit.mjs
