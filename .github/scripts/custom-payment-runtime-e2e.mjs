@@ -1,9 +1,10 @@
 import { chromium } from "playwright";
 
+const origin = process.env.AUDIT_ORIGIN || "https://topratedseotools.lovable.app";
 const cases = [
   {
     name: "Paystack NGN",
-    url: "https://topratedseotools.com/pay/336d87f7640fba1933939ee86d60f94c65f16da4170fe9e2",
+    path: "/pay/336d87f7640fba1933939ee86d60f94c65f16da4170fe9e2",
     title: "E2E Audit — Paystack NGN",
     provider: "Paystack",
     currency: "NGN",
@@ -11,7 +12,7 @@ const cases = [
   },
   {
     name: "Flutterwave GHS",
-    url: "https://topratedseotools.com/pay/747d2fa9f5348d4ef6612d879e60de450df197980c21e08a",
+    path: "/pay/747d2fa9f5348d4ef6612d879e60de450df197980c21e08a",
     title: "E2E Audit — Flutterwave GHS",
     provider: "Flutterwave",
     currency: "GHS",
@@ -28,11 +29,13 @@ try {
   for (const testCase of cases) {
     const context = await browser.newContext();
     const page = await context.newPage();
-    console.log(`\n=== ${testCase.name} ===`);
-    const response = await page.goto(testCase.url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    const url = `${origin}${testCase.path}`;
+    console.log(`\n=== ${testCase.name} @ ${origin} ===`);
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
     console.log(`payment page HTTP: ${response?.status() ?? "n/a"}`);
     await page.getByRole("heading", { name: testCase.title }).waitFor({ timeout: 30_000 });
     const before = await page.locator("body").innerText();
+    console.log(`page excerpt: ${before.slice(0, 900).replace(/\s+/g, " ")}`);
     assert(before.includes(`Custom Payment · ${testCase.provider}`), `${testCase.provider} label missing`);
     assert(before.includes(testCase.currency), `${testCase.currency} exact-currency label missing`);
     assert(before.includes(`Secure payment processed by ${testCase.provider}`), `${testCase.provider} secure-payment footer missing`);
@@ -41,8 +44,8 @@ try {
     await page.getByLabel("Name").fill("TopRated E2E Audit");
     await page.getByLabel("Email").fill("e2e-audit@example.com");
 
-    const navigation = page.waitForURL((url) => {
-      const host = url.hostname.toLowerCase();
+    const navigation = page.waitForURL((nextUrl) => {
+      const host = nextUrl.hostname.toLowerCase();
       return testCase.expectedHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
     }, { timeout: 45_000 });
     await page.getByRole("button", { name: /^Pay / }).click();
