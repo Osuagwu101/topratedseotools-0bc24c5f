@@ -1,26 +1,39 @@
 import { describe, expect, it } from "vitest";
 import {
-  merchantPaystackCurrencies,
-  merchantSupportsPaystackCurrency,
+  FLUTTERWAVE_CURRENCY_PRIORITY,
+  customPaymentCurrenciesForGateway,
+  customPaymentGatewaySupportsCurrency,
+  searchCustomPaymentCurrencies,
 } from "../src/lib/custom-payment-currency";
 
-describe("Custom Payment merchant currency guard", () => {
-  it("uses the provider's legacy single currency when supported_currencies is absent", () => {
-    const config = { currency: "NGN", supports_recurring: true };
-    expect(merchantPaystackCurrencies(config)).toEqual(["NGN"]);
-    expect(merchantSupportsPaystackCurrency(config, "NGN")).toBe(true);
-    expect(merchantSupportsPaystackCurrency(config, "GHS")).toBe(false);
+describe("Custom Payment gateway currency policy", () => {
+  it("limits Paystack Custom Payments to NGN and USD", () => {
+    expect(customPaymentCurrenciesForGateway("paystack").map((c) => c.code)).toEqual(["NGN", "USD"]);
+    expect(customPaymentGatewaySupportsCurrency("paystack", "NGN")).toBe(true);
+    expect(customPaymentGatewaySupportsCurrency("paystack", "USD")).toBe(true);
+    expect(customPaymentGatewaySupportsCurrency("paystack", "GHS")).toBe(false);
+    expect(customPaymentGatewaySupportsCurrency("paystack", "KES")).toBe(false);
   });
 
-  it("prefers an explicit merchant supported_currencies list", () => {
-    const config = { currency: "NGN", supported_currencies: ["ngn", "USD", "NGN"] };
-    expect(merchantPaystackCurrencies(config)).toEqual(["NGN", "USD"]);
-    expect(merchantSupportsPaystackCurrency(config, "usd")).toBe(true);
-    expect(merchantSupportsPaystackCurrency(config, "GHS")).toBe(false);
+  it("places GHS, KES, ZAR and NGN first for Flutterwave", () => {
+    const codes = customPaymentCurrenciesForGateway("flutterwave").map((c) => c.code);
+    expect(codes.slice(0, 4)).toEqual([...FLUTTERWAVE_CURRENCY_PRIORITY]);
+    expect(codes).toContain("USD");
+    expect(codes).toContain("GBP");
+    expect(codes).toContain("EUR");
+    expect(codes).toContain("ZMW");
   });
 
-  it("does not invent a currency when provider config is missing or malformed", () => {
-    expect(merchantPaystackCurrencies({})).toEqual([]);
-    expect(merchantPaystackCurrencies({ supported_currencies: ["bad", null, "NGN"] })).toEqual(["NGN"]);
+  it("searches Flutterwave currencies by code or human name", () => {
+    const options = customPaymentCurrenciesForGateway("flutterwave");
+    expect(searchCustomPaymentCurrencies(options, "ghana").map((c) => c.code)).toEqual(["GHS"]);
+    expect(searchCustomPaymentCurrencies(options, "kes").map((c) => c.code)).toEqual(["KES"]);
+    expect(searchCustomPaymentCurrencies(options, "south african").map((c) => c.code)).toEqual(["ZAR"]);
+  });
+
+  it("rejects arbitrary ISO codes that are not in the Flutterwave collection list", () => {
+    expect(customPaymentGatewaySupportsCurrency("flutterwave", "GHS")).toBe(true);
+    expect(customPaymentGatewaySupportsCurrency("flutterwave", "JPY")).toBe(false);
+    expect(customPaymentGatewaySupportsCurrency("flutterwave", "BAD")).toBe(false);
   });
 });
