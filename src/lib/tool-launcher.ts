@@ -14,6 +14,23 @@ import { startOneClickAuth } from "@/lib/browser-auth.functions";
 import { startGrantedOneClickAuth } from "@/lib/grant-access.functions";
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 
+const SNEAKWRITE_AUTH_ORIGIN = "https://rsnxhzlqxivpnpryzesu.supabase.co";
+const SNEAKWRITE_AUTH_PATH = "/auth/v1/verify";
+
+function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
+  const launchUrl = new URL(rawUrl);
+  if (launchUrl.protocol !== "https:") {
+    throw new Error("The secure login service returned an invalid launch URL.");
+  }
+  if (
+    toolSlug === "sneakwrite" &&
+    (launchUrl.origin !== SNEAKWRITE_AUTH_ORIGIN || launchUrl.pathname !== SNEAKWRITE_AUTH_PATH)
+  ) {
+    throw new Error("The secure login service returned an invalid SneakWrite launch URL.");
+  }
+  return launchUrl;
+}
+
 export async function launchTool(
   tool: Tool,
   setting?: Pick<
@@ -48,8 +65,7 @@ export async function launchTool(
         : options?.grantAccess
           ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
           : await startOneClickAuth({ data: { tool_slug: tool.slug } });
-      const launchUrl = new URL(result.launch_url);
-      if (launchUrl.protocol !== "https:") throw new Error("The secure login service returned an invalid launch URL.");
+      const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
 
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
       if (mode === "same_tab") {
