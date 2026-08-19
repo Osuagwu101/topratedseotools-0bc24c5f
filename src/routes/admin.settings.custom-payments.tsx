@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Copy, CreditCard, ExternalLink, Info, Loader2, Plus, Power, PowerOff } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Copy, CreditCard, ExternalLink, Loader2, Plus, Power, PowerOff, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/AdminShell";
 import {
@@ -10,8 +10,12 @@ import {
   adminListCustomPaymentLinks,
   adminSetCustomPaymentLinkStatus,
 } from "@/lib/custom-payments.functions";
-import { adminGetNgnGhsEstimateRate, estimateGhsFromNgn } from "@/lib/custom-payment-ghs-estimate.functions";
-import { formatCustomPaymentMoney } from "@/lib/custom-payment-currency";
+import {
+  FLUTTERWAVE_CURRENCY_PRIORITY,
+  formatCustomPaymentMoney,
+  searchCustomPaymentCurrencies,
+  type CustomPaymentGateway,
+} from "@/lib/custom-payment-currency";
 
 export const Route = createFileRoute("/admin/settings/custom-payments")({
   ssr: false,
@@ -24,11 +28,16 @@ const inputCls = "w-full rounded-md border border-input bg-background px-3 py-2 
 function Page() {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ["custom-payment-links"], queryFn: () => adminListCustomPaymentLinks() });
-  const currenciesQuery = useQuery({ queryKey: ["custom-payment-currencies"], queryFn: () => adminGetCustomPaymentCurrencyOptions(), staleTime: 5 * 60_000 });
-  const ghsRateQuery = useQuery({ queryKey: ["custom-payment-ngn-ghs-estimate"], queryFn: () => adminGetNgnGhsEstimateRate(), staleTime: 15 * 60_000, retry: 1 });
+  const [gateway, setGateway] = useState<CustomPaymentGateway>("paystack");
+  const currenciesQuery = useQuery({
+    queryKey: ["custom-payment-currencies", gateway],
+    queryFn: () => adminGetCustomPaymentCurrencyOptions({ data: { gateway } }),
+    staleTime: 5 * 60_000,
+  });
   const [title, setTitle] = useState("Custom Payment");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("NGN");
+  const [currencySearch, setCurrencySearch] = useState("");
   const [description, setDescription] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
@@ -41,11 +50,19 @@ function Page() {
     if (!currencyOptions.some((c) => c.code === currency)) setCurrency(currencyOptions[0].code);
   }, [currencyOptions, currency]);
 
+  const changeGateway = (next: CustomPaymentGateway) => {
+    if (next === gateway) return;
+    setGateway(next);
+    setCurrency(next === "flutterwave" ? "GHS" : "NGN");
+    setCurrencySearch("");
+  };
+
   const create = useMutation({
     mutationFn: () => adminCreateCustomPaymentLink({ data: {
       title: title.trim(),
       amount: Number(amount),
       currency,
+      payment_gateway: gateway,
       description: description.trim() || null,
       recipient_name: recipientName.trim() || null,
       recipient_email: recipientEmail.trim() || null,
@@ -58,7 +75,7 @@ function Page() {
       await qc.invalidateQueries({ queryKey: ["custom-payment-links"] });
       try {
         await navigator.clipboard.writeText(r.payment_url);
-        toast.success("Payment link created and copied");
+        toast.success(`${r.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack"} payment link created and copied`);
       } catch {
         toast.success("Payment link created");
       }
@@ -79,65 +96,77 @@ function Page() {
     try { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
     catch { toast.error("Copy failed"); }
   };
+
   const links = query.data?.links ?? [];
   const txs = query.data?.transactions ?? [];
   const numericAmount = Number(amount);
   const selectedCurrency = currencyOptions.find((c) => c.code === currency);
-  const ghsEstimate = currency === "NGN" && numericAmount > 0 && ghsRateQuery.data
-    ? estimateGhsFromNgn(numericAmount, ghsRateQuery.data)
-    : null;
-  const ghsEstimateLabel = ghsEstimate == null
-    ? null
-    : new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ghsEstimate);
+  const searchedCurrencies = useMemo(
+    () => searchCustomPaymentCurrencies(currencyOptions, currencySearch),
+    [currencyOptions, currencySearch],
+  );
+  const priorityCodes = new Set<string>(FLUTTERWAVE_CURRENCY_PRIORITY);
+  const priorityCurrencies = currencyOptions.filter((c) => priorityCodes.has(c.code));
+  const remainingCurrencies = currencyOptions.filter((c) => !priorityCodes.has(c.code));
 
   return <AdminShell><section className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
     <div>
       <div className="flex items-center gap-2"><CreditCard className="h-6 w-6 text-primary"/><h1 className="text-2xl font-semibold">Custom Payments</h1></div>
-      <p className="mt-1 text-sm text-muted-foreground">Create a one-time Paystack link for an agreed bill. Currency handling here is isolated from normal tool pricing and never grants tool access.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Create a one-time bill, choose its payment gateway and charge currency, then share the generated link. Custom Payments never grant tool access.</p>
     </div>
 
-    <div className="grid gap-6 lg:grid-cols-[440px_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[460px_1fr]">
       <div className="rounded-2xl border bg-card p-5 shadow-card">
         <h2 className="font-semibold">Create payment link</h2>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
+          <F label="Payment gateway">
+            <div className="grid grid-cols-2 gap-2">
+              <GatewayButton active={gateway === "paystack"} title="Paystack" note="NGN · USD" onClick={() => changeGateway("paystack")} />
+              <GatewayButton active={gateway === "flutterwave"} title="Flutterwave" note="Multi-currency" onClick={() => changeGateway("flutterwave")} />
+            </div>
+          </F>
+
           <F label="Title"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)}/></F>
-          <div className="grid grid-cols-[1fr_130px] gap-2">
-            <F label="Amount"><input className={inputCls} type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="2000"/></F>
-            <F label="Currency">
-              <select className={inputCls} value={currency} onChange={e=>setCurrency(e.target.value)} disabled={currenciesQuery.isLoading || !currencyOptions.length}>
-                {currencyOptions.length ? currencyOptions.map(c => <option key={c.code} value={c.code}>{c.code}</option>) : <option value="NGN">NGN</option>}
-              </select>
-            </F>
-          </div>
+          <F label="Amount"><input className={inputCls} type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="2000"/></F>
+
+          <F label="Currency">
+            {gateway === "paystack" ? <div className="grid grid-cols-2 gap-2">
+              {currencyOptions.map(c => <CurrencyButton key={c.code} item={c} active={currency === c.code} onClick={() => setCurrency(c.code)} />)}
+            </div> : <div className="space-y-3 rounded-xl border bg-muted/15 p-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+                <input className={`${inputCls} pl-9`} value={currencySearch} onChange={e=>setCurrencySearch(e.target.value)} placeholder="Search currency or code" aria-label="Search Flutterwave currencies"/>
+              </div>
+              {currencySearch.trim() ? <div>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Search results</div>
+                {searchedCurrencies.length ? <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1">{searchedCurrencies.map(c => <CurrencyButton key={c.code} item={c} active={currency === c.code} onClick={() => { setCurrency(c.code); setCurrencySearch(""); }} />)}</div> : <div className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">No supported Flutterwave currency matches “{currencySearch}”.</div>}
+              </div> : <>
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Priority currencies</div>
+                  <div className="grid grid-cols-2 gap-2">{priorityCurrencies.map(c => <CurrencyButton key={c.code} item={c} active={currency === c.code} onClick={() => setCurrency(c.code)} />)}</div>
+                </div>
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">All other supported currencies</div>
+                  <div className="grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1">{remainingCurrencies.map(c => <CurrencyButton key={c.code} item={c} active={currency === c.code} onClick={() => setCurrency(c.code)} />)}</div>
+                </div>
+              </>}
+            </div>}
+          </F>
 
           <div className="rounded-xl border bg-muted/25 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Paystack charge</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{gateway === "flutterwave" ? "Flutterwave" : "Paystack"} charge</div>
             <div className="mt-1 text-xl font-bold">{numericAmount > 0 ? formatCustomPaymentMoney(numericAmount, currency) : "Enter an amount"}</div>
-            {selectedCurrency ? <div className="mt-1 text-xs text-muted-foreground">{selectedCurrency.name} · Enabled on this Paystack account</div> : null}
-            {currencyOptions.length > 1 ? <div className="mt-3 flex flex-wrap gap-1.5">{currencyOptions.filter(c=>c.code!==currency).map(c=><span key={c.code} className="rounded-full border bg-background px-2 py-1 text-[11px]">{c.code}</span>)}</div> : null}
-
-            {currency === "NGN" ? <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-primary">Ghana cedi estimate</div>
-              {ghsRateQuery.isLoading ? <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Loading current NGN/GHS reference…</div> : ghsRateQuery.data ? <>
-                <div className="mt-1 text-2xl font-bold">{ghsEstimateLabel ?? "Enter a Naira amount"}</div>
-                <div className="mt-1 text-xs text-muted-foreground">Reference: GH₵1 ≈ ₦{ghsRateQuery.data.ngn_per_ghs.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{ghsRateQuery.data.source_label}{ghsRateQuery.data.as_of ? ` · ${ghsRateQuery.data.as_of}` : ""}</div>
-              </> : <div className="mt-1 text-xs text-muted-foreground">GHS estimate temporarily unavailable. The Naira payment link can still be created normally.</div>}
-              <div className="mt-2 text-[11px] leading-4 text-muted-foreground">Estimate only. Paystack will charge the exact Naira amount above. The payer’s Ghanaian bank/card network performs the final GHS conversion and may apply its own rate or fee.</div>
-            </div> : null}
-
-            <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"/>
-              <span><strong className="text-foreground">Payment rule:</strong> The estimate does not change the transaction currency. The generated checkout is still an NGN Paystack payment.</span>
-            </div>
+            {selectedCurrency ? <div className="mt-1 text-xs text-muted-foreground">{selectedCurrency.name} · payer is charged in {selectedCurrency.code}</div> : null}
+            <div className="mt-3 rounded-lg border bg-background/70 p-2.5 text-xs text-muted-foreground">No currency estimator or automatic FX conversion is applied here. The checkout is created in the exact currency and amount selected above.</div>
           </div>
 
-          {currenciesQuery.isError ? <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Could not load Paystack currencies. {currenciesQuery.error instanceof Error ? currenciesQuery.error.message : "Try again."}</div> : null}
+          {currenciesQuery.isLoading ? <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Loading {gateway === "flutterwave" ? "Flutterwave" : "Paystack"} currencies…</div> : null}
+          {currenciesQuery.isError ? <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Could not load {gateway === "flutterwave" ? "Flutterwave" : "Paystack"} for Custom Payments. {currenciesQuery.error instanceof Error ? currenciesQuery.error.message : "Try again."}</div> : null}
           <F label="Description (optional)"><textarea className={inputCls} rows={3} value={description} onChange={e=>setDescription(e.target.value)}/></F>
           <F label="Recipient name (optional)"><input className={inputCls} value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></F>
           <F label="Recipient email (optional)"><input className={inputCls} type="email" value={recipientEmail} onChange={e=>setRecipientEmail(e.target.value)}/></F>
           <F label="Expires after (hours)"><input className={inputCls} type="number" min="1" max="720" value={expiresHours} onChange={e=>setExpiresHours(e.target.value)}/></F>
-          <button onClick={()=>create.mutate()} disabled={create.isPending || currenciesQuery.isLoading || !title.trim() || !numericAmount || !currencyOptions.length} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+          <button onClick={()=>create.mutate()} disabled={create.isPending || currenciesQuery.isLoading || currenciesQuery.isError || !title.trim() || !numericAmount || !currencyOptions.length} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
             {create.isPending?<Loader2 className="h-4 w-4 animate-spin"/>:<Plus className="h-4 w-4"/>} Create & copy link
           </button>
         </div>
@@ -148,15 +177,27 @@ function Page() {
         <div className="flex justify-between"><h2 className="font-semibold">Payment links</h2><span className="text-xs text-muted-foreground">{links.length} total</span></div>
         {query.isLoading?<p className="mt-5 text-sm text-muted-foreground">Loading…</p>:links.length===0?<p className="mt-5 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No links yet.</p>:
         <div className="mt-4 space-y-3">{links.map((l:any)=>{const last=txs.find((t:any)=>t.link_id===l.id);return <div key={l.id} className="rounded-xl border p-4">
-          <div className="flex justify-between gap-3"><div><div className="font-semibold">{l.title}</div><div className="text-sm font-bold">{formatCustomPaymentMoney(Number(l.amount), String(l.currency))}</div><div className="text-xs text-muted-foreground">{l.recipient_name||"Any recipient"}{l.recipient_email?` · ${l.recipient_email}`:""}</div></div><span className="h-fit rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold">{l.public_status}</span></div>
+          <div className="flex justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><div className="font-semibold">{l.title}</div><span className="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">{l.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack"}</span></div><div className="mt-1 text-sm font-bold">{formatCustomPaymentMoney(Number(l.amount), String(l.currency))}</div><div className="text-xs text-muted-foreground">{l.recipient_name||"Any recipient"}{l.recipient_email?` · ${l.recipient_email}`:""}</div></div><span className="h-fit rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold">{l.public_status}</span></div>
           <div className="mt-3 flex flex-wrap gap-2"><button onClick={()=>copy(l.payment_url)} className="rounded border px-2 py-1 text-xs"><Copy className="mr-1 inline h-3 w-3"/>Copy</button><a href={l.payment_url} target="_blank" rel="noreferrer" className="rounded border px-2 py-1 text-xs"><ExternalLink className="mr-1 inline h-3 w-3"/>Open</a>
           {l.public_status!=="paid"&&<button onClick={()=>toggle.mutate({id:l.id,status:l.status==="disabled"?"active":"disabled"})} className="rounded border px-2 py-1 text-xs">{l.status==="disabled"?<Power className="mr-1 inline h-3 w-3"/>:<PowerOff className="mr-1 inline h-3 w-3"/>}{l.status==="disabled"?"Enable":"Disable"}</button>}</div>
-          {last&&<div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">Latest: {last.status} · {last.payer_email} · {formatCustomPaymentMoney(Number(last.amount), String(last.currency))} · <span className="font-mono">{last.reference}</span></div>}
+          {last&&<div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">Latest: {last.status} · {last.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack"} · {last.payer_email} · {formatCustomPaymentMoney(Number(last.amount), String(last.currency))} · <span className="font-mono">{last.reference}</span></div>}
           {l.paid_reference&&<div className="mt-1 text-[11px] text-emerald-700">Paid: <span className="font-mono">{l.paid_reference}</span></div>}
         </div>})}</div>}
       </div>
     </div>
   </section></AdminShell>;
+}
+
+function GatewayButton({ active, title, note, onClick }: { active: boolean; title: string; note: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className={`rounded-xl border p-3 text-left transition ${active ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "bg-background hover:border-primary/40"}`}>
+    <div className="text-sm font-semibold">{title}</div><div className="mt-0.5 text-[11px] text-muted-foreground">{note}</div>
+  </button>;
+}
+
+function CurrencyButton({ item, active, onClick }: { item: { code: string; name: string }; active: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className={`rounded-lg border px-3 py-2 text-left transition ${active ? "border-primary bg-primary/10 ring-1 ring-primary/20" : "bg-background hover:border-primary/40"}`}>
+    <div className="text-sm font-semibold">{item.code}</div><div className="truncate text-[10px] text-muted-foreground">{item.name}</div>
+  </button>;
 }
 
 function F({label,children}:{label:string;children:React.ReactNode}){return <label className="block"><span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>{children}</label>}
