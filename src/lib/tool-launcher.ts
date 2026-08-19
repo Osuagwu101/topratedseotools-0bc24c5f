@@ -13,20 +13,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { startOneClickAuth } from "@/lib/browser-auth.functions";
 import { startGrantedOneClickAuth } from "@/lib/grant-access.functions";
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
-
-const SNEAKWRITE_AUTH_ORIGIN = "https://rsnxhzlqxivpnpryzesu.supabase.co";
-const SNEAKWRITE_AUTH_PATH = "/auth/v1/verify";
+import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 
 function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
+  if (toolSlug === "sneakwrite") {
+    return new URL(validateSneakWriteLaunchUrl(rawUrl));
+  }
+
   const launchUrl = new URL(rawUrl);
   if (launchUrl.protocol !== "https:") {
     throw new Error("The secure login service returned an invalid launch URL.");
-  }
-  if (
-    toolSlug === "sneakwrite" &&
-    (launchUrl.origin !== SNEAKWRITE_AUTH_ORIGIN || launchUrl.pathname !== SNEAKWRITE_AUTH_PATH)
-  ) {
-    throw new Error("The secure login service returned an invalid SneakWrite launch URL.");
   }
   return launchUrl;
 }
