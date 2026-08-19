@@ -129,8 +129,14 @@ function CustomPaymentPage() {
                   <div className="flex items-center justify-center gap-2 rounded-xl border p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Confirming your payment with {providerName}…</div>
                 ) : (
                   <>
-                    <div><label className="mb-1 block text-sm font-medium">Name</label><input value={payerName} onChange={(e) => setPayerName(e.target.value)} autoComplete="name" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Your name" /></div>
-                    <div><label className="mb-1 block text-sm font-medium">Email</label><input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} autoComplete="email" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="you@example.com" /></div>
+                    <div>
+                      <label htmlFor="custom-payment-payer-name" className="mb-1 block text-sm font-medium">Name</label>
+                      <input id="custom-payment-payer-name" name="name" value={payerName} onChange={(e) => setPayerName(e.target.value)} autoComplete="name" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Your name" />
+                    </div>
+                    <div>
+                      <label htmlFor="custom-payment-payer-email" className="mb-1 block text-sm font-medium">Email</label>
+                      <input id="custom-payment-payer-email" name="email" type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} autoComplete="email" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="you@example.com" />
+                    </div>
                     <button type="button" onClick={pay} disabled={busy || !canPay} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                       {busy ? `Opening ${providerName}…` : `Pay ${amountLabel}`}
@@ -140,7 +146,7 @@ function CustomPaymentPage() {
               </div>
             )}
 
-            {message && verifyState !== "paid" ? <p className={`mt-4 text-center text-sm ${verifyState === "error" ? "text-destructive" : "text-muted-foreground"}`}>{message}</p> : null}
+            {message && verifyState !== "paid" ? <p className={`mt-4 text-center text-sm ${verifyState === "error" ? "text-destructive" : "text-muted-foreground"}`} role="status" aria-live="polite">{message}</p> : null}
 
             <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
               <p className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Secure payment processed by {providerName}</p>
