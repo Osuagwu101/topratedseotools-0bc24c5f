@@ -8,18 +8,25 @@ import { APP_NAME } from "@/lib/site-config";
 import { getCustomPaymentLink, initializeCustomPayment, verifyCustomPayment } from "@/lib/custom-payments.functions";
 import { formatCustomPaymentMoney } from "@/lib/custom-payment-currency";
 
-const searchSchema = z.object({ reference: z.string().optional(), trxref: z.string().optional() });
+const searchSchema = z.object({
+  reference: z.string().optional(),
+  trxref: z.string().optional(),
+  tx_ref: z.string().optional(),
+  transaction_id: z.coerce.string().optional(),
+  status: z.string().optional(),
+});
 
 export const Route = createFileRoute("/pay/$token")({
   validateSearch: (s) => searchSchema.parse(s),
   loader: ({ params }) => getCustomPaymentLink({ data: { token: params.token } }),
-  head: ({ loaderData }) => ({
-    meta: [
+  head: ({ loaderData }) => {
+    const provider = loaderData?.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack";
+    return { meta: [
       { title: `${loaderData?.title ?? "Custom Payment"} — ${APP_NAME}` },
-      { name: "description", content: "Secure one-time payment via Paystack." },
+      { name: "description", content: `Secure one-time payment via ${provider}.` },
       { name: "robots", content: "noindex" },
-    ],
-  }),
+    ] };
+  },
   component: CustomPaymentPage,
   errorComponent: () => (
     <SiteLayout>
@@ -38,7 +45,8 @@ function CustomPaymentPage() {
   const router = useRouter();
   const initPayment = useServerFn(initializeCustomPayment);
   const verifyPayment = useServerFn(verifyCustomPayment);
-  const callbackReference = search.reference ?? search.trxref;
+  const callbackReference = search.reference ?? search.trxref ?? search.tx_ref;
+  const providerName = link.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack";
 
   const [payerName, setPayerName] = useState(link.recipient_name ?? "");
   const [payerEmail, setPayerEmail] = useState(link.recipient_email ?? "");
@@ -93,7 +101,7 @@ function CustomPaymentPage() {
           <div className="rounded-3xl border bg-card p-6 shadow-card sm:p-8">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><CreditCard className="h-5 w-5" /></div>
-              <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom Payment</p><h1 className="text-2xl font-bold tracking-tight">{link.title}</h1></div>
+              <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom Payment · {providerName}</p><h1 className="text-2xl font-bold tracking-tight">{link.title}</h1></div>
             </div>
 
             {link.description ? <p className="mt-5 whitespace-pre-line text-sm leading-6 text-muted-foreground">{link.description}</p> : null}
@@ -101,7 +109,7 @@ function CustomPaymentPage() {
             <div className="mt-6 rounded-2xl border bg-background/50 p-5 text-center">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amount due</div>
               <div className="mt-1 text-4xl font-bold tracking-tight">{amountLabel}</div>
-              <div className="mt-1 text-xs text-muted-foreground">One-time payment · {link.currency}</div>
+              <div className="mt-1 text-xs text-muted-foreground">One-time payment · charged in {link.currency}</div>
             </div>
 
             {effectiveStatus === "paid" ? (
@@ -118,14 +126,14 @@ function CustomPaymentPage() {
             ) : (
               <div className="mt-6 space-y-4">
                 {verifyState === "checking" ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Confirming your payment with Paystack…</div>
+                  <div className="flex items-center justify-center gap-2 rounded-xl border p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Confirming your payment with {providerName}…</div>
                 ) : (
                   <>
                     <div><label className="mb-1 block text-sm font-medium">Name</label><input value={payerName} onChange={(e) => setPayerName(e.target.value)} autoComplete="name" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Your name" /></div>
                     <div><label className="mb-1 block text-sm font-medium">Email</label><input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} autoComplete="email" className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="you@example.com" /></div>
                     <button type="button" onClick={pay} disabled={busy || !canPay} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-60">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                      {busy ? "Opening Paystack…" : `Pay ${amountLabel}`}
+                      {busy ? `Opening ${providerName}…` : `Pay ${amountLabel}`}
                     </button>
                   </>
                 )}
@@ -135,7 +143,7 @@ function CustomPaymentPage() {
             {message && verifyState !== "paid" ? <p className={`mt-4 text-center text-sm ${verifyState === "error" ? "text-destructive" : "text-muted-foreground"}`}>{message}</p> : null}
 
             <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
-              <p className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Secure payment processed by Paystack</p>
+              <p className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Secure payment processed by {providerName}</p>
               {expiryText && effectiveStatus === "active" ? <p className="mt-1">Link expires {expiryText}</p> : null}
             </div>
           </div>
