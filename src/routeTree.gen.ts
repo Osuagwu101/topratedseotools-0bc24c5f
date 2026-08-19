@@ -61,7 +61,11 @@ import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as BlogTagSlugRouteImport } from './routes/blog.tag.$slug'
 import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$slug'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
+import { Route as ApiSsoSneakwriteConsumeRouteImport } from './routes/api.sso.sneakwrite-consume'
 import { Route as ApiPublicBrandLogoRouteImport } from './routes/api.public.brand-logo'
+import { Route as ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554RouteImport } from './routes/api.diag.phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+import { Route as ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71RouteImport } from './routes/api.diag.phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+import { Route as ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRouteImport } from './routes/api.diag.one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
 import { Route as AdminToolsNewRouteImport } from './routes/admin.tools.new'
 import { Route as AdminToolsSlugRouteImport } from './routes/admin.tools.$slug'
 import { Route as AdminSettingsSystemHealthRouteImport } from './routes/admin.settings.system-health'
@@ -372,11 +376,34 @@ const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   path: '/author/$id',
   getParentRoute: () => BlogRoute,
 } as any)
+const ApiSsoSneakwriteConsumeRoute = ApiSsoSneakwriteConsumeRouteImport.update({
+  id: '/api/sso/sneakwrite-consume',
+  path: '/api/sso/sneakwrite-consume',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBrandLogoRoute = ApiPublicBrandLogoRouteImport.update({
   id: '/api/public/brand-logo',
   path: '/api/public/brand-logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route =
+  ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554RouteImport.update({
+    id: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554',
+    path: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route =
+  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71RouteImport.update({
+    id: '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71',
+    path: '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute =
+  ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRouteImport.update({
+    id: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a',
+    path: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminToolsNewRoute = AdminToolsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -700,7 +727,11 @@ export interface FileRoutesByFullPath {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
+  '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
+  '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -792,7 +823,11 @@ export interface FileRoutesByTo {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
+  '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
+  '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -893,7 +928,11 @@ export interface FileRoutesById {
   '/admin/settings/system-health': typeof AdminSettingsSystemHealthRoute
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
+  '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
+  '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
+  '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
   '/blog/category/$slug': typeof BlogCategorySlugRoute
   '/blog/tag/$slug': typeof BlogTagSlugRoute
@@ -994,7 +1033,11 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+    | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
+    | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1086,7 +1129,11 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+    | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
+    | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1186,7 +1233,11 @@ export interface FileRouteTypes {
     | '/admin/settings/system-health'
     | '/admin/tools/$slug'
     | '/admin/tools/new'
+    | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+    | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
+    | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
     | '/blog/category/$slug'
     | '/blog/tag/$slug'
@@ -1236,7 +1287,11 @@ export interface RootRouteChildren {
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   PayTokenRoute: typeof PayTokenRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute: typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
+  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route: typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
+  ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route: typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   ApiPublicBrandLogoRoute: typeof ApiPublicBrandLogoRoute
+  ApiSsoSneakwriteConsumeRoute: typeof ApiSsoSneakwriteConsumeRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
   ApiPublicHooksEmailDispatcherRoute: typeof ApiPublicHooksEmailDispatcherRoute
   ApiPublicWebhooksFlutterwaveRoute: typeof ApiPublicWebhooksFlutterwaveRoute
@@ -1610,11 +1665,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogAuthorIdRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/api/sso/sneakwrite-consume': {
+      id: '/api/sso/sneakwrite-consume'
+      path: '/api/sso/sneakwrite-consume'
+      fullPath: '/api/sso/sneakwrite-consume'
+      preLoaderRoute: typeof ApiSsoSneakwriteConsumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/brand-logo': {
       id: '/api/public/brand-logo'
       path: '/api/public/brand-logo'
       fullPath: '/api/public/brand-logo'
       preLoaderRoute: typeof ApiPublicBrandLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': {
+      id: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+      path: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+      fullPath: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+      preLoaderRoute: typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': {
+      id: '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+      path: '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+      fullPath: '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
+      preLoaderRoute: typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': {
+      id: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+      path: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+      fullPath: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
+      preLoaderRoute: typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/tools/new': {
@@ -2165,7 +2248,14 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTransactionsRoute: AdminTransactionsRoute,
   PayTokenRoute: PayTokenRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute:
+    ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute,
+  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route:
+    ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route,
+  ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route:
+    ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route,
   ApiPublicBrandLogoRoute: ApiPublicBrandLogoRoute,
+  ApiSsoSneakwriteConsumeRoute: ApiSsoSneakwriteConsumeRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
   ApiPublicHooksEmailDispatcherRoute: ApiPublicHooksEmailDispatcherRoute,
   ApiPublicWebhooksFlutterwaveRoute: ApiPublicWebhooksFlutterwaveRoute,

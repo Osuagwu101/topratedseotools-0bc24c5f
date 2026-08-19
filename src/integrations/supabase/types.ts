@@ -631,6 +631,7 @@ export type Database = {
           created_at: string
           error_code: string | null
           expires_at: string | null
+          grant_id: string | null
           id: string
           order_id: string | null
           provider: string
@@ -644,6 +645,7 @@ export type Database = {
           created_at?: string
           error_code?: string | null
           expires_at?: string | null
+          grant_id?: string | null
           id?: string
           order_id?: string | null
           provider: string
@@ -657,6 +659,7 @@ export type Database = {
           created_at?: string
           error_code?: string | null
           expires_at?: string | null
+          grant_id?: string | null
           id?: string
           order_id?: string | null
           provider?: string
@@ -667,6 +670,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "browser_auth_sessions_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "tool_access_grants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "browser_auth_sessions_order_id_fkey"
             columns: ["order_id"]
@@ -1884,6 +1894,59 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_access_grants: {
+        Row: {
+          access_type: string
+          account_id: string
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          id: string
+          notes: string | null
+          status: string
+          tool_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_type?: string
+          account_id: string
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tool_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          account_id?: string
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tool_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_access_grants_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_account_assignments: {
         Row: {
           access_type: string
@@ -1891,6 +1954,7 @@ export type Database = {
           assigned_at: string
           assigned_by: string | null
           created_at: string
+          grant_id: string | null
           id: string
           order_id: string | null
           released_at: string | null
@@ -1906,6 +1970,7 @@ export type Database = {
           assigned_at?: string
           assigned_by?: string | null
           created_at?: string
+          grant_id?: string | null
           id?: string
           order_id?: string | null
           released_at?: string | null
@@ -1921,6 +1986,7 @@ export type Database = {
           assigned_at?: string
           assigned_by?: string | null
           created_at?: string
+          grant_id?: string | null
           id?: string
           order_id?: string | null
           released_at?: string | null
@@ -1936,6 +2002,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_account_assignments_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "tool_access_grants"
             referencedColumns: ["id"]
           },
           {
