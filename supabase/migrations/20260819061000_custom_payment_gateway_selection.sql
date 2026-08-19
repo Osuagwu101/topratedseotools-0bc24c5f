@@ -48,3 +48,5 @@ comment on column public.custom_payment_links.payment_gateway is
   'Gateway selected when the Custom Payment link was created. Immutable for checkout routing.';
 comment on column public.custom_payment_transactions.gateway_environment is
   'Gateway credential environment used for this Custom Payment attempt.';
+comment on column public.custom_payment_transactions.amount is
+  'Major-unit amount in currency; authoritative amount verified against the selected payment gateway.';
