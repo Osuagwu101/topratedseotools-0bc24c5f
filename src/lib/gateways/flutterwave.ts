@@ -60,7 +60,7 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
 function paymentOptionsFor(currency: string): string {
   switch (String(currency).toUpperCase()) {
     case "NGN": return "card,ussd,banktransfer,account,opay";
-    case "GHS": return "card,mobilemoneyghana";
+    case "GHS": return "mobilemoneyghana,card";
     case "KES": return "card,mpesa";
     case "ZAR": return "card,account";
     case "UGX": return "card,mobilemoneyuganda";
