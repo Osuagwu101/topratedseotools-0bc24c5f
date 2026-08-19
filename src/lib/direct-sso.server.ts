@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { LEGACY_CREDENTIAL_CUTOFF_ISO } from "@/lib/access.functions";
+import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 
 const SNEAKWRITE_DIRECT_SSO_ENDPOINT =
   "https://sneakwrite.net/api/sso/toprated-account-link";
-const SNEAKWRITE_AUTH_ORIGIN = "https://rsnxhzlqxivpnpryzesu.supabase.co";
-const SNEAKWRITE_AUTH_PATH = "/auth/v1/verify";
-const SNEAKWRITE_APP_ORIGIN = "https://sneakwrite.net";
-const SNEAKWRITE_APP_PATH = "/app";
 const MAX_LAUNCH_ATTEMPTS = 5;
 const LAUNCH_WINDOW_MS = 5 * 60_000;
 
@@ -104,36 +101,6 @@ async function resolvePaidAccount(admin: any, userId: string): Promise<DirectAcc
   throw new Error("A working SneakWrite account has not been assigned yet. Contact Admin.");
 }
 
-export function validateSneakWriteLaunchUrl(rawUrl: string) {
-  let launchUrl: URL;
-  try {
-    launchUrl = new URL(rawUrl);
-  } catch {
-    throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  }
-
-  if (launchUrl.origin !== SNEAKWRITE_AUTH_ORIGIN || launchUrl.pathname !== SNEAKWRITE_AUTH_PATH) {
-    throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  }
-  if (launchUrl.searchParams.get("type") !== "magiclink") {
-    throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  }
-
-  const redirectTo = launchUrl.searchParams.get("redirect_to");
-  if (!redirectTo) throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  let redirectUrl: URL;
-  try {
-    redirectUrl = new URL(redirectTo);
-  } catch {
-    throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  }
-  if (redirectUrl.origin !== SNEAKWRITE_APP_ORIGIN || redirectUrl.pathname !== SNEAKWRITE_APP_PATH) {
-    throw new Error("SneakWrite returned an invalid secure sign-in URL.");
-  }
-
-  return launchUrl.toString();
-}
-
 async function requestSneakWriteActionLink(account: DirectAccount) {
   let response: Response;
   try {
@@ -198,8 +165,6 @@ export async function createSneakWriteDirectSsoForUser(userId: string) {
     (await resolvePaidAccount(admin as any, userId));
   if (!account) throw new Error("An active SneakWrite subscription or access grant is required.");
 
-  // tool_usage represents launch activity across the app. Record the click before
-  // contacting the upstream service so failed repeated launches cannot bypass the limiter.
   const { error: usageError } = await (admin as any)
     .from("tool_usage")
     .insert({ tool_slug: "sneakwrite", user_id: userId });
