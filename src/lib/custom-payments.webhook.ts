@@ -1,19 +1,15 @@
 /**
- * Intercepts Paystack charge events for Custom Payments before the normal
- * tool-order webhook pipeline. Returns null for ordinary tool payments.
+ * Intercepts Custom Payment charge events before the normal tool-order webhook
+ * pipeline. The selected gateway is persisted on the link and must match the
+ * signed webhook source before a bill can be finalized.
  */
-import { createHmac, timingSafeEqual } from "crypto";
 import {
   customPaymentMinorUnits,
-  normalizePaystackCurrency,
+  normalizeCustomPaymentCurrency,
   roundCustomPaymentAmount,
+  type CustomPaymentGateway,
 } from "@/lib/custom-payment-currency";
-
-function safeEqualHex(a: string, b: string) {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
+import type { GatewayAdapter } from "@/lib/gateways/types";
 
 function metadataOf(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object") return value as Record<string, unknown>;
@@ -28,9 +24,9 @@ function metadataOf(value: unknown): Record<string, unknown> {
   return {};
 }
 
-export async function tryHandleCustomPaystackWebhook(
+export async function tryHandleCustomPaymentWebhook(
   request: Request,
-  deps: { secret: string | undefined; supabaseAdmin: any },
+  deps: { gateway: CustomPaymentGateway; adapter: GatewayAdapter; supabaseAdmin: any },
 ): Promise<Response | null> {
   const raw = await request.text();
   let payload: any;
@@ -40,53 +36,60 @@ export async function tryHandleCustomPaystackWebhook(
     return null;
   }
 
-  const metadata = metadataOf(payload?.data?.metadata);
+  // Normalize first only to determine whether this event belongs to Custom
+  // Payments. No value is trusted until the gateway signature is verified.
+  const normalized = deps.adapter.normalizeWebhook(payload);
+  if (!normalized) return null;
+  const metadata = metadataOf(normalized.data.metadata);
   if (metadata.kind !== "custom_payment" || !metadata.custom_payment_link_id) return null;
 
-  const secret = deps.secret ?? "";
-  if (!secret) return new Response("not configured", { status: 503 });
-  const got = request.headers.get("x-paystack-signature") ?? "";
-  const expected = createHmac("sha512", secret).update(raw).digest("hex");
-  if (!safeEqualHex(got, expected)) return new Response("invalid signature", { status: 401 });
+  if (!deps.adapter.verifyWebhook(raw, request.headers)) {
+    return new Response("invalid signature", { status: 401 });
+  }
 
-  const event = String(payload?.event ?? "");
-  if (event !== "charge.success" && event !== "charge.failed") return new Response("ignored", { status: 200 });
-
-  const data = payload?.data ?? {};
-  const reference = String(data.reference ?? "");
+  const reference = String(normalized.data.reference ?? "");
   const linkId = String(metadata.custom_payment_link_id ?? "");
   if (!reference || !linkId) return new Response("bad custom payment event", { status: 400 });
 
   const admin = deps.supabaseAdmin as any;
   const { data: link } = await admin
     .from("custom_payment_links")
-    .select("id, amount, amount_ngn, currency, status, paid_reference")
+    .select("id, amount, amount_ngn, currency, payment_gateway, status, paid_reference")
     .eq("id", linkId)
     .maybeSingle();
   if (!link) return new Response("ok", { status: 200 });
 
+  const linkGateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+  if (linkGateway !== deps.gateway) {
+    return new Response("gateway mismatch", { status: 400 });
+  }
+
   const { data: attempt } = await admin
     .from("custom_payment_transactions")
-    .select("id, reference, payer_name, payer_email, status")
+    .select("id, reference, payer_name, payer_email, payment_gateway, status")
     .eq("link_id", link.id)
     .eq("reference", reference)
     .maybeSingle();
 
-  if (event === "charge.failed") {
+  if (attempt?.payment_gateway && attempt.payment_gateway !== deps.gateway) {
+    return new Response("gateway mismatch", { status: 400 });
+  }
+
+  if (normalized.event === "charge.failed") {
     if (attempt && attempt.status !== "successful") {
       await admin
         .from("custom_payment_transactions")
-        .update({ status: "failed", last_error: "charge.failed webhook", updated_at: new Date().toISOString() })
+        .update({ status: "failed", last_error: `${deps.gateway} charge.failed webhook`, updated_at: new Date().toISOString() })
         .eq("id", attempt.id);
     }
     return new Response("ok", { status: 200 });
   }
 
-  const currency = normalizePaystackCurrency(link.currency ?? "NGN");
+  const currency = normalizeCustomPaymentCurrency(link.currency ?? "NGN");
   const amount = roundCustomPaymentAmount(Number(link.amount ?? link.amount_ngn), currency);
   const expectedMinor = customPaymentMinorUnits(amount, currency);
-  const actualMinor = Number(data.amount ?? 0);
-  const actualCurrency = String(data.currency ?? "").toUpperCase();
+  const actualMinor = Number(normalized.data.amount ?? 0);
+  const actualCurrency = String(normalized.data.currency ?? "").toUpperCase();
   if (actualMinor !== expectedMinor || actualCurrency !== currency) {
     if (attempt) {
       await admin
@@ -97,19 +100,22 @@ export async function tryHandleCustomPaystackWebhook(
     return new Response("ok", { status: 200 });
   }
 
+  const rawData = payload?.data ?? {};
+  const rawCustomer = rawData?.customer ?? {};
+  const gatewayEnvironment = deps.adapter.environment() ?? "live";
   if (!attempt) {
-    const email = String(data?.customer?.email ?? "unknown@paystack.local");
     await admin.from("custom_payment_transactions").insert({
       link_id: link.id,
       reference,
       amount,
       amount_ngn: currency === "NGN" ? amount : null,
       currency,
-      payer_name: null,
-      payer_email: email,
-      payment_gateway: "paystack",
-      paystack_environment: secret.startsWith("sk_test_") ? "test" : "live",
-      gateway_transaction_id: data.id == null ? null : String(data.id),
+      payer_name: rawCustomer?.name ?? null,
+      payer_email: String(rawCustomer?.email ?? "unknown@topratedseotools.com"),
+      payment_gateway: deps.gateway,
+      gateway_environment: gatewayEnvironment,
+      paystack_environment: gatewayEnvironment,
+      gateway_transaction_id: normalized.data.id == null ? null : String(normalized.data.id),
       status: "initiated",
     });
   }
@@ -121,16 +127,30 @@ export async function tryHandleCustomPaystackWebhook(
     .eq("reference", reference)
     .maybeSingle();
 
-  const paidAt = data.paid_at ? new Date(data.paid_at).toISOString() : new Date().toISOString();
+  const paidAtRaw = rawData?.paid_at ?? rawData?.created_at;
+  const paidAt = paidAtRaw ? new Date(paidAtRaw).toISOString() : new Date().toISOString();
   const { error } = await admin.rpc("finalize_custom_payment", {
     _link_id: link.id,
     _reference: reference,
-    _gateway_transaction_id: data.id == null ? null : String(data.id),
-    _payer_name: currentAttempt?.payer_name ?? null,
-    _payer_email: currentAttempt?.payer_email ?? String(data?.customer?.email ?? ""),
+    _gateway_transaction_id: normalized.data.id == null ? null : String(normalized.data.id),
+    _payer_name: currentAttempt?.payer_name ?? rawCustomer?.name ?? null,
+    _payer_email: currentAttempt?.payer_email ?? String(rawCustomer?.email ?? ""),
     _paid_at: paidAt,
   });
 
   if (error) return new Response("processing failed", { status: 500 });
   return new Response("ok", { status: 200 });
+}
+
+/** Backward-compatible name for any older imports during the rollout. */
+export async function tryHandleCustomPaystackWebhook(
+  request: Request,
+  deps: { secret?: string; supabaseAdmin: any },
+): Promise<Response | null> {
+  const { paystackAdapter } = await import("@/lib/gateways/paystack");
+  return tryHandleCustomPaymentWebhook(request, {
+    gateway: "paystack",
+    adapter: paystackAdapter,
+    supabaseAdmin: deps.supabaseAdmin,
+  });
 }
