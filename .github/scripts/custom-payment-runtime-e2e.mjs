@@ -52,7 +52,7 @@ try {
     });
 
     console.log(`\n=== ${testCase.name} ===`);
-    const response = await page.goto(testCase.url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    const response = await page.goto(testCase.url, { waitUntil: "networkidle", timeout: 45_000 });
     console.log(`payment page HTTP: ${response?.status() ?? "n/a"}`);
     await page.getByRole("heading", { name: testCase.title }).waitFor({ timeout: 30_000 });
     const bodyBefore = await page.locator("body").innerText();
@@ -60,6 +60,9 @@ try {
     if (!bodyBefore.includes(testCase.currency)) throw new Error(`${testCase.currency} label missing`);
     if (/NGN\s*(?:→|to)\s*GHS|GHS\s*estimate|estimated\s+GHS|currency\s+estimator/i.test(bodyBefore)) throw new Error("Removed NGN→GHS estimator is still visible");
 
+    // The page is SSR-rendered; wait until hydration/network activity is settled
+    // before exercising the React onClick handler.
+    await page.waitForTimeout(500);
     await page.getByLabel("Name").fill("TopRated E2E Audit");
     await page.getByLabel("Email").fill("e2e-audit@example.com");
     const button = page.getByRole("button", { name: /^Pay /i });
