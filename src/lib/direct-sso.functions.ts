@@ -122,6 +122,9 @@ async function requestSneakWriteActionLink(account: DirectAccount) {
     if (response.status === 401) {
       throw new Error("The saved SneakWrite login is no longer valid. Contact Admin.");
     }
+    if (response.status === 429) {
+      throw new Error("SneakWrite secure sign-in is temporarily rate-limited. Please wait a moment and try again.");
+    }
     throw new Error("SneakWrite secure sign-in could not be created. Please try again.");
   }
 
