@@ -121,7 +121,7 @@ function Page() {
         <div className="mt-4 space-y-4">
           <F label="Payment gateway">
             <div className="grid grid-cols-2 gap-2">
-              <GatewayButton active={gateway === "paystack"} title="Paystack" note="NGN · USD" onClick={() => changeGateway("paystack")} />
+              <GatewayButton active={gateway === "paystack"} title="Paystack" note="NGN only" onClick={() => changeGateway("paystack")} />
               <GatewayButton active={gateway === "flutterwave"} title="Flutterwave" note="Multi-currency" onClick={() => changeGateway("flutterwave")} />
             </div>
           </F>
@@ -130,8 +130,8 @@ function Page() {
           <F label="Amount"><input className={inputCls} type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="2000"/></F>
 
           <F label="Currency">
-            {gateway === "paystack" ? <div className="grid grid-cols-2 gap-2">
-              {currencyOptions.map(c => <CurrencyButton key={c.code} item={c} active={currency === c.code} onClick={() => setCurrency(c.code)} />)}
+            {gateway === "paystack" ? <div className="rounded-lg border bg-muted/20 px-3 py-2.5 text-sm">
+              <span className="font-semibold">NGN</span> <span className="text-xs text-muted-foreground">· Nigerian Naira (fixed for Paystack)</span>
             </div> : <div className="space-y-3 rounded-xl border bg-muted/15 p-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
