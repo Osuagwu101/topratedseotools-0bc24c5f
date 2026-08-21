@@ -89,7 +89,7 @@ async function loadCustomPaymentGateway(admin: any, gateway: CustomPaymentGatewa
 
 function validateGatewayCurrency(gateway: CustomPaymentGateway, currency: string) {
   if (!customPaymentGatewaySupportsCurrency(gateway, currency)) {
-    if (gateway === "paystack") throw new Error("Paystack Custom Payments support NGN or USD only.");
+    if (gateway === "paystack") throw new Error("Paystack Custom Payments are charged in NGN only.");
     throw new Error(`${currency} is not in the supported Flutterwave Custom Payment currency list.`);
   }
 }
