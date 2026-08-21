@@ -6,8 +6,8 @@ export interface CustomPaymentCurrencyOption {
   countries?: string[];
 }
 
-/** Custom Payment product policy: Paystack links may be NGN or USD only. */
-export const PAYSTACK_CUSTOM_PAYMENT_CURRENCIES = ["NGN", "USD"] as const;
+/** Custom Payment product policy: Paystack links are always charged in NGN. */
+export const PAYSTACK_CUSTOM_PAYMENT_CURRENCIES = ["NGN"] as const;
 
 /** Flutterwave's documented card-collection currencies. */
 export const FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES = [
