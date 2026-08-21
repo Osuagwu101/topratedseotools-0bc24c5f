@@ -940,6 +940,7 @@ export type Database = {
           id: string
           paid_at: string | null
           paid_reference: string | null
+          payment_gateway: string
           public_token: string
           recipient_email: string | null
           recipient_name: string | null
@@ -958,6 +959,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           paid_reference?: string | null
+          payment_gateway?: string
           public_token: string
           recipient_email?: string | null
           recipient_name?: string | null
@@ -976,6 +978,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           paid_reference?: string | null
+          payment_gateway?: string
           public_token?: string
           recipient_email?: string | null
           recipient_name?: string | null
@@ -991,6 +994,7 @@ export type Database = {
           amount_ngn: number | null
           created_at: string
           currency: string
+          gateway_environment: string
           gateway_transaction_id: string | null
           id: string
           initiated_at: string
@@ -1010,6 +1014,7 @@ export type Database = {
           amount_ngn?: number | null
           created_at?: string
           currency?: string
+          gateway_environment?: string
           gateway_transaction_id?: string | null
           id?: string
           initiated_at?: string
@@ -1029,6 +1034,7 @@ export type Database = {
           amount_ngn?: number | null
           created_at?: string
           currency?: string
+          gateway_environment?: string
           gateway_transaction_id?: string | null
           id?: string
           initiated_at?: string

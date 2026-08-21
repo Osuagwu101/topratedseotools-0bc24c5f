@@ -7,10 +7,10 @@ import {
 } from "../src/lib/custom-payment-currency";
 
 describe("Custom Payment gateway currency policy", () => {
-  it("limits Paystack Custom Payments to NGN and USD", () => {
-    expect(customPaymentCurrenciesForGateway("paystack").map((c) => c.code)).toEqual(["NGN", "USD"]);
+  it("limits Paystack Custom Payments to NGN", () => {
+    expect(customPaymentCurrenciesForGateway("paystack").map((c) => c.code)).toEqual(["NGN"]);
     expect(customPaymentGatewaySupportsCurrency("paystack", "NGN")).toBe(true);
-    expect(customPaymentGatewaySupportsCurrency("paystack", "USD")).toBe(true);
+    expect(customPaymentGatewaySupportsCurrency("paystack", "USD")).toBe(false);
     expect(customPaymentGatewaySupportsCurrency("paystack", "GHS")).toBe(false);
     expect(customPaymentGatewaySupportsCurrency("paystack", "KES")).toBe(false);
   });
