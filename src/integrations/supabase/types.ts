@@ -939,6 +939,8 @@ export type Database = {
           expires_at: string | null
           id: string
           paid_at: string | null
+          paid_gateway_reference: string | null
+          paid_gateway_transaction_id: string | null
           paid_reference: string | null
           payment_gateway: string
           public_token: string
@@ -958,6 +960,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           paid_at?: string | null
+          paid_gateway_reference?: string | null
+          paid_gateway_transaction_id?: string | null
           paid_reference?: string | null
           payment_gateway?: string
           public_token: string
@@ -977,6 +981,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           paid_at?: string | null
+          paid_gateway_reference?: string | null
+          paid_gateway_transaction_id?: string | null
           paid_reference?: string | null
           payment_gateway?: string
           public_token?: string
@@ -995,11 +1001,13 @@ export type Database = {
           created_at: string
           currency: string
           gateway_environment: string
+          gateway_reference: string | null
           gateway_transaction_id: string | null
           id: string
           initiated_at: string
           last_error: string | null
           link_id: string
+          merchant_reference: string | null
           paid_at: string | null
           payer_email: string
           payer_name: string | null
@@ -1015,11 +1023,13 @@ export type Database = {
           created_at?: string
           currency?: string
           gateway_environment?: string
+          gateway_reference?: string | null
           gateway_transaction_id?: string | null
           id?: string
           initiated_at?: string
           last_error?: string | null
           link_id: string
+          merchant_reference?: string | null
           paid_at?: string | null
           payer_email: string
           payer_name?: string | null
@@ -1035,11 +1045,13 @@ export type Database = {
           created_at?: string
           currency?: string
           gateway_environment?: string
+          gateway_reference?: string | null
           gateway_transaction_id?: string | null
           id?: string
           initiated_at?: string
           last_error?: string | null
           link_id?: string
+          merchant_reference?: string | null
           paid_at?: string | null
           payer_email?: string
           payer_name?: string | null
@@ -3040,6 +3052,18 @@ export type Database = {
           _payer_email: string
           _payer_name: string
           _reference: string
+        }
+        Returns: boolean
+      }
+      finalize_custom_payment_v2: {
+        Args: {
+          _gateway_reference: string
+          _gateway_transaction_id: string
+          _link_id: string
+          _merchant_reference: string
+          _paid_at: string
+          _payer_email: string
+          _payer_name: string
         }
         Returns: boolean
       }
