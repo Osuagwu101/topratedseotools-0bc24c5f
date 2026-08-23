@@ -263,6 +263,15 @@ export const adminSetCustomPaymentLinkStatus = createServerFn({ method: "POST" }
     return { ok: true };
   });
 
+/**
+ * Internal merchant correlation key. Required by Flutterwave (`tx_ref`) and
+ * used by us to tie an attempt row to a checkout. It is NEVER proof of payment
+ * and is never shown to the customer as a transaction reference.
+ */
+function newMerchantReference(gateway: CustomPaymentGateway, randomHex: string): string {
+  return `CP-${gateway === "paystack" ? "PS" : "FW"}-${Date.now()}-${randomHex}`;
+}
+
 export const initializeCustomPayment = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({
     token: tokenSchema,
@@ -294,14 +303,14 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
     const { adapter, environment } = await loadCustomPaymentGateway(admin, gateway);
 
     const { randomBytes } = await import("crypto");
-    const prefix = gateway === "paystack" ? "PS" : "FW";
-    const reference = `CP-${prefix}-${Date.now()}-${randomBytes(6).toString("hex")}`;
+    const merchantReference = newMerchantReference(gateway, randomBytes(6).toString("hex"));
     const amount = normalizeAmount(Number(link.amount ?? link.amount_ngn), currency);
     const amountMinor = customPaymentMinorUnits(amount, currency);
 
     const { error: insertError } = await admin.from("custom_payment_transactions").insert({
       link_id: link.id,
-      reference,
+      reference: merchantReference,
+      merchant_reference: merchantReference,
       amount,
       amount_ngn: currency === "NGN" ? amount : null,
       currency,
@@ -316,7 +325,10 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
 
     try {
       const init = await adapter.initialize({
-        reference,
+        // Paystack generates its own reference for Custom Payments; for
+        // Flutterwave this value is the required merchant `tx_ref`.
+        reference: merchantReference,
+        gatewayGeneratedReference: gateway === "paystack",
         amountMinor,
         currency,
         email: data.payer_email,
@@ -327,63 +339,153 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
           kind: "custom_payment",
           custom_payment_link_id: link.id,
           custom_payment_token: data.token,
+          merchant_reference: merchantReference,
           title: link.title,
           amount_major: amount,
           currency,
           payment_gateway: gateway,
         },
       });
-      return { authorization_url: init.authorization_url, reference: init.reference || reference, payment_gateway: gateway };
+
+      // Paystack's returned reference is the authoritative gateway reference.
+      const gatewayReference = gateway === "paystack" ? (init.reference || null) : null;
+      if (gateway === "paystack") {
+        if (!gatewayReference) throw new Error("Paystack did not return a transaction reference.");
+        const { error: refError } = await admin
+          .from("custom_payment_transactions")
+          .update({ gateway_reference: gatewayReference, updated_at: new Date().toISOString() })
+          .eq("link_id", link.id)
+          .eq("merchant_reference", merchantReference);
+        if (refError) throw new Error("Could not record the gateway reference for this payment.");
+      }
+
+      return {
+        authorization_url: init.authorization_url,
+        payment_gateway: gateway,
+        /** Gateway-issued reference (Paystack). Null for Flutterwave until verification. */
+        gateway_reference: gatewayReference,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : `${gatewayLabel(gateway)} initialization failed.`;
       await admin.from("custom_payment_transactions").update({
         status: "failed",
         last_error: message.slice(0, 500),
         updated_at: new Date().toISOString(),
-      }).eq("reference", reference);
+      }).eq("link_id", link.id).eq("merchant_reference", merchantReference);
       throw new Error(message);
     }
   });
 
+export type CustomPaymentVerifyResult = {
+  ok: boolean;
+  status: "paid" | "pending" | "failed";
+  /** Only ever a gateway-issued identifier — never the merchant correlation key. */
+  gateway_identifier: string | null;
+  payment_gateway: CustomPaymentGateway;
+};
+
+/**
+ * Gateway-authoritative verification. Callback query values are only lookup
+ * inputs; nothing here trusts `status`, browser state, or local row status.
+ */
 export const verifyCustomPayment = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ token: tokenSchema, reference: z.string().min(8).max(160) }).parse(input))
-  .handler(async ({ data }) => {
+  .inputValidator((input) => z.object({
+    token: tokenSchema,
+    /** Paystack-issued reference from the callback. */
+    gateway_reference: z.string().trim().min(6).max(160).optional(),
+    /** Flutterwave-issued transaction id from the callback. */
+    transaction_id: z.coerce.string().trim().min(1).max(80).optional(),
+  }).parse(input))
+  .handler(async ({ data }): Promise<CustomPaymentVerifyResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
     const { data: link } = await admin
       .from("custom_payment_links")
-      .select("id, amount, amount_ngn, currency, payment_gateway, status, paid_reference")
+      .select("id, amount, amount_ngn, currency, payment_gateway, status, paid_reference, paid_gateway_reference, paid_gateway_transaction_id")
       .eq("public_token", data.token)
       .maybeSingle();
     if (!link) throw new Error("Payment link not found.");
-    if (link.status === "paid" && link.paid_reference === data.reference) return { ok: true, status: "paid" as const };
-
-    const { data: attempt } = await admin
-      .from("custom_payment_transactions")
-      .select("id, link_id, reference, payer_name, payer_email, amount, amount_ngn, currency, payment_gateway, status")
-      .eq("reference", data.reference)
-      .eq("link_id", link.id)
-      .maybeSingle();
-    if (!attempt) throw new Error("Payment reference does not belong to this link.");
 
     const gateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
-    if (attempt.payment_gateway && attempt.payment_gateway !== gateway) {
-      throw new Error("Payment gateway did not match this bill.");
+    if (link.status === "paid") {
+      return {
+        ok: true,
+        status: "paid",
+        gateway_identifier: (link.paid_gateway_transaction_id ?? link.paid_gateway_reference ?? null) as string | null,
+        payment_gateway: gateway,
+      };
     }
-    const { adapter } = await loadCustomPaymentGateway(admin, gateway);
-    const tx = await adapter.verify(data.reference);
-    if (tx.status === "failed") {
-      await admin.from("custom_payment_transactions").update({ status: "failed", last_error: "Gateway reported payment failed", updated_at: new Date().toISOString() }).eq("reference", data.reference);
-      throw new Error("Payment was not successful.");
-    }
-    if (tx.status !== "success") throw new Error("Payment is not yet confirmed.");
-    if (tx.reference !== data.reference) throw new Error("Payment verification reference did not match this bill.");
 
+    const { adapter } = await loadCustomPaymentGateway(admin, gateway);
     const currency = normalizeCustomPaymentCurrency(link.currency ?? "NGN");
     const amount = normalizeAmount(Number(link.amount ?? link.amount_ngn), currency);
     const expectedMinor = customPaymentMinorUnits(amount, currency);
+
+    const markFailed = async (attemptId: string | null, reason: string) => {
+      if (!attemptId) return;
+      await admin.from("custom_payment_transactions")
+        .update({ status: "failed", last_error: reason, updated_at: new Date().toISOString() })
+        .eq("id", attemptId);
+    };
+
+    let attempt: any = null;
+    let tx: Awaited<ReturnType<typeof adapter.verify>>;
+    let gatewayReference: string | null = null;
+    let gatewayTransactionId: string | null = null;
+
+    if (gateway === "paystack") {
+      if (!data.gateway_reference) {
+        return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
+      }
+      const { data: row } = await admin
+        .from("custom_payment_transactions")
+        .select("id, link_id, merchant_reference, reference, gateway_reference, payer_name, payer_email, payment_gateway, status")
+        .eq("link_id", link.id)
+        .eq("gateway_reference", data.gateway_reference)
+        .maybeSingle();
+      if (!row) throw new Error("This payment reference does not belong to this bill.");
+      if (row.payment_gateway && row.payment_gateway !== gateway) throw new Error("Payment gateway did not match this bill.");
+      attempt = row;
+      tx = await adapter.verify(data.gateway_reference);
+      if (tx.status === "failed") {
+        await markFailed(attempt.id, "Gateway reported payment failed");
+        return { ok: false, status: "failed", gateway_identifier: null, payment_gateway: gateway };
+      }
+      if (tx.status !== "success") {
+        return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
+      }
+      if (tx.reference !== data.gateway_reference) throw new Error("Gateway verification reference did not match this bill.");
+      gatewayReference = data.gateway_reference;
+      gatewayTransactionId = tx.id == null ? null : String(tx.id);
+    } else {
+      if (!data.transaction_id) {
+        return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
+      }
+      if (typeof adapter.verifyByTransactionId !== "function") {
+        throw new Error("This gateway cannot verify payments by transaction id.");
+      }
+      tx = await adapter.verifyByTransactionId(data.transaction_id);
+      if (tx.status === "failed") return { ok: false, status: "failed", gateway_identifier: null, payment_gateway: gateway };
+      if (tx.status !== "success") return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
+      if (tx.id == null || String(tx.id) !== String(data.transaction_id)) {
+        throw new Error("Gateway transaction id did not match the verified transaction.");
+      }
+      const merchantReference = String(tx.reference ?? "");
+      if (!merchantReference) throw new Error("Gateway verification did not return a merchant correlation key.");
+      const { data: row } = await admin
+        .from("custom_payment_transactions")
+        .select("id, link_id, merchant_reference, reference, payer_name, payer_email, payment_gateway, status")
+        .eq("link_id", link.id)
+        .eq("merchant_reference", merchantReference)
+        .maybeSingle();
+      if (!row) throw new Error("This payment does not belong to this bill.");
+      if (row.payment_gateway && row.payment_gateway !== gateway) throw new Error("Payment gateway did not match this bill.");
+      attempt = row;
+      gatewayTransactionId = String(tx.id);
+    }
+
     if (Number(tx.amount) !== expectedMinor || String(tx.currency ?? "").toUpperCase() !== currency) {
-      await admin.from("custom_payment_transactions").update({ status: "failed", last_error: "Verified amount or currency mismatch", updated_at: new Date().toISOString() }).eq("reference", data.reference);
+      await markFailed(attempt.id, "Verified amount or currency mismatch");
       throw new Error("Payment verification failed because the amount or currency did not match this bill.");
     }
     const metadata = parseMetadata(tx.metadata);
@@ -391,16 +493,23 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
       throw new Error("Payment verification metadata did not match this bill.");
     }
 
+    const merchantReference = String(attempt.merchant_reference ?? attempt.reference);
     const paidAt = tx.paid_at ? new Date(tx.paid_at).toISOString() : new Date().toISOString();
-    const { data: accepted, error } = await admin.rpc("finalize_custom_payment", {
+    const { data: accepted, error } = await admin.rpc("finalize_custom_payment_v2", {
       _link_id: link.id,
-      _reference: data.reference,
-      _gateway_transaction_id: tx.id == null ? null : String(tx.id),
+      _merchant_reference: merchantReference,
+      _gateway_reference: gatewayReference,
+      _gateway_transaction_id: gatewayTransactionId,
       _payer_name: attempt.payer_name ?? null,
       _payer_email: attempt.payer_email,
       _paid_at: paidAt,
     });
-    if (error) throw new Error("Payment was verified but could not be recorded. Contact Admin with the reference.");
-    if (!accepted) throw new Error("This bill was already paid using a different reference. Contact Admin.");
-    return { ok: true, status: "paid" as const };
+    if (error) throw new Error("Payment was verified but could not be recorded. Contact Admin.");
+    if (!accepted) throw new Error("This bill was already paid through a different transaction. Contact Admin.");
+    return {
+      ok: true,
+      status: "paid",
+      gateway_identifier: gatewayReference ?? gatewayTransactionId,
+      payment_gateway: gateway,
+    };
   });
