@@ -66,9 +66,9 @@ export async function tryHandleCustomPaymentWebhook(
 
   const { data: attempt } = await admin
     .from("custom_payment_transactions")
-    .select("id, reference, payer_name, payer_email, payment_gateway, status")
+    .select("id, reference, merchant_reference, gateway_reference, payer_name, payer_email, payment_gateway, status")
     .eq("link_id", link.id)
-    .eq("reference", reference)
+    .or(`merchant_reference.eq.${reference},gateway_reference.eq.${reference},reference.eq.${reference}`)
     .maybeSingle();
 
   if (attempt?.payment_gateway && attempt.payment_gateway !== deps.gateway) {
@@ -100,6 +100,27 @@ export async function tryHandleCustomPaymentWebhook(
     return new Response("ok", { status: 200 });
   }
 
+  // Gateway-authoritative re-verification before any finalization.
+  let verifiedId: string | null = normalized.data.id == null ? null : String(normalized.data.id);
+  let verifiedReference = reference;
+  try {
+    const verified = deps.gateway === "flutterwave" && verifiedId && typeof deps.adapter.verifyByTransactionId === "function"
+      ? await deps.adapter.verifyByTransactionId(verifiedId)
+      : await deps.adapter.verify(reference);
+    if (verified.status !== "success") return new Response("ok", { status: 200 });
+    if (Number(verified.amount) !== expectedMinor || String(verified.currency ?? "").toUpperCase() !== currency) {
+      return new Response("ok", { status: 200 });
+    }
+    const verifiedMeta = metadataOf(verified.metadata);
+    if (String(verifiedMeta.custom_payment_link_id ?? "") !== String(link.id)) {
+      return new Response("ok", { status: 200 });
+    }
+    verifiedId = verified.id == null ? verifiedId : String(verified.id);
+    verifiedReference = String(verified.reference ?? reference);
+  } catch {
+    return new Response("verification unavailable", { status: 503 });
+  }
+
   const rawData = payload?.data ?? {};
   const rawCustomer = rawData?.customer ?? {};
   const gatewayEnvironment = deps.adapter.environment() ?? "live";
@@ -107,6 +128,8 @@ export async function tryHandleCustomPaymentWebhook(
     await admin.from("custom_payment_transactions").insert({
       link_id: link.id,
       reference,
+      merchant_reference: deps.gateway === "flutterwave" ? verifiedReference : reference,
+      gateway_reference: deps.gateway === "paystack" ? reference : null,
       amount,
       amount_ngn: currency === "NGN" ? amount : null,
       currency,
@@ -122,17 +145,18 @@ export async function tryHandleCustomPaymentWebhook(
 
   const { data: currentAttempt } = await admin
     .from("custom_payment_transactions")
-    .select("payer_name, payer_email")
+    .select("payer_name, payer_email, merchant_reference, reference")
     .eq("link_id", link.id)
-    .eq("reference", reference)
+    .or(`merchant_reference.eq.${reference},gateway_reference.eq.${reference},reference.eq.${reference}`)
     .maybeSingle();
 
   const paidAtRaw = rawData?.paid_at ?? rawData?.created_at;
   const paidAt = paidAtRaw ? new Date(paidAtRaw).toISOString() : new Date().toISOString();
-  const { error } = await admin.rpc("finalize_custom_payment", {
+  const { error } = await admin.rpc("finalize_custom_payment_v2", {
     _link_id: link.id,
-    _reference: reference,
-    _gateway_transaction_id: normalized.data.id == null ? null : String(normalized.data.id),
+    _merchant_reference: String(currentAttempt?.merchant_reference ?? currentAttempt?.reference ?? verifiedReference),
+    _gateway_reference: deps.gateway === "paystack" ? reference : null,
+    _gateway_transaction_id: verifiedId,
     _payer_name: currentAttempt?.payer_name ?? rawCustomer?.name ?? null,
     _payer_email: currentAttempt?.payer_email ?? String(rawCustomer?.email ?? ""),
     _paid_at: paidAt,

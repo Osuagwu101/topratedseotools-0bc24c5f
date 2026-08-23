@@ -45,25 +45,44 @@ function CustomPaymentPage() {
   const router = useRouter();
   const initPayment = useServerFn(initializeCustomPayment);
   const verifyPayment = useServerFn(verifyCustomPayment);
-  const callbackReference = search.reference ?? search.trxref ?? search.tx_ref;
+  // Callback params are lookup inputs only; `status` is ignored entirely.
+  const callbackGatewayReference = search.reference ?? search.trxref ?? null;
+  const callbackTransactionId = search.transaction_id ?? null;
+  const hasCallback = Boolean(callbackGatewayReference || callbackTransactionId);
   const providerName = link.payment_gateway === "flutterwave" ? "Flutterwave" : "Paystack";
 
   const [payerName, setPayerName] = useState(link.recipient_name ?? "");
   const [payerEmail, setPayerEmail] = useState(link.recipient_email ?? "");
   const [busy, setBusy] = useState(false);
-  const [verifyState, setVerifyState] = useState<"idle" | "checking" | "paid" | "error">(link.status === "paid" ? "paid" : "idle");
+  const [verifyState, setVerifyState] = useState<"idle" | "checking" | "paid" | "pending" | "error">(link.status === "paid" ? "paid" : "idle");
+  const [gatewayIdentifier, setGatewayIdentifier] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!callbackReference || link.status === "paid") return;
+    if (!hasCallback || link.status === "paid") return;
     let cancelled = false;
     setVerifyState("checking");
-    verifyPayment({ data: { token, reference: callbackReference } })
-      .then(async () => {
+    verifyPayment({ data: {
+      token,
+      ...(callbackGatewayReference ? { gateway_reference: callbackGatewayReference } : {}),
+      ...(callbackTransactionId ? { transaction_id: callbackTransactionId } : {}),
+    } })
+      .then(async (result) => {
         if (cancelled) return;
-        setVerifyState("paid");
-        setMessage("Payment confirmed successfully.");
-        await router.invalidate();
+        if (result.status === "paid") {
+          setGatewayIdentifier(result.gateway_identifier ?? null);
+          setVerifyState("paid");
+          setMessage("Payment confirmed by the payment gateway.");
+          await router.invalidate();
+          return;
+        }
+        if (result.status === "pending") {
+          setVerifyState("pending");
+          setMessage("Payment verification pending. Refresh this page in a moment — nothing is confirmed yet.");
+          return;
+        }
+        setVerifyState("error");
+        setMessage("The payment gateway reported that this payment was not successful.");
       })
       .catch((err) => {
         if (cancelled) return;
@@ -71,7 +90,7 @@ function CustomPaymentPage() {
         setMessage(err instanceof Error ? err.message : "Payment verification failed.");
       });
     return () => { cancelled = true; };
-  }, [callbackReference, link.status, router, token, verifyPayment]);
+  }, [hasCallback, callbackGatewayReference, callbackTransactionId, link.status, router, token, verifyPayment]);
 
   const effectiveStatus = verifyState === "paid" ? "paid" : link.status;
   const canPay = effectiveStatus === "active" && verifyState !== "checking";
@@ -117,7 +136,7 @@ function CustomPaymentPage() {
                 <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
                 <h2 className="mt-2 text-lg font-semibold">Payment received</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Thank you. This payment has been verified and recorded.</p>
-                {callbackReference ? <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">Reference: {callbackReference}</p> : null}
+                {gatewayIdentifier ? <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{link.payment_gateway === "flutterwave" ? "Flutterwave transaction ID" : "Paystack reference"}: {gatewayIdentifier}</p> : null}
               </div>
             ) : effectiveStatus === "disabled" || effectiveStatus === "expired" ? (
               <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm">
