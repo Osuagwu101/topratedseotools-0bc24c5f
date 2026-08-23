@@ -62,9 +62,9 @@ export const paystackAdapter: GatewayAdapter = {
       email: input.email,
       amount: input.amountMinor,
       currency: input.currency,
-      reference: input.reference,
       callback_url: input.callbackUrl,
       metadata: input.metadata,
+      ...(input.gatewayGeneratedReference ? {} : { reference: input.reference }),
       ...(input.extra ?? {}),
     };
     const data = await api<{ authorization_url: string; access_code: string; reference: string }>(

@@ -30,6 +30,12 @@ export interface GatewayInitInput {
   metadata: Record<string, unknown>;
   /** Gateway-specific extras (e.g. Paystack `plan` / `channels`). */
   extra?: Record<string, unknown>;
+  /**
+   * When true, the gateway is asked to generate its own transaction reference
+   * instead of echoing ours (Paystack Custom Payments). `reference` is then
+   * treated purely as an internal merchant correlation key.
+   */
+  gatewayGeneratedReference?: boolean;
 }
 
 export interface GatewayInitResult {
@@ -85,6 +91,11 @@ export interface GatewayAdapter {
   environment(): "test" | "live" | null;
   initialize(input: GatewayInitInput): Promise<GatewayInitResult>;
   verify(reference: string): Promise<GatewayTransaction>;
+  /**
+   * Verify by the gateway-issued transaction id (Flutterwave). Optional — only
+   * gateways that issue their own transaction ids implement it.
+   */
+  verifyByTransactionId?(transactionId: string): Promise<GatewayTransaction>;
   /** Verify the webhook signature over the raw body. */
   verifyWebhook(raw: string, headers: Headers): boolean;
   /** Map a gateway webhook payload to the shared event vocabulary. */

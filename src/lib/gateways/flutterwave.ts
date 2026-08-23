@@ -112,6 +112,21 @@ export const flutterwaveAdapter: GatewayAdapter = {
       raw: tx,
     };
   },
+  async verifyByTransactionId(transactionId: string): Promise<GatewayTransaction> {
+    const tx = await api<{ id?: number; tx_ref: string; status: string; amount: number; currency: string; payment_type?: string; created_at?: string; meta?: Record<string, unknown>; customer?: { email?: string } }>(`/transactions/${encodeURIComponent(transactionId)}/verify`);
+    return {
+      status: mapStatus(tx.status),
+      reference: tx.tx_ref ?? "",
+      amount: majorToMinor(tx.amount),
+      currency: (tx.currency ?? "NGN").toUpperCase(),
+      metadata: (tx.meta ?? {}) as GatewayTransaction["metadata"],
+      customer: tx.customer?.email ? { email: tx.customer.email } : undefined,
+      channel: tx.payment_type ?? null,
+      id: tx.id ?? null,
+      paid_at: tx.created_at ?? null,
+      raw: tx,
+    };
+  },
   verifyWebhook(_raw: string, headers: Headers): boolean {
     const hash = process.env.FLUTTERWAVE_WEBHOOK_HASH;
     if (!hash) return false;
