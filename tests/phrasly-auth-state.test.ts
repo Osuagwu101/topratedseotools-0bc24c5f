@@ -2,8 +2,15 @@
  * Phrasly shared-auth state-machine regression tests.
  * Run: bun tests/phrasly-auth-state.test.ts
  */
-import { waitForAuthOrOtp, waitForAuthenticatedPage } from "../src/lib/browser-auth-session.server";
-import type { CdpClient } from "../src/lib/browser-auth.server";\nimport { requiresAdminManagedSharedAuth } from "../src/lib/shared-auth-policy";
+import {
+  waitForAuthenticatedPage,
+  waitForAuthOrOtp,
+} from "../src/lib/browser-auth-session.server";
+import type { CdpClient } from "../src/lib/browser-auth.server";
+import {
+  requiresAdminManagedSharedAuth,
+  resolveSharedAuthLandingUrl,
+} from "../src/lib/shared-auth-policy";
 
 let passed = 0;
 let failed = 0;
@@ -33,15 +40,54 @@ class MockCdp {
 
 console.log("phrasly-auth-state");
 
+// 0. Phrasly must never use the legacy writer credential-login path.
+assert(
+  requiresAdminManagedSharedAuth("phrasly") &&
+    requiresAdminManagedSharedAuth(" PHRASLY ") &&
+    !requiresAdminManagedSharedAuth("sneakwrite"),
+  "Phrasly is classified as admin-managed shared authentication only",
+);
+
+assert(
+  resolveSharedAuthLandingUrl("phrasly", "https://phrasly.ai/login") ===
+    "https://phrasly.ai/dashboard",
+  "Phrasly saved sessions are verified on the protected dashboard route",
+);
+
 // 1. OTP must win even if the page could otherwise look authenticated.
 {
   const mock = new MockCdp([
-    { result: { value: { detected: true, type: "email", fieldSelector: "name:code" } } },
-    { result: { value: { authenticated: true, url: "https://phrasly.ai/dashboard" } } },
+    {
+      result: {
+        value: {
+          detected: true,
+          type: "email",
+          fieldSelector: "name:code",
+        },
+      },
+    },
+    {
+      result: {
+        value: {
+          authenticated: true,
+          url: "https://phrasly.ai/dashboard",
+        },
+      },
+    },
   ]);
-  const result = await waitForAuthOrOtp(mock as unknown as CdpClient, undefined, 1_000);
-  assert(result.status === "otp", "OTP challenge takes priority over authenticated-looking UI");
-  assert(mock.calls.length === 1, "auth heuristic is not evaluated after OTP is detected");
+  const result = await waitForAuthOrOtp(
+    mock as unknown as CdpClient,
+    undefined,
+    1_000,
+  );
+  assert(
+    result.status === "otp",
+    "OTP challenge takes priority over authenticated-looking UI",
+  );
+  assert(
+    mock.calls.length === 1,
+    "auth heuristic is not evaluated after OTP is detected",
+  );
 }
 
 // 2. A clean protected page is accepted only after OTP detection is negative.
@@ -58,8 +104,15 @@ console.log("phrasly-auth-state");
       },
     },
   ]);
-  const result = await waitForAuthOrOtp(mock as unknown as CdpClient, undefined, 1_000);
-  assert(result.status === "authenticated", "authenticated page is accepted when no OTP challenge exists");
+  const result = await waitForAuthOrOtp(
+    mock as unknown as CdpClient,
+    undefined,
+    1_000,
+  );
+  assert(
+    result.status === "authenticated",
+    "authenticated page is accepted when no OTP challenge exists",
+  );
   assert(mock.calls.length === 2, "OTP check runs before authentication check");
 }
 
@@ -77,7 +130,11 @@ console.log("phrasly-auth-state");
       },
     },
   ]);
-  const result = await waitForAuthOrOtp(mock as unknown as CdpClient, undefined, 1);
+  const result = await waitForAuthOrOtp(
+    mock as unknown as CdpClient,
+    undefined,
+    1,
+  );
   assert(
     result.status === "timeout" && result.observedPage,
     "responsive unauthenticated page is classified as observed auth rejection",
@@ -87,7 +144,11 @@ console.log("phrasly-auth-state");
 // 4. A transport failure must not look like rejected saved credentials.
 {
   const mock = new MockCdp([new Error("CDP unavailable")]);
-  const result = await waitForAuthOrOtp(mock as unknown as CdpClient, undefined, 1);
+  const result = await waitForAuthOrOtp(
+    mock as unknown as CdpClient,
+    undefined,
+    1,
+  );
   assert(
     result.status === "timeout" && !result.observedPage,
     "provider/CDP failure is distinguishable from an upstream auth rejection",
