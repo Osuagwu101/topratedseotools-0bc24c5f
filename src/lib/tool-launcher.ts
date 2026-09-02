@@ -1,37 +1,22 @@
-/**
- * Reusable Launch Tool service.
- *
- * SneakWrite is an owned tool, so its One-Click Login uses a direct, short-lived
- * SSO handoff and does not start Browser Use / Cloudflare. Other tools keep the
- * existing remote-browser login path. Stored login credentials are never
- * returned to this client module.
- */
+/** Reusable Launch Tool service. */
 import { toast } from "sonner";
 import type { Tool } from "@/lib/tools-data";
 import type { ToolSetting } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { startOneClickAuth } from "@/lib/browser-auth.functions";
-import { startGrantedOneClickAuth } from "@/lib/grant-access.functions";
+import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.functions";
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 
 function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
-  if (toolSlug === "sneakwrite") {
-    return new URL(validateSneakWriteLaunchUrl(rawUrl));
-  }
-
+  if (toolSlug === "sneakwrite") return new URL(validateSneakWriteLaunchUrl(rawUrl));
   const launchUrl = new URL(rawUrl);
-  if (launchUrl.protocol !== "https:") {
-    throw new Error("The secure login service returned an invalid launch URL.");
-  }
+  if (launchUrl.protocol !== "https:") throw new Error("The secure login service returned an invalid launch URL.");
   return launchUrl;
 }
 
 export interface LaunchResult {
-  status: "launched" | "awaiting_otp" | "error";
+  status: "launched" | "error";
   launchUrl?: string;
-  sessionId?: string;
-  otpType?: string;
   message?: string;
   expiresAt?: string;
   error?: string;
@@ -39,10 +24,7 @@ export interface LaunchResult {
 
 export async function launchTool(
   tool: Tool,
-  setting?: Pick<
-    ToolSetting,
-    "one_click_auth_enabled" | "official_login_url" | "launch_mode"
-  >,
+  setting?: Pick<ToolSetting, "one_click_auth_enabled" | "official_login_url" | "launch_mode">,
   options?: { grantAccess?: boolean },
 ): Promise<LaunchResult> {
   const useOneClick = !!setting?.one_click_auth_enabled;
@@ -57,53 +39,26 @@ export async function launchTool(
         try { handoffWindow.opener = null; } catch { /* browser-controlled */ }
         try {
           handoffWindow.document.title = `Opening ${tool.name}…`;
-          handoffWindow.document.body.innerHTML =
-            '<div style="font-family:system-ui;padding:32px;color:#334155">Preparing secure login…</div>';
-        } catch { /* cross-browser best effort */ }
+          handoffWindow.document.body.innerHTML = '<div style="font-family:system-ui;padding:32px;color:#334155">Preparing secure login…</div>';
+        } catch { /* best effort */ }
       }
     }
-
     const toastId = `launch-${tool.slug}`;
     toast.loading(`Preparing secure ${tool.name} login…`, { id: toastId });
     try {
       const result = tool.slug === "sneakwrite"
         ? await startSneakWriteDirectSso({ data: { tool_slug: "sneakwrite" } })
-        : options?.grantAccess
-          ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
-          : await startOneClickAuth({ data: { tool_slug: tool.slug } });
-
-      // Check if OTP is required
-      if ((result as any).status === "awaiting_otp") {
-        toast.dismiss(toastId);
-        toast.info("One-Time Code verification required", { duration: 3000 });
-        if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
-        return {
-          status: "awaiting_otp",
-          sessionId: (result as any).session_id,
-          otpType: (result as any).otp_type,
-          message: (result as any).message,
-          expiresAt: (result as any).expires_at,
-        };
-      }
-
+        : await startSessionOnlyOneClickAuth({ data: { tool_slug: tool.slug, grant_access: !!options?.grantAccess } });
       const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
-
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
-      if (mode === "same_tab") {
-        window.location.href = launchUrl.toString();
-      } else if (handoffWindow && !handoffWindow.closed) {
-        handoffWindow.location.href = launchUrl.toString();
-      } else {
-        window.location.href = launchUrl.toString();
-      }
+      if (mode === "same_tab") window.location.href = launchUrl.toString();
+      else if (handoffWindow && !handoffWindow.closed) handoffWindow.location.href = launchUrl.toString();
+      else window.location.href = launchUrl.toString();
       return { status: "launched", launchUrl: launchUrl.toString() };
     } catch (err) {
       if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
       const errorMsg = err instanceof Error ? err.message : "One-Click Login failed. Please try again.";
-      toast.error(errorMsg, {
-        id: toastId,
-        duration: 5000,
-      });
+      toast.error(errorMsg, { id: toastId, duration: 5000 });
       return { status: "error", error: errorMsg };
     }
   }
@@ -114,30 +69,16 @@ export async function launchTool(
     toast.error(errorMsg);
     return { status: "error", error: errorMsg };
   }
-
   supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      supabase
-        .from("tool_usage")
-        .insert({ tool_slug: tool.slug, user_id: data.user.id })
-        .then(() => undefined);
-    }
+    if (data.user) supabase.from("tool_usage").insert({ tool_slug: tool.slug, user_id: data.user.id }).then(() => undefined);
   });
-
-  toast.loading("Redirecting to the official website…", {
-    id: `launch-${tool.slug}`,
-    duration: 1800,
-  });
-
+  toast.loading("Redirecting to the official website…", { id: `launch-${tool.slug}`, duration: 1800 });
   try {
-    if (mode === "same_tab") {
-      window.location.href = url;
-    } else if (mode === "popup") {
+    if (mode === "same_tab") window.location.href = url;
+    else if (mode === "popup") {
       const w = window.open(url, `launch-${tool.slug}`, "noopener,noreferrer,width=1100,height=800");
       if (!w) window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
+    } else window.open(url, "_blank", "noopener,noreferrer");
     return { status: "launched", launchUrl: url };
   } catch {
     const errorMsg = "Could not open the login page. Please try again.";
