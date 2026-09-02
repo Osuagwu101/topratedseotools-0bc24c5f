@@ -452,7 +452,9 @@ export const revokeInvitation = createServerFn({ method: "POST" })
           ban_duration: "876000h",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort cleanup/audit path; the primary admin action has already completed.
+    }
     await writeAudit(context, {
       action: "staff.invite_revoked",
       area: "staff",
@@ -623,7 +625,9 @@ export const requirePasswordReset = createServerFn({ method: "POST" })
       if (userWrap?.user?.email) {
         await (supabaseAdmin as any).auth.admin.inviteUserByEmail(userWrap.user.email);
       }
-    } catch {}
+    } catch {
+      // Best-effort cleanup/audit path; the primary admin action has already completed.
+    }
     return { ok: true };
   });
 
