@@ -12,6 +12,7 @@
  *   • paywall            — logged-in user without active access for this tool
  *   • granted            — user has access, show "Launch tool"
  */
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Lock, LogIn, Rocket, ShieldAlert, Sparkles } from "lucide-react";
@@ -20,6 +21,7 @@ import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
 import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { launchTool } from "@/lib/tool-launcher";
+import { OtpVerificationModal } from "@/components/admin/OtpVerificationModal";
 
 interface Props {
   tool: Tool;
@@ -42,6 +44,14 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
 };
 
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpState, setOtpState] = useState<{
+    sessionId: string;
+    otpType: string;
+    message: string;
+    expiresAt: string;
+  } | null>(null);
+
   const effective = setting ?? { tool_slug: tool.slug, ...DEFAULT_SETTING };
 
   const shouldFetchAccess =
@@ -66,6 +76,20 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
   const hasAccess = hasPaidAccess || hasGrant;
 
   const state = resolveState(effective.enabled, effective.access_level, isAuthenticated, hasAccess);
+
+  const handleLaunchTool = async () => {
+    const result = await launchTool(tool, effective, { grantAccess: hasGrant });
+
+    if (result.status === "awaiting_otp" && result.sessionId) {
+      setOtpState({
+        sessionId: result.sessionId,
+        otpType: result.otpType || "unknown",
+        message: result.message || "Enter the one-time code",
+        expiresAt: result.expiresAt || new Date(Date.now() + 10 * 60_000).toISOString(),
+      });
+      setOtpModalOpen(true);
+    }
+  };
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
@@ -154,33 +178,59 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
       )}
 
       {state === "granted" && (
-        <StateBlock
-          icon={Rocket}
-          title="You have access"
-          body={
-            effective.one_click_auth_enabled
-              ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
-              : hasGrant
-                ? "Lifetime access is active for this tool."
-                : "Your subscription is active for this tool. Launch it below."
-          }
-        >
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => launchTool(tool, effective, { grantAccess: hasGrant })}
-              className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
-            >
-              <Rocket className="h-4 w-4" /> Launch {tool.name}
-            </button>
-            <Link
-              to="/orders"
-              className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              My subscriptions
-            </Link>
-          </div>
-        </StateBlock>
+        <>
+          <StateBlock
+            icon={Rocket}
+            title="You have access"
+            body={
+              effective.one_click_auth_enabled
+                ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
+                : hasGrant
+                  ? "Lifetime access is active for this tool."
+                  : "Your subscription is active for this tool. Launch it below."
+            }
+          >
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleLaunchTool}
+                className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+              >
+                <Rocket className="h-4 w-4" /> Launch {tool.name}
+              </button>
+              <Link
+                to="/orders"
+                className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
+              >
+                My subscriptions
+              </Link>
+            </div>
+          </StateBlock>
+
+          {otpState && (
+            <OtpVerificationModal
+              open={otpModalOpen}
+              sessionId={otpState.sessionId}
+              otpType={otpState.otpType}
+              message={otpState.message}
+              expiresAt={otpState.expiresAt}
+              onSuccess={() => {
+                setOtpModalOpen(false);
+                setOtpState(null);
+                // After successful OTP, the authenticated session should be captured
+                // and the user can now launch the tool without further OTP
+              }}
+              onError={(error) => {
+                // Error handled - user can retry
+                console.error("OTP verification error:", error);
+              }}
+              onCancel={() => {
+                setOtpModalOpen(false);
+                setOtpState(null);
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

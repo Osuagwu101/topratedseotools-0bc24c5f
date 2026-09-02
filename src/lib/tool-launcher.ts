@@ -27,6 +27,16 @@ function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
   return launchUrl;
 }
 
+export interface LaunchResult {
+  status: "launched" | "awaiting_otp" | "error";
+  launchUrl?: string;
+  sessionId?: string;
+  otpType?: string;
+  message?: string;
+  expiresAt?: string;
+  error?: string;
+}
+
 export async function launchTool(
   tool: Tool,
   setting?: Pick<
@@ -34,7 +44,7 @@ export async function launchTool(
     "one_click_auth_enabled" | "official_login_url" | "launch_mode"
   >,
   options?: { grantAccess?: boolean },
-): Promise<void> {
+): Promise<LaunchResult> {
   const useOneClick = !!setting?.one_click_auth_enabled;
   const mode = setting?.launch_mode ?? "new_tab";
 
@@ -61,6 +71,21 @@ export async function launchTool(
         : options?.grantAccess
           ? await startGrantedOneClickAuth({ data: { tool_slug: tool.slug } })
           : await startOneClickAuth({ data: { tool_slug: tool.slug } });
+
+      // Check if OTP is required
+      if ((result as any).status === "awaiting_otp") {
+        toast.dismiss(toastId);
+        toast.info("One-Time Code verification required", { duration: 3000 });
+        if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
+        return {
+          status: "awaiting_otp",
+          sessionId: (result as any).session_id,
+          otpType: (result as any).otp_type,
+          message: (result as any).message,
+          expiresAt: (result as any).expires_at,
+        };
+      }
+
       const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
 
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
@@ -71,20 +96,23 @@ export async function launchTool(
       } else {
         window.location.href = launchUrl.toString();
       }
+      return { status: "launched", launchUrl: launchUrl.toString() };
     } catch (err) {
       if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
-      toast.error(err instanceof Error ? err.message : "One-Click Login failed. Please try again.", {
+      const errorMsg = err instanceof Error ? err.message : "One-Click Login failed. Please try again.";
+      toast.error(errorMsg, {
         id: toastId,
         duration: 5000,
       });
+      return { status: "error", error: errorMsg };
     }
-    return;
   }
 
   const url = tool.domain ? `https://${tool.domain}` : setting?.official_login_url ?? null;
   if (!url) {
-    toast.error("This tool doesn't have a launch URL configured yet.");
-    return;
+    const errorMsg = "This tool doesn't have a launch URL configured yet.";
+    toast.error(errorMsg);
+    return { status: "error", error: errorMsg };
   }
 
   supabase.auth.getUser().then(({ data }) => {
@@ -110,7 +138,10 @@ export async function launchTool(
     } else {
       window.open(url, "_blank", "noopener,noreferrer");
     }
+    return { status: "launched", launchUrl: url };
   } catch {
-    toast.error("Could not open the login page. Please try again.");
+    const errorMsg = "Could not open the login page. Please try again.";
+    toast.error(errorMsg);
+    return { status: "error", error: errorMsg };
   }
 }
