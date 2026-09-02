@@ -4,7 +4,7 @@ import { KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { listAwaitingOtpSessions } from "@/lib/browser-auth-otp.functions";
 import { adminRefreshAccountAuthentication } from "@/lib/admin-account-auth.functions";
-import { adminListAccountsForTool } from "@/lib/account-pool.functions";
+import { adminListAccountsForTool, type ToolAccountWithUsage } from "@/lib/account-pool.functions";
 import { OtpVerificationModal } from "@/components/admin/OtpVerificationModal";
 
 export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
@@ -28,7 +28,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
   const sessions = queue.data?.sessions ?? [];
   const accounts = accountsQuery.data?.accounts ?? [];
 
-  const refreshAccount = async (account: any) => {
+  const refreshAccount = async (account: ToolAccountWithUsage) => {
     setRefreshing(account.id);
     try {
       const result = await adminRefreshAccountAuthentication({ data: { account_id: account.id } });
@@ -38,8 +38,8 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
       } else {
         toast.success("Authenticated session refreshed. Writers can launch independently now.");
       }
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not refresh authentication.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not refresh authentication.");
     } finally {
       setRefreshing(null);
     }
@@ -56,7 +56,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
           saved admin session; they never enter credentials or OTP.
         </p>
         <div className="mt-3 space-y-2">
-          {accounts.map((account: any) => (
+          {accounts.map((account) => (
             <div
               key={account.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
