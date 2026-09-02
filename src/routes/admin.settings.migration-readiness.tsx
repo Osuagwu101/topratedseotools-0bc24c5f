@@ -17,7 +17,11 @@ export const Route = createFileRoute("/admin/settings/migration-readiness")({
   head: () => ({
     meta: [
       { title: "Migration Readiness — Admin" },
-      { name: "description", content: "Consolidated migration readiness checklist covering environment variables, integrations, database, cron and webhooks." },
+      {
+        name: "description",
+        content:
+          "Consolidated migration readiness checklist covering environment variables, integrations, database, cron and webhooks.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -28,7 +32,9 @@ export const Route = createFileRoute("/admin/settings/migration-readiness")({
       throw redirect({ to: "/admin/dashboard" });
     }
   },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(readinessQuery); },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(readinessQuery);
+  },
   component: ReadinessPage,
 });
 
@@ -42,7 +48,8 @@ function ReadinessPage() {
   const { data } = useSuspenseQuery(readinessQuery);
   const { ok, warn, fail } = data.summary;
   const overall = fail > 0 ? "Not ready" : warn > 0 ? "Ready with warnings" : "Migration ready";
-  const overallColor = fail > 0 ? "text-destructive" : warn > 0 ? "text-amber-600" : "text-emerald-600";
+  const overallColor =
+    fail > 0 ? "text-destructive" : warn > 0 ? "text-amber-600" : "text-emerald-600";
 
   return (
     <AdminShell>
@@ -50,24 +57,42 @@ function ReadinessPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Migration Readiness Centre</h1>
           <p className="text-sm text-muted-foreground">
-            Everything a new hosting provider needs before switching over.
-            Secret values are never shown — only whether each item is configured.
+            Everything a new hosting provider needs before switching over. Secret values are never
+            shown — only whether each item is configured.
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Overall: <span className={overallColor}>{overall}</span></CardTitle>
+            <CardTitle>
+              Overall: <span className={overallColor}>{overall}</span>
+            </CardTitle>
             <CardDescription>
-              {ok} passing · {warn} warning · {fail} failing · Generated {new Date(data.generatedAt).toLocaleString()}
+              {ok} passing · {warn} warning · {fail} failing · Generated{" "}
+              {new Date(data.generatedAt).toLocaleString()}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm space-y-1">
             <div>Companion pages:</div>
             <ul className="list-disc pl-5">
-              <li><Link className="underline" to="/admin/settings/migration-guide">Migration Guide</Link> — full text runbook for the new host.</li>
-              <li><Link className="underline" to="/admin/settings/backup">Backup &amp; Recovery</Link> — take a snapshot before migrating.</li>
-              <li><Link className="underline" to="/admin/settings/system-health">System Health</Link> — live probes.</li>
+              <li>
+                <Link className="underline" to="/admin/settings/migration-guide">
+                  Migration Guide
+                </Link>{" "}
+                — full text runbook for the new host.
+              </li>
+              <li>
+                <Link className="underline" to="/admin/settings/backup">
+                  Backup &amp; Recovery
+                </Link>{" "}
+                — take a snapshot before migrating.
+              </li>
+              <li>
+                <Link className="underline" to="/admin/settings/system-health">
+                  System Health
+                </Link>{" "}
+                — live probes.
+              </li>
             </ul>
           </CardContent>
         </Card>
@@ -85,7 +110,9 @@ function ReadinessPage() {
                     <div className="flex-1">
                       <div className="font-medium">{item.label}</div>
                       <div className="text-sm text-muted-foreground">{item.detail}</div>
-                      {item.fix && <div className="mt-1 text-xs text-amber-700">Action: {item.fix}</div>}
+                      {item.fix && (
+                        <div className="mt-1 text-xs text-amber-700">Action: {item.fix}</div>
+                      )}
                     </div>
                   </li>
                 ))}

@@ -20,12 +20,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type ToolAccessLevel = "public" | "logged_in" | "purchased";
-export type ToolOrderStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "cancelled"
-  | "expired";
+export type ToolOrderStatus = "pending" | "approved" | "rejected" | "cancelled" | "expired";
 export type LaunchMode = "new_tab" | "same_tab" | "popup";
 
 export type AccessAuthorization = "confirmed" | "not_confirmed" | "not_applicable";
@@ -44,8 +39,6 @@ export interface ToolSetting {
   shared_access_authorization: AccessAuthorization;
   private_access_authorization: AccessAuthorization;
 }
-
-
 
 export interface ToolOrder {
   id: string;
@@ -120,22 +113,16 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
 // ---------- PUBLIC ----------
 
 /** Public — every tool's settings. Cached and read by every tool card. Credentials are NEVER included here. */
-export const listToolSettings = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const supabase = publicClient();
-    const { data, error } = await supabase
-      .from("tool_settings")
-      .select(
-        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
-      );
-    if (error) throw new Error(error.message);
-    return { settings: (data ?? []) as unknown as ToolSetting[] };
-  },
-);
-
-
-
-
+export const listToolSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = publicClient();
+  const { data, error } = await supabase
+    .from("tool_settings")
+    .select(
+      "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
+    );
+  if (error) throw new Error(error.message);
+  return { settings: (data ?? []) as unknown as ToolSetting[] };
+});
 
 // ---------- USER ----------
 
@@ -159,8 +146,18 @@ export interface ResolveCredentialsInput {
     created_at: string;
     admin_notes: string | null;
   };
-  assignment: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
-  legacyCredential: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
+  assignment: {
+    email: string | null;
+    password: string | null;
+    login_url: string | null;
+    login_notes: string | null;
+  } | null;
+  legacyCredential: {
+    email: string | null;
+    password: string | null;
+    login_url: string | null;
+    login_notes: string | null;
+  } | null;
   cutoffIso?: string;
 }
 
@@ -174,15 +171,21 @@ export interface ResolveCredentialsInput {
  *    when the order was created before the account-pool launch. Newer orders
  *    show `null` (UI renders "Awaiting account assignment").
  */
-export function resolveOrderCredentials(
-  input: ResolveCredentialsInput,
-): { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null {
+export function resolveOrderCredentials(input: ResolveCredentialsInput): {
+  email: string | null;
+  password: string | null;
+  login_url: string | null;
+  login_notes: string | null;
+} | null {
   const { order, assignment, legacyCredential } = input;
   const cutoff = input.cutoffIso ?? LEGACY_CREDENTIAL_CUTOFF_ISO;
 
   if (order.access_type === "private") {
     if (order.fulfilment_status !== "active") return null;
-    if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+    if (
+      assignment &&
+      (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)
+    ) {
       return assignment;
     }
     if (order.admin_notes) {
@@ -192,7 +195,10 @@ export function resolveOrderCredentials(
   }
 
   // Shared
-  if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+  if (
+    assignment &&
+    (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)
+  ) {
     return assignment;
   }
   // Legacy fallback only for genuinely pre-migration orders.
@@ -226,11 +232,24 @@ export const getMyAccess = createServerFn({ method: "GET" })
           .map((r) => r.tool_slug as string),
       ),
     );
-    const legacyCreds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    const legacyCreds: Record<
+      string,
+      {
+        email: string | null;
+        password: string | null;
+        login_url: string | null;
+        login_notes: string | null;
+      }
+    > = {};
     // Per-order account assignment (new pool). Keys by order_id.
     const assignedByOrder: Record<
       string,
-      { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }
+      {
+        email: string | null;
+        password: string | null;
+        login_url: string | null;
+        login_notes: string | null;
+      }
     > = {};
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const orderIds = (data ?? []).map((r) => r.id as string);
@@ -240,16 +259,18 @@ export const getMyAccess = createServerFn({ method: "GET" })
         .select("order_id, account_id")
         .in("order_id", orderIds)
         .eq("status", "active");
-      const accIds = Array.from(new Set(((aRows ?? []) as any[]).map((r) => r.account_id as string)));
+      const accIds = Array.from(
+        new Set(((aRows ?? []) as any[]).map((r) => r.account_id as string)),
+      );
       const accById: Record<string, any> = {};
       if (accIds.length) {
         const { data: accs } = await (supabaseAdmin as any)
           .from("tool_accounts")
           .select("id, login_email, login_password, login_url, login_notes")
           .in("id", accIds);
-        for (const a of ((accs ?? []) as any[])) accById[a.id as string] = a;
+        for (const a of (accs ?? []) as any[]) accById[a.id as string] = a;
       }
-      for (const r of ((aRows ?? []) as any[])) {
+      for (const r of (aRows ?? []) as any[]) {
         const a = accById[r.account_id as string];
         if (!a) continue;
         assignedByOrder[r.order_id as string] = {
@@ -313,9 +334,6 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }),
     };
   });
-
-
-
 
 /** Auth — the current user's orders (all statuses). */
 export const listMyOrders = createServerFn({ method: "GET" })
@@ -455,9 +473,7 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
         url = (existing?.official_login_url as string | null) ?? null;
       }
       if (!url) {
-        throw new Error(
-          "Add an Official Login URL before enabling One-Click Login.",
-        );
+        throw new Error("Add an Official Login URL before enabling One-Click Login.");
       }
     }
     const patch: Record<string, unknown> = { tool_slug: data.tool_slug };
@@ -500,9 +516,7 @@ export const adminListToolCredentials = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
-    const { data, error } = await context.supabase
-      .from("tool_credentials")
-      .select("*");
+    const { data, error } = await context.supabase.from("tool_credentials").select("*");
     if (error) throw new Error(error.message);
     return { credentials: (data ?? []) as ToolCredential[] };
   });
@@ -541,9 +555,6 @@ export const adminUpsertToolCredential = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
-
-
 /** Admin — list every order (paged simply, most-recent first). */
 export const adminListOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -560,9 +571,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
 
 const updateOrderInput = z.object({
   id: z.string().uuid(),
-  status: z
-    .enum(["pending", "approved", "rejected", "cancelled", "expired"])
-    .optional(),
+  status: z.enum(["pending", "approved", "rejected", "cancelled", "expired"]).optional(),
   expires_at: z.string().nullable().optional(),
   admin_notes: z.string().max(2000).nullable().optional(),
 });
@@ -584,10 +593,7 @@ export const adminUpdateOrder = createServerFn({ method: "POST" })
     }
     if (data.expires_at !== undefined) patch.expires_at = data.expires_at;
     if (data.admin_notes !== undefined) patch.admin_notes = data.admin_notes;
-    const { error } = await context.supabase
-      .from("tool_orders")
-      .update(patch)
-      .eq("id", data.id);
+    const { error } = await context.supabase.from("tool_orders").update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     const { logAdminActivity } = await import("@/lib/admin-audit.server");
     await logAdminActivity(context, {
@@ -702,4 +708,3 @@ export const adminReconcilePrivateOrder = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-

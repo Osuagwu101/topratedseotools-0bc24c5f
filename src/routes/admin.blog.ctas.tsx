@@ -18,7 +18,9 @@ const q = queryOptions({ queryKey: ["blog", "ctas"], queryFn: () => listCtaTempl
 
 export const Route = createFileRoute("/admin/blog/ctas")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [{ title: "CTA Templates — Admin" }, { name: "robots", content: "noindex" }],
   }),
@@ -71,7 +73,10 @@ function CtaAdmin() {
         body: d.body,
         button_label: d.button_label,
         button_url: d.button_url,
-        target_tool_slugs: d.target_tool_slugs.split(",").map((s) => s.trim()).filter(Boolean),
+        target_tool_slugs: d.target_tool_slugs
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
         target_category_slugs: d.target_category_slugs
           .split(",")
           .map((s) => s.trim())
@@ -80,9 +85,7 @@ function CtaAdmin() {
         enabled: d.enabled,
         is_default: d.is_default,
       };
-      return d.id
-        ? update({ data: { id: d.id, ...payload } })
-        : create({ data: payload });
+      return d.id ? update({ data: { id: d.id, ...payload } }) : create({ data: payload });
     },
     onSuccess: () => {
       toast.success("Saved");
@@ -101,9 +104,7 @@ function CtaAdmin() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  const templates = data.templates as unknown as Array<
-    Draft & { id: string; created_at?: string }
-  >;
+  const templates = data.templates as unknown as Array<Draft & { id: string; created_at?: string }>;
 
   return (
     <AdminShell>
@@ -111,13 +112,16 @@ function CtaAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">CTA templates</h1>
         </div>
-        <div className="mt-6"><BlogAdminNav /></div>
+        <div className="mt-6">
+          <BlogAdminNav />
+        </div>
 
         <p className="mt-6 max-w-2xl text-sm text-muted-foreground">
           Reusable calls-to-action rendered on blog posts. Targets are matched against the article's
-          detected tools and category. Higher <span className="font-medium text-foreground">priority</span>{" "}
-          wins ties; the <span className="font-medium text-foreground">default</span> template is used
-          when nothing matches.
+          detected tools and category. Higher{" "}
+          <span className="font-medium text-foreground">priority</span> wins ties; the{" "}
+          <span className="font-medium text-foreground">default</span> template is used when nothing
+          matches.
         </p>
 
         <div className="mt-6 flex justify-end">
@@ -189,10 +193,14 @@ function CtaAdmin() {
                 />
               </label>
               <label className="block text-xs">
-                <span className="mb-1 block font-medium">Target category slugs (comma-separated)</span>
+                <span className="mb-1 block font-medium">
+                  Target category slugs (comma-separated)
+                </span>
                 <input
                   value={editing.target_category_slugs}
-                  onChange={(e) => setEditing({ ...editing, target_category_slugs: e.target.value })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, target_category_slugs: e.target.value })
+                  }
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   placeholder="seo, ai-writing"
                 />
@@ -204,7 +212,9 @@ function CtaAdmin() {
                 <input
                   type="number"
                   value={editing.priority}
-                  onChange={(e) => setEditing({ ...editing, priority: Number(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, priority: Number(e.target.value) || 0 })
+                  }
                   className="w-20 rounded-md border border-input bg-background px-2 py-1"
                 />
               </label>
@@ -250,12 +260,17 @@ function CtaAdmin() {
             </p>
           )}
           {templates.map((t) => (
-            <div key={t.id} className="flex items-start justify-between gap-4 rounded-xl border bg-card p-4">
+            <div
+              key={t.id}
+              className="flex items-start justify-between gap-4 rounded-xl border bg-card p-4"
+            >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="font-semibold text-foreground">{t.name}</span>
                   {t.is_default && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">Default</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                      Default
+                    </span>
                   )}
                   {!t.enabled && (
                     <span className="rounded-full bg-muted px-2 py-0.5">Disabled</span>
@@ -267,7 +282,9 @@ function CtaAdmin() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   → <span className="font-mono">{t.button_url}</span>
                   {(t.target_tool_slugs?.length ?? 0) > 0 && (
-                    <span className="ml-2">tools: {(t.target_tool_slugs as unknown as string[]).join(", ")}</span>
+                    <span className="ml-2">
+                      tools: {(t.target_tool_slugs as unknown as string[]).join(", ")}
+                    </span>
                   )}
                 </p>
               </div>
@@ -281,8 +298,10 @@ function CtaAdmin() {
                       body: t.body,
                       button_label: t.button_label,
                       button_url: t.button_url,
-                      target_tool_slugs: (t.target_tool_slugs as unknown as string[])?.join(", ") ?? "",
-                      target_category_slugs: (t.target_category_slugs as unknown as string[])?.join(", ") ?? "",
+                      target_tool_slugs:
+                        (t.target_tool_slugs as unknown as string[])?.join(", ") ?? "",
+                      target_category_slugs:
+                        (t.target_category_slugs as unknown as string[])?.join(", ") ?? "",
                       priority: t.priority ?? 0,
                       enabled: t.enabled,
                       is_default: t.is_default,

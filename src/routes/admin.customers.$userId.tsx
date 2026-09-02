@@ -28,11 +28,15 @@ import { Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/admin/customers/$userId")({
   ssr: false,
   head: () => ({ meta: [{ title: "Customer — Admin" }, { name: "robots", content: "noindex" }] }),
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   component: CustomerPage,
 });
 
-function money(n: number) { return "₦" + Math.round(n).toLocaleString(); }
+function money(n: number) {
+  return "₦" + Math.round(n).toLocaleString();
+}
 
 function CustomerPage() {
   const { userId } = Route.useParams();
@@ -53,7 +57,10 @@ function CustomerPage() {
 
   const saveMeta = useMutation({
     mutationFn: () => adminUpdateCustomerMeta({ data: { userId, phone, notes } }),
-    onSuccess: () => { toast.success("Customer details saved"); refetch(); },
+    onSuccess: () => {
+      toast.success("Customer details saved");
+      refetch();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -85,9 +92,12 @@ function CustomerPage() {
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="truncate text-xl font-semibold">{data.profile.fullName ?? data.profile.email ?? "Customer"}</h1>
+                <h1 className="truncate text-xl font-semibold">
+                  {data.profile.fullName ?? data.profile.email ?? "Customer"}
+                </h1>
                 <p className="text-xs text-muted-foreground">
-                  {data.profile.email} · Registered {new Date(data.profile.registeredAt).toLocaleDateString()}
+                  {data.profile.email} · Registered{" "}
+                  {new Date(data.profile.registeredAt).toLocaleDateString()}
                 </p>
               </div>
               <ResetPasswordButton userId={userId} />
@@ -107,7 +117,9 @@ function CustomerPage() {
 
             {/* Meta */}
             <div className="mt-6 rounded-2xl border bg-card p-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Customer details</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Customer details
+              </h2>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Phone</Label>
@@ -115,7 +127,14 @@ function CustomerPage() {
                 </div>
                 <div>
                   <Label>Last payment</Label>
-                  <Input readOnly value={data.totals.lastPaymentAt ? new Date(data.totals.lastPaymentAt).toLocaleString() : "—"} />
+                  <Input
+                    readOnly
+                    value={
+                      data.totals.lastPaymentAt
+                        ? new Date(data.totals.lastPaymentAt).toLocaleString()
+                        : "—"
+                    }
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <Label>Admin notes</Label>
@@ -131,7 +150,9 @@ function CustomerPage() {
 
             {/* Subscriptions */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
-              <div className="border-b p-3 text-sm font-semibold">Assigned tools & subscriptions</div>
+              <div className="border-b p-3 text-sm font-semibold">
+                Assigned tools & subscriptions
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
@@ -153,23 +174,38 @@ function CustomerPage() {
                         <td className="px-3 py-2">{o.accessType ?? "—"}</td>
                         <td className="px-3 py-2">{o.billingPeriod ?? "—"}</td>
                         <td className="px-3 py-2">
-                          <span className={o.origin === "offline"
-                            ? "rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-warning"
-                            : "rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-primary"}>
+                          <span
+                            className={
+                              o.origin === "offline"
+                                ? "rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-warning"
+                                : "rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-primary"
+                            }
+                          >
                             {o.origin}
                           </span>
                         </td>
-                        <td className="px-3 py-2">{o.status}{o.fulfilmentStatus === "pending" ? " · fulfil pending" : ""}</td>
+                        <td className="px-3 py-2">
+                          {o.status}
+                          {o.fulfilmentStatus === "pending" ? " · fulfil pending" : ""}
+                        </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">
                           {o.expiresAt ? new Date(o.expiresAt).toLocaleDateString() : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right">{o.amount != null ? money(o.amount) : "—"}</td>
+                        <td className="px-3 py-2 text-right">
+                          {o.amount != null ? money(o.amount) : "—"}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {o.origin === "offline" && o.status === "approved" && (
                             <Button
-                              size="sm" variant="ghost"
+                              size="sm"
+                              variant="ghost"
                               onClick={() => {
-                                if (confirm("Cancel this admin-assigned subscription? Payment history will be kept.")) cancel.mutate(o.id);
+                                if (
+                                  confirm(
+                                    "Cancel this admin-assigned subscription? Payment history will be kept.",
+                                  )
+                                )
+                                  cancel.mutate(o.id);
                               }}
                             >
                               <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -179,7 +215,14 @@ function CustomerPage() {
                       </tr>
                     ))}
                     {data.orders.length === 0 && (
-                      <tr><td colSpan={8} className="px-3 py-6 text-center text-xs text-muted-foreground">No subscriptions yet.</td></tr>
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="px-3 py-6 text-center text-xs text-muted-foreground"
+                        >
+                          No subscriptions yet.
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -189,8 +232,12 @@ function CustomerPage() {
             {/* Payments */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
               <div className="flex items-center justify-between border-b p-3">
-                <div className="text-sm font-semibold flex items-center gap-1.5"><Wallet className="h-4 w-4" /> Payment history</div>
-                <div className="text-[11px] text-muted-foreground">Records are kept — corrections do not delete history.</div>
+                <div className="text-sm font-semibold flex items-center gap-1.5">
+                  <Wallet className="h-4 w-4" /> Payment history
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Records are kept — corrections do not delete history.
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -209,12 +256,18 @@ function CustomerPage() {
                   <tbody className="divide-y">
                     {data.payments.map((p) => (
                       <tr key={p.id}>
-                        <td className="px-3 py-2 text-xs">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "—"}</td>
+                        <td className="px-3 py-2 text-xs">
+                          {p.paidAt ? new Date(p.paidAt).toLocaleString() : "—"}
+                        </td>
                         <td className="px-3 py-2">{p.toolSlug}</td>
                         <td className="px-3 py-2">
-                          <span className={p.source === "offline"
-                            ? "rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-warning"
-                            : "rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-primary"}>
+                          <span
+                            className={
+                              p.source === "offline"
+                                ? "rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-warning"
+                                : "rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-primary"
+                            }
+                          >
                             {p.source}
                           </span>
                         </td>
@@ -226,7 +279,14 @@ function CustomerPage() {
                       </tr>
                     ))}
                     {data.payments.length === 0 && (
-                      <tr><td colSpan={8} className="px-3 py-6 text-center text-xs text-muted-foreground">No payments recorded.</td></tr>
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="px-3 py-6 text-center text-xs text-muted-foreground"
+                        >
+                          No payments recorded.
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -235,16 +295,24 @@ function CustomerPage() {
 
             {/* Audit */}
             <div className="mt-6 rounded-2xl border bg-card p-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Admin audit log</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Admin audit log
+              </h2>
               <ul className="mt-2 space-y-1.5 text-xs">
                 {data.audit.map((a) => (
                   <li key={a.id} className="flex items-start gap-2">
-                    <span className="text-muted-foreground min-w-32">{new Date(a.at).toLocaleString()}</span>
+                    <span className="text-muted-foreground min-w-32">
+                      {new Date(a.at).toLocaleString()}
+                    </span>
                     <span className="font-medium">{a.action}</span>
-                    {a.details && <span className="text-muted-foreground truncate">{a.details}</span>}
+                    {a.details && (
+                      <span className="text-muted-foreground truncate">{a.details}</span>
+                    )}
                   </li>
                 ))}
-                {data.audit.length === 0 && <li className="text-xs text-muted-foreground">No admin activity yet.</li>}
+                {data.audit.length === 0 && (
+                  <li className="text-xs text-muted-foreground">No admin activity yet.</li>
+                )}
               </ul>
             </div>
 
@@ -269,10 +337,7 @@ function CommunicationHistoryCard({ userId }: { userId: string }) {
         <div className="text-sm font-semibold flex items-center gap-1.5">
           <Mail className="h-4 w-4" /> Communication history
         </div>
-        <Link
-          to="/admin/settings/communications"
-          className="text-xs text-primary hover:underline"
-        >
+        <Link to="/admin/settings/communications" className="text-xs text-primary hover:underline">
           Open Communication Centre →
         </Link>
       </div>
@@ -324,8 +389,6 @@ function CommunicationHistoryCard({ userId }: { userId: string }) {
   );
 }
 
-
-
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border bg-card p-3 shadow-card">
@@ -358,14 +421,27 @@ function ResetPasswordButton({ userId }: { userId: string }) {
   if (issued) {
     return (
       <div className="flex flex-col items-end gap-1">
-        <div className="rounded-md border bg-amber-500/10 px-2 py-1 font-mono text-xs">{issued}</div>
+        <div className="rounded-md border bg-amber-500/10 px-2 py-1 font-mono text-xs">
+          {issued}
+        </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(issued); toast.success("Copied"); }}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(issued);
+              toast.success("Copied");
+            }}
+          >
             Copy
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setIssued(null)}>Hide</Button>
+          <Button size="sm" variant="ghost" onClick={() => setIssued(null)}>
+            Hide
+          </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground">Send securely — will not be shown again.</p>
+        <p className="text-[10px] text-muted-foreground">
+          Send securely — will not be shown again.
+        </p>
       </div>
     );
   }
@@ -375,7 +451,10 @@ function ResetPasswordButton({ userId }: { userId: string }) {
       variant="outline"
       disabled={mut.isPending}
       onClick={() => {
-        if (!confirm("Issue a new temporary password? The customer must change it on next sign-in.")) return;
+        if (
+          !confirm("Issue a new temporary password? The customer must change it on next sign-in.")
+        )
+          return;
         mut.mutate(randomPassword());
       }}
     >

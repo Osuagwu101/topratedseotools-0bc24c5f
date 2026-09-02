@@ -19,7 +19,8 @@ async function assertAdminAndGetAdmin(context: {
     _user_id: context.userId,
     _role: "admin",
   });
-  if (error) throw new Error(String((error as { message?: string }).message ?? "role check failed"));
+  if (error)
+    throw new Error(String((error as { message?: string }).message ?? "role check failed"));
   if (!data) throw new Error("Forbidden");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
@@ -53,7 +54,11 @@ function rowCurrency(p: Record<string, unknown>): string {
 /** Amount actually charged to the customer, in `rowCurrency`. */
 function rowPaidAmount(p: Record<string, unknown>): number {
   const cur = rowCurrency(p);
-  if (p.display_currency && String(p.display_currency).toUpperCase() === cur && p.display_amount != null) {
+  if (
+    p.display_currency &&
+    String(p.display_currency).toUpperCase() === cur &&
+    p.display_amount != null
+  ) {
     return Number(p.display_amount);
   }
   if (p.final_amount != null) return Number(p.final_amount);
@@ -77,7 +82,6 @@ function matchesPaymentFilters(
 
 const PAYMENT_SELECT =
   "id, order_id, user_id, tool_slug, amount, currency, payment_currency, display_currency, display_amount, converted_amount, final_amount, base_amount_ngn, exchange_rate, international_fee_amount, coupon_code, discount_amount_ngn, payment_gateway, payment_type, classification, payment_status, payment_method, source, billing_period, access_type, paystack_reference, gateway_transaction_reference, customer_email, paid_at, created_at";
-
 
 // ---------- Revenue Dashboard ----------
 
@@ -143,7 +147,11 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
     };
 
     const byTool = bucket(successful, (p) => p.tool_slug as string | null, "unknown");
-    const byPlan = bucket(successful, (p) => (p.billing_period as string | null) ?? null, "unknown");
+    const byPlan = bucket(
+      successful,
+      (p) => (p.billing_period as string | null) ?? null,
+      "unknown",
+    );
     const byAccess = bucket(successful, (p) => (p.access_type as string | null) ?? null, "unknown");
     const byProvider = bucket(successful, (p) => rowGateway(p), DEFAULT_GATEWAY);
 
@@ -179,7 +187,6 @@ export const getRevenueAnalytics = createServerFn({ method: "POST" })
       currencyOptions,
     };
   });
-
 
 // ---------- Customer Growth ----------
 
@@ -221,7 +228,6 @@ export const getCustomerAnalytics = createServerFn({ method: "POST" })
       return at >= new Date(fromIso) && at <= new Date(toIso);
     }).length;
 
-
     const activeUserSet = new Set<string>();
     const expiredUserSet = new Set<string>();
     const renewingUserSet = new Set<string>();
@@ -240,7 +246,11 @@ export const getCustomerAnalytics = createServerFn({ method: "POST" })
         s.add(uid);
         byToolMap.set(slug, s);
         if (expiresAt && expiresAt <= in7d) expiringSoonSet.add(uid);
-        if (o.subscription_status === "active" && o.renewal_status !== "disabled" && o.renewal_status !== "disable_pending") {
+        if (
+          o.subscription_status === "active" &&
+          o.renewal_status !== "disabled" &&
+          o.renewal_status !== "disable_pending"
+        ) {
           renewingUserSet.add(uid);
         }
       } else if (status === "expired" || (status === "approved" && expiresAt && expiresAt <= now)) {
@@ -274,18 +284,10 @@ export const getToolPerformance = createServerFn({ method: "GET" })
     const in7d = new Date(now.getTime() + 7 * 86400_000);
 
     const [ordersRes, paymentsRes, accountsRes, reviewsRes] = await Promise.all([
-      admin
-        .from("tool_orders")
-        .select("id, user_id, tool_slug, status, expires_at"),
-      admin
-        .from("tool_payments")
-        .select("tool_slug, amount, payment_status"),
-      admin
-        .from("tool_accounts")
-        .select("tool_slug, enabled, status, expires_at"),
-      admin
-        .from("tool_reviews")
-        .select("tool_slug, rating, status"),
+      admin.from("tool_orders").select("id, user_id, tool_slug, status, expires_at"),
+      admin.from("tool_payments").select("tool_slug, amount, payment_status"),
+      admin.from("tool_accounts").select("tool_slug, enabled, status, expires_at"),
+      admin.from("tool_reviews").select("tool_slug, rating, status"),
     ]);
     const orders = ordersRes.data ?? [];
     const payments = paymentsRes.data ?? [];
@@ -325,8 +327,7 @@ export const getToolPerformance = createServerFn({ method: "GET" })
       const slug = o.tool_slug as string;
       const m = ensure(slug);
       const live =
-        o.status === "approved" &&
-        (!o.expires_at || new Date(o.expires_at as string) > now);
+        o.status === "approved" && (!o.expires_at || new Date(o.expires_at as string) > now);
       if (live) {
         m.customers.add(o.user_id as string);
         if (o.expires_at && new Date(o.expires_at as string) <= in7d) m.expiring += 1;
@@ -377,9 +378,7 @@ function csvEscape(v: unknown): string {
 }
 function toCsv(headers: string[], rows: Array<Record<string, unknown>>): string {
   const head = headers.join(",");
-  const body = rows
-    .map((r) => headers.map((h) => csvEscape(r[h])).join(","))
-    .join("\n");
+  const body = rows.map((r) => headers.map((h) => csvEscape(r[h])).join(",")).join("\n");
   return `${head}\n${body}`;
 }
 
@@ -544,11 +543,11 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
           payment_gateway: p ? rowGateway(p) : "",
           payment_currency: p ? rowCurrency(p) : (o.payment_currency ?? "NGN"),
           original_amount_paid: p ? rowPaidAmount(p) : (o.final_amount_charged ?? ""),
-          exchange_rate: (p?.exchange_rate ?? o.exchange_rate) ?? "",
+          exchange_rate: p?.exchange_rate ?? o.exchange_rate ?? "",
           ngn_accounting_amount: p ? rowNgn(p) : (o.price_amount ?? ""),
-          coupon_used: (p?.coupon_code ?? o.coupon_code) ?? "",
-          discount_ngn: (p?.discount_amount_ngn ?? o.discount_amount_ngn) ?? "",
-          payment_reference: (p?.paystack_reference ?? o.paystack_reference) ?? "",
+          coupon_used: p?.coupon_code ?? o.coupon_code ?? "",
+          discount_ngn: p?.discount_amount_ngn ?? o.discount_amount_ngn ?? "",
+          payment_reference: p?.paystack_reference ?? o.paystack_reference ?? "",
           expires_at: o.expires_at,
           fulfilment_status: o.fulfilment_status,
           renewal_status: o.renewal_status,
@@ -558,5 +557,4 @@ export const exportAnalyticsCsv = createServerFn({ method: "POST" })
       }),
     );
     return { filename: `orders-${fromIso.slice(0, 10)}-to-${toIso.slice(0, 10)}.csv`, csv };
-
   });

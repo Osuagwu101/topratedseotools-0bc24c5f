@@ -10,11 +10,15 @@ export function PostCard({ post, featured = false }: { post: PostSummary; featur
       params={{ slug: post.slug }}
       className="group flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card transition hover:border-primary/40 hover:shadow-glow"
     >
-      <div className={`relative w-full overflow-hidden bg-muted ${featured ? "aspect-[16/8]" : "aspect-[16/9]"}`}>
+      <div
+        className={`relative w-full overflow-hidden bg-muted ${featured ? "aspect-[16/8]" : "aspect-[16/9]"}`}
+      >
         {post.featured_image ? (
           <img
             src={post.featured_image}
-            alt={(post as unknown as { featured_image_alt?: string }).featured_image_alt || post.title}
+            alt={
+              (post as unknown as { featured_image_alt?: string }).featured_image_alt || post.title
+            }
             loading="lazy"
             decoding="async"
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
@@ -39,7 +43,9 @@ export function PostCard({ post, featured = false }: { post: PostSummary; featur
             {post.category.name}
           </span>
         )}
-        <h3 className={`mt-2 font-semibold leading-tight text-foreground group-hover:text-primary ${featured ? "text-2xl" : "text-lg"}`}>
+        <h3
+          className={`mt-2 font-semibold leading-tight text-foreground group-hover:text-primary ${featured ? "text-2xl" : "text-lg"}`}
+        >
           {post.title}
         </h3>
         {post.excerpt && (

@@ -42,7 +42,8 @@ function ForgotPage() {
     >
       {sent ? (
         <div className="rounded-md bg-success/10 p-4 text-sm text-success">
-          If an account exists for <span className="font-medium">{email}</span>, a password reset link is on its way.
+          If an account exists for <span className="font-medium">{email}</span>, a password reset
+          link is on its way.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">

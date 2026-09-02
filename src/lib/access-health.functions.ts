@@ -39,7 +39,9 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
 
 async function loadAlertSettings(admin: any): Promise<AlertSettings> {
   const { data } = await tbl(admin, "site_settings")
-    .select("alert_almost_full_pct, alert_expiry_days, alert_emails_enabled, alert_email_recipients")
+    .select(
+      "alert_almost_full_pct, alert_expiry_days, alert_emails_enabled, alert_email_recipients",
+    )
     .eq("id", true)
     .maybeSingle();
   if (!data) return DEFAULT_ALERT_SETTINGS;
@@ -54,14 +56,17 @@ async function loadAlertSettings(admin: any): Promise<AlertSettings> {
 async function loadAwaitingOrders(admin: any): Promise<AlertInputOrder[]> {
   // Paid orders where the user has no active pool assignment.
   const { data: orders } = await tbl(admin, "tool_orders")
-    .select("id, tool_slug, user_id, access_type, created_at, status, payment_status, fulfilment_status, expires_at")
+    .select(
+      "id, tool_slug, user_id, access_type, created_at, status, payment_status, fulfilment_status, expires_at",
+    )
     .in("status", ["approved"])
     .order("created_at", { ascending: false })
     .limit(500);
-  const list = ((orders ?? []) as any[]).filter((o) =>
-    (o.payment_status ?? "paid") === "paid" &&
-    (o.access_type ?? "shared") === "shared" && // private is handled via fulfilment
-    (!o.expires_at || new Date(o.expires_at).getTime() > Date.now()),
+  const list = ((orders ?? []) as any[]).filter(
+    (o) =>
+      (o.payment_status ?? "paid") === "paid" &&
+      (o.access_type ?? "shared") === "shared" && // private is handled via fulfilment
+      (!o.expires_at || new Date(o.expires_at).getTime() > Date.now()),
   );
   if (list.length === 0) return [];
   const ids = list.map((o) => o.id as string);
@@ -76,7 +81,7 @@ async function loadAwaitingOrders(admin: any): Promise<AlertInputOrder[]> {
       id: o.id as string,
       tool_slug: o.tool_slug as string,
       user_id: o.user_id as string,
-      access_type: ((o.access_type as "shared" | "private" | null) ?? "shared"),
+      access_type: (o.access_type as "shared" | "private" | null) ?? "shared",
       created_at: o.created_at as string,
     }));
 }
@@ -88,7 +93,7 @@ async function countsByAccount(admin: any, ids: string[]) {
     .select("account_id")
     .in("account_id", ids)
     .eq("status", "active");
-  for (const r of ((data ?? []) as any[])) {
+  for (const r of (data ?? []) as any[]) {
     const id = r.account_id as string;
     out[id] = (out[id] ?? 0) + 1;
   }
@@ -97,10 +102,15 @@ async function countsByAccount(admin: any, ids: string[]) {
 
 async function loadAllAccounts(admin: any): Promise<AlertInputAccount[]> {
   const { data } = await tbl(admin, "tool_accounts")
-    .select("id, tool_slug, label, access_type, status, enabled, expires_at, max_capacity, needs_capacity_review, last_health_check_at")
+    .select(
+      "id, tool_slug, label, access_type, status, enabled, expires_at, max_capacity, needs_capacity_review, last_health_check_at",
+    )
     .order("tool_slug", { ascending: true });
-  const rows = ((data ?? []) as any[]);
-  const counts = await countsByAccount(admin, rows.map((r) => r.id as string));
+  const rows = (data ?? []) as any[];
+  const counts = await countsByAccount(
+    admin,
+    rows.map((r) => r.id as string),
+  );
   return rows.map((a) => {
     const active = counts[a.id as string] ?? 0;
     const cap = (a.max_capacity as number) ?? 0;
@@ -191,24 +201,27 @@ export const listAwaitingAssignments = createServerFn({ method: "GET" })
       loadAllAccounts(supabaseAdmin),
     ]);
     const pmap = new Map<string, any>();
-    for (const p of ((profiles ?? []) as any[])) pmap.set(p.id as string, p);
+    for (const p of (profiles ?? []) as any[]) pmap.set(p.id as string, p);
     const omap = new Map<string, any>();
-    for (const o of ((orderRows ?? []) as any[])) omap.set(o.id as string, o);
+    for (const o of (orderRows ?? []) as any[]) omap.set(o.id as string, o);
     const settings = await loadAlertSettings(supabaseAdmin);
     return {
       rows: awaiting.map((a) => {
         const o = omap.get(a.id) ?? {};
         const compat = accounts
-          .filter((acc) =>
-            acc.tool_slug === a.tool_slug &&
-            (acc as any).access_type === a.access_type &&
-            acc.enabled &&
-            (acc.max_capacity - acc.active_count) > 0 &&
-            classifyHealth(acc, settings) !== "expired" &&
-            classifyHealth(acc, settings) !== "suspended",
+          .filter(
+            (acc) =>
+              acc.tool_slug === a.tool_slug &&
+              (acc as any).access_type === a.access_type &&
+              acc.enabled &&
+              acc.max_capacity - acc.active_count > 0 &&
+              classifyHealth(acc, settings) !== "expired" &&
+              classifyHealth(acc, settings) !== "suspended",
           )
           .map((acc) => ({
-            id: acc.id, label: (acc as any).label, available: acc.max_capacity - acc.active_count,
+            id: acc.id,
+            label: (acc as any).label,
+            available: acc.max_capacity - acc.active_count,
           }));
         return {
           order_id: a.id,
@@ -278,7 +291,9 @@ export const setAlertSettings = createServerFn({ method: "POST" })
 export const bulkReassignFromAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ account_id: z.string().uuid(), reason: z.string().max(300).optional() }).parse(input),
+    z
+      .object({ account_id: z.string().uuid(), reason: z.string().max(300).optional() })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
@@ -294,7 +309,12 @@ export const bulkReassignFromAccount = createServerFn({ method: "POST" })
 
     const accounts = await loadAllAccounts(supabaseAdmin);
     const candidates = accounts
-      .filter((a) => a.id !== data.account_id && a.tool_slug === src.tool_slug && (a as any).access_type === src.access_type)
+      .filter(
+        (a) =>
+          a.id !== data.account_id &&
+          a.tool_slug === src.tool_slug &&
+          (a as any).access_type === src.access_type,
+      )
       .map((a) => ({
         id: a.id,
         available: Math.max(0, a.max_capacity - a.active_count),
@@ -314,7 +334,10 @@ export const bulkReassignFromAccount = createServerFn({ method: "POST" })
     let moved = 0;
     let stillAwaiting = 0;
     for (const step of plan.assignments) {
-      if (!step.target_account_id) { stillAwaiting++; continue; }
+      if (!step.target_account_id) {
+        stillAwaiting++;
+        continue;
+      }
       // Release the old row, create the new row (reuse pattern from adminReassignCustomer).
       const current = ((activeAssigns ?? []) as any[]).find((r) => r.order_id === step.order_id);
       if (!current) continue;
@@ -377,7 +400,7 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
     const { data: openLog } = await tbl(supabaseAdmin, "admin_alert_log")
       .select("id, alert_key")
       .is("resolved_at", null);
-    for (const row of ((openLog ?? []) as any[])) {
+    for (const row of (openLog ?? []) as any[]) {
       if (!openKeys.has(row.alert_key as string)) {
         await tbl(supabaseAdmin, "admin_alert_log")
           .update({ resolved_at: new Date().toISOString() })
@@ -390,10 +413,7 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
     const labelById = new Map<string, string>();
     for (const a of accounts) labelById.set(a.id, a.label);
 
-    const siteUrl =
-      process.env.APP_URL ??
-      process.env.SITE_URL ??
-      "https://topratedseotools.com";
+    const siteUrl = process.env.APP_URL ?? process.env.SITE_URL ?? "https://topratedseotools.com";
     const adminLink = `${siteUrl.replace(/\/$/, "")}/admin/access-health`;
 
     let sent = 0;
@@ -408,9 +428,7 @@ export const dispatchAdminAlertEmails = createServerFn({ method: "POST" })
         .maybeSingle();
       if (existing) continue;
       const subject = `Access Alert: ${alert.title}`;
-      const accountLabel = alert.account_id
-        ? (labelById.get(alert.account_id) ?? "—")
-        : "—";
+      const accountLabel = alert.account_id ? (labelById.get(alert.account_id) ?? "—") : "—";
       const accountLine = alert.account_id ? ` (${accountLabel})` : "";
       const payload = {
         subject,
@@ -472,10 +490,7 @@ export const getAccessHealthBadgeCounts = createServerFn({ method: "GET" })
       (a) =>
         a.level !== "info" &&
         attentionKinds.has(a.kind) &&
-        (["login_problem", "suspended"].includes(a.kind)
-          ? a.affected_customers > 0
-          : true),
+        (["login_problem", "suspended"].includes(a.kind) ? a.affected_customers > 0 : true),
     ).length;
     return { unresolved, awaiting: awaiting.length };
   });
-

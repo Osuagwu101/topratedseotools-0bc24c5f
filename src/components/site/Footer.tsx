@@ -40,7 +40,8 @@ export function Footer() {
           </Link>
 
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            Individual subscriptions to premium SEO, AI, writing, research, design, and productivity tools — managed in one place.
+            Individual subscriptions to premium SEO, AI, writing, research, design, and productivity
+            tools — managed in one place.
           </p>
         </div>
         {COLS.map((col) => (
@@ -51,10 +52,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {col.links.map((l) => (
                 <li key={l.to}>
-                  <Link
-                    to={l.to}
-                    className="text-sm text-foreground/80 hover:text-foreground"
-                  >
+                  <Link to={l.to} className="text-sm text-foreground/80 hover:text-foreground">
                     {l.label}
                   </Link>
                 </li>
@@ -65,7 +63,9 @@ export function Footer() {
       </div>
       <div className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
-          <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
+          <span>
+            © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
+          </span>
           <div className="flex items-center gap-3">
             <button
               type="button"

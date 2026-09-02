@@ -39,7 +39,9 @@ export const ctxQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/settings/staff")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Staff, Roles & Permissions — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Staff, Roles & Permissions — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -71,7 +73,9 @@ function StaffPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Staff, Roles & Permissions</h1>
-            <p className="text-sm text-muted-foreground">Super Admin only. Invite admins, assign roles, tune permissions.</p>
+            <p className="text-sm text-muted-foreground">
+              Super Admin only. Invite admins, assign roles, tune permissions.
+            </p>
           </div>
           <button
             onClick={() => setShowAdd(true)}
@@ -92,7 +96,9 @@ function StaffPage() {
                 onRefresh={refresh}
               />
             ))}
-            {data.admins.length === 0 && <li className="p-6 text-sm text-muted-foreground">No admins yet.</li>}
+            {data.admins.length === 0 && (
+              <li className="p-6 text-sm text-muted-foreground">No admins yet.</li>
+            )}
           </ul>
         </div>
 
@@ -112,10 +118,21 @@ function StaffPage() {
 type Admin = Awaited<ReturnType<typeof listStaff>>["admins"][number];
 
 function StaffRow({
-  a, canEndSessions, onEdit, onRefresh,
-}: { a: Admin; canEndSessions: boolean; onEdit: () => void; onRefresh: () => Promise<void> }) {
+  a,
+  canEndSessions,
+  onEdit,
+  onRefresh,
+}: {
+  a: Admin;
+  canEndSessions: boolean;
+  onEdit: () => void;
+  onRefresh: () => Promise<void>;
+}) {
   const [confirm, setConfirm] = useState<null | {
-    title: string; description: string; destructive?: boolean; run: () => Promise<void>;
+    title: string;
+    description: string;
+    destructive?: boolean;
+    run: () => Promise<void>;
   }>(null);
 
   const roleLabel = a.isSuperAdmin
@@ -153,7 +170,9 @@ function StaffRow({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {!a.isSuperAdmin && (
-          <button onClick={onEdit} className="rounded-md border px-2.5 py-1 text-xs hover:bg-muted">Edit permissions</button>
+          <button onClick={onEdit} className="rounded-md border px-2.5 py-1 text-xs hover:bg-muted">
+            Edit permissions
+          </button>
         )}
         <button
           onClick={() =>
@@ -254,8 +273,11 @@ function StaffRow({
           destructive={confirm.destructive}
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
-            try { await confirm.run(); }
-            catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+            try {
+              await confirm.run();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed");
+            }
           }}
         />
       )}
@@ -290,16 +312,23 @@ function AddAdminDialog({ onClose, onDone }: { onClose: () => void; onDone: () =
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">Add Admin</h2>
-          <button type="button" onClick={onClose} className="text-muted-foreground"><X className="h-4 w-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground">
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <div className="grid gap-3">
           <input
-            type="email" required placeholder="admin@example.com" value={email}
+            type="email"
+            required
+            placeholder="admin@example.com"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <input
-            type="text" placeholder="Full name (optional)" value={fullName}
+            type="text"
+            placeholder="Full name (optional)"
+            value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
@@ -309,7 +338,9 @@ function AddAdminDialog({ onClose, onDone }: { onClose: () => void; onDone: () =
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             {ROLE_KEYS.map((k) => (
-              <option key={k} value={k}>{ROLE_LABEL[k]}</option>
+              <option key={k} value={k}>
+                {ROLE_LABEL[k]}
+              </option>
             ))}
           </select>
           <div className="rounded-md border bg-muted/30 p-2 text-xs">
@@ -320,8 +351,18 @@ function AddAdminDialog({ onClose, onDone }: { onClose: () => void; onDone: () =
           </p>
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
-          <button type="submit" disabled={busy} className="rounded-md bg-gradient-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-gradient-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
+          >
             {busy ? "Sending…" : "Send Invitation"}
           </button>
         </div>
@@ -331,8 +372,14 @@ function AddAdminDialog({ onClose, onDone }: { onClose: () => void; onDone: () =
 }
 
 function PermissionsDrawer({
-  admin, onClose, onRefresh,
-}: { admin: Admin; onClose: () => void; onRefresh: () => Promise<void> }) {
+  admin,
+  onClose,
+  onRefresh,
+}: {
+  admin: Admin;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
   const [pending, setPending] = useState<Record<string, boolean | null>>({});
   const [busy, setBusy] = useState(false);
   const [roleKey, setRoleKey] = useState<RoleKey>(admin.roleKey ?? "operations");
@@ -394,35 +441,52 @@ function PermissionsDrawer({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold">Permissions — {admin.email}</h2>
-            <p className="text-xs text-muted-foreground">Role defaults apply unless overridden per permission.</p>
+            <p className="text-xs text-muted-foreground">
+              Role defaults apply unless overridden per permission.
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="text-muted-foreground"><X className="h-4 w-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-xs font-semibold uppercase text-muted-foreground">Role</label>
+          <label className="mb-1 block text-xs font-semibold uppercase text-muted-foreground">
+            Role
+          </label>
           <select
             value={roleKey}
             onChange={(e) => setRoleKey(e.target.value as RoleKey)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             {ROLE_KEYS.map((k) => (
-              <option key={k} value={k}>{ROLE_LABEL[k]}</option>
+              <option key={k} value={k}>
+                {ROLE_LABEL[k]}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-4">
           {PERMISSION_GROUPS.map((g) => (
-            <div key={g.key} className={`rounded-md border p-3 ${g.sensitive ? "border-destructive/30 bg-destructive/5" : ""}`}>
+            <div
+              key={g.key}
+              className={`rounded-md border p-3 ${g.sensitive ? "border-destructive/30 bg-destructive/5" : ""}`}
+            >
               <div className="mb-2 text-sm font-semibold">
                 {g.label}
-                {g.sensitive && <span className="ml-2 text-[10px] uppercase text-destructive">Sensitive</span>}
+                {g.sensitive && (
+                  <span className="ml-2 text-[10px] uppercase text-destructive">Sensitive</span>
+                )}
               </div>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {g.items.map((item) => (
                   <label key={item.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={effective(item.id)} onChange={() => toggle(item.id)} />
+                    <input
+                      type="checkbox"
+                      checked={effective(item.id)}
+                      onChange={() => toggle(item.id)}
+                    />
                     <span>{item.label}</span>
                   </label>
                 ))}
@@ -432,11 +496,28 @@ function PermissionsDrawer({
         </div>
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={resetAll} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-60">
+          <button
+            type="button"
+            onClick={resetAll}
+            disabled={busy}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-60"
+          >
             Reset to role defaults
           </button>
-          <button type="button" onClick={onClose} disabled={busy} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
-          <button type="button" onClick={save} disabled={busy} className="rounded-md bg-gradient-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="rounded-md bg-gradient-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
+          >
             {busy ? "Saving…" : "Save"}
           </button>
         </div>

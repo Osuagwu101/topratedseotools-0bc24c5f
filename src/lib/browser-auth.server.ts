@@ -47,7 +47,8 @@ export async function configuredBrowserSecrets(
 function safeErrorMessage(status: number): string {
   if (status === 401 || status === 403) return "Credentials were rejected by the browser provider.";
   if (status === 402) return "The browser provider account needs billing or usage credit.";
-  if (status === 429) return "The browser provider is temporarily rate-limited. Please try again shortly.";
+  if (status === 429)
+    return "The browser provider is temporarily rate-limited. Please try again shortly.";
   return `Browser provider request failed (${status}).`;
 }
 
@@ -108,13 +109,17 @@ export async function testBrowserProvider(
     const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
     const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
     if (!accountId || !token) {
-      return { ok: false, message: "Cloudflare Account ID and Browser Run API token are required." };
+      return {
+        ok: false,
+        message: "Cloudflare Account ID and Browser Run API token are required.",
+      };
     }
     const json = await fetchJson(
       `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/session?limit=1`,
       { method: "GET", headers: { Authorization: `Bearer ${token}` } },
     );
-    if (json && json.success === false) return { ok: false, message: "Cloudflare rejected the Browser Run connection." };
+    if (json && json.success === false)
+      return { ok: false, message: "Cloudflare rejected the Browser Run connection." };
     return { ok: true, message: "Cloudflare Browser Run API connection verified." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Connection test failed." };
@@ -126,7 +131,11 @@ export class CdpClient {
   private nextId = 1;
   private pending = new Map<
     number,
-    { resolve: (value: any) => void; reject: (reason: Error) => void; timer: ReturnType<typeof setTimeout> }
+    {
+      resolve: (value: any) => void;
+      reject: (reason: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
   >();
 
   private constructor(ws: WebSocket) {
@@ -162,15 +171,26 @@ export class CdpClient {
     }
     const ws = new globalThis.WebSocket(url);
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Remote browser connection timed out.")), 10_000);
-      ws.addEventListener("open", () => {
-        clearTimeout(timer);
-        resolve();
-      }, { once: true });
-      ws.addEventListener("error", () => {
-        clearTimeout(timer);
-        reject(new Error("Could not connect to the remote browser."));
-      }, { once: true });
+      const timer = setTimeout(
+        () => reject(new Error("Remote browser connection timed out.")),
+        10_000,
+      );
+      ws.addEventListener(
+        "open",
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+      ws.addEventListener(
+        "error",
+        () => {
+          clearTimeout(timer);
+          reject(new Error("Could not connect to the remote browser."));
+        },
+        { once: true },
+      );
     });
     return new CdpClient(ws);
   }
@@ -190,7 +210,11 @@ export class CdpClient {
   }
 
   close() {
-    try { this.ws.close(); } catch { /* no-op */ }
+    try {
+      this.ws.close();
+    } catch {
+      /* no-op */
+    }
   }
 }
 
@@ -275,7 +299,11 @@ async function injectLogin(
   sessionId?: string,
   capturedCookies?: Array<{ name: string; value: string }>,
 ) {
-  const { detectOtpExpression, injectSessionCookiesExpression, checkAuthenticationStatusExpression } = await import("@/lib/browser-auth-otp.server");
+  const {
+    detectOtpExpression,
+    injectSessionCookiesExpression,
+    checkAuthenticationStatusExpression,
+  } = await import("@/lib/browser-auth-otp.server");
 
   await client.send("Page.enable", {}, sessionId);
   await client.send("Runtime.enable", {}, sessionId);
@@ -329,7 +357,11 @@ async function injectLogin(
 
   let result = await client.send(
     "Runtime.evaluate",
-    { expression: loginInjectionExpression(username, password), returnByValue: true, awaitPromise: true },
+    {
+      expression: loginInjectionExpression(username, password),
+      returnByValue: true,
+      awaitPromise: true,
+    },
     sessionId,
   );
   let stage = result?.result?.value?.stage as string | undefined;
@@ -339,7 +371,11 @@ async function injectLogin(
     await waitForDocument(client, sessionId);
     result = await client.send(
       "Runtime.evaluate",
-      { expression: loginInjectionExpression(username, password), returnByValue: true, awaitPromise: true },
+      {
+        expression: loginInjectionExpression(username, password),
+        returnByValue: true,
+        awaitPromise: true,
+      },
       sessionId,
     );
     stage = result?.result?.value?.stage as string | undefined;
@@ -350,11 +386,13 @@ async function injectLogin(
     await waitForDocument(client, sessionId);
 
     // Check for OTP/2FA requirement after login submission
-    const otpCheck = await client.send(
-      "Runtime.evaluate",
-      { expression: detectOtpExpression(), returnByValue: true },
-      sessionId,
-    ).catch(() => ({ result: { value: { detected: false } } }));
+    const otpCheck = await client
+      .send(
+        "Runtime.evaluate",
+        { expression: detectOtpExpression(), returnByValue: true },
+        sessionId,
+      )
+      .catch(() => ({ result: { value: { detected: false } } }));
 
     const otpDetected = otpCheck?.result?.value?.detected;
     if (otpDetected) {
@@ -370,9 +408,13 @@ async function injectLogin(
   return { submitted: stage === "submitted", stage: stage ?? "unknown" };
 }
 
-async function attachBrowserPage(client: CdpClient): Promise<{ sessionId: string; targetId: string }> {
+async function attachBrowserPage(
+  client: CdpClient,
+): Promise<{ sessionId: string; targetId: string }> {
   const targets = await client.send("Target.getTargets");
-  let targetId = (targets?.targetInfos ?? []).find((t: any) => t.type === "page")?.targetId as string | undefined;
+  let targetId = (targets?.targetInfos ?? []).find((t: any) => t.type === "page")?.targetId as
+    | string
+    | undefined;
   if (!targetId) {
     const created = await client.send("Target.createTarget", { url: "about:blank" });
     targetId = created.targetId as string;
@@ -399,7 +441,13 @@ export interface RemoteBrowserLaunchWithOtp extends RemoteBrowserLaunch {
 
 export async function launchBrowserUse(
   admin: any,
-  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number; capturedCookies?: Array<{ name: string; value: string }> },
+  input: {
+    loginUrl: string;
+    username: string;
+    password: string;
+    timeoutMinutes: number;
+    capturedCookies?: Array<{ name: string; value: string }>;
+  },
 ): Promise<RemoteBrowserLaunchWithOtp> {
   const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
   if (!key) throw new Error("Browser Use is not configured. Contact Admin.");
@@ -445,7 +493,9 @@ export async function launchBrowserUse(
         provider: "browser_use",
         providerSessionId: String(browser.id),
         liveUrl: String(browser.liveUrl),
-        expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
+        expiresAt: String(
+          browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+        ),
         automationSubmitted: true,
       };
     }
@@ -457,7 +507,9 @@ export async function launchBrowserUse(
         provider: "browser_use",
         providerSessionId: String(browser.id),
         liveUrl: String(browser.liveUrl),
-        expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
+        expiresAt: String(
+          browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+        ),
         automationSubmitted: true,
         otp_status: {
           detected: true,
@@ -471,7 +523,9 @@ export async function launchBrowserUse(
       provider: "browser_use",
       providerSessionId: String(browser.id),
       liveUrl: String(browser.liveUrl),
-      expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
+      expiresAt: String(
+        browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+      ),
       automationSubmitted: true,
     };
   } catch (err) {
@@ -484,20 +538,29 @@ export async function launchBrowserUse(
 
 export async function launchCloudflare(
   admin: any,
-  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number; capturedCookies?: Array<{ name: string; value: string }> },
+  input: {
+    loginUrl: string;
+    username: string;
+    password: string;
+    timeoutMinutes: number;
+    capturedCookies?: Array<{ name: string; value: string }>;
+  },
 ): Promise<RemoteBrowserLaunchWithOtp> {
   const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
   const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
-  if (!accountId || !token) throw new Error("Cloudflare Browser Run is not configured. Contact Admin.");
+  if (!accountId || !token)
+    throw new Error("Cloudflare Browser Run is not configured. Contact Admin.");
 
   const keepAliveMs = 600_000;
   const json = await fetchJson(
     `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/browser?keep_alive=${keepAliveMs}&targets=true`,
     { method: "POST", headers: { Authorization: `Bearer ${token}` } },
   );
-  if (json?.success === false) throw new Error("Cloudflare Browser Run could not create a session.");
+  if (json?.success === false)
+    throw new Error("Cloudflare Browser Run could not create a session.");
   const browser = json?.result ?? json;
-  const target = (browser?.targets ?? []).find((t: any) => t.type === "page") ?? browser?.targets?.[0];
+  const target =
+    (browser?.targets ?? []).find((t: any) => t.type === "page") ?? browser?.targets?.[0];
   if (!browser?.sessionId || !target?.webSocketDebuggerUrl) {
     throw new Error("Cloudflare Browser Run did not return a usable page session.");
   }
@@ -505,7 +568,14 @@ export async function launchCloudflare(
   let cdp: CdpClient | null = null;
   try {
     cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
-    const automation = await injectLogin(cdp, input.loginUrl, input.username, input.password, undefined, input.capturedCookies);
+    const automation = await injectLogin(
+      cdp,
+      input.loginUrl,
+      input.username,
+      input.password,
+      undefined,
+      input.capturedCookies,
+    );
     if (!automation.submitted) {
       throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
     }

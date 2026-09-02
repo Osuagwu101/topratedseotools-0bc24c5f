@@ -7,20 +7,58 @@
 
 export type SupportedCurrency = "NGN" | "GHS" | "KES" | "ZAR" | "USD";
 
-export const CURRENCY_META: Record<SupportedCurrency, {
-  code: SupportedCurrency;
-  symbol: string;
-  name: string;
-  decimals: number;
-  /** Paystack minor-unit multiplier. All Paystack currencies use ×100. */
-  minorMultiplier: 100;
-  isNgn: boolean;
-}> = {
-  NGN: { code: "NGN", symbol: "₦", name: "Nigerian Naira", decimals: 0, minorMultiplier: 100, isNgn: true },
-  GHS: { code: "GHS", symbol: "GH₵", name: "Ghanaian Cedi", decimals: 2, minorMultiplier: 100, isNgn: false },
-  KES: { code: "KES", symbol: "KSh", name: "Kenyan Shilling", decimals: 2, minorMultiplier: 100, isNgn: false },
-  ZAR: { code: "ZAR", symbol: "R", name: "South African Rand", decimals: 2, minorMultiplier: 100, isNgn: false },
-  USD: { code: "USD", symbol: "$", name: "US Dollar", decimals: 2, minorMultiplier: 100, isNgn: false },
+export const CURRENCY_META: Record<
+  SupportedCurrency,
+  {
+    code: SupportedCurrency;
+    symbol: string;
+    name: string;
+    decimals: number;
+    /** Paystack minor-unit multiplier. All Paystack currencies use ×100. */
+    minorMultiplier: 100;
+    isNgn: boolean;
+  }
+> = {
+  NGN: {
+    code: "NGN",
+    symbol: "₦",
+    name: "Nigerian Naira",
+    decimals: 0,
+    minorMultiplier: 100,
+    isNgn: true,
+  },
+  GHS: {
+    code: "GHS",
+    symbol: "GH₵",
+    name: "Ghanaian Cedi",
+    decimals: 2,
+    minorMultiplier: 100,
+    isNgn: false,
+  },
+  KES: {
+    code: "KES",
+    symbol: "KSh",
+    name: "Kenyan Shilling",
+    decimals: 2,
+    minorMultiplier: 100,
+    isNgn: false,
+  },
+  ZAR: {
+    code: "ZAR",
+    symbol: "R",
+    name: "South African Rand",
+    decimals: 2,
+    minorMultiplier: 100,
+    isNgn: false,
+  },
+  USD: {
+    code: "USD",
+    symbol: "$",
+    name: "US Dollar",
+    decimals: 2,
+    minorMultiplier: 100,
+    isNgn: false,
+  },
 };
 
 export function isSupportedCurrency(x: unknown): x is SupportedCurrency {
@@ -35,11 +73,7 @@ export function roundForCurrency(n: number, currency: SupportedCurrency): number
 }
 
 /** Convert an NGN amount into `target` using the "1 NGN = rate target" quote. */
-export function convertFromNgn(
-  ngn: number,
-  rate: number,
-  target: SupportedCurrency,
-): number {
+export function convertFromNgn(ngn: number, rate: number, target: SupportedCurrency): number {
   if (target === "NGN") return roundForCurrency(ngn, "NGN");
   if (!Number.isFinite(ngn) || !Number.isFinite(rate) || rate <= 0) {
     throw new Error("Invalid rate for conversion");
@@ -55,7 +89,10 @@ export function applySurcharge(
   surchargeEnabled: boolean,
 ): { fee: number; total: number; percent: number } {
   const isIntl = currency !== "NGN";
-  const percent = isIntl && surchargeEnabled && Number.isFinite(surchargePercent) ? Math.max(0, surchargePercent) : 0;
+  const percent =
+    isIntl && surchargeEnabled && Number.isFinite(surchargePercent)
+      ? Math.max(0, surchargePercent)
+      : 0;
   const fee = roundForCurrency((amount * percent) / 100, currency);
   const total = roundForCurrency(amount + fee, currency);
   return { fee, total, percent };
@@ -87,8 +124,7 @@ export function computeDiscountNgn(
   if (!discount || !Number.isFinite(base) || base <= 0) return 0;
   const value = Number(discount.value);
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const raw =
-    discount.type === "percent" ? (base * Math.min(value, 100)) / 100 : value;
+  const raw = discount.type === "percent" ? (base * Math.min(value, 100)) / 100 : value;
   const rounded = roundForCurrency(raw, "NGN");
   return Math.max(0, Math.min(base, rounded));
 }
@@ -135,7 +171,12 @@ export function buildPricingBreakdown(input: {
   const discountNgn = computeDiscountNgn(base, input.discount);
   const discountedNgn = roundForCurrency(base - discountNgn, "NGN");
   const converted = convertFromNgn(discountedNgn, rate, currency);
-  const { fee, total, percent } = applySurcharge(converted, currency, surchargePercent, surchargeEnabled);
+  const { fee, total, percent } = applySurcharge(
+    converted,
+    currency,
+    surchargePercent,
+    surchargeEnabled,
+  );
   const minor = Math.round(total * CURRENCY_META[currency].minorMultiplier);
   return {
     base_amount_ngn: base,
@@ -177,7 +218,9 @@ function normaliseMerchantCurrencies(
 ): SupportedCurrency[] {
   const out = new Set<SupportedCurrency>([settlement]);
   for (const raw of list ?? DEFAULT_MERCHANT_CURRENCIES) {
-    const code = String(raw ?? "").trim().toUpperCase();
+    const code = String(raw ?? "")
+      .trim()
+      .toUpperCase();
     if (isSupportedCurrency(code)) out.add(code);
   }
   return [...out];
@@ -226,11 +269,12 @@ export function resolveChargePlan(
     display_amount: displayAmount,
     payment_currency: settlementCurrency,
     payment_amount: paymentAmount,
-    payment_minor_units: Math.round(paymentAmount * CURRENCY_META[settlementCurrency].minorMultiplier),
+    payment_minor_units: Math.round(
+      paymentAmount * CURRENCY_META[settlementCurrency].minorMultiplier,
+    ),
     fallback_applied: true,
   };
 }
-
 
 /** Locale-aware format, e.g. "GH₵ 12.34" / "₦5,000". */
 export function formatMoney(amount: number, currency: SupportedCurrency): string {
@@ -259,7 +303,12 @@ export function formatRateHint(currency: SupportedCurrency, rate: number): strin
  * Tolerant formatter for stored payment rows: falls back to NGN when the
  * currency column is empty or holds an unsupported code.
  */
-export function formatAnyMoney(amount: number | null | undefined, currency?: string | null): string {
-  const code = isSupportedCurrency((currency ?? "").toUpperCase()) ? ((currency as string).toUpperCase() as SupportedCurrency) : "NGN";
+export function formatAnyMoney(
+  amount: number | null | undefined,
+  currency?: string | null,
+): string {
+  const code = isSupportedCurrency((currency ?? "").toUpperCase())
+    ? ((currency as string).toUpperCase() as SupportedCurrency)
+    : "NGN";
   return formatMoney(Number(amount ?? 0), code);
 }

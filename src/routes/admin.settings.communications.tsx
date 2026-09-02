@@ -32,10 +32,7 @@ import { adminListEmailTemplates } from "@/lib/email/settings.functions";
 export const Route = createFileRoute("/admin/settings/communications")({
   ssr: false,
   head: () => ({
-    meta: [
-      { title: "Customer Communications — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Customer Communications — Admin" }, { name: "robots", content: "noindex" }],
   }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
@@ -47,7 +44,12 @@ export const Route = createFileRoute("/admin/settings/communications")({
   ),
 });
 
-type Customer = { userId: string; email: string | null; fullName: string | null; registeredAt: string };
+type Customer = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  registeredAt: string;
+};
 
 function CommunicationsPage() {
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -57,8 +59,8 @@ function CommunicationsPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Customer communications</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Search customers, review their message history, and send announcements, access
-          reminders, or receipts. Emails route through the same queue as system emails.
+          Search customers, review their message history, and send announcements, access reminders,
+          or receipts. Emails route through the same queue as system emails.
         </p>
       </header>
 
@@ -186,7 +188,11 @@ function SendPanel({ customer }: { customer: Customer }) {
     queryKey: ["email-templates-min"],
     queryFn: () => adminListEmailTemplates(),
   });
-  const templates = (tplData?.templates ?? []) as Array<{ key: string; name: string; enabled: boolean }>;
+  const templates = (tplData?.templates ?? []) as Array<{
+    key: string;
+    name: string;
+    enabled: boolean;
+  }>;
 
   const [mode, setMode] = useState<"announcement" | "template">("announcement");
   const [templateKey, setTemplateKey] = useState<string>("payment_success");
@@ -219,7 +225,9 @@ function SendPanel({ customer }: { customer: Customer }) {
   const quickTemplates = useMemo(
     () =>
       templates.filter((t) =>
-        ["payment_success", "private_fulfilled", "renewal_success", "customer_invite"].includes(t.key),
+        ["payment_success", "private_fulfilled", "renewal_success", "customer_invite"].includes(
+          t.key,
+        ),
       ),
     [templates],
   );
@@ -227,16 +235,24 @@ function SendPanel({ customer }: { customer: Customer }) {
   return (
     <div className="rounded-2xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Send an email</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Send an email
+        </h2>
         <div className="flex gap-1 rounded-md border p-0.5 text-xs">
           <button
-            className={"rounded px-2 py-1 " + (mode === "announcement" ? "bg-primary text-primary-foreground" : "")}
+            className={
+              "rounded px-2 py-1 " +
+              (mode === "announcement" ? "bg-primary text-primary-foreground" : "")
+            }
             onClick={() => setMode("announcement")}
           >
             Announcement
           </button>
           <button
-            className={"rounded px-2 py-1 " + (mode === "template" ? "bg-primary text-primary-foreground" : "")}
+            className={
+              "rounded px-2 py-1 " +
+              (mode === "template" ? "bg-primary text-primary-foreground" : "")
+            }
             onClick={() => setMode("template")}
           >
             Resend template
@@ -248,7 +264,11 @@ function SendPanel({ customer }: { customer: Customer }) {
         <div className="mt-3 space-y-3">
           <div>
             <Label>Subject</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Your Canva Pro access has been updated" />
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="e.g. Your Canva Pro access has been updated"
+            />
           </div>
           <div>
             <Label>Message (HTML allowed)</Label>
@@ -259,7 +279,8 @@ function SendPanel({ customer }: { customer: Customer }) {
               placeholder="<p>Hi {{name}}, …</p>"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              You can use <code>{"{{name}}"}</code>. Basic HTML like &lt;p&gt;, &lt;strong&gt;, &lt;a&gt; is supported.
+              You can use <code>{"{{name}}"}</code>. Basic HTML like &lt;p&gt;, &lt;strong&gt;,
+              &lt;a&gt; is supported.
             </p>
           </div>
         </div>
@@ -281,7 +302,8 @@ function SendPanel({ customer }: { customer: Customer }) {
                 ))}
             </select>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              The template will render with whatever data is on file for this customer. Best for resending welcome / receipt / access-info emails.
+              The template will render with whatever data is on file for this customer. Best for
+              resending welcome / receipt / access-info emails.
             </p>
           </div>
           {quickTemplates.length > 0 && (
@@ -307,8 +329,7 @@ function SendPanel({ customer }: { customer: Customer }) {
         <Button
           onClick={() => send.mutate()}
           disabled={
-            send.isPending ||
-            (mode === "announcement" && (!subject.trim() || !body.trim()))
+            send.isPending || (mode === "announcement" && (!subject.trim() || !body.trim()))
           }
         >
           <Send className="mr-1.5 h-3.5 w-3.5" />
@@ -362,9 +383,7 @@ function HistoryPanel({ customer }: { customer: Customer }) {
                 <td className="px-3 py-2">{m.templateKey}</td>
                 <td className="px-3 py-2">
                   <div className="truncate max-w-[280px]">{m.subject ?? "—"}</div>
-                  {m.lastError && (
-                    <div className="text-[11px] text-destructive">{m.lastError}</div>
-                  )}
+                  {m.lastError && <div className="text-[11px] text-destructive">{m.lastError}</div>}
                 </td>
                 <td className="px-3 py-2">
                   <StatusPill status={m.status} />
@@ -399,7 +418,11 @@ function StatusPill({ status }: { status: string }) {
         : status === "cancelled"
           ? "bg-muted text-muted-foreground"
           : "bg-warning/15 text-warning";
-  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${cls}`}>{status}</span>;
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${cls}`}>
+      {status}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------- Expiring
@@ -422,15 +445,15 @@ function ExpiringTab({ onOpenCustomer }: { onOpenCustomer: (c: Customer) => void
           templateKey: "admin_manual",
           subject: "Your subscription is about to expire",
           bodyHtml:
-            "<p>Hi {{name}},</p><p>Your subscription is expiring soon. Renew now to keep uninterrupted access to your tools.</p><p><a href=\"https://topratedseotools.com/dashboard\">Open dashboard</a></p>",
+            '<p>Hi {{name}},</p><p>Your subscription is expiring soon. Renew now to keep uninterrupted access to your tools.</p><p><a href="https://topratedseotools.com/dashboard">Open dashboard</a></p>',
         },
       }),
-    onSuccess: (r) => (r.ok ? toast.success("Reminder queued") : toast.warning(`Not queued: ${r.skipped}`)),
+    onSuccess: (r) =>
+      r.ok ? toast.success("Reminder queued") : toast.warning(`Not queued: ${r.skipped}`),
     onError: (e: Error) => toast.error(e.message),
   });
   const extend = useMutation({
-    mutationFn: (v: { orderId: string; days: number }) =>
-      adminExtendOrderExpiry({ data: v }),
+    mutationFn: (v: { orderId: string; days: number }) => adminExtendOrderExpiry({ data: v }),
     onSuccess: () => {
       toast.success("Access extended");
       refetch();
@@ -443,13 +466,19 @@ function ExpiringTab({ onOpenCustomer }: { onOpenCustomer: (c: Customer) => void
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 rounded-md border p-0.5 text-xs">
           <button
-            className={"rounded px-2 py-1 " + (mode === "expiring" ? "bg-primary text-primary-foreground" : "")}
+            className={
+              "rounded px-2 py-1 " +
+              (mode === "expiring" ? "bg-primary text-primary-foreground" : "")
+            }
             onClick={() => setMode("expiring")}
           >
             Expiring soon
           </button>
           <button
-            className={"rounded px-2 py-1 " + (mode === "renewal_failed" ? "bg-primary text-primary-foreground" : "")}
+            className={
+              "rounded px-2 py-1 " +
+              (mode === "renewal_failed" ? "bg-primary text-primary-foreground" : "")
+            }
             onClick={() => setMode("renewal_failed")}
           >
             Renewal failed

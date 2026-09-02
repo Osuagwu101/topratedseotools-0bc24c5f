@@ -12,8 +12,12 @@ const q = queryOptions({ queryKey: ["blog", "settings"], queryFn: () => getBlogS
 
 export const Route = createFileRoute("/admin/blog/settings")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
-  head: () => ({ meta: [{ title: "Blog settings — Admin" }, { name: "robots", content: "noindex" }] }),
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
+  head: () => ({
+    meta: [{ title: "Blog settings — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: SettingsAdmin,
 });
@@ -39,7 +43,9 @@ function SettingsAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Blog settings</h1>
         </div>
-        <div className="mt-6"><BlogAdminNav /></div>
+        <div className="mt-6">
+          <BlogAdminNav />
+        </div>
 
         <form
           onSubmit={(e) => {

@@ -14,7 +14,9 @@ const checklistQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/settings/migration")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Migration & Launch — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Migration & Launch — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -22,7 +24,9 @@ export const Route = createFileRoute("/admin/settings/migration")({
       throw redirect({ to: "/admin/dashboard" });
     }
   },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(checklistQuery); },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(checklistQuery);
+  },
   component: MigrationPage,
 });
 
@@ -40,15 +44,17 @@ function MigrationPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Migration Centre</h1>
           <p className="text-sm text-muted-foreground">
-            Everything you need in place before moving hosting providers. Anything with a warning
-            or failure below needs attention.
+            Everything you need in place before moving hosting providers. Anything with a warning or
+            failure below needs attention.
           </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Readiness checklist</CardTitle>
-            <CardDescription>Generated {new Date(data.generatedAt).toLocaleString()}</CardDescription>
+            <CardDescription>
+              Generated {new Date(data.generatedAt).toLocaleString()}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">

@@ -22,7 +22,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/settings/emergency")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Emergency Controls — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Emergency Controls — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -35,15 +37,34 @@ export const Route = createFileRoute("/admin/settings/emergency")({
 
 type Key = "maintenance_mode" | "orders_paused" | "payments_paused" | "emails_paused";
 const CONTROLS: { key: Key; label: string; description: string }[] = [
-  { key: "maintenance_mode", label: "Maintenance mode", description: "Blocks new checkouts and shows a maintenance notice to customers." },
-  { key: "orders_paused", label: "Pause new orders", description: "Customers can browse tools but cannot start a new order." },
-  { key: "payments_paused", label: "Pause payments", description: "Payment initialisation is blocked. Existing sessions may still complete." },
-  { key: "emails_paused", label: "Pause outgoing emails", description: "The dispatcher stops sending. Queued emails remain and resume when re-enabled." },
+  {
+    key: "maintenance_mode",
+    label: "Maintenance mode",
+    description: "Blocks new checkouts and shows a maintenance notice to customers.",
+  },
+  {
+    key: "orders_paused",
+    label: "Pause new orders",
+    description: "Customers can browse tools but cannot start a new order.",
+  },
+  {
+    key: "payments_paused",
+    label: "Pause payments",
+    description: "Payment initialisation is blocked. Existing sessions may still complete.",
+  },
+  {
+    key: "emails_paused",
+    label: "Pause outgoing emails",
+    description: "The dispatcher stops sending. Queued emails remain and resume when re-enabled.",
+  },
 ];
 
 function EmergencyPage() {
   const qc = useQueryClient();
-  const state = useQuery({ queryKey: ["emergency-controls"], queryFn: () => getEmergencyControls() });
+  const state = useQuery({
+    queryKey: ["emergency-controls"],
+    queryFn: () => getEmergencyControls(),
+  });
   const [pending, setPending] = useState<{ key: Key; enabled: boolean } | null>(null);
 
   const toggle = useMutation({
@@ -66,8 +87,8 @@ function EmergencyPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Emergency Controls</h1>
           <p className="text-sm text-muted-foreground">
-            Use these switches during an incident. Every change is confirmed and appears in
-            the admin activity log.
+            Use these switches during an incident. Every change is confirmed and appears in the
+            admin activity log.
           </p>
         </div>
 
@@ -99,11 +120,17 @@ function EmergencyPage() {
         </Card>
       </section>
 
-      <AlertDialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
+      <AlertDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pending?.enabled ? "Enable" : "Disable"} {CONTROLS.find((c) => c.key === pending?.key)?.label}?
+              {pending?.enabled ? "Enable" : "Disable"}{" "}
+              {CONTROLS.find((c) => c.key === pending?.key)?.label}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pending?.enabled

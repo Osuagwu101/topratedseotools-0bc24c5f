@@ -51,7 +51,10 @@ const revisionsQuery = (id: string) =>
     enabled: !!id,
   });
 
-interface FaqItem { question: string; answer: string }
+interface FaqItem {
+  question: string;
+  answer: string;
+}
 
 interface FormState {
   title: string;
@@ -122,7 +125,9 @@ export function PostEditor({ mode, id }: { mode: Mode; id?: string }) {
 interface CtxProps {
   catsData: { categories: Array<{ id: string; name: string }> };
   tagsData: { tags: Array<{ id: string; name: string }> };
-  settingsData: { settings: { keyword_highlight_enabled: boolean; keyword_highlight_color: string } };
+  settingsData: {
+    settings: { keyword_highlight_enabled: boolean; keyword_highlight_color: string };
+  };
   ctasData: { templates: Array<{ id: string; name: string; title: string }> };
 }
 
@@ -144,10 +149,11 @@ function EditPostEditor({
     content: (p.content as string) ?? "",
     featured_image: (p.featured_image as string) ?? "",
     featured_image_alt: (p.featured_image_alt as string) ?? "",
-    featured_image_source: ((p.featured_image_source as FormState["featured_image_source"]) ?? "manual"),
+    featured_image_source:
+      (p.featured_image_source as FormState["featured_image_source"]) ?? "manual",
     featured_image_credit: (p.featured_image_credit as string) ?? "",
     category_id: (p.category_id as string) ?? "",
-    status: ((p.status as FormState["status"]) ?? "draft"),
+    status: (p.status as FormState["status"]) ?? "draft",
     scheduled_for: p.scheduled_for
       ? new Date(p.scheduled_for as string).toISOString().slice(0, 16)
       : "",
@@ -255,16 +261,16 @@ function EditorBody({
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">{mode === "create" ? "New article" : "Edit article"}</h1>
+            <h1 className="text-2xl font-bold">
+              {mode === "create" ? "New article" : "Edit article"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {readingTime} min read · {form.content.trim().split(/\s+/).filter(Boolean).length} words
+              {readingTime} min read · {form.content.trim().split(/\s+/).filter(Boolean).length}{" "}
+              words
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/admin/blog"
-              className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
-            >
+            <Link to="/admin/blog" className="rounded-md border px-3 py-2 text-sm hover:bg-muted">
               Back
             </Link>
           </div>
@@ -315,7 +321,9 @@ function EditorBody({
                     onClick={() => setHighlightOn((v) => !v)}
                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
                     style={
-                      highlightOn ? { borderColor: highlightColor, background: `${highlightColor}30` } : undefined
+                      highlightOn
+                        ? { borderColor: highlightColor, background: `${highlightColor}30` }
+                        : undefined
                     }
                     title="Highlight semantic keywords in preview"
                   >
@@ -360,13 +368,17 @@ function EditorBody({
 
           <aside className="space-y-4">
             <div className="rounded-2xl border bg-card p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Publish</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Publish
+              </h3>
               <div className="mt-3 space-y-3 text-sm">
                 <label className="block">
                   <span className="text-muted-foreground">Status</span>
                   <select
                     value={form.status}
-                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as FormState["status"] }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, status: e.target.value as FormState["status"] }))
+                    }
                     className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
                   >
                     <option value="draft">Draft</option>
@@ -414,7 +426,9 @@ function EditorBody({
             </div>
 
             <div className="rounded-2xl border bg-card p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category & Tags</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Category & Tags
+              </h3>
               <label className="mt-3 block text-sm">
                 <span className="text-muted-foreground">Category</span>
                 <select
@@ -424,7 +438,9 @@ function EditorBody({
                 >
                   <option value="">— None —</option>
                   {catsData.categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -440,7 +456,9 @@ function EditorBody({
                         onClick={() =>
                           setForm((f) => ({
                             ...f,
-                            tag_ids: on ? f.tag_ids.filter((x) => x !== t.id) : [...f.tag_ids, t.id],
+                            tag_ids: on
+                              ? f.tag_ids.filter((x) => x !== t.id)
+                              : [...f.tag_ids, t.id],
                           }))
                         }
                         className={
@@ -455,7 +473,11 @@ function EditorBody({
                   })}
                   {tagsData.tags.length === 0 && (
                     <span className="text-xs text-muted-foreground">
-                      No tags yet — <Link to="/admin/blog/tags" className="text-primary">create some</Link>.
+                      No tags yet —{" "}
+                      <Link to="/admin/blog/tags" className="text-primary">
+                        create some
+                      </Link>
+                      .
                     </span>
                   )}
                 </div>
@@ -482,7 +504,9 @@ function EditorBody({
             />
 
             <div className="rounded-2xl border bg-card p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SEO</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                SEO
+              </h3>
               <label className="mt-3 block text-sm">
                 <span className="text-muted-foreground">Title tag</span>
                 <input
@@ -535,7 +559,9 @@ function EditorBody({
                   />
                   <textarea
                     value={form.twitter_description}
-                    onChange={(e) => setForm((f) => ({ ...f, twitter_description: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, twitter_description: e.target.value }))
+                    }
                     placeholder="twitter:description"
                     rows={2}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -551,10 +577,7 @@ function EditorBody({
               onChange={(kws) => setForm((f) => ({ ...f, semantic_keywords: kws }))}
             />
 
-            <FaqPanel
-              faq={form.faq}
-              onChange={(faq) => setForm((f) => ({ ...f, faq }))}
-            />
+            <FaqPanel faq={form.faq} onChange={(faq) => setForm((f) => ({ ...f, faq }))} />
 
             <div className="rounded-2xl border bg-card p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -574,20 +597,32 @@ function EditorBody({
               </select>
               <p className="mt-2 text-xs text-muted-foreground">
                 Leave blank to let the AI generator pick the best match. Manage templates in{" "}
-                <Link to="/admin/blog/ctas" className="text-primary">CTAs</Link>.
+                <Link to="/admin/blog/ctas" className="text-primary">
+                  CTAs
+                </Link>
+                .
               </p>
             </div>
 
-            {mode === "edit" && id && <RevisionsPanel postId={id} onRestore={(rid) => {
-              if (confirm("Restore this revision? Current content will be snapshotted first.")) {
-                restore({ data: { postId: id, revisionId: rid } }).then(() => {
-                  toast.success("Revision restored");
-                  qc.invalidateQueries({ queryKey: ["admin", "blog", "post", id] });
-                  qc.invalidateQueries({ queryKey: ["admin", "blog", "revisions", id] });
-                  router.invalidate();
-                }).catch((e) => toast.error(e instanceof Error ? e.message : "Failed"));
-              }
-            }} />}
+            {mode === "edit" && id && (
+              <RevisionsPanel
+                postId={id}
+                onRestore={(rid) => {
+                  if (
+                    confirm("Restore this revision? Current content will be snapshotted first.")
+                  ) {
+                    restore({ data: { postId: id, revisionId: rid } })
+                      .then(() => {
+                        toast.success("Revision restored");
+                        qc.invalidateQueries({ queryKey: ["admin", "blog", "post", id] });
+                        qc.invalidateQueries({ queryKey: ["admin", "blog", "revisions", id] });
+                        router.invalidate();
+                      })
+                      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"));
+                  }
+                }}
+              />
+            )}
           </aside>
         </div>
       </div>
@@ -595,7 +630,13 @@ function EditorBody({
   );
 }
 
-function RevisionsPanel({ postId, onRestore }: { postId: string; onRestore: (rid: string) => void }) {
+function RevisionsPanel({
+  postId,
+  onRestore,
+}: {
+  postId: string;
+  onRestore: (rid: string) => void;
+}) {
   const { data } = useSuspenseQuery(revisionsQuery(postId));
   return (
     <div className="rounded-2xl border bg-card p-4">
@@ -604,7 +645,10 @@ function RevisionsPanel({ postId, onRestore }: { postId: string; onRestore: (rid
       </h3>
       <ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
         {data.revisions.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs">
+          <li
+            key={r.id}
+            className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
+          >
             <div>
               <div className="font-medium">{r.title}</div>
               <div className="text-muted-foreground">{formatDate(r.created_at)}</div>
@@ -737,13 +781,7 @@ function SemanticKeywordsPanel({
   );
 }
 
-function FaqPanel({
-  faq,
-  onChange,
-}: {
-  faq: FaqItem[];
-  onChange: (f: FaqItem[]) => void;
-}) {
+function FaqPanel({ faq, onChange }: { faq: FaqItem[]; onChange: (f: FaqItem[]) => void }) {
   const add = () => onChange([...faq, { question: "", answer: "" }]);
   return (
     <div className="rounded-2xl border bg-card p-4">
@@ -761,9 +799,7 @@ function FaqPanel({
       </div>
       <div className="mt-3 space-y-3">
         {faq.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Emitted in-page and as FAQPage JSON-LD.
-          </p>
+          <p className="text-xs text-muted-foreground">Emitted in-page and as FAQPage JSON-LD.</p>
         )}
         {faq.map((f, i) => (
           <div key={i} className="rounded-md border p-2">
@@ -804,4 +840,3 @@ function FaqPanel({
     </div>
   );
 }
-

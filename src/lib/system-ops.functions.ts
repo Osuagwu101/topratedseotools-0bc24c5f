@@ -18,10 +18,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
 import { isResendConfigured } from "@/lib/email/resend";
 
-async function assertPerm(
-  ctx: { supabase: any; userId: string },
-  perm: string,
-): Promise<any> {
+async function assertPerm(ctx: { supabase: any; userId: string }, perm: string): Promise<any> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: role } = await (supabaseAdmin as any)
     .from("user_roles")
@@ -31,10 +28,10 @@ async function assertPerm(
     .maybeSingle();
   if (!role || role.is_active === false) throw new Error("Forbidden");
   if (role.is_super_admin) return supabaseAdmin;
-  const { data: allowed } = await (supabaseAdmin as any).rpc(
-    "admin_effective_permission",
-    { _uid: ctx.userId, _perm: perm },
-  );
+  const { data: allowed } = await (supabaseAdmin as any).rpc("admin_effective_permission", {
+    _uid: ctx.userId,
+    _perm: perm,
+  });
   if (!allowed) throw new Error("Forbidden");
   return supabaseAdmin;
 }
@@ -177,15 +174,23 @@ export const exportConfiguration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertPerm(context, "backups.access");
-    const [tools, pricing, promotions, templates, settings, roles, permissions] = await Promise.all([
-      admin.from("tool_settings").select("*").limit(1000),
-      admin.from("tool_pricing").select("*").limit(2000),
-      admin.from("promotions").select("*").limit(500),
-      admin.from("email_templates").select("key, name, subject, html_body, text_body, enabled").limit(200),
-      admin.from("site_settings").select("*").eq("id", true).maybeSingle(),
-      admin.from("admin_accounts").select("user_id, account_email, role_key, is_active").limit(200),
-      admin.from("admin_permissions").select("*").limit(1000),
-    ]);
+    const [tools, pricing, promotions, templates, settings, roles, permissions] = await Promise.all(
+      [
+        admin.from("tool_settings").select("*").limit(1000),
+        admin.from("tool_pricing").select("*").limit(2000),
+        admin.from("promotions").select("*").limit(500),
+        admin
+          .from("email_templates")
+          .select("key, name, subject, html_body, text_body, enabled")
+          .limit(200),
+        admin.from("site_settings").select("*").eq("id", true).maybeSingle(),
+        admin
+          .from("admin_accounts")
+          .select("user_id, account_email, role_key, is_active")
+          .limit(200),
+        admin.from("admin_permissions").select("*").limit(1000),
+      ],
+    );
 
     const payload = {
       version: 1,
@@ -205,7 +210,7 @@ export const exportConfiguration = createServerFn({ method: "POST" })
       action: "config.exported",
       area: "config-export",
       success: true,
-      reference: `${(tools.data?.length ?? 0)} tools · ${(pricing.data?.length ?? 0)} pricing rows`,
+      reference: `${tools.data?.length ?? 0} tools · ${pricing.data?.length ?? 0} pricing rows`,
     });
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -244,7 +249,12 @@ async function runProbes(admin: any): Promise<HealthCheck[]> {
       fix: error ? "Contact hosting support — the database is not responding." : undefined,
     });
   } catch (e: any) {
-    checks.push({ key: "database", label: "Database", status: "fail", detail: String(e?.message ?? e) });
+    checks.push({
+      key: "database",
+      label: "Database",
+      status: "fail",
+      detail: String(e?.message ?? e),
+    });
   }
 
   // 2. Payment provider
@@ -253,13 +263,19 @@ async function runProbes(admin: any): Promise<HealthCheck[]> {
     key: "payments",
     label: "Payment provider (Paystack)",
     status: paystackConfigured ? "ok" : "fail",
-    detail: paystackConfigured ? "Paystack secret key configured." : "PAYSTACK_SECRET_KEY is missing.",
+    detail: paystackConfigured
+      ? "Paystack secret key configured."
+      : "PAYSTACK_SECRET_KEY is missing.",
     fix: paystackConfigured ? undefined : "Add PAYSTACK_SECRET_KEY in Cloud → Secrets.",
   });
 
   // 3. Email provider
   const resendReady = isResendConfigured();
-  const { data: es } = await admin.from("email_settings").select("from_email, sending_domain, resend_domain_status, production_sending").eq("id", true).maybeSingle();
+  const { data: es } = await admin
+    .from("email_settings")
+    .select("from_email, sending_domain, resend_domain_status, production_sending")
+    .eq("id", true)
+    .maybeSingle();
   let emailStatus: HealthStatus = "ok";
   let emailDetail = "Resend configured.";
   let emailFix: string | undefined;
@@ -280,7 +296,13 @@ async function runProbes(admin: any): Promise<HealthCheck[]> {
     emailDetail = "Production sending is disabled.";
     emailFix = "Turn on production sending in Admin → Settings → Email.";
   }
-  checks.push({ key: "email", label: "Email provider (Resend)", status: emailStatus, detail: emailDetail, fix: emailFix });
+  checks.push({
+    key: "email",
+    label: "Email provider (Resend)",
+    status: emailStatus,
+    detail: emailDetail,
+    fix: emailFix,
+  });
 
   // 4. Storage (blog images bucket)
   try {
@@ -293,7 +315,12 @@ async function runProbes(admin: any): Promise<HealthCheck[]> {
       fix: error ? "Re-create the blog-images bucket in Cloud → Storage." : undefined,
     });
   } catch (e: any) {
-    checks.push({ key: "storage", label: "Storage buckets", status: "warn", detail: String(e?.message ?? e) });
+    checks.push({
+      key: "storage",
+      label: "Storage buckets",
+      status: "warn",
+      detail: String(e?.message ?? e),
+    });
   }
 
   // 5. Background jobs / cron
@@ -371,21 +398,32 @@ export const getMigrationChecklist = createServerFn({ method: "GET" })
     const admin = await assertPerm(context, "migration.access");
     const checks = await runProbes(admin);
     // Add migration-specific items.
-    const { data: settings } = await admin.from("site_settings").select("admin_whatsapp_number").eq("id", true).maybeSingle();
+    const { data: settings } = await admin
+      .from("site_settings")
+      .select("admin_whatsapp_number")
+      .eq("id", true)
+      .maybeSingle();
     checks.push({
       key: "whatsapp",
       label: "Admin WhatsApp number",
       status: settings?.admin_whatsapp_number ? "ok" : "warn",
-      detail: settings?.admin_whatsapp_number ? "Configured." : "Not set — Private-access fulfilment CTAs won't work.",
+      detail: settings?.admin_whatsapp_number
+        ? "Configured."
+        : "Not set — Private-access fulfilment CTAs won't work.",
       fix: settings?.admin_whatsapp_number ? undefined : "Set it in Admin → Settings → General.",
     });
-    const { data: templates } = await admin.from("email_templates").select("key, enabled").limit(50);
-    const disabledTemplates = ((templates ?? []) as any[]).filter((t) => t.enabled === false).length;
+    const { data: templates } = await admin
+      .from("email_templates")
+      .select("key, enabled")
+      .limit(50);
+    const disabledTemplates = ((templates ?? []) as any[]).filter(
+      (t) => t.enabled === false,
+    ).length;
     checks.push({
       key: "templates",
       label: "Email templates",
       status: disabledTemplates > 3 ? "warn" : "ok",
-      detail: `${((templates ?? []).length)} templates present, ${disabledTemplates} disabled.`,
+      detail: `${(templates ?? []).length} templates present, ${disabledTemplates} disabled.`,
     });
     return {
       checks,
@@ -403,7 +441,9 @@ export const getEmergencyControls = createServerFn({ method: "GET" })
     const admin = await assertPerm(context, "emergency.use");
     const { data } = await admin
       .from("site_settings")
-      .select("maintenance_mode, orders_paused, payments_paused, emails_paused, updated_at, updated_by")
+      .select(
+        "maintenance_mode, orders_paused, payments_paused, emails_paused, updated_at, updated_by",
+      )
       .eq("id", true)
       .maybeSingle();
     return {
@@ -415,7 +455,12 @@ export const getEmergencyControls = createServerFn({ method: "GET" })
     };
   });
 
-const CONTROL_KEYS = ["maintenance_mode", "orders_paused", "payments_paused", "emails_paused"] as const;
+const CONTROL_KEYS = [
+  "maintenance_mode",
+  "orders_paused",
+  "payments_paused",
+  "emails_paused",
+] as const;
 type ControlKey = (typeof CONTROL_KEYS)[number];
 
 export const setEmergencyControl = createServerFn({ method: "POST" })
@@ -460,8 +505,17 @@ export const setEmergencyControl = createServerFn({ method: "POST" })
 // ────────────────────────────────────────────────────────────────────────────
 
 type ReadyStatus = "ok" | "warn" | "fail";
-interface ReadyItem { label: string; status: ReadyStatus; detail: string; fix?: string }
-interface ReadySection { key: string; title: string; items: ReadyItem[] }
+interface ReadyItem {
+  label: string;
+  status: ReadyStatus;
+  detail: string;
+  fix?: string;
+}
+interface ReadySection {
+  key: string;
+  title: string;
+  items: ReadyItem[];
+}
 
 function envItem(name: string, description: string, required = true): ReadyItem {
   const present = Boolean(process.env[name]);
@@ -495,7 +549,11 @@ export const getMigrationReadiness = createServerFn({ method: "GET" })
 
     // Third-party integrations (DB-recorded status)
     const [{ data: es }, { data: mkt }, { data: settings }] = await Promise.all([
-      admin.from("email_settings").select("from_email, sending_domain, resend_domain_status, production_sending").eq("id", true).maybeSingle(),
+      admin
+        .from("email_settings")
+        .select("from_email, sending_domain, resend_domain_status, production_sending")
+        .eq("id", true)
+        .maybeSingle(),
       admin.from("marketing_integrations").select("provider, enabled, config").limit(20),
       admin.from("site_settings").select("admin_whatsapp_number").eq("id", true).maybeSingle(),
     ]);
@@ -504,16 +562,28 @@ export const getMigrationReadiness = createServerFn({ method: "GET" })
     integrations.push({
       label: "Paystack — payments",
       status: process.env.PAYSTACK_SECRET_KEY ? "ok" : "fail",
-      detail: process.env.PAYSTACK_SECRET_KEY ? "Secret key present. Webhook: /api/public/webhooks/paystack" : "PAYSTACK_SECRET_KEY missing.",
-      fix: process.env.PAYSTACK_SECRET_KEY ? "Update the Paystack dashboard webhook URL after migration." : "Add PAYSTACK_SECRET_KEY.",
+      detail: process.env.PAYSTACK_SECRET_KEY
+        ? "Secret key present. Webhook: /api/public/webhooks/paystack"
+        : "PAYSTACK_SECRET_KEY missing.",
+      fix: process.env.PAYSTACK_SECRET_KEY
+        ? "Update the Paystack dashboard webhook URL after migration."
+        : "Add PAYSTACK_SECRET_KEY.",
     });
     integrations.push({
       label: "Resend — email",
-      status: !isResendConfigured() ? "fail" : es?.resend_domain_status === "verified" && es?.production_sending ? "ok" : "warn",
+      status: !isResendConfigured()
+        ? "fail"
+        : es?.resend_domain_status === "verified" && es?.production_sending
+          ? "ok"
+          : "warn",
       detail: !isResendConfigured()
         ? "RESEND_API_KEY missing."
         : `Domain ${es?.sending_domain ?? "(unset)"} · status ${es?.resend_domain_status ?? "unknown"} · production sending ${es?.production_sending ? "on" : "off"}.`,
-      fix: !isResendConfigured() ? "Add RESEND_API_KEY." : es?.resend_domain_status === "verified" && es?.production_sending ? undefined : "Verify sending domain and enable production sending in Email settings.",
+      fix: !isResendConfigured()
+        ? "Add RESEND_API_KEY."
+        : es?.resend_domain_status === "verified" && es?.production_sending
+          ? undefined
+          : "Verify sending domain and enable production sending in Email settings.",
     });
     const mktRows = (mkt ?? []) as any[];
     const meta = mktRows.find((m) => m.provider === "meta_pixel");
@@ -530,50 +600,102 @@ export const getMigrationReadiness = createServerFn({ method: "GET" })
     });
     integrations.push({
       label: "AI provider (blog generator)",
-      status: (process.env.LOVABLE_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY) ? "ok" : "warn",
-      detail: process.env.LOVABLE_API_KEY ? "Lovable AI configured." : process.env.OPENAI_API_KEY ? "OpenAI configured." : process.env.GOOGLE_GEMINI_API_KEY ? "Gemini configured." : "No AI provider configured.",
+      status:
+        process.env.LOVABLE_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        process.env.GOOGLE_GEMINI_API_KEY
+          ? "ok"
+          : "warn",
+      detail: process.env.LOVABLE_API_KEY
+        ? "Lovable AI configured."
+        : process.env.OPENAI_API_KEY
+          ? "OpenAI configured."
+          : process.env.GOOGLE_GEMINI_API_KEY
+            ? "Gemini configured."
+            : "No AI provider configured.",
     });
     integrations.push({
       label: "Admin WhatsApp fulfilment",
       status: settings?.admin_whatsapp_number ? "ok" : "warn",
-      detail: settings?.admin_whatsapp_number ? "Configured." : "Not set — Private-access WhatsApp CTA won't work.",
+      detail: settings?.admin_whatsapp_number
+        ? "Configured."
+        : "Not set — Private-access WhatsApp CTA won't work.",
       fix: settings?.admin_whatsapp_number ? undefined : "Set in Admin → Settings → General.",
     });
 
     // Database
-    let dbOk = true; let dbDetail = "Connected.";
+    let dbOk = true;
+    let dbDetail = "Connected.";
     try {
       const { error } = await admin.from("site_settings").select("id").eq("id", true).limit(1);
-      if (error) { dbOk = false; dbDetail = error.message; }
-    } catch (e: any) { dbOk = false; dbDetail = String(e?.message ?? e); }
+      if (error) {
+        dbOk = false;
+        dbDetail = error.message;
+      }
+    } catch (e: any) {
+      dbOk = false;
+      dbDetail = String(e?.message ?? e);
+    }
     const database: ReadyItem[] = [
       { label: "Database connectivity", status: dbOk ? "ok" : "fail", detail: dbDetail },
-      { label: "Row-Level Security", status: "ok", detail: "All public tables have RLS policies + explicit GRANTs (verified in migrations)." },
+      {
+        label: "Row-Level Security",
+        status: "ok",
+        detail: "All public tables have RLS policies + explicit GRANTs (verified in migrations).",
+      },
       { label: "Extensions", status: "ok", detail: "pg_cron, pgcrypto, uuid-ossp." },
-      { label: "Postgres version", status: "ok", detail: "Requires Postgres 14 or newer on the target host." },
-      { label: "Storage buckets", status: "ok", detail: "blog-images, tool-images (recreate on new host, private access)." },
+      {
+        label: "Postgres version",
+        status: "ok",
+        detail: "Requires Postgres 14 or newer on the target host.",
+      },
+      {
+        label: "Storage buckets",
+        status: "ok",
+        detail: "blog-images, tool-images (recreate on new host, private access).",
+      },
     ];
 
     // Cron / background tasks
     const cron: ReadyItem[] = [
-      { label: "Email dispatcher", status: "ok",
-        detail: "POST /api/public/hooks/email-dispatcher every 5 min · Authorization: Bearer $CRON_SECRET." },
-      { label: "Private access auto-fulfilment", status: "ok",
-        detail: "POST /api/public/hooks/auto-fulfil-private every 15 min · Authorization: Bearer $CRON_SECRET." },
+      {
+        label: "Email dispatcher",
+        status: "ok",
+        detail:
+          "POST /api/public/hooks/email-dispatcher every 5 min · Authorization: Bearer $CRON_SECRET.",
+      },
+      {
+        label: "Private access auto-fulfilment",
+        status: "ok",
+        detail:
+          "POST /api/public/hooks/auto-fulfil-private every 15 min · Authorization: Bearer $CRON_SECRET.",
+      },
     ];
 
     // Webhooks
     const webhooks: ReadyItem[] = [
-      { label: "Paystack webhook", status: "ok",
-        detail: "POST /api/public/webhooks/paystack — HMAC-SHA256 signature verified against PAYSTACK_SECRET_KEY. Idempotent by event id." },
+      {
+        label: "Paystack webhook",
+        status: "ok",
+        detail:
+          "POST /api/public/webhooks/paystack — HMAC-SHA256 signature verified against PAYSTACK_SECRET_KEY. Idempotent by event id.",
+      },
     ];
 
     // Application readiness
     const app: ReadyItem[] = [
       { label: "Source code", status: "ok", detail: "TanStack Start build — ready to deploy." },
       { label: "Database connection documented", status: "ok", detail: "See Migration Guide." },
-      { label: "Environment variables documented", status: "ok", detail: "See list below and Migration Guide." },
-      { label: "Third-party integrations documented", status: "ok", detail: "Paystack, Resend, AI providers, marketing." },
+      {
+        label: "Environment variables documented",
+        status: "ok",
+        detail: "See list below and Migration Guide.",
+      },
+      {
+        label: "Third-party integrations documented",
+        status: "ok",
+        detail: "Paystack, Resend, AI providers, marketing.",
+      },
       { label: "Cron jobs documented", status: "ok", detail: "See Cron section." },
       { label: "Webhooks documented", status: "ok", detail: "See Webhooks section." },
     ];

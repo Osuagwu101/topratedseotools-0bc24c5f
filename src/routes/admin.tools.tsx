@@ -9,6 +9,8 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 
 export const Route = createFileRoute("/admin/tools")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   component: () => <Outlet />,
 });

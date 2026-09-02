@@ -87,7 +87,13 @@ export function isExpiringSoon(
 }
 
 export function healthIsUnhealthy(h: HealthStatus): boolean {
-  return h === "full" || h === "under_maintenance" || h === "login_problem" || h === "expired" || h === "suspended";
+  return (
+    h === "full" ||
+    h === "under_maintenance" ||
+    h === "login_problem" ||
+    h === "expired" ||
+    h === "suspended"
+  );
 }
 
 // ------------- Alerts -------------
@@ -293,8 +299,16 @@ export function summariseByTool(
     if (!s) {
       s = {
         tool_slug: slug,
-        totalAccounts: 0, healthy: 0, almostFull: 0, full: 0, unhealthy: 0,
-        totalCapacity: 0, assigned: 0, available: 0, awaiting: 0, expiringSoon: 0,
+        totalAccounts: 0,
+        healthy: 0,
+        almostFull: 0,
+        full: 0,
+        unhealthy: 0,
+        totalCapacity: 0,
+        assigned: 0,
+        available: 0,
+        awaiting: 0,
+        expiringSoon: 0,
         needsReview: 0,
       };
       bySlug.set(slug, s);
@@ -330,7 +344,10 @@ export interface BulkTargetAccount {
   expires_at: string | null;
 }
 
-export interface BulkPlanItem { order_id: string; target_account_id: string | null; }
+export interface BulkPlanItem {
+  order_id: string;
+  target_account_id: string | null;
+}
 export interface BulkPlanResult {
   assignments: BulkPlanItem[];
   remainingAwaiting: string[]; // order ids that could not be placed
@@ -361,7 +378,10 @@ export function planBulkReassignment(
     let chosen: string | null = null;
     let best = 0;
     for (const [id, free] of remaining) {
-      if (free > best) { best = free; chosen = id; }
+      if (free > best) {
+        best = free;
+        chosen = id;
+      }
     }
     if (!chosen) {
       remainingAwaiting.push(oid);

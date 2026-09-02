@@ -17,10 +17,10 @@ async function assertAuditReader(ctx: { supabase: any; userId: string }) {
     .maybeSingle();
   if (!role || role.is_active === false) throw new Error("Forbidden");
   if (role.is_super_admin) return;
-  const { data: allowed } = await (supabaseAdmin as any).rpc(
-    "admin_effective_permission",
-    { _uid: ctx.userId, _perm: "audit.view" },
-  );
+  const { data: allowed } = await (supabaseAdmin as any).rpc("admin_effective_permission", {
+    _uid: ctx.userId,
+    _perm: "audit.view",
+  });
   if (!allowed) throw new Error("Forbidden");
 }
 

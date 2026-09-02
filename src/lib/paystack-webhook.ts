@@ -46,7 +46,6 @@ export interface WebhookDeps {
   };
 }
 
-
 export function detectEnvironmentStrict(secret: string): Env | null {
   if (secret.startsWith("sk_test_")) return "test";
   if (secret.startsWith("sk_live_")) return "live";
@@ -85,7 +84,6 @@ export async function handlePaystackWebhook(
   request: Request,
   deps: WebhookDeps,
 ): Promise<Response> {
-
   const { secret, supabaseAdmin, adapter } = deps;
   const gatewaySlug = adapter?.slug ?? DEFAULT_GATEWAY;
 
@@ -143,7 +141,6 @@ export async function handlePaystackWebhook(
   const naturalId =
     reference ?? invoiceCode ?? subscriptionCode ?? (orderId ? `order:${orderId}` : "");
   if (!naturalId) return new Response("no identifier", { status: 400 });
-
 
   const idempotencyKey = buildIdempotencyKey({
     event: eventType,
@@ -219,7 +216,6 @@ export async function handlePaystackWebhook(
       data,
     });
 
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (result && (result as any).alreadyFailed) {
       return new Response("ok", { status: 200 });
@@ -261,7 +257,6 @@ interface DispatchInput {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
-
 
 async function dispatchEvent(i: DispatchInput) {
   switch (i.eventType) {
@@ -409,7 +404,8 @@ async function handleChargeSuccess(i: DispatchInput) {
           converted_amount:
             displayCurrencyOf(order as CurrencyBearingOrder) === "NGN"
               ? (order.discounted_amount_ngn ?? order.price_amount ?? null)
-              : Number(displayAmountOf(order as CurrencyBearingOrder)) - Number(order.international_fee_amount ?? 0),
+              : Number(displayAmountOf(order as CurrencyBearingOrder)) -
+                Number(order.international_fee_amount ?? 0),
           international_fee_amount: order.international_fee_amount ?? 0,
           final_amount: chargedAmount(order as CurrencyBearingOrder),
           display_currency: displayCurrencyOf(order as CurrencyBearingOrder),
@@ -454,8 +450,6 @@ async function handleChargeSuccess(i: DispatchInput) {
     await recordCouponRedemption(i.supabaseAdmin, order.id as string, i.reference ?? null);
   }
 
-
-
   if (isRenewal) {
     const base = Math.max(
       order.expires_at ? new Date(order.expires_at).getTime() : 0,
@@ -472,15 +466,13 @@ async function handleChargeSuccess(i: DispatchInput) {
         current_period_end: newNext.toISOString(),
         next_payment_at: newNext.toISOString(),
         paid_through_at: newNext.toISOString(),
-        subscription_status:
-          order.renewal_status === "disabled" ? "non_renewing" : "active",
+        subscription_status: order.renewal_status === "disabled" ? "non_renewing" : "active",
         payment_status: "successful",
       })
       .eq("id", order.id);
     const { queueOrderEmail } = await import("@/lib/email/order-emails");
     // Renewals need a per-cycle key so each renewal sends its own email.
-    const renewalKey =
-      i.reference ?? i.invoiceCode ?? `${order.id}:${paidAt.getTime()}`;
+    const renewalKey = i.reference ?? i.invoiceCode ?? `${order.id}:${paidAt.getTime()}`;
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "renewal_success",
       orderId: order.id as string,
@@ -500,7 +492,6 @@ async function handleChargeSuccess(i: DispatchInput) {
     });
     return;
   }
-
 
   // First payment
   if (order.status !== "approved") {
@@ -527,7 +518,9 @@ async function handleChargeSuccess(i: DispatchInput) {
       try {
         const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
         await tryAutoAssignAccount(i.supabaseAdmin, order.id as string);
-      } catch (e) { console.warn("[account-pool] private auto-assign failed", e); }
+      } catch (e) {
+        console.warn("[account-pool] private auto-assign failed", e);
+      }
       const { queueOrderEmail } = await import("@/lib/email/order-emails");
       await queueOrderEmail(i.supabaseAdmin, {
         kind: "private_pending",
@@ -570,7 +563,9 @@ async function handleChargeSuccess(i: DispatchInput) {
     try {
       const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
       await tryAutoAssignAccount(i.supabaseAdmin, order.id as string);
-    } catch (e) { console.warn("[account-pool] shared auto-assign failed", e); }
+    } catch (e) {
+      console.warn("[account-pool] shared auto-assign failed", e);
+    }
     const { queueOrderEmail } = await import("@/lib/email/order-emails");
     await queueOrderEmail(i.supabaseAdmin, {
       kind: "payment_success",
@@ -598,7 +593,6 @@ async function handleChargeSuccess(i: DispatchInput) {
   }
 }
 
-
 /** Fire Meta CAPI event via the marketing pipeline (idempotent by event_id). */
 async function fireWebhookConversion(
   i: DispatchInput,
@@ -619,9 +613,7 @@ async function fireWebhookConversion(
   },
 ) {
   try {
-    const { trackServerConversion, buildEventId } = await import(
-      "@/lib/marketing/server-events"
-    );
+    const { trackServerConversion, buildEventId } = await import("@/lib/marketing/server-events");
     const { data: prof } = await i.supabaseAdmin
       .from("profiles")
       .select("email")
@@ -642,7 +634,6 @@ async function fireWebhookConversion(
     console.warn("[marketing] webhook conversion failed", err);
   }
 }
-
 
 async function handleSubscriptionCreate(i: DispatchInput) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -721,7 +712,9 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
     // Load order so we can attribute the conversion.
     const { data: full } = await i.supabaseAdmin
       .from("tool_orders")
-      .select("id, user_id, tool_slug, price_amount, currency, payment_currency, final_amount_charged")
+      .select(
+        "id, user_id, tool_slug, price_amount, currency, payment_currency, final_amount_charged",
+      )
       .eq("id", row.id)
       .maybeSingle();
     if (full) {
@@ -734,7 +727,6 @@ async function handleSubscriptionDisabled(i: DispatchInput) {
     }
   }
 }
-
 
 async function handleInvoiceFailed(i: DispatchInput) {
   if (!i.subscriptionCode) return;
@@ -766,7 +758,9 @@ async function handleInvoiceFailed(i: DispatchInput) {
     });
     const { data: full } = await i.supabaseAdmin
       .from("tool_orders")
-      .select("id, user_id, tool_slug, price_amount, currency, payment_currency, final_amount_charged")
+      .select(
+        "id, user_id, tool_slug, price_amount, currency, payment_currency, final_amount_charged",
+      )
       .eq("id", row.id)
       .maybeSingle();
     if (full) {
@@ -779,8 +773,6 @@ async function handleInvoiceFailed(i: DispatchInput) {
     }
   }
 }
-
-
 
 async function handleChargeFailed(i: DispatchInput) {
   if (!i.reference) return;
@@ -804,7 +796,6 @@ async function handleChargeFailed(i: DispatchInput) {
     });
   }
 }
-
 
 /**
  * Upsert-by-reference payment status change (used by failure events).
@@ -844,4 +835,3 @@ async function upsertPaymentStatus(
     });
   }
 }
-

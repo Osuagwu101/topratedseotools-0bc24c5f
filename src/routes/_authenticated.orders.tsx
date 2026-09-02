@@ -95,10 +95,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
   component: MyOrdersPage,
 });
 
-const STATUS: Record<
-  ToolOrderStatus,
-  { label: string; cls: string; icon: typeof Clock }
-> = {
+const STATUS: Record<ToolOrderStatus, { label: string; cls: string; icon: typeof Clock }> = {
   pending: { label: "Awaiting payment", cls: "bg-warning/15 text-warning", icon: Clock },
   approved: { label: "Active", cls: "bg-success/15 text-success", icon: CheckCircle2 },
   rejected: { label: "Rejected", cls: "bg-destructive/10 text-destructive", icon: XCircle },
@@ -138,9 +135,7 @@ function MyOrdersPage() {
         }
         toast.success("Payment confirmed — your subscription is active.");
       })
-      .catch((err) =>
-        toast.error(err instanceof Error ? err.message : "Verification failed"),
-      )
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Verification failed"))
       .finally(() => {
         router.navigate({ to: "/orders", search: {}, replace: true });
         router.invalidate();
@@ -158,9 +153,12 @@ function MyOrdersPage() {
   }
 
   async function onDisableRenewal(o: ToolOrder) {
-    if (!confirm(
-      "Disable auto-renewal? Your access stays active until the current period ends, but no further payments will be taken.",
-    )) return;
+    if (
+      !confirm(
+        "Disable auto-renewal? Your access stays active until the current period ends, but no further payments will be taken.",
+      )
+    )
+      return;
     try {
       await disableRenewal({ data: { order_id: o.id } });
       toast.success("Auto-renewal disabled. Access stays active until the period ends.");
@@ -211,9 +209,7 @@ function MyOrdersPage() {
 
         {orders.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed p-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              You don't have any subscriptions yet.
-            </p>
+            <p className="text-sm text-muted-foreground">You don't have any subscriptions yet.</p>
             <Link
               to="/tools"
               className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
@@ -250,9 +246,13 @@ function MyOrdersPage() {
                         {o.access_type ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                             {o.access_type === "private" ? (
-                              <><Lock className="h-3 w-3" /> Private</>
+                              <>
+                                <Lock className="h-3 w-3" /> Private
+                              </>
                             ) : (
-                              <><Users className="h-3 w-3" /> Shared</>
+                              <>
+                                <Users className="h-3 w-3" /> Shared
+                              </>
                             )}
                           </span>
                         ) : null}
@@ -267,15 +267,21 @@ function MyOrdersPage() {
                             : "Custom pricing"}
                         </span>
                         <span>· Ordered {new Date(o.created_at).toLocaleDateString()}</span>
-                        {o.paid_at && <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>}
+                        {o.paid_at && (
+                          <span>· Paid {new Date(o.paid_at).toLocaleDateString()}</span>
+                        )}
                         {o.next_payment_at && o.renewal_status === "enabled" && (
-                          <span>· Next payment {new Date(o.next_payment_at).toLocaleDateString()}</span>
+                          <span>
+                            · Next payment {new Date(o.next_payment_at).toLocaleDateString()}
+                          </span>
                         )}
                         {o.expires_at && (
                           <span>· Access ends {new Date(o.expires_at).toLocaleDateString()}</span>
                         )}
                       </div>
-                      <div className="mt-1"><SubStatusBadge order={o} /></div>
+                      <div className="mt-1">
+                        <SubStatusBadge order={o} />
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {o.effectiveStatus === "pending" && (
@@ -320,7 +326,8 @@ function MyOrdersPage() {
                         )}
                       {(o.effectiveStatus === "rejected" ||
                         o.effectiveStatus === "cancelled" ||
-                        o.effectiveStatus === "expired") && tool && (
+                        o.effectiveStatus === "expired") &&
+                        tool && (
                           <Link
                             to="/order/$slug"
                             params={{ slug: tool.slug }}
@@ -371,10 +378,18 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
   const isOneTime = order.payment_type === "one_time" || order.renewal_status === "not_applicable";
   if (order.status === "approved") {
     if (isOneTime) {
-      items.push({ label: "One-time purchase", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+      items.push({
+        label: "One-time purchase",
+        cls: "bg-muted text-muted-foreground",
+        Icon: ShieldOff,
+      });
     } else {
       if (order.subscription_status === "past_due") {
-        items.push({ label: "Past due", cls: "bg-warning/15 text-warning-foreground", Icon: AlertTriangle });
+        items.push({
+          label: "Past due",
+          cls: "bg-warning/15 text-warning-foreground",
+          Icon: AlertTriangle,
+        });
       }
       if (order.renewal_status === "enabled" && order.paystack_subscription_code) {
         items.push({ label: "Auto-renews", cls: "bg-primary/10 text-primary", Icon: Repeat });
@@ -383,7 +398,11 @@ function SubStatusBadge({ order }: { order: ToolOrder }) {
         order.renewal_status === "disable_pending" ||
         order.subscription_status === "non_renewing"
       ) {
-        items.push({ label: "Renewal off", cls: "bg-muted text-muted-foreground", Icon: ShieldOff });
+        items.push({
+          label: "Renewal off",
+          cls: "bg-muted text-muted-foreground",
+          Icon: ShieldOff,
+        });
       }
     }
   }
@@ -428,10 +447,12 @@ function PrivatePendingBanner({
       <div className="flex items-start gap-2">
         <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="flex-1">
-          <div className="font-medium">Payment successful. Your Private Access order is pending fulfilment.</div>
+          <div className="font-medium">
+            Payment successful. Your Private Access order is pending fulfilment.
+          </div>
           <div className="mt-1 text-muted-foreground">
-            An admin will assign your dedicated account. If it isn't ready within 6 hours,
-            it will be auto-activated and your subscription period will start counting from that moment.
+            An admin will assign your dedicated account. If it isn't ready within 6 hours, it will
+            be auto-activated and your subscription period will start counting from that moment.
           </div>
           {order.fulfilment_deadline_at && (
             <div className="mt-1 text-muted-foreground">
@@ -524,8 +545,8 @@ function CredentialCard({
           </div>
         )}
         <p className="mt-2 text-xs text-muted-foreground">
-          Click below to open the official {tool.name} login page. Sign in with
-          your own {tool.name} account — your subscription here keeps your access active.
+          Click below to open the official {tool.name} login page. Sign in with your own {tool.name}{" "}
+          account — your subscription here keeps your access active.
         </p>
         <div className="mt-3">
           <button
@@ -584,7 +605,9 @@ function CredentialCard({
               <MessageCircle className="h-3.5 w-3.5" /> Contact Admin · {whatsappDisplay}
             </a>
           ) : (
-            <p className="mt-2 italic text-muted-foreground">Admin WhatsApp number is not configured yet.</p>
+            <p className="mt-2 italic text-muted-foreground">
+              Admin WhatsApp number is not configured yet.
+            </p>
           )}
         </div>
       ) : (

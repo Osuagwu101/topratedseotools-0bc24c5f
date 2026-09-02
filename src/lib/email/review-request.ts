@@ -36,7 +36,10 @@ export async function queueReviewRequest(
       .from("tool_payments")
       .select("payment_status, reconciliation_status")
       .eq("order_id", order.id);
-    for (const p of (pays ?? []) as Array<{ payment_status?: string | null; reconciliation_status?: string | null }>) {
+    for (const p of (pays ?? []) as Array<{
+      payment_status?: string | null;
+      reconciliation_status?: string | null;
+    }>) {
       const st = (p.payment_status ?? "").toLowerCase();
       const rc = (p.reconciliation_status ?? "").toLowerCase();
       if (st === "refunded" || st === "reversed" || rc === "refunded") return;

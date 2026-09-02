@@ -76,7 +76,8 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
   const fileRef = useRef<HTMLInputElement>(null);
 
   const save = useMutation({
-    mutationFn: () => adminUpdateEmailSettings({ data: { ...form, brand_color: sanitizeColor(form.brand_color) } }),
+    mutationFn: () =>
+      adminUpdateEmailSettings({ data: { ...form, brand_color: sanitizeColor(form.brand_color) } }),
     onSuccess: () => {
       toast.success("Branding saved — applies to every email");
       onSaved();
@@ -87,7 +88,9 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const resized = await resizeEmailLogo(file);
-      return uploadEmailLogo({ data: { base64: resized.base64, contentType: resized.contentType } });
+      return uploadEmailLogo({
+        data: { base64: resized.base64, contentType: resized.contentType },
+      });
     },
     onSuccess: (r) => {
       setForm((f) => ({ ...f, brand_logo_url: r.url }));
@@ -99,7 +102,12 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
   const previewHtml = useMemo(() => {
     const seed = TEMPLATE_SEED_BY_KEY[previewKey] ?? TEMPLATE_SEED_BY_KEY["payment_success"];
     const branding = normalizeBranding({ ...settings, ...form });
-    const vars = { ...SAMPLE_VARS, brand_name: branding.brandName, brand_color: branding.brandColor, support_email: branding.supportEmail };
+    const vars = {
+      ...SAMPLE_VARS,
+      brand_name: branding.brandName,
+      brand_color: branding.brandColor,
+      support_email: branding.supportEmail,
+    };
     const body = renderTemplate(seed?.html_body ?? "", vars);
     return wrapHtmlEmail(body, {
       senderName: branding.brandName,
@@ -125,8 +133,13 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label>Brand name</Label>
-              <Input value={form.brand_name} onChange={(e) => setForm({ ...form, brand_name: e.target.value })} />
-              <p className="mt-1 text-xs text-muted-foreground">Shown in the email header and footer.</p>
+              <Input
+                value={form.brand_name}
+                onChange={(e) => setForm({ ...form, brand_name: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Shown in the email header and footer.
+              </p>
             </div>
             <div>
               <Label>Primary colour</Label>
@@ -137,9 +150,15 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
                   value={sanitizeColor(form.brand_color)}
                   onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
                 />
-                <Input value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} placeholder="#1e4e8c" />
+                <Input
+                  value={form.brand_color}
+                  onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
+                  placeholder="#1e4e8c"
+                />
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">Used for buttons, links and the header accent.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Used for buttons, links and the header accent.
+              </p>
             </div>
           </div>
 
@@ -148,9 +167,15 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <div className="flex h-16 w-40 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
                 {form.brand_logo_url ? (
-                  <img src={form.brand_logo_url} alt="Email logo preview" className="max-h-14 max-w-36 object-contain" />
+                  <img
+                    src={form.brand_logo_url}
+                    alt="Email logo preview"
+                    className="max-h-14 max-w-36 object-contain"
+                  />
                 ) : (
-                  <span className="px-2 text-center text-xs text-muted-foreground">No logo — brand name is used</span>
+                  <span className="px-2 text-center text-xs text-muted-foreground">
+                    No logo — brand name is used
+                  </span>
                 )}
               </div>
               <input
@@ -164,7 +189,11 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
                   e.target.value = "";
                 }}
               />
-              <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={upload.isPending}>
+              <Button
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                disabled={upload.isPending}
+              >
                 <Upload className="mr-2 h-4 w-4" />
                 {upload.isPending ? "Optimising…" : "Upload logo"}
               </Button>
@@ -176,7 +205,8 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
               )}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Automatically fitted to 480×160 and re-encoded as PNG so it stays sharp and loads in every email client.
+              Automatically fitted to 480×160 and re-encoded as PNG so it stays sharp and loads in
+              every email client.
             </p>
           </div>
         </CardContent>
@@ -189,15 +219,24 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
         <CardContent className="grid gap-3 md:grid-cols-2">
           <div>
             <Label>Company / legal name</Label>
-            <Input value={form.footer_company} onChange={(e) => setForm({ ...form, footer_company: e.target.value })} />
+            <Input
+              value={form.footer_company}
+              onChange={(e) => setForm({ ...form, footer_company: e.target.value })}
+            />
           </div>
           <div>
             <Label>Support email</Label>
-            <Input value={form.footer_support_email} onChange={(e) => setForm({ ...form, footer_support_email: e.target.value })} />
+            <Input
+              value={form.footer_support_email}
+              onChange={(e) => setForm({ ...form, footer_support_email: e.target.value })}
+            />
           </div>
           <div>
             <Label>Website URL</Label>
-            <Input value={form.footer_website_url} onChange={(e) => setForm({ ...form, footer_website_url: e.target.value })} />
+            <Input
+              value={form.footer_website_url}
+              onChange={(e) => setForm({ ...form, footer_website_url: e.target.value })}
+            />
           </div>
           <div className="md:col-span-2">
             <Label>Footer message</Label>
@@ -215,7 +254,9 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
           {save.isPending ? "Saving…" : "Save branding"}
         </Button>
-        <span className="text-xs text-muted-foreground">Applies to every customer email — no template edits needed.</span>
+        <span className="text-xs text-muted-foreground">
+          Applies to every customer email — no template edits needed.
+        </span>
       </div>
 
       <Card>
@@ -239,7 +280,12 @@ export function BrandingTab({ settings, onSaved }: { settings: any; onSaved: () 
             Subject: <span className="font-medium text-foreground">{subject}</span>
           </div>
           <div className="overflow-hidden rounded-md border">
-            <iframe title="Email preview" srcDoc={previewHtml} className="h-[620px] w-full bg-white" sandbox="" />
+            <iframe
+              title="Email preview"
+              srcDoc={previewHtml}
+              className="h-[620px] w-full bg-white"
+              sandbox=""
+            />
           </div>
         </CardContent>
       </Card>

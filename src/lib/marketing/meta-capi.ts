@@ -29,9 +29,7 @@ export function hashEmail(email: string | null | undefined): string | undefined 
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 }
 
-export type CapiResult =
-  | { ok: true; events_received: number }
-  | { ok: false; error: string };
+export type CapiResult = { ok: true; events_received: number } | { ok: false; error: string };
 
 /**
  * Send events to Meta CAPI. `pixelId` and `testEventCode` come from the DB.

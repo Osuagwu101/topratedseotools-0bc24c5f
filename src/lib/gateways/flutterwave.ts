@@ -59,23 +59,36 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
 /** Keep checkout methods compatible with Flutterwave's documented regional methods. */
 function paymentOptionsFor(currency: string): string {
   switch (String(currency).toUpperCase()) {
-    case "NGN": return "card,ussd,banktransfer,account,opay";
-    case "GHS": return "mobilemoneyghana,card";
-    case "KES": return "card,mpesa";
-    case "ZAR": return "card,account";
-    case "UGX": return "card,mobilemoneyuganda";
-    case "RWF": return "card,mobilemoneyrwanda";
-    case "TZS": return "card,mobilemoneytanzania";
-    case "XAF": return "card,mobilemoneyxaf";
-    case "XOF": return "card,mobilemoneyxof";
-    case "EGP": return "card,fawrypay";
-    default: return "card";
+    case "NGN":
+      return "card,ussd,banktransfer,account,opay";
+    case "GHS":
+      return "mobilemoneyghana,card";
+    case "KES":
+      return "card,mpesa";
+    case "ZAR":
+      return "card,account";
+    case "UGX":
+      return "card,mobilemoneyuganda";
+    case "RWF":
+      return "card,mobilemoneyrwanda";
+    case "TZS":
+      return "card,mobilemoneytanzania";
+    case "XAF":
+      return "card,mobilemoneyxaf";
+    case "XOF":
+      return "card,mobilemoneyxof";
+    case "EGP":
+      return "card,fawrypay";
+    default:
+      return "card";
   }
 }
 
 export const flutterwaveAdapter: GatewayAdapter = {
   ...GATEWAY_METADATA.flutterwave,
-  isConfigured() { return !!process.env.FLUTTERWAVE_SECRET_KEY; },
+  isConfigured() {
+    return !!process.env.FLUTTERWAVE_SECRET_KEY;
+  },
   environment() {
     const k = process.env.FLUTTERWAVE_SECRET_KEY;
     if (!k) return null;
@@ -91,14 +104,33 @@ export const flutterwaveAdapter: GatewayAdapter = {
         redirect_url: input.callbackUrl,
         payment_options: paymentOptionsFor(input.currency),
         customer: { email: input.email, name: input.customerName ?? undefined },
-        customizations: { title: "Top Rated SEO Tools", description: input.description ?? "Tool access" },
+        customizations: {
+          title: "Top Rated SEO Tools",
+          description: input.description ?? "Tool access",
+        },
         meta: input.metadata,
       }),
     });
-    return { authorization_url: data.link, reference: input.reference, gateway_reference: null, raw: data };
+    return {
+      authorization_url: data.link,
+      reference: input.reference,
+      gateway_reference: null,
+      raw: data,
+    };
   },
   async verify(reference: string): Promise<GatewayTransaction> {
-    const tx = await api<{ id?: number; tx_ref: string; status: string; amount: number; charged_amount?: number; currency: string; payment_type?: string; created_at?: string; meta?: Record<string, unknown>; customer?: { email?: string } }>(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
+    const tx = await api<{
+      id?: number;
+      tx_ref: string;
+      status: string;
+      amount: number;
+      charged_amount?: number;
+      currency: string;
+      payment_type?: string;
+      created_at?: string;
+      meta?: Record<string, unknown>;
+      customer?: { email?: string };
+    }>(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
     return {
       status: mapStatus(tx.status),
       reference: tx.tx_ref ?? reference,
@@ -113,7 +145,17 @@ export const flutterwaveAdapter: GatewayAdapter = {
     };
   },
   async verifyByTransactionId(transactionId: string): Promise<GatewayTransaction> {
-    const tx = await api<{ id?: number; tx_ref: string; status: string; amount: number; currency: string; payment_type?: string; created_at?: string; meta?: Record<string, unknown>; customer?: { email?: string } }>(`/transactions/${encodeURIComponent(transactionId)}/verify`);
+    const tx = await api<{
+      id?: number;
+      tx_ref: string;
+      status: string;
+      amount: number;
+      currency: string;
+      payment_type?: string;
+      created_at?: string;
+      meta?: Record<string, unknown>;
+      customer?: { email?: string };
+    }>(`/transactions/${encodeURIComponent(transactionId)}/verify`);
     return {
       status: mapStatus(tx.status),
       reference: tx.tx_ref ?? "",
@@ -137,7 +179,18 @@ export const flutterwaveAdapter: GatewayAdapter = {
     return timingSafeEqual(received, expected);
   },
   normalizeWebhook(payload: unknown): GatewayWebhookEvent | null {
-    const p = payload as { event?: string; data?: { tx_ref?: string; status?: string; amount?: number; currency?: string; meta?: Record<string, unknown>; payment_type?: string; id?: number } } | null;
+    const p = payload as {
+      event?: string;
+      data?: {
+        tx_ref?: string;
+        status?: string;
+        amount?: number;
+        currency?: string;
+        meta?: Record<string, unknown>;
+        payment_type?: string;
+        id?: number;
+      };
+    } | null;
     const d = p?.data;
     if (!d?.tx_ref) return null;
     const status = mapStatus(d.status);

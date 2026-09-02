@@ -349,20 +349,18 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
           );
         }
 
-        capturedCookies = existingSession.authenticated_cookies
-          .slice(0, 10)
-          .flatMap((cookie) => {
-            if (
-              typeof cookie !== "object" ||
-              cookie === null ||
-              Array.isArray(cookie) ||
-              typeof cookie.name !== "string" ||
-              typeof cookie.value !== "string"
-            ) {
-              return [];
-            }
-            return [{ name: cookie.name, value: cookie.value }];
-          });
+        capturedCookies = existingSession.authenticated_cookies.slice(0, 10).flatMap((cookie) => {
+          if (
+            typeof cookie !== "object" ||
+            cookie === null ||
+            Array.isArray(cookie) ||
+            typeof cookie.name !== "string" ||
+            typeof cookie.value !== "string"
+          ) {
+            return [];
+          }
+          return [{ name: cookie.name, value: cookie.value }];
+        });
       }
 
       const launched =

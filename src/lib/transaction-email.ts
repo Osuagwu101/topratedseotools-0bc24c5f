@@ -24,17 +24,13 @@ export async function sendTransactionReceipt(
   input: ReceiptEmailInput,
 ): Promise<{ sent: boolean; reason?: string }> {
   try {
-    const mod = (await import(
-      "@/lib/email-templates/send-email" as string
-    ).catch(() => null)) as
-      | {
-          sendTemplateEmail?: (
-            name: string,
-            to: string,
-            opts: { templateData: Record<string, unknown>; idempotencyKey?: string },
-          ) => Promise<{ sent: boolean; reason?: string }>;
-        }
-      | null;
+    const mod = (await import("@/lib/email-templates/send-email" as string).catch(() => null)) as {
+      sendTemplateEmail?: (
+        name: string,
+        to: string,
+        opts: { templateData: Record<string, unknown>; idempotencyKey?: string },
+      ) => Promise<{ sent: boolean; reason?: string }>;
+    } | null;
     if (!mod?.sendTemplateEmail) {
       return { sent: false, reason: "email_not_configured" };
     }

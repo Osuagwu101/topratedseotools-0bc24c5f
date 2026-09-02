@@ -58,17 +58,55 @@ const MARKETING_ITEMS = [
 
 const SETTINGS_ITEMS = [
   { title: "Site Appearance", to: "/admin/appearance" as const, perm: null, superOnly: false },
-  { title: "Credentials", to: "/admin/credentials" as const, perm: "credentials.view", superOnly: false },
-  { title: "Currency & Surcharge", to: "/admin/settings/currency" as const, perm: "payments.manage", superOnly: false },
-  { title: "Email & Notifications", to: "/admin/settings/email" as const, perm: null, superOnly: false },
-  { title: "API Keys & Providers", to: "/admin/settings/api-keys" as const, perm: "api_keys.manage", superOnly: false },
-  { title: "One-Click Browser Login", to: "/admin/settings/browser-auth" as const, perm: "api_keys.manage", superOnly: false },
-  { title: "Team & Permissions", to: "/admin/settings/staff" as const, perm: null, superOnly: true },
+  {
+    title: "Credentials",
+    to: "/admin/credentials" as const,
+    perm: "credentials.view",
+    superOnly: false,
+  },
+  {
+    title: "Currency & Surcharge",
+    to: "/admin/settings/currency" as const,
+    perm: "payments.manage",
+    superOnly: false,
+  },
+  {
+    title: "Email & Notifications",
+    to: "/admin/settings/email" as const,
+    perm: null,
+    superOnly: false,
+  },
+  {
+    title: "API Keys & Providers",
+    to: "/admin/settings/api-keys" as const,
+    perm: "api_keys.manage",
+    superOnly: false,
+  },
+  {
+    title: "One-Click Browser Login",
+    to: "/admin/settings/browser-auth" as const,
+    perm: "api_keys.manage",
+    superOnly: false,
+  },
+  {
+    title: "Team & Permissions",
+    to: "/admin/settings/staff" as const,
+    perm: null,
+    superOnly: true,
+  },
 ];
 
 const ADVANCED_ITEMS = [
-  { title: "Payment Recovery", to: "/admin/settings/payment-recovery" as const, perm: "payments.manage" },
-  { title: "System Health & Repair", to: "/admin/settings/system-health" as const, perm: "system_health.access" },
+  {
+    title: "Payment Recovery",
+    to: "/admin/settings/payment-recovery" as const,
+    perm: "payments.manage",
+  },
+  {
+    title: "System Health & Repair",
+    to: "/admin/settings/system-health" as const,
+    perm: "system_health.access",
+  },
   { title: "Backup & Recovery", to: "/admin/settings/backup" as const, perm: "backups.access" },
   { title: "Emergency Controls", to: "/admin/settings/emergency" as const, perm: "emergency.use" },
   { title: "Admin Activity", to: "/admin/settings/activity" as const, perm: "audit.view" },
@@ -135,7 +173,9 @@ function AdminSidebar() {
   );
 
   const [myCtx, setMyCtx] = useState<{ isSuperAdmin: boolean; permissions: string[] } | null>(null);
-  const [healthBadge, setHealthBadge] = useState<{ unresolved: number; awaiting: number } | null>(null);
+  const [healthBadge, setHealthBadge] = useState<{ unresolved: number; awaiting: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     getMyAdminContext()
@@ -164,7 +204,8 @@ function AdminSidebar() {
 
   const isSuperAdmin = !!myCtx?.isSuperAdmin;
   const perms = myCtx?.permissions ?? [];
-  const can = (permission: string | null) => !permission || isSuperAdmin || perms.includes(permission);
+  const can = (permission: string | null) =>
+    !permission || isSuperAdmin || perms.includes(permission);
 
   async function signOut() {
     try {
@@ -193,11 +234,36 @@ function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SimpleItem to="/admin/dashboard" title="Dashboard" icon={LayoutDashboard} active={path === "/admin/dashboard"} />
-              <SimpleItem to="/admin/tools" title="Tools" icon={Settings2} active={path.startsWith("/admin/tools")} />
-              <SimpleItem to="/admin/customers" title="Customers" icon={Users} active={path.startsWith("/admin/customers")} />
-              <SimpleItem to="/admin/orders" title="Orders" icon={ClipboardList} active={path === "/admin/orders"} />
-              <SimpleItem to="/admin/transactions" title="Transactions" icon={CreditCard} active={path === "/admin/transactions"} />
+              <SimpleItem
+                to="/admin/dashboard"
+                title="Dashboard"
+                icon={LayoutDashboard}
+                active={path === "/admin/dashboard"}
+              />
+              <SimpleItem
+                to="/admin/tools"
+                title="Tools"
+                icon={Settings2}
+                active={path.startsWith("/admin/tools")}
+              />
+              <SimpleItem
+                to="/admin/customers"
+                title="Customers"
+                icon={Users}
+                active={path.startsWith("/admin/customers")}
+              />
+              <SimpleItem
+                to="/admin/orders"
+                title="Orders"
+                icon={ClipboardList}
+                active={path === "/admin/orders"}
+              />
+              <SimpleItem
+                to="/admin/transactions"
+                title="Transactions"
+                icon={CreditCard}
+                active={path === "/admin/transactions"}
+              />
               {can("payments.manage") && (
                 <SimpleItem
                   to="/admin/settings/custom-payments"
@@ -211,12 +277,22 @@ function AdminSidebar() {
                 <SidebarMenuButton
                   isActive={FULFILMENT_ITEMS.some((i) => path === i.to)}
                   tooltip="Fulfilment"
-                  onClick={() => (collapsed ? navigate({ to: "/admin/awaiting-assignments" }) : setFulfilmentOpen((v) => !v))}
+                  onClick={() =>
+                    collapsed
+                      ? navigate({ to: "/admin/awaiting-assignments" })
+                      : setFulfilmentOpen((v) => !v)
+                  }
                 >
                   <PackageCheck />
                   <span>Fulfilment</span>
-                  {!collapsed && badge((healthBadge?.awaiting ?? 0) + (healthBadge?.unresolved ?? 0))}
-                  {!collapsed && (fulfilmentOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                  {!collapsed &&
+                    badge((healthBadge?.awaiting ?? 0) + (healthBadge?.unresolved ?? 0))}
+                  {!collapsed &&
+                    (fulfilmentOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    ))}
                 </SidebarMenuButton>
                 {!collapsed && fulfilmentOpen && (
                   <SidebarMenuSub>
@@ -246,17 +322,27 @@ function AdminSidebar() {
                     path.startsWith("/admin/settings/coupons")
                   }
                   tooltip="Marketing"
-                  onClick={() => (collapsed ? navigate({ to: "/admin/marketing" }) : setMarketingOpen((v) => !v))}
+                  onClick={() =>
+                    collapsed ? navigate({ to: "/admin/marketing" }) : setMarketingOpen((v) => !v)
+                  }
                 >
                   <Megaphone />
                   <span>Marketing</span>
-                  {!collapsed && (marketingOpen ? <ChevronDown className="ml-auto h-4 w-4" /> : <ChevronRight className="ml-auto h-4 w-4" />)}
+                  {!collapsed &&
+                    (marketingOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
                 </SidebarMenuButton>
                 {!collapsed && marketingOpen && (
                   <SidebarMenuSub>
                     {MARKETING_ITEMS.filter((item) => can(item.perm)).map((item) => (
                       <SidebarMenuSubItem key={item.to}>
-                        <SidebarMenuSubButton asChild isActive={path === item.to || path.startsWith(`${item.to}/`)}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={path === item.to || path.startsWith(`${item.to}/`)}
+                        >
                           <Link to={item.to}>
                             <span>{item.title}</span>
                           </Link>
@@ -279,15 +365,24 @@ function AdminSidebar() {
                     path.startsWith("/admin/settings/staff")
                   }
                   tooltip="Settings"
-                  onClick={() => (collapsed ? navigate({ to: "/admin/appearance" }) : setSettingsOpen((v) => !v))}
+                  onClick={() =>
+                    collapsed ? navigate({ to: "/admin/appearance" }) : setSettingsOpen((v) => !v)
+                  }
                 >
                   <CogIcon />
                   <span>Settings</span>
-                  {!collapsed && (settingsOpen ? <ChevronDown className="ml-auto h-4 w-4" /> : <ChevronRight className="ml-auto h-4 w-4" />)}
+                  {!collapsed &&
+                    (settingsOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
                 </SidebarMenuButton>
                 {!collapsed && settingsOpen && (
                   <SidebarMenuSub>
-                    {SETTINGS_ITEMS.filter((item) => (!item.superOnly || isSuperAdmin) && can(item.perm)).map((item) => (
+                    {SETTINGS_ITEMS.filter(
+                      (item) => (!item.superOnly || isSuperAdmin) && can(item.perm),
+                    ).map((item) => (
                       <SidebarMenuSubItem key={item.to}>
                         <SidebarMenuSubButton asChild isActive={path === item.to}>
                           <Link to={item.to}>
@@ -304,11 +399,20 @@ function AdminSidebar() {
                 <SidebarMenuButton
                   isActive={ADVANCED_ITEMS.some((item) => path === item.to)}
                   tooltip="Advanced"
-                  onClick={() => (collapsed ? navigate({ to: "/admin/settings/system-health" }) : setAdvancedOpen((v) => !v))}
+                  onClick={() =>
+                    collapsed
+                      ? navigate({ to: "/admin/settings/system-health" })
+                      : setAdvancedOpen((v) => !v)
+                  }
                 >
                   <Wrench />
                   <span>Advanced</span>
-                  {!collapsed && (advancedOpen ? <ChevronDown className="ml-auto h-4 w-4" /> : <ChevronRight className="ml-auto h-4 w-4" />)}
+                  {!collapsed &&
+                    (advancedOpen ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    ))}
                 </SidebarMenuButton>
                 {!collapsed && advancedOpen && (
                   <SidebarMenuSub>

@@ -5,7 +5,12 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { getMyAdminContext } from "@/lib/admin-permissions.functions";
-import { getSystemHealth, getMigrationChecklist, getEmergencyControls, listBackupHistory } from "@/lib/system-ops.functions";
+import {
+  getSystemHealth,
+  getMigrationChecklist,
+  getEmergencyControls,
+  listBackupHistory,
+} from "@/lib/system-ops.functions";
 
 const readinessQuery = queryOptions({
   queryKey: ["production-readiness"],
@@ -22,7 +27,9 @@ const readinessQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/settings/production-readiness")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Production Readiness — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Production Readiness — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -30,15 +37,32 @@ export const Route = createFileRoute("/admin/settings/production-readiness")({
       throw redirect({ to: "/admin/dashboard" });
     }
   },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(readinessQuery); },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(readinessQuery);
+  },
   component: ReadinessPage,
 });
 
 type Status = "ok" | "warn" | "fail";
 
-function Row({ status, label, detail, action }: { status: Status; label: string; detail: string; action?: React.ReactNode }) {
+function Row({
+  status,
+  label,
+  detail,
+  action,
+}: {
+  status: Status;
+  label: string;
+  detail: string;
+  action?: React.ReactNode;
+}) {
   const Icon = status === "ok" ? CheckCircle2 : status === "warn" ? AlertTriangle : XCircle;
-  const color = status === "ok" ? "text-emerald-600" : status === "warn" ? "text-amber-600" : "text-destructive";
+  const color =
+    status === "ok"
+      ? "text-emerald-600"
+      : status === "warn"
+        ? "text-amber-600"
+        : "text-destructive";
   return (
     <li className="flex items-start gap-3 py-3">
       <Icon className={`h-5 w-5 ${color}`} />
@@ -68,29 +92,90 @@ function ReadinessPage() {
   const emergencyTested = data.emergency.updated_at !== null;
 
   const items: { status: Status; label: string; detail: string; action?: React.ReactNode }[] = [
-    { status: (db?.status as Status) ?? "fail", label: "Database connected", detail: db?.detail ?? "—" },
-    { status: (payments?.status as Status) ?? "fail", label: "Payments configured", detail: payments?.detail ?? "—",
-      action: <Link className="underline" to="/admin/settings/api-keys">Manage API keys</Link> },
-    { status: (email?.status as Status) ?? "fail", label: "Email provider configured", detail: email?.detail ?? "—",
-      action: <Link className="underline" to="/admin/settings/email">Email settings</Link> },
-    { status: (storage?.status as Status) ?? "warn", label: "Storage configured", detail: storage?.detail ?? "—" },
-    { status: backupsOk ? "ok" : "warn", label: "Backup available",
-      detail: backupsOk ? `${data.backups.rows.length} backup entr${data.backups.rows.length === 1 ? "y" : "ies"} recorded.` : "No backup has been taken yet.",
-      action: <Link className="underline" to="/admin/settings/backup">Create backup</Link> },
-    { status: "ok", label: "Admin accounts verified", detail: "Super-admin + staff roles enforced. Admins are separate from customers.",
-      action: <Link className="underline" to="/admin/settings/staff">Review staff</Link> },
-    { status: emergencyTested ? "ok" : "warn", label: "Emergency controls tested",
-      detail: emergencyTested ? `Last change ${new Date(data.emergency.updated_at!).toLocaleString()}.` : "No emergency control has been toggled yet.",
-      action: <Link className="underline" to="/admin/settings/emergency">Open controls</Link> },
-    { status: migrationFails > 0 ? "fail" : migrationWarns > 0 ? "warn" : "ok", label: "Migration checklist",
+    {
+      status: (db?.status as Status) ?? "fail",
+      label: "Database connected",
+      detail: db?.detail ?? "—",
+    },
+    {
+      status: (payments?.status as Status) ?? "fail",
+      label: "Payments configured",
+      detail: payments?.detail ?? "—",
+      action: (
+        <Link className="underline" to="/admin/settings/api-keys">
+          Manage API keys
+        </Link>
+      ),
+    },
+    {
+      status: (email?.status as Status) ?? "fail",
+      label: "Email provider configured",
+      detail: email?.detail ?? "—",
+      action: (
+        <Link className="underline" to="/admin/settings/email">
+          Email settings
+        </Link>
+      ),
+    },
+    {
+      status: (storage?.status as Status) ?? "warn",
+      label: "Storage configured",
+      detail: storage?.detail ?? "—",
+    },
+    {
+      status: backupsOk ? "ok" : "warn",
+      label: "Backup available",
+      detail: backupsOk
+        ? `${data.backups.rows.length} backup entr${data.backups.rows.length === 1 ? "y" : "ies"} recorded.`
+        : "No backup has been taken yet.",
+      action: (
+        <Link className="underline" to="/admin/settings/backup">
+          Create backup
+        </Link>
+      ),
+    },
+    {
+      status: "ok",
+      label: "Admin accounts verified",
+      detail: "Super-admin + staff roles enforced. Admins are separate from customers.",
+      action: (
+        <Link className="underline" to="/admin/settings/staff">
+          Review staff
+        </Link>
+      ),
+    },
+    {
+      status: emergencyTested ? "ok" : "warn",
+      label: "Emergency controls tested",
+      detail: emergencyTested
+        ? `Last change ${new Date(data.emergency.updated_at!).toLocaleString()}.`
+        : "No emergency control has been toggled yet.",
+      action: (
+        <Link className="underline" to="/admin/settings/emergency">
+          Open controls
+        </Link>
+      ),
+    },
+    {
+      status: migrationFails > 0 ? "fail" : migrationWarns > 0 ? "warn" : "ok",
+      label: "Migration checklist",
       detail: `${migrationChecks.length - migrationFails - migrationWarns} passing · ${migrationWarns} warning · ${migrationFails} failing`,
-      action: <Link className="underline" to="/admin/settings/migration">Open checklist</Link> },
+      action: (
+        <Link className="underline" to="/admin/settings/migration">
+          Open checklist
+        </Link>
+      ),
+    },
   ];
 
   const anyFail = items.some((i) => i.status === "fail");
   const anyWarn = items.some((i) => i.status === "warn");
   const overall = anyFail ? "Not ready" : anyWarn ? "Ready with warnings" : "Production ready";
-  const overallColor = anyFail ? "text-destructive" : anyWarn ? "text-amber-600" : "text-emerald-600";
+  const overallColor = anyFail
+    ? "text-destructive"
+    : anyWarn
+      ? "text-amber-600"
+      : "text-emerald-600";
 
   return (
     <AdminShell>
@@ -104,14 +189,19 @@ function ReadinessPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Overall status: <span className={overallColor}>{overall}</span></CardTitle>
+            <CardTitle>
+              Overall status: <span className={overallColor}>{overall}</span>
+            </CardTitle>
             <CardDescription>
-              Green means live-ready. Amber = launch possible but attention needed. Red = fix before going live.
+              Green means live-ready. Amber = launch possible but attention needed. Red = fix before
+              going live.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
-              {items.map((i) => <Row key={i.label} {...i} />)}
+              {items.map((i) => (
+                <Row key={i.label} {...i} />
+              ))}
             </ul>
           </CardContent>
         </Card>
@@ -122,13 +212,22 @@ function ReadinessPage() {
             <CardDescription>Read this before handing over or migrating hosting.</CardDescription>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <Link to="/admin/settings/migration-guide" className="block rounded-md border px-3 py-2 hover:bg-muted">
+            <Link
+              to="/admin/settings/migration-guide"
+              className="block rounded-md border px-3 py-2 hover:bg-muted"
+            >
               Open the Migration Guide →
             </Link>
-            <Link to="/admin/settings/system-health" className="block rounded-md border px-3 py-2 hover:bg-muted">
+            <Link
+              to="/admin/settings/system-health"
+              className="block rounded-md border px-3 py-2 hover:bg-muted"
+            >
               System Health dashboard →
             </Link>
-            <Link to="/admin/settings/backup" className="block rounded-md border px-3 py-2 hover:bg-muted">
+            <Link
+              to="/admin/settings/backup"
+              className="block rounded-md border px-3 py-2 hover:bg-muted"
+            >
               Backup & Recovery →
             </Link>
           </CardContent>

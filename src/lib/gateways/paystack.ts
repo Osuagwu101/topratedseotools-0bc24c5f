@@ -44,7 +44,6 @@ function mapStatus(raw: string | undefined): GatewayTransaction["status"] {
 export const paystackAdapter: GatewayAdapter = {
   ...GATEWAY_METADATA.paystack,
 
-
   isConfigured() {
     return !!process.env.PAYSTACK_SECRET_KEY;
   },

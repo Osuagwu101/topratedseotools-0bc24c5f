@@ -81,25 +81,30 @@ export const saveMetaSettings = createServerFn({ method: "POST" })
     const pixelId = data.pixel_id?.trim() || null;
     const { data: savedPixel, error: pixelError } = await supabaseAdmin
       .from("marketing_integrations")
-      .upsert({
-        provider: "meta_pixel",
-        enabled: data.pixel_enabled,
-        public_id: pixelId,
-        connected: !!pixelId,
-        updated_by: context.userId,
-      }, { onConflict: "provider" })
+      .upsert(
+        {
+          provider: "meta_pixel",
+          enabled: data.pixel_enabled,
+          public_id: pixelId,
+          connected: !!pixelId,
+          updated_by: context.userId,
+        },
+        { onConflict: "provider" },
+      )
       .select("provider, enabled, public_id")
       .maybeSingle();
-    if (pixelError || !savedPixel) throw new Error(pixelError?.message ?? "Pixel settings were not saved.");
-    const { error: capiError } = await supabaseAdmin
-      .from("marketing_integrations")
-      .upsert({
+    if (pixelError || !savedPixel)
+      throw new Error(pixelError?.message ?? "Pixel settings were not saved.");
+    const { error: capiError } = await supabaseAdmin.from("marketing_integrations").upsert(
+      {
         provider: "meta_capi",
         enabled: data.capi_enabled,
         public_id: pixelId,
         test_event_code: data.test_event_code || null,
         updated_by: context.userId,
-      }, { onConflict: "provider" });
+      },
+      { onConflict: "provider" },
+    );
     if (capiError) throw new Error(capiError.message);
     return { ok: true, pixel_id: savedPixel.public_id, pixel_enabled: savedPixel.enabled };
   });
@@ -123,13 +128,16 @@ export const saveGtmSettings = createServerFn({ method: "POST" })
     const containerId = data.container_id?.trim() || null;
     const { data: saved, error } = await supabaseAdmin
       .from("marketing_integrations")
-      .upsert({
-        provider: "gtm",
-        enabled: data.enabled,
-        public_id: containerId,
-        connected: !!containerId,
-        updated_by: context.userId,
-      }, { onConflict: "provider" })
+      .upsert(
+        {
+          provider: "gtm",
+          enabled: data.enabled,
+          public_id: containerId,
+          connected: !!containerId,
+          updated_by: context.userId,
+        },
+        { onConflict: "provider" },
+      )
       .select("provider, enabled, public_id")
       .maybeSingle();
     if (error || !saved) throw new Error(error?.message ?? "GTM settings were not saved.");
@@ -195,9 +203,12 @@ export const testGtmConnection = createServerFn({ method: "POST" })
     const id = (data as { public_id: string | null } | null)?.public_id;
     if (!id || !isValidGtmId(id)) return { ok: false, error: "Enter a valid GTM container ID." };
     try {
-      const res = await fetch(`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(id)}`, {
-        method: "GET",
-      });
+      const res = await fetch(
+        `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(id)}`,
+        {
+          method: "GET",
+        },
+      );
       const now = new Date().toISOString();
       if (res.ok) {
         await context.supabase
@@ -262,14 +273,15 @@ export const retryFailedEvent = createServerFn({ method: "POST" })
     if (!row) throw new Error("Event not found");
     const { trackServerConversion } = await import("./server-events");
     const result = await trackServerConversion(supabaseAdmin, {
-      kind: (row.event_name as
-        | "purchase"
-        | "subscription_start"
-        | "renewal_success"
-        | "renewal_failed"
-        | "renewal_disabled"
-        | "private_fulfilment"
-        | "refund") ?? "purchase",
+      kind:
+        (row.event_name as
+          | "purchase"
+          | "subscription_start"
+          | "renewal_success"
+          | "renewal_failed"
+          | "renewal_disabled"
+          | "private_fulfilment"
+          | "refund") ?? "purchase",
       event_id: row.event_id as string,
       order_id: row.order_id as string | null,
       user_id: row.user_id as string | null,

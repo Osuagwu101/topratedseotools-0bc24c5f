@@ -11,8 +11,24 @@ export const PAYSTACK_CUSTOM_PAYMENT_CURRENCIES = ["NGN"] as const;
 
 /** Flutterwave's documented card-collection currencies. */
 export const FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES = [
-  "GBP", "CAD", "XAF", "COP", "EGP", "EUR", "GHS", "KES", "INR",
-  "NGN", "RWF", "SLL", "ZAR", "TZS", "UGX", "USD", "XOF", "ZMW",
+  "GBP",
+  "CAD",
+  "XAF",
+  "COP",
+  "EGP",
+  "EUR",
+  "GHS",
+  "KES",
+  "INR",
+  "NGN",
+  "RWF",
+  "SLL",
+  "ZAR",
+  "TZS",
+  "UGX",
+  "USD",
+  "XOF",
+  "ZMW",
 ] as const;
 
 /** Business priority requested for the Flutterwave currency picker. */
@@ -42,7 +58,9 @@ const KNOWN_NAMES: Record<string, string> = {
 const WHOLE_NUMBER_CURRENCIES = new Set(["XAF", "XOF", "RWF", "UGX"]);
 
 export function normalizeCustomPaymentCurrency(value: unknown): string {
-  const code = String(value ?? "").trim().toUpperCase();
+  const code = String(value ?? "")
+    .trim()
+    .toUpperCase();
   if (!/^[A-Z]{3}$/.test(code)) throw new Error("Invalid currency code.");
   return code;
 }
@@ -51,10 +69,17 @@ export function currencyDisplayName(code: string): string {
   const normalized = normalizeCustomPaymentCurrency(code);
   if (KNOWN_NAMES[normalized]) return KNOWN_NAMES[normalized];
   try {
-    const DisplayNames = (Intl as typeof Intl & {
-      DisplayNames?: new (locales?: string | string[], options?: { type: "currency" }) => { of(code: string): string | undefined };
-    }).DisplayNames;
-    return DisplayNames ? new DisplayNames(["en"], { type: "currency" }).of(normalized) || normalized : normalized;
+    const DisplayNames = (
+      Intl as typeof Intl & {
+        DisplayNames?: new (
+          locales?: string | string[],
+          options?: { type: "currency" },
+        ) => { of(code: string): string | undefined };
+      }
+    ).DisplayNames;
+    return DisplayNames
+      ? new DisplayNames(["en"], { type: "currency" }).of(normalized) || normalized
+      : normalized;
   } catch {
     return normalized;
   }
@@ -64,33 +89,46 @@ function option(code: string): CustomPaymentCurrencyOption {
   return { code, name: currencyDisplayName(code) };
 }
 
-export function customPaymentCurrenciesForGateway(gateway: CustomPaymentGateway): CustomPaymentCurrencyOption[] {
+export function customPaymentCurrenciesForGateway(
+  gateway: CustomPaymentGateway,
+): CustomPaymentCurrencyOption[] {
   if (gateway === "paystack") return PAYSTACK_CUSTOM_PAYMENT_CURRENCIES.map(option);
 
   const priority = new Map(FLUTTERWAVE_CURRENCY_PRIORITY.map((code, index) => [code, index]));
-  return FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES
-    .map(option)
-    .sort((a, b) => {
-      const ai = priority.get(a.code as (typeof FLUTTERWAVE_CURRENCY_PRIORITY)[number]);
-      const bi = priority.get(b.code as (typeof FLUTTERWAVE_CURRENCY_PRIORITY)[number]);
-      if (ai != null || bi != null) return (ai ?? 999) - (bi ?? 999);
-      return a.name.localeCompare(b.name) || a.code.localeCompare(b.code);
-    });
+  return FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES.map(option).sort((a, b) => {
+    const ai = priority.get(a.code as (typeof FLUTTERWAVE_CURRENCY_PRIORITY)[number]);
+    const bi = priority.get(b.code as (typeof FLUTTERWAVE_CURRENCY_PRIORITY)[number]);
+    if (ai != null || bi != null) return (ai ?? 999) - (bi ?? 999);
+    return a.name.localeCompare(b.name) || a.code.localeCompare(b.code);
+  });
 }
 
-export function customPaymentGatewaySupportsCurrency(gateway: CustomPaymentGateway, currency: unknown): boolean {
+export function customPaymentGatewaySupportsCurrency(
+  gateway: CustomPaymentGateway,
+  currency: unknown,
+): boolean {
   let code: string;
-  try { code = normalizeCustomPaymentCurrency(currency); } catch { return false; }
-  const allowed: readonly string[] = gateway === "paystack"
-    ? PAYSTACK_CUSTOM_PAYMENT_CURRENCIES
-    : FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES;
+  try {
+    code = normalizeCustomPaymentCurrency(currency);
+  } catch {
+    return false;
+  }
+  const allowed: readonly string[] =
+    gateway === "paystack"
+      ? PAYSTACK_CUSTOM_PAYMENT_CURRENCIES
+      : FLUTTERWAVE_CUSTOM_PAYMENT_CURRENCIES;
   return allowed.includes(code);
 }
 
-export function searchCustomPaymentCurrencies(options: CustomPaymentCurrencyOption[], query: string): CustomPaymentCurrencyOption[] {
+export function searchCustomPaymentCurrencies(
+  options: CustomPaymentCurrencyOption[],
+  query: string,
+): CustomPaymentCurrencyOption[] {
   const q = query.trim().toLowerCase();
   if (!q) return options;
-  return options.filter((item) => item.code.toLowerCase().includes(q) || item.name.toLowerCase().includes(q));
+  return options.filter(
+    (item) => item.code.toLowerCase().includes(q) || item.name.toLowerCase().includes(q),
+  );
 }
 
 export function roundCustomPaymentAmount(amount: number, currency: string): number {

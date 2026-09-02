@@ -73,13 +73,17 @@ export const adminSearchCustomersLite = createServerFn({ method: "POST" })
 export const adminGetCustomerCommunicationHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ userId: z.string().uuid(), limit: z.number().int().min(1).max(200).optional() }).parse(input),
+    z
+      .object({ userId: z.string().uuid(), limit: z.number().int().min(1).max(200).optional() })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
     const { data: rows } = await admin
       .from("email_messages")
-      .select("id, template_key, subject, recipient, status, scheduled_for, sent_at, created_at, last_error, event_key")
+      .select(
+        "id, template_key, subject, recipient, status, scheduled_for, sent_at, created_at, last_error, event_key",
+      )
       .eq("related_user_id", data.userId)
       .order("created_at", { ascending: false })
       .limit(data.limit ?? 100);
@@ -251,7 +255,10 @@ export const adminListExpiringSubscriptions = createServerFn({ method: "POST" })
       .select("id, email, full_name")
       .in("id", userIds);
     const pMap = new Map<string, { email: string | null; fullName: string | null }>(
-      ((profiles as any[]) ?? []).map((p) => [p.id as string, { email: p.email, fullName: p.full_name }]),
+      ((profiles as any[]) ?? []).map((p) => [
+        p.id as string,
+        { email: p.email, fullName: p.full_name },
+      ]),
     );
     return {
       orders: list.map((o) => ({
@@ -290,7 +297,10 @@ export const adminExtendOrderExpiry = createServerFn({ method: "POST" })
     const patch = r.current_period_end
       ? { expires_at: nextExpiry, current_period_end: nextExpiry }
       : { expires_at: nextExpiry };
-    const { error } = await admin.from("tool_orders").update(patch as never).eq("id", data.orderId);
+    const { error } = await admin
+      .from("tool_orders")
+      .update(patch as never)
+      .eq("id", data.orderId);
     if (error) throw new Error(error.message);
 
     await logAdminActivity(
@@ -315,14 +325,7 @@ export const adminListCustomerSegment = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
-        segment: z.enum([
-          "active",
-          "expired",
-          "new",
-          "by_tool",
-          "failed_payments",
-          "no_reviews",
-        ]),
+        segment: z.enum(["active", "expired", "new", "by_tool", "failed_payments", "no_reviews"]),
         toolSlug: z.string().trim().max(120).optional(),
         newWithinDays: z.number().int().min(1).max(365).optional(),
       })

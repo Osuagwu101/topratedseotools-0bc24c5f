@@ -31,14 +31,14 @@ function AboutPage() {
             Individual premium tool subscriptions, managed in one place
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            {APP_NAME} makes premium professional software easier to discover, subscribe to, and manage.
-            Instead of forcing customers into one large bundle, the platform offers separate
+            {APP_NAME} makes premium professional software easier to discover, subscribe to, and
+            manage. Instead of forcing customers into one large bundle, the platform offers separate
             subscriptions for individual SEO, AI, writing, research, design, and productivity tools.
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Customers can choose the specific tools they need and select from the billing periods available
-            for each tool — including monthly, quarterly or yearly options where offered — while managing
-            access and renewals from one dashboard.
+            Customers can choose the specific tools they need and select from the billing periods
+            available for each tool — including monthly, quarterly or yearly options where offered —
+            while managing access and renewals from one dashboard.
           </p>
         </div>
       </section>
@@ -74,7 +74,8 @@ function AboutPage() {
           <Sparkles className="mx-auto h-8 w-8 text-primary" />
           <h2 className="mt-4 text-2xl font-bold tracking-tight">Choose only the tools you need</h2>
           <p className="mt-2 text-muted-foreground">
-            Creating an account is free. Premium tool access requires an active subscription to that tool.
+            Creating an account is free. Premium tool access requires an active subscription to that
+            tool.
           </p>
           <Link
             to="/tools"

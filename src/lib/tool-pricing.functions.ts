@@ -26,9 +26,6 @@ export interface ToolPricingOption {
   paystack_plan_code: string | null;
 }
 
-
-
-
 function publicClient() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
   const url = process.env.SUPABASE_URL!;
@@ -102,7 +99,11 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
       data.billing_period ??
       (unitLc === "month" || unitLc === "monthly" || unitLc === "mo"
         ? "monthly"
-        : unitLc === "quarter" || unitLc === "quarterly" || unitLc === "3month" || unitLc === "3months" || unitLc === "3mo"
+        : unitLc === "quarter" ||
+            unitLc === "quarterly" ||
+            unitLc === "3month" ||
+            unitLc === "3months" ||
+            unitLc === "3mo"
           ? "quarterly"
           : unitLc === "year" || unitLc === "yearly" || unitLc === "annual" || unitLc === "yr"
             ? "yearly"
@@ -118,14 +119,12 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
     const row = {
       tool_slug: data.tool_slug,
       label: data.label ?? null,
-      amount: data.contact_admin ? null : data.amount ?? null,
-      unit: data.contact_admin ? null : data.unit ?? null,
+      amount: data.contact_admin ? null : (data.amount ?? null),
+      unit: data.contact_admin ? null : (data.unit ?? null),
       currency: data.currency ?? "₦",
       contact_admin: data.contact_admin ?? false,
       sort_order: data.sort_order ?? 0,
-      duration_days: data.contact_admin
-        ? null
-        : data.duration_days ?? durationDefault,
+      duration_days: data.contact_admin ? null : (data.duration_days ?? durationDefault),
       grace_days: data.grace_days ?? 0,
       warning_days: data.warning_days ?? 0,
       access_type: data.access_type ?? "shared",
@@ -136,12 +135,8 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
       paystack_plan_code: data.paystack_plan_code ?? null,
     };
 
-
     if (data.id) {
-      const { error } = await context.supabase
-        .from("tool_pricing")
-        .update(row)
-        .eq("id", data.id);
+      const { error } = await context.supabase.from("tool_pricing").update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
     }
@@ -154,16 +149,12 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
     return { ok: true, id: inserted.id };
   });
 
-
 export const deleteToolPricing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { error } = await context.supabase
-      .from("tool_pricing")
-      .delete()
-      .eq("id", data.id);
+    const { error } = await context.supabase.from("tool_pricing").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

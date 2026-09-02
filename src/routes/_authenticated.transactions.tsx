@@ -24,10 +24,7 @@ const txQuery = queryOptions({
 
 export const Route = createFileRoute("/_authenticated/transactions")({
   head: () => ({
-    meta: [
-      { title: "Transactions — Top Rated SEO Tools" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Transactions — Top Rated SEO Tools" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(txQuery),
   component: TransactionsPage,
@@ -87,9 +84,7 @@ function TransactionsPage() {
                   const st = t.payment_status as PaymentStatus;
                   return (
                     <tr key={t.id} className="border-t">
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {t.paystack_reference ?? "—"}
-                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">{t.paystack_reference ?? "—"}</td>
                       <td className="px-3 py-2">{tool?.name ?? t.tool_slug}</td>
                       <td className="px-3 py-2 text-xs">{gatewayLabel(t)}</td>
 

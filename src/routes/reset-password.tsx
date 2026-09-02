@@ -33,10 +33,23 @@ function ResetPage() {
   }
 
   return (
-    <AuthShell title="Set a new password" subtitle="Choose a strong password you don't use elsewhere.">
+    <AuthShell
+      title="Set a new password"
+      subtitle="Choose a strong password you don't use elsewhere."
+    >
       <form onSubmit={onSubmit} className="space-y-3">
-        <FieldPassword value={password} onChange={setPassword} label="New password" autoComplete="new-password" />
-        <FieldPassword value={confirm} onChange={setConfirm} label="Confirm password" autoComplete="new-password" />
+        <FieldPassword
+          value={password}
+          onChange={setPassword}
+          label="New password"
+          autoComplete="new-password"
+        />
+        <FieldPassword
+          value={confirm}
+          onChange={setConfirm}
+          label="Confirm password"
+          autoComplete="new-password"
+        />
         <button
           type="submit"
           disabled={loading}

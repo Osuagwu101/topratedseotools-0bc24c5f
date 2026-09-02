@@ -213,7 +213,6 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
       }
     } catch {}
 
-
     // Recent activity
     let recentActivity: Array<{
       id: string;

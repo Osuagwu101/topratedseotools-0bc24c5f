@@ -11,7 +11,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/settings/backup")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Backup & Recovery — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Backup & Recovery — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -63,8 +65,8 @@ function BackupPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Backup & Recovery</h1>
           <p className="text-sm text-muted-foreground">
-            Download a full business-data snapshot or a lightweight configuration export.
-            Secrets, credentials, and passwords are never included.
+            Download a full business-data snapshot or a lightweight configuration export. Secrets,
+            credentials, and passwords are never included.
           </p>
         </div>
 
@@ -73,8 +75,8 @@ function BackupPage() {
             <CardHeader>
               <CardTitle>Full backup</CardTitle>
               <CardDescription>
-                Tools, pricing, orders, payments, customers, templates, admin settings.
-                Sensitive fields are redacted.
+                Tools, pricing, orders, payments, customers, templates, admin settings. Sensitive
+                fields are redacted.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -116,7 +118,9 @@ function BackupPage() {
                     <div className="font-medium">{r.action}</div>
                     <div className="text-xs text-muted-foreground">{r.reference ?? "—"}</div>
                   </div>
-                  <div className={`text-xs font-semibold ${r.success ? "text-emerald-600" : "text-destructive"}`}>
+                  <div
+                    className={`text-xs font-semibold ${r.success ? "text-emerald-600" : "text-destructive"}`}
+                  >
                     {r.success ? "ok" : "failed"}
                   </div>
                 </li>

@@ -48,7 +48,13 @@ export const getMarketingAnalytics = createServerFn({ method: "GET" })
           .from("tool_orders")
           .select("id, attribution, tool_slug, access_type, billing_period, payment_type")
           .in("id", orderIds)
-      : { data: [] as { id: string; attribution: Record<string, unknown> | null; tool_slug: string }[] };
+      : {
+          data: [] as {
+            id: string;
+            attribution: Record<string, unknown> | null;
+            tool_slug: string;
+          }[],
+        };
     const orderMap = new Map(
       (orders ?? []).map((o) => [
         o.id as string,
@@ -122,9 +128,7 @@ export const getMarketingAnalytics = createServerFn({ method: "GET" })
       abandoned: abandonedCount ?? 0,
       registrations: regCount ?? 0,
       conversionRate:
-        (startedCount ?? 0) > 0
-          ? ((payments ?? []).length / (startedCount ?? 1)) * 100
-          : 0,
+        (startedCount ?? 0) > 0 ? ((payments ?? []).length / (startedCount ?? 1)) * 100 : 0,
       bySource: Array.from(bySource.entries())
         .map(([source, v]) => ({ source, ...v }))
         .sort((a, b) => b.revenue - a.revenue),

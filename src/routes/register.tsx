@@ -12,8 +12,7 @@ export const Route = createFileRoute("/register")({
       { title: "Create your account — Top Rated SEO Tools" },
       {
         name: "description",
-        content:
-          "Create a free account to purchase and manage your individual tool subscriptions.",
+        content: "Create a free account to purchase and manage your individual tool subscriptions.",
       },
     ],
   }),
@@ -74,7 +73,8 @@ function RegisterPage() {
       </button>
 
       <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> or sign up with email <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> or sign up with email{" "}
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={onSubmit} className="space-y-3">
@@ -91,8 +91,14 @@ function RegisterPage() {
         <FieldPassword value={password} onChange={setPassword} autoComplete="new-password" />
         <p className="text-xs text-muted-foreground">
           By creating an account, you agree to our{" "}
-          <Link to="/terms" className="underline hover:text-foreground">Terms</Link> and{" "}
-          <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+          <Link to="/terms" className="underline hover:text-foreground">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="underline hover:text-foreground">
+            Privacy Policy
+          </Link>
+          .
         </p>
         <button
           type="submit"

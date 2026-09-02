@@ -5,11 +5,7 @@ import { z } from "zod";
 import { Search as SearchIcon, X } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { PostCard } from "@/components/blog/PostCard";
-import {
-  listPublishedPosts,
-  listCategories,
-  listTags,
-} from "@/lib/blog.functions";
+import { listPublishedPosts, listCategories, listTags } from "@/lib/blog.functions";
 
 const searchSchema = z.object({
   q: z.string().optional().default(""),
@@ -70,8 +66,7 @@ function SearchPage() {
 
   const [draft, setDraft] = useState<Filters>(search);
 
-  const active =
-    !!search.q || !!search.category || !!search.tag || !!search.from || !!search.to;
+  const active = !!search.q || !!search.category || !!search.tag || !!search.from || !!search.to;
 
   function apply(next: Partial<Filters>) {
     const merged = { ...draft, ...next };

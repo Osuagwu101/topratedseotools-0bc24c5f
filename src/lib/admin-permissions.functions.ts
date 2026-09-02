@@ -91,9 +91,7 @@ async function writeAudit(
   });
   if (error) {
     // Sensitive-action rule: audit failure aborts.
-    throw new Error(
-      "Action could not be recorded — no change was made. " + error.message,
-    );
+    throw new Error("Action could not be recorded — no change was made. " + error.message);
   }
 }
 
@@ -104,8 +102,7 @@ async function detectCanEndSessions(): Promise<boolean> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // The signOut admin method: (userId, scope?) — feature detect.
-    _canEndSessionsCache =
-      typeof (supabaseAdmin as any)?.auth?.admin?.signOut === "function";
+    _canEndSessionsCache = typeof (supabaseAdmin as any)?.auth?.admin?.signOut === "function";
   } catch {
     _canEndSessionsCache = false;
   }
@@ -132,7 +129,7 @@ export const getMyAdminContext = createServerFn({ method: "GET" })
       .maybeSingle();
     const isActiveAdmin = isActive && !!acct;
     const isSuperAdmin = isActiveAdmin && !!role?.is_super_admin;
-    let overrides: Record<string, boolean> = {};
+    const overrides: Record<string, boolean> = {};
     if (isActiveAdmin && !isSuperAdmin) {
       const { data: rows } = await (supabaseAdmin as any)
         .from("admin_permissions")
@@ -170,10 +167,10 @@ export const listStaff = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     const ids = (accounts ?? []).map((a: any) => a.user_id);
     let roles: Record<string, any> = {};
-    let overrides: Record<string, Record<string, boolean>> = {};
-    let invitations: Record<string, any> = {};
-    let lastSignInMap: Record<string, string | null> = {};
-    let mustChangeMap: Record<string, boolean> = {};
+    const overrides: Record<string, Record<string, boolean>> = {};
+    const invitations: Record<string, any> = {};
+    const lastSignInMap: Record<string, string | null> = {};
+    const mustChangeMap: Record<string, boolean> = {};
 
     if (ids.length) {
       const { data: rows } = await (supabaseAdmin as any)
@@ -359,10 +356,11 @@ export const createStaff = createServerFn({ method: "POST" })
     }
 
     // Fresh invitation
-    const { data: invited, error: inviteErr } = await (supabaseAdmin as any).auth.admin.inviteUserByEmail(
-      data.email,
-      { data: data.fullName ? { full_name: data.fullName } : undefined },
-    );
+    const { data: invited, error: inviteErr } = await (
+      supabaseAdmin as any
+    ).auth.admin.inviteUserByEmail(data.email, {
+      data: data.fullName ? { full_name: data.fullName } : undefined,
+    });
     if (inviteErr || !invited?.user) {
       throw new Error(inviteErr?.message ?? "Could not send invitation");
     }
@@ -537,18 +535,16 @@ export const setStaffPermission = createServerFn({ method: "POST" })
         .eq("user_id", data.userId)
         .eq("permission", data.permission);
     } else {
-      await (supabaseAdmin as any)
-        .from("admin_permissions")
-        .upsert(
-          {
-            user_id: data.userId,
-            permission: data.permission,
-            granted: data.granted,
-            updated_by: context.userId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,permission" },
-        );
+      await (supabaseAdmin as any).from("admin_permissions").upsert(
+        {
+          user_id: data.userId,
+          permission: data.permission,
+          granted: data.granted,
+          updated_by: context.userId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,permission" },
+      );
     }
     return { ok: true };
   });

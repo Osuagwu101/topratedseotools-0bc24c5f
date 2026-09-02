@@ -198,15 +198,47 @@ function buildSystemPrompt() {
 }
 
 const PROMO_TRIGGER_TERMS = [
-  "seo tool", "seo tools", "group buy", "group-buy", "group buying",
-  "ai tool", "ai tools", "writing tool", "writing tools", "paraphras",
-  "plagiaris", "content tool", "marketing tool", "keyword research",
-  "backlink", "rank track", "research tool", "productivity tool",
-  "tool subscription", "subscription platform", "affordable software",
-  "affordable ai", "affordable seo", "best tools", "top tools",
-  "cheap tools", "shared access", "premium tool", "chatgpt", "quillbot",
-  "grammarly", "semrush", "ahrefs", "turnitin", "stealthwriter",
-  "phrasly", "capcut", "canva", "jasper", "copy.ai", "surfer",
+  "seo tool",
+  "seo tools",
+  "group buy",
+  "group-buy",
+  "group buying",
+  "ai tool",
+  "ai tools",
+  "writing tool",
+  "writing tools",
+  "paraphras",
+  "plagiaris",
+  "content tool",
+  "marketing tool",
+  "keyword research",
+  "backlink",
+  "rank track",
+  "research tool",
+  "productivity tool",
+  "tool subscription",
+  "subscription platform",
+  "affordable software",
+  "affordable ai",
+  "affordable seo",
+  "best tools",
+  "top tools",
+  "cheap tools",
+  "shared access",
+  "premium tool",
+  "chatgpt",
+  "quillbot",
+  "grammarly",
+  "semrush",
+  "ahrefs",
+  "turnitin",
+  "stealthwriter",
+  "phrasly",
+  "capcut",
+  "canva",
+  "jasper",
+  "copy.ai",
+  "surfer",
 ];
 
 function isPromoRelevant(text: string): boolean {
@@ -313,11 +345,13 @@ function buildUserPrompt(opts: {
   if (opts.includeLists) req.push("- Well-formatted lists where they add clarity.");
   req.push("- A 'Pros and Cons' section unless clearly irrelevant.");
   req.push("- A 'Tips' section with 4-7 actionable, non-obvious tips.");
-  if (opts.includeStats) req.push("- Credible statistics presented plainly (do NOT invent citations).");
+  if (opts.includeStats)
+    req.push("- Credible statistics presented plainly (do NOT invent citations).");
   if (opts.includeCaseStudies) req.push("- A brief case-study style example.");
   if (opts.includeFaq)
     req.push("- An '## FAQ' section rendering ALL the FAQ questions/answers you generate.");
-  if (opts.includeConclusion) req.push("- A conclusion that summarises without saying 'in conclusion'.");
+  if (opts.includeConclusion)
+    req.push("- A conclusion that summarises without saying 'in conclusion'.");
   req.push("Write ORIGINAL prose; do not invent quotes or specific citations.");
 
   req.push("");
@@ -408,7 +442,9 @@ export const generateArticle = createServerFn({ method: "POST" })
 
     const s: any = settings;
     const brandName = String(s.brand_name ?? "Top Rated SEO Tools").trim() || "Top Rated SEO Tools";
-    const brandUrl = String(s.brand_url ?? "https://topratedseotools.lovable.app").trim() || "https://topratedseotools.lovable.app";
+    const brandUrl =
+      String(s.brand_url ?? "https://topratedseotools.lovable.app").trim() ||
+      "https://topratedseotools.lovable.app";
     const brandDescription = String(
       s.brand_description ??
         "Affordable access to premium SEO, AI, writing, research and productivity tools with Shared and Private Access plans (monthly, quarterly, yearly) via secure Paystack payments and a simple customer dashboard.",
@@ -479,9 +515,13 @@ export const generateArticle = createServerFn({ method: "POST" })
         throw new Error("The AI provider is temporarily rate-limited. Please try again shortly.");
       }
       if (msg.startsWith("AI_PROVIDER_ERROR")) {
-        throw new Error("The AI provider could not generate the article right now. Please try again.");
+        throw new Error(
+          "The AI provider could not generate the article right now. Please try again.",
+        );
       }
-      throw new Error("The AI provider could not generate the article right now. Please try again.");
+      throw new Error(
+        "The AI provider could not generate the article right now. Please try again.",
+      );
     }
 
     const parsed = tryParseJson(raw) as Partial<GeneratedArticle> & {
@@ -568,13 +608,17 @@ export const generateArticle = createServerFn({ method: "POST" })
       og_title: parsed.og_title ? String(parsed.og_title).slice(0, 90) : title.slice(0, 90),
       og_description: parsed.og_description
         ? String(parsed.og_description).slice(0, 220)
-        : (parsed.excerpt ? String(parsed.excerpt).slice(0, 220) : ""),
+        : parsed.excerpt
+          ? String(parsed.excerpt).slice(0, 220)
+          : "",
       twitter_title: parsed.twitter_title
         ? String(parsed.twitter_title).slice(0, 90)
         : title.slice(0, 90),
       twitter_description: parsed.twitter_description
         ? String(parsed.twitter_description).slice(0, 220)
-        : (parsed.excerpt ? String(parsed.excerpt).slice(0, 220) : ""),
+        : parsed.excerpt
+          ? String(parsed.excerpt).slice(0, 220)
+          : "",
       featured_image_alt: featuredAlt,
       content,
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 10).map((t) => String(t)) : [],

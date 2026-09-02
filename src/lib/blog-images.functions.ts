@@ -80,7 +80,8 @@ export const generateBlogImage = createServerFn({ method: "POST" })
     if (!resp.ok) {
       const t = await resp.text().catch(() => "");
       if (resp.status === 429) throw new Error("Rate limit exceeded, try again in a moment.");
-      if (resp.status === 402) throw new Error("AI credits exhausted. Please add credits to continue.");
+      if (resp.status === 402)
+        throw new Error("AI credits exhausted. Please add credits to continue.");
       throw new Error(`Image generation failed (${resp.status}): ${t.slice(0, 200)}`);
     }
     const json = (await resp.json()) as { data?: Array<{ b64_json?: string }> };
@@ -98,7 +99,12 @@ export const generateBlogImage = createServerFn({ method: "POST" })
 export const searchStockImages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ query: z.string().trim().min(2).max(200), page: z.number().int().min(1).max(20).default(1) }).parse(input),
+    z
+      .object({
+        query: z.string().trim().min(2).max(200),
+        page: z.number().int().min(1).max(20).default(1),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any);

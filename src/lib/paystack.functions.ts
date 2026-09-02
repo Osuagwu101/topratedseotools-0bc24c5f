@@ -8,7 +8,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
-
 async function paystack<T>(path: string, init?: RequestInit): Promise<T> {
   const key = process.env.PAYSTACK_SECRET_KEY;
   if (!key) throw new Error("Payments are not configured yet. Contact support.");
@@ -72,20 +71,28 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       .select("orders_paused, payments_paused, maintenance_mode")
       .eq("id", true)
       .maybeSingle();
-    if (gate?.maintenance_mode) throw new Error("The site is currently in maintenance mode. Please try again shortly.");
-    if (gate?.orders_paused) throw new Error("New orders are temporarily paused. Please try again shortly.");
-    if (gate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again shortly.");
+    if (gate?.maintenance_mode)
+      throw new Error("The site is currently in maintenance mode. Please try again shortly.");
+    if (gate?.orders_paused)
+      throw new Error("New orders are temporarily paused. Please try again shortly.");
+    if (gate?.payments_paused)
+      throw new Error("Payments are temporarily paused. Please try again shortly.");
 
     // Gateway selection is explicit: the single provider a Super Admin marked
     // active in Admin → Settings → Payment providers handles every checkout
     // currency (Paystack by default). The currency is validated against that
     // gateway — it never switches providers. The pricing, coupon, currency,
     // order and access pipelines below stay gateway-agnostic.
-    const chosenCurrency = (data.payment_currency ?? "NGN") as "NGN" | "GHS" | "KES" | "ZAR" | "USD";
-    const { supabaseAdmin: adminForGateway } = await import("@/integrations/supabase/client.server");
+    const chosenCurrency = (data.payment_currency ?? "NGN") as
+      | "NGN"
+      | "GHS"
+      | "KES"
+      | "ZAR"
+      | "USD";
+    const { supabaseAdmin: adminForGateway } =
+      await import("@/integrations/supabase/client.server");
     const { resolveActiveGateway } = await import("@/lib/gateways/registry");
     const gateway = await resolveActiveGateway(adminForGateway, chosenCurrency);
-
 
     const env =
       detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY) ?? gateway.environment ?? "live";
@@ -98,8 +105,6 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
         ? "one_time"
         : requestedType;
     const isRecurring = paymentType === "recurring_subscription";
-
-
 
     const { data: order, error } = await context.supabase
       .from("tool_orders")
@@ -183,7 +188,9 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       const [{ data: cs }, { data: rateRow }] = await Promise.all([
         supabaseAdmin
           .from("currency_settings")
-          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies, merchant_currencies")
+          .select(
+            "switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies, merchant_currencies",
+          )
           .eq("id", true)
           .maybeSingle(),
         supabaseAdmin
@@ -193,17 +200,31 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
           .eq("quote_currency", chosenCurrency)
           .maybeSingle(),
       ]);
-      const settings = cs as { switching_enabled: boolean; surcharge_enabled: boolean; surcharge_percent: number; supported_currencies: string[]; merchant_currencies?: string[] | null } | null;
-      if (!settings?.switching_enabled) throw new Error("Currency switching is currently disabled.");
+      const settings = cs as {
+        switching_enabled: boolean;
+        surcharge_enabled: boolean;
+        surcharge_percent: number;
+        supported_currencies: string[];
+        merchant_currencies?: string[] | null;
+      } | null;
+      if (!settings?.switching_enabled)
+        throw new Error("Currency switching is currently disabled.");
       if (!settings.supported_currencies.includes(chosenCurrency)) {
         throw new Error(`${chosenCurrency} is not supported at the moment.`);
       }
-      merchantCurrencies = settings.merchant_currencies?.length ? settings.merchant_currencies : ["NGN"];
+      merchantCurrencies = settings.merchant_currencies?.length
+        ? settings.merchant_currencies
+        : ["NGN"];
       const rate = Number((rateRow as { rate?: number } | null)?.rate ?? 0);
       const expires = (rateRow as { expires_at?: string } | null)?.expires_at;
-      if (!rate || rate <= 0) throw new Error(`No exchange rate available for ${chosenCurrency}. Please try again shortly or pay in NGN.`);
+      if (!rate || rate <= 0)
+        throw new Error(
+          `No exchange rate available for ${chosenCurrency}. Please try again shortly or pay in NGN.`,
+        );
       if (expires && new Date(expires).getTime() < Date.now()) {
-        throw new Error(`Exchange rate for ${chosenCurrency} is stale. Please refresh and try again.`);
+        throw new Error(
+          `Exchange rate for ${chosenCurrency} is stale. Please refresh and try again.`,
+        );
       }
       currencyBreakdown = buildPricingBreakdown({
         ngn: snapshot.price_amount,
@@ -223,9 +244,10 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     const chargeable = gateway.adapter.chargeCurrencies ?? merchantCurrencies;
     const charge = resolveChargePlan(currencyBreakdown, chargeable);
     if (charge.payment_minor_units <= 0) {
-      throw new Error("This coupon reduces the total to zero. Please contact support to complete this order.");
+      throw new Error(
+        "This coupon reduces the total to zero. Please contact support to complete this order.",
+      );
     }
-
 
     let planCode: string | null = null;
     if (isRecurring) {
@@ -282,7 +304,6 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
       metadata,
       extra,
     });
-
 
     const fulfilment = snapshot.access_type === "private" ? "pending" : "not_required";
 
@@ -416,8 +437,6 @@ export const initializePaystackPayment = createServerFn({ method: "POST" })
     return { authorization_url: init.authorization_url, reference: init.reference };
   });
 
-
-
 /** Fallback verify — used when the browser returns from Paystack before the webhook fires. */
 export const verifyPaystackPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -441,7 +460,6 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const tx = await gateway.adapter.verify(data.reference);
     if (tx.status !== "success") throw new Error(VERIFY_FAILURE_MESSAGE);
 
-
     const orderId = tx.metadata?.order_id;
     if (!orderId) throw new Error(VERIFY_FAILURE_MESSAGE);
 
@@ -457,17 +475,21 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     const orderSafe = order;
     // Charged money = what Paystack actually took (merchant currency),
     // falling back to the NGN order price for legacy rows.
-    const chargedCurrency =
-      ((order as { payment_currency?: string | null }).payment_currency ?? tx.currency ?? "NGN").toUpperCase();
+    const chargedCurrency = (
+      (order as { payment_currency?: string | null }).payment_currency ??
+      tx.currency ??
+      "NGN"
+    ).toUpperCase();
     const chargedAmount =
-      ((order as { final_amount_charged?: number | null }).final_amount_charged) ??
+      (order as { final_amount_charged?: number | null }).final_amount_charged ??
       (orderSafe.price_amount as number | null) ??
       tx.amount / 100;
     // What the customer saw and should see again in receipts/emails.
-    const displayCurrency =
-      ((order as { display_currency?: string | null }).display_currency ?? chargedCurrency).toUpperCase();
+    const displayCurrency = (
+      (order as { display_currency?: string | null }).display_currency ?? chargedCurrency
+    ).toUpperCase();
     const displayAmount =
-      ((order as { display_amount?: number | null }).display_amount) ?? chargedAmount;
+      (order as { display_amount?: number | null }).display_amount ?? chargedAmount;
     if (order.status === "approved") {
       const { data: orderFull } = await context.supabase
         .from("tool_orders")
@@ -506,8 +528,9 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
         currency: (orderSafe.currency as string | null) ?? null,
         paystack_reference: (order.paystack_reference as string | null) ?? null,
         paystack_environment: (order.paystack_environment as string | null) ?? null,
-        payment_currency: ((order as { payment_currency?: string | null }).payment_currency) ?? null,
-        final_amount_charged: ((order as { final_amount_charged?: number | null }).final_amount_charged) ?? null,
+        payment_currency: (order as { payment_currency?: string | null }).payment_currency ?? null,
+        final_amount_charged:
+          (order as { final_amount_charged?: number | null }).final_amount_charged ?? null,
       },
       callerUserId: context.userId,
       env,
@@ -551,7 +574,6 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
               gateway_transaction_reference: paystackId ? String(paystackId) : null,
               gateway_response: (tx.raw ?? null) as never,
               last_status_change_at: paidAt.toISOString(),
-
             } as never)
             .eq("id", dupPay.id);
           await supabaseAdmin.from("tool_payment_status_history").insert({
@@ -581,20 +603,27 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             // Coupon-aware: the NGN amount that actually flowed into the
             // conversion pipeline, plus the discount taken off the base.
             base_amount_ngn:
-              ((order as { discounted_amount_ngn?: number | null }).discounted_amount_ngn) ??
+              (order as { discounted_amount_ngn?: number | null }).discounted_amount_ngn ??
               (orderSafe.price_amount as number | null) ??
               null,
-            coupon_code: ((order as { coupon_code?: string | null }).coupon_code) ?? null,
+            coupon_code: (order as { coupon_code?: string | null }).coupon_code ?? null,
             discount_amount_ngn:
-              Number((order as { discount_amount_ngn?: number | null }).discount_amount_ngn ?? 0) || 0,
+              Number((order as { discount_amount_ngn?: number | null }).discount_amount_ngn ?? 0) ||
+              0,
             payment_currency: chargedCurrency,
             exchange_rate:
-              ((order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot) ?? null,
+              (order as { exchange_rate_snapshot?: number | null }).exchange_rate_snapshot ?? null,
             converted_amount:
               displayAmount -
-              (Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0),
+              (Number(
+                (order as { international_fee_amount?: number | null }).international_fee_amount ??
+                  0,
+              ) || 0),
             international_fee_amount:
-              Number((order as { international_fee_amount?: number | null }).international_fee_amount ?? 0) || 0,
+              Number(
+                (order as { international_fee_amount?: number | null }).international_fee_amount ??
+                  0,
+              ) || 0,
             final_amount: chargedAmount,
             display_currency: displayCurrency,
             display_amount: displayAmount,
@@ -615,7 +644,6 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
             source: gateway.slug,
             paid_at: paidAt.toISOString(),
             last_status_change_at: paidAt.toISOString(),
-
           } as never)
           .select("id")
           .maybeSingle();
@@ -640,10 +668,11 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       await recordCouponRedemption(supabaseAdmin, orderSafe.id as string, tx.reference ?? null);
     }
 
-
-
     // Helper — best-effort recipient lookup for post-payment emails.
-    async function queuePostPayment(kind: "shared_success" | "private_pending", extra: Record<string, unknown>) {
+    async function queuePostPayment(
+      kind: "shared_success" | "private_pending",
+      extra: Record<string, unknown>,
+    ) {
       try {
         const { queueEmail } = await import("@/lib/email/queue");
         const { data: prof } = await supabaseAdmin
@@ -651,7 +680,7 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
           .select("email, full_name")
           .eq("id", orderSafe.user_id)
           .maybeSingle();
-        const to = ((prof as { email?: string } | null)?.email) ?? context.claims?.email ?? null;
+        const to = (prof as { email?: string } | null)?.email ?? context.claims?.email ?? null;
         const name = (prof as { full_name?: string } | null)?.full_name ?? "there";
         if (!to) return;
         const { data: orderFull } = await supabaseAdmin
@@ -721,7 +750,9 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
       try {
         const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
         await tryAutoAssignAccount(supabaseAdmin, orderId);
-      } catch (e) { console.warn("[account-pool] private auto-assign failed", e); }
+      } catch (e) {
+        console.warn("[account-pool] private auto-assign failed", e);
+      }
       await queuePostPayment("private_pending", {
         fulfil_by: deadline.toISOString(),
         contact_admin_line: "",
@@ -779,7 +810,9 @@ export const verifyPaystackPayment = createServerFn({ method: "POST" })
     try {
       const { tryAutoAssignAccount } = await import("@/lib/account-pool.functions");
       await tryAutoAssignAccount(supabaseAdmin, orderId);
-    } catch (e) { console.warn("[account-pool] shared auto-assign failed", e); }
+    } catch (e) {
+      console.warn("[account-pool] shared auto-assign failed", e);
+    }
 
     await queuePostPayment("shared_success", {});
     await trackConversionFromServer({
@@ -828,9 +861,7 @@ async function trackConversionFromServer(args: {
 }) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { trackServerConversion, buildEventId } = await import(
-      "@/lib/marketing/server-events"
-    );
+    const { trackServerConversion, buildEventId } = await import("@/lib/marketing/server-events");
     const { data: prof } = await supabaseAdmin
       .from("profiles")
       .select("email")
@@ -842,11 +873,12 @@ async function trackConversionFromServer(args: {
       .eq("id", args.orderId)
       .maybeSingle();
     // Private access hasn't been fulfilled yet, so no Purchase there.
-    const kind = args.access === "private"
-      ? "subscription_start"
-      : args.isOneTime
-        ? "purchase"
-        : "subscription_start";
+    const kind =
+      args.access === "private"
+        ? "subscription_start"
+        : args.isOneTime
+          ? "purchase"
+          : "subscription_start";
     await trackServerConversion(supabaseAdmin, {
       kind,
       event_id: buildEventId(kind, args.orderId),
@@ -877,7 +909,6 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Subscription not found");
     const orderSafe = order;
-
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -925,4 +956,3 @@ export const disableOrderRenewal = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
-

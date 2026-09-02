@@ -9,11 +9,16 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { adminListComments, adminModerateComment } from "@/lib/blog.functions";
 import { formatDate } from "@/lib/blog-text";
 
-const q = queryOptions({ queryKey: ["admin", "blog", "comments"], queryFn: () => adminListComments() });
+const q = queryOptions({
+  queryKey: ["admin", "blog", "comments"],
+  queryFn: () => adminListComments(),
+});
 
 export const Route = createFileRoute("/admin/blog/comments")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({ meta: [{ title: "Comments — Admin" }, { name: "robots", content: "noindex" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: CommentsAdmin,
@@ -39,7 +44,9 @@ function CommentsAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Comments</h1>
         </div>
-        <div className="mt-6"><BlogAdminNav /></div>
+        <div className="mt-6">
+          <BlogAdminNav />
+        </div>
 
         <div className="mt-6 space-y-3">
           {data.comments.map((c) => {

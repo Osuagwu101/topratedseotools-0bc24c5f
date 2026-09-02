@@ -16,9 +16,7 @@ export const anthropicProvider: AIProvider = {
   async complete({ model, system, user, temperature, maxTokens }) {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key)
-      throw new Error(
-        "ANTHROPIC_API_KEY is not set. Add it in the backend secrets to use Claude.",
-      );
+      throw new Error("ANTHROPIC_API_KEY is not set. Add it in the backend secrets to use Claude.");
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: {

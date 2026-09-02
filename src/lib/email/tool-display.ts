@@ -34,7 +34,11 @@ export async function resolveToolDisplay(admin: any, slug: string): Promise<Tool
       .select("name, domain, image_url")
       .eq("tool_slug", slug)
       .maybeSingle();
-    const row = (data ?? null) as { name?: string | null; domain?: string | null; image_url?: string | null } | null;
+    const row = (data ?? null) as {
+      name?: string | null;
+      domain?: string | null;
+      image_url?: string | null;
+    } | null;
     let name = row?.name?.trim() || "";
     let icon = row?.image_url?.trim() || faviconUrl(row?.domain ?? "");
 

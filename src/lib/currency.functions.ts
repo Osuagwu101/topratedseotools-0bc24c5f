@@ -24,7 +24,8 @@ function serverPublic() {
     global: {
       fetch: (input, init) => {
         const h = new Headers(init?.headers);
-        if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+        if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`)
+          h.delete("Authorization");
         h.set("apikey", key);
         return fetch(input, { ...init, headers: h });
       },
@@ -54,9 +55,9 @@ export const getPublicCurrencyConfig = createServerFn({ method: "GET" }).handler
       .eq("id", true)
       .maybeSingle();
 
-    const supported = ((settings?.supported_currencies as string[] | null) ?? [
-      "NGN", "GHS", "KES", "ZAR", "USD",
-    ]).filter(isSupportedCurrency);
+    const supported = (
+      (settings?.supported_currencies as string[] | null) ?? ["NGN", "GHS", "KES", "ZAR", "USD"]
+    ).filter(isSupportedCurrency);
 
     const { data: rows } = await db
       .from("exchange_rates")
@@ -101,9 +102,7 @@ export const refreshExchangeRates = createServerFn({ method: "POST" })
     const url = process.env.EXCHANGE_RATE_URL ?? DEFAULT_RATE_URL;
     const symbols = ["GHS", "KES", "ZAR", "USD"];
     // Some providers take ?base/&symbols, others encode the base in the path.
-    const reqUrl = url.includes("latest/")
-      ? url
-      : `${url}?base=NGN&symbols=${symbols.join(",")}`;
+    const reqUrl = url.includes("latest/") ? url : `${url}?base=NGN&symbols=${symbols.join(",")}`;
     const source = new URL(reqUrl).hostname;
     const res = await fetch(reqUrl);
     if (!res.ok) throw new Error(`Rate provider returned ${res.status}`);
@@ -175,7 +174,8 @@ export const updateCurrencySettings = createServerFn({ method: "POST" })
     if (data.switching_enabled !== undefined) patch.switching_enabled = data.switching_enabled;
     if (data.surcharge_enabled !== undefined) patch.surcharge_enabled = data.surcharge_enabled;
     if (data.surcharge_percent !== undefined) patch.surcharge_percent = data.surcharge_percent;
-    if (data.supported_currencies !== undefined) patch.supported_currencies = data.supported_currencies;
+    if (data.supported_currencies !== undefined)
+      patch.supported_currencies = data.supported_currencies;
     await supabaseAdmin.from("currency_settings").update(patch).eq("id", true);
     return { ok: true };
   });

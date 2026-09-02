@@ -84,8 +84,8 @@ function EmailSettingsPage() {
             <div>
               <div className="font-medium">Resend API key not yet added</div>
               <div className="text-muted-foreground">
-                Sending is disabled until <code>RESEND_API_KEY</code> is added as a server secret from
-                Workspace &rarr; Secrets. You can still edit settings and templates.
+                Sending is disabled until <code>RESEND_API_KEY</code> is added as a server secret
+                from Workspace &rarr; Secrets. You can still edit settings and templates.
               </div>
             </div>
           </CardContent>
@@ -105,13 +105,23 @@ function EmailSettingsPage() {
           </TabsList>
 
           <TabsContent value="setup">
-            <SetupTab settings={s} resendConfigured={resendConfigured} onSaved={() => qc.invalidateQueries({ queryKey: ["email-settings"] })} />
+            <SetupTab
+              settings={s}
+              resendConfigured={resendConfigured}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["email-settings"] })}
+            />
           </TabsContent>
           <TabsContent value="domain">
-            <DomainTab settings={s} onChanged={() => qc.invalidateQueries({ queryKey: ["email-settings"] })} />
+            <DomainTab
+              settings={s}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["email-settings"] })}
+            />
           </TabsContent>
           <TabsContent value="branding">
-            <BrandingTab settings={s} onSaved={() => qc.invalidateQueries({ queryKey: ["email-settings"] })} />
+            <BrandingTab
+              settings={s}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["email-settings"] })}
+            />
           </TabsContent>
           <TabsContent value="templates">
             <TemplatesTab />
@@ -127,7 +137,15 @@ function EmailSettingsPage() {
 
 // ---------- Setup ----------
 
-function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; resendConfigured: boolean; onSaved: () => void }) {
+function SetupTab({
+  settings,
+  resendConfigured,
+  onSaved,
+}: {
+  settings: any;
+  resendConfigured: boolean;
+  onSaved: () => void;
+}) {
   const [form, setForm] = useState({
     sender_name: settings.sender_name ?? "",
     from_email: settings.from_email ?? "",
@@ -182,8 +200,14 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
         <CardContent className="space-y-1.5 text-sm">
           {checklist.map((c) => (
             <div key={c.label} className="flex items-center gap-2">
-              {c.done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
-              <span className={c.done ? "text-foreground" : "text-muted-foreground"}>{c.label}</span>
+              {c.done ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className={c.done ? "text-foreground" : "text-muted-foreground"}>
+                {c.label}
+              </span>
             </div>
           ))}
         </CardContent>
@@ -194,10 +218,26 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
           <CardTitle className="text-base">Sender details</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2">
-          <Field label="Sender name" value={form.sender_name} onChange={(v) => setForm({ ...form, sender_name: v })} />
-          <Field label="From email" value={form.from_email} onChange={(v) => setForm({ ...form, from_email: v })} />
-          <Field label="Reply-to email" value={form.reply_to_email} onChange={(v) => setForm({ ...form, reply_to_email: v })} />
-          <Field label="Sending domain" value={form.sending_domain} onChange={(v) => setForm({ ...form, sending_domain: v })} />
+          <Field
+            label="Sender name"
+            value={form.sender_name}
+            onChange={(v) => setForm({ ...form, sender_name: v })}
+          />
+          <Field
+            label="From email"
+            value={form.from_email}
+            onChange={(v) => setForm({ ...form, from_email: v })}
+          />
+          <Field
+            label="Reply-to email"
+            value={form.reply_to_email}
+            onChange={(v) => setForm({ ...form, reply_to_email: v })}
+          />
+          <Field
+            label="Sending domain"
+            value={form.sending_domain}
+            onChange={(v) => setForm({ ...form, sending_domain: v })}
+          />
           <div>
             <Label>Abandoned-checkout reminder delay (hours)</Label>
             <Input
@@ -211,9 +251,14 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
           <div className="flex items-center justify-between rounded-md border p-3">
             <div>
               <Label className="text-sm">Production sending</Label>
-              <p className="text-xs text-muted-foreground">When off, queued emails are cancelled instead of sent.</p>
+              <p className="text-xs text-muted-foreground">
+                When off, queued emails are cancelled instead of sent.
+              </p>
             </div>
-            <Switch checked={form.production_sending} onCheckedChange={(v) => setForm({ ...form, production_sending: v })} />
+            <Switch
+              checked={form.production_sending}
+              onCheckedChange={(v) => setForm({ ...form, production_sending: v })}
+            />
           </div>
         </CardContent>
       </Card>
@@ -226,11 +271,16 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
           {EMAIL_TYPES.map((t) => {
             const on = form.enabled_types?.[t.key] !== false;
             return (
-              <label key={t.key} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+              <label
+                key={t.key}
+                className="flex items-center justify-between rounded-md border p-2.5 text-sm"
+              >
                 <span>{t.label}</span>
                 <Switch
                   checked={on}
-                  onCheckedChange={(v) => setForm({ ...form, enabled_types: { ...form.enabled_types, [t.key]: v } })}
+                  onCheckedChange={(v) =>
+                    setForm({ ...form, enabled_types: { ...form.enabled_types, [t.key]: v } })
+                  }
                 />
               </label>
             );
@@ -254,14 +304,20 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
         <CardContent className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[220px]">
             <Label>Recipient</Label>
-            <Input type="email" placeholder="you@example.com" value={testTo} onChange={(e) => setTestTo(e.target.value)} />
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+            />
           </div>
           <Button onClick={() => sendTest.mutate()} disabled={!testTo || sendTest.isPending}>
             <Send className="mr-1.5 h-4 w-4" /> {sendTest.isPending ? "Sending…" : "Send test"}
           </Button>
           {settings.resend_domain_status !== "verified" && (
             <p className="basis-full text-xs text-amber-600">
-              Domain not verified yet — the test will use Resend's default sender rules and may fail. Verify DNS first.
+              Domain not verified yet — the test will use Resend's default sender rules and may
+              fail. Verify DNS first.
             </p>
           )}
         </CardContent>
@@ -270,7 +326,15 @@ function SetupTab({ settings, resendConfigured, onSaved }: { settings: any; rese
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div>
       <Label>{label}</Label>
@@ -285,23 +349,38 @@ function DomainTab({ settings, onChanged }: { settings: any; onChanged: () => vo
   const [domain, setDomain] = useState(settings.sending_domain ?? "");
   const create = useMutation({
     mutationFn: () => adminCreateEmailDomain({ data: { domain } }),
-    onSuccess: () => { toast.success("Domain created — copy the DNS records into your DNS provider."); onChanged(); },
+    onSuccess: () => {
+      toast.success("Domain created — copy the DNS records into your DNS provider.");
+      onChanged();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const refresh = useMutation({
     mutationFn: () => adminRefreshEmailDomain(),
-    onSuccess: (r) => { toast.success(`Status: ${r.status ?? "unknown"}`); onChanged(); },
+    onSuccess: (r) => {
+      toast.success(`Status: ${r.status ?? "unknown"}`);
+      onChanged();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const verify = useMutation({
     mutationFn: () => adminVerifyEmailDomain(),
-    onSuccess: (r) => { toast.success(`Verification requested — status: ${r.status ?? "pending"}`); onChanged(); },
+    onSuccess: (r) => {
+      toast.success(`Verification requested — status: ${r.status ?? "pending"}`);
+      onChanged();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const status = settings.resend_domain_status ?? "unconfigured";
   const dns = (settings.resend_dns_records ?? []) as {
-    record: string; name: string; type: string; value: string; ttl?: number | string; priority?: number; status?: string;
+    record: string;
+    name: string;
+    type: string;
+    value: string;
+    ttl?: number | string;
+    priority?: number;
+    status?: string;
   }[];
 
   return (
@@ -317,7 +396,11 @@ function DomainTab({ settings, onChanged }: { settings: any; onChanged: () => vo
           <div className="flex flex-wrap items-end gap-2">
             <div className="flex-1 min-w-[220px]">
               <Label>Domain</Label>
-              <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="topratedseotools.com" />
+              <Input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="topratedseotools.com"
+              />
             </div>
             {!settings.resend_domain_id ? (
               <Button onClick={() => create.mutate()} disabled={!domain || create.isPending}>
@@ -325,7 +408,11 @@ function DomainTab({ settings, onChanged }: { settings: any; onChanged: () => vo
               </Button>
             ) : (
               <>
-                <Button variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+                <Button
+                  variant="outline"
+                  onClick={() => refresh.mutate()}
+                  disabled={refresh.isPending}
+                >
                   <RefreshCw className="mr-1.5 h-4 w-4" /> Refresh status
                 </Button>
                 <Button onClick={() => verify.mutate()} disabled={verify.isPending}>
@@ -349,23 +436,30 @@ function DomainTab({ settings, onChanged }: { settings: any; onChanged: () => vo
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p className="text-xs text-muted-foreground">
-              Add these at your DNS provider (Cloudflare, Namecheap, etc.), then click <em>Verify DNS</em>.
+              Add these at your DNS provider (Cloudflare, Namecheap, etc.), then click{" "}
+              <em>Verify DNS</em>.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="p-1.5">Type</th><th className="p-1.5">Name</th><th className="p-1.5">Value</th><th className="p-1.5">TTL</th><th className="p-1.5">Status</th>
+                    <th className="p-1.5">Type</th>
+                    <th className="p-1.5">Name</th>
+                    <th className="p-1.5">Value</th>
+                    <th className="p-1.5">TTL</th>
+                    <th className="p-1.5">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dns.map((r, i) => (
                     <tr key={i} className="border-b align-top">
                       <td className="p-1.5 font-mono">{r.type}</td>
-                      <td className="p-1.5 font-mono break-all">{r.name}
+                      <td className="p-1.5 font-mono break-all">
+                        {r.name}
                         <CopyBtn text={r.name} />
                       </td>
-                      <td className="p-1.5 font-mono break-all">{r.value}
+                      <td className="p-1.5 font-mono break-all">
+                        {r.value}
                         <CopyBtn text={r.value} />
                       </td>
                       <td className="p-1.5">{r.ttl ?? "Auto"}</td>
@@ -385,11 +479,20 @@ function DomainTab({ settings, onChanged }: { settings: any; onChanged: () => vo
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
     unconfigured: { label: "Unconfigured", className: "bg-muted text-muted-foreground" },
-    pending: { label: "Pending verification", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
+    pending: {
+      label: "Pending verification",
+      className: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    },
     not_started: { label: "Not started", className: "bg-muted text-muted-foreground" },
-    verified: { label: "Verified", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" },
+    verified: {
+      label: "Verified",
+      className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    },
     failed: { label: "Failed", className: "bg-destructive/15 text-destructive" },
-    temporary_failure: { label: "Temporary failure", className: "bg-destructive/15 text-destructive" },
+    temporary_failure: {
+      label: "Temporary failure",
+      className: "bg-destructive/15 text-destructive",
+    },
   };
   const cur = map[status] ?? { label: status, className: "bg-muted" };
   return <Badge className={cur.className}>{cur.label}</Badge>;
@@ -413,7 +516,10 @@ function CopyBtn({ text }: { text: string }) {
 
 function TemplatesTab() {
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ["email-templates"], queryFn: () => adminListEmailTemplates() });
+  const { data } = useQuery({
+    queryKey: ["email-templates"],
+    queryFn: () => adminListEmailTemplates(),
+  });
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const list = data?.templates ?? [];
 
@@ -434,7 +540,9 @@ function TemplatesTab() {
               className={`block w-full rounded px-2 py-1.5 text-left text-sm ${activeKey === t.key ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
             >
               {t.name}
-              {t.enabled === false && <span className="ml-1 text-xs text-muted-foreground">(off)</span>}
+              {t.enabled === false && (
+                <span className="ml-1 text-xs text-muted-foreground">(off)</span>
+              )}
             </button>
           ))}
         </CardContent>
@@ -463,7 +571,10 @@ function TemplateEditor({ template, onSaved }: { template: any; onSaved: () => v
   const save = useMutation({
     mutationFn: () =>
       adminUpdateEmailTemplate({ data: { key: template.key, subject, html_body: html, enabled } }),
-    onSuccess: () => { toast.success("Template saved"); onSaved(); },
+    onSuccess: () => {
+      toast.success("Template saved");
+      onSaved();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -483,9 +594,16 @@ function TemplateEditor({ template, onSaved }: { template: any; onSaved: () => v
         </div>
         <div>
           <Label>HTML body</Label>
-          <Textarea rows={16} value={html} onChange={(e) => setHtml(e.target.value)} className="font-mono text-xs" />
+          <Textarea
+            rows={16}
+            value={html}
+            onChange={(e) => setHtml(e.target.value)}
+            className="font-mono text-xs"
+          />
           <p className="mt-1 text-xs text-muted-foreground">
-            Use <code>&#123;&#123;variable&#125;&#125;</code> placeholders — e.g. <code>&#123;&#123;name&#125;&#125;</code>, <code>&#123;&#123;tool&#125;&#125;</code>, <code>&#123;&#123;amount&#125;&#125;</code>.
+            Use <code>&#123;&#123;variable&#125;&#125;</code> placeholders — e.g.{" "}
+            <code>&#123;&#123;name&#125;&#125;</code>, <code>&#123;&#123;tool&#125;&#125;</code>,{" "}
+            <code>&#123;&#123;amount&#125;&#125;</code>.
           </p>
         </div>
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
@@ -499,7 +617,9 @@ function TemplateEditor({ template, onSaved }: { template: any; onSaved: () => v
 // ---------- History ----------
 
 function HistoryTab() {
-  const [status, setStatus] = useState<"all" | "pending" | "sent" | "failed" | "retrying" | "cancelled">("all");
+  const [status, setStatus] = useState<
+    "all" | "pending" | "sent" | "failed" | "retrying" | "cancelled"
+  >("all");
   const [search, setSearch] = useState("");
   const qc = useQueryClient();
   const { data, isFetching } = useQuery({
@@ -509,7 +629,10 @@ function HistoryTab() {
 
   const retry = useMutation({
     mutationFn: (id: string) => adminRetryEmail({ data: { id } }),
-    onSuccess: (r) => { toast.success(r.ok ? "Retry succeeded" : `Retry: ${r.reason ?? "queued"}`); qc.invalidateQueries({ queryKey: ["email-history"] }); },
+    onSuccess: (r) => {
+      toast.success(r.ok ? "Retry succeeded" : `Retry: ${r.reason ?? "queued"}`);
+      qc.invalidateQueries({ queryKey: ["email-history"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -524,11 +647,19 @@ function HistoryTab() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[200px]">
             <Label>Search</Label>
-            <Input placeholder="Recipient, subject, template…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              placeholder="Recipient, subject, template…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <div>
             <Label>Status</Label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as never)} className="h-9 rounded-md border bg-background px-2 text-sm">
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as never)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
               <option value="all">All</option>
               <option value="pending">Pending</option>
               <option value="retrying">Retrying</option>
@@ -555,23 +686,46 @@ function HistoryTab() {
             </thead>
             <tbody>
               {isFetching && messages.length === 0 && (
-                <tr><td colSpan={8} className="p-3 text-center text-muted-foreground">Loading…</td></tr>
+                <tr>
+                  <td colSpan={8} className="p-3 text-center text-muted-foreground">
+                    Loading…
+                  </td>
+                </tr>
               )}
               {!isFetching && messages.length === 0 && (
-                <tr><td colSpan={8} className="p-3 text-center text-muted-foreground">No emails yet.</td></tr>
+                <tr>
+                  <td colSpan={8} className="p-3 text-center text-muted-foreground">
+                    No emails yet.
+                  </td>
+                </tr>
               )}
               {messages.map((m: any) => (
                 <tr key={m.id} className="border-t align-top">
-                  <td className="p-2 whitespace-nowrap">{new Date(m.created_at).toLocaleString()}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    {new Date(m.created_at).toLocaleString()}
+                  </td>
                   <td className="p-2 font-mono">{m.template_key}</td>
                   <td className="p-2">{m.recipient}</td>
-                  <td className="p-2 max-w-[240px] truncate" title={m.subject ?? ""}>{m.subject ?? "—"}</td>
-                  <td className="p-2"><Badge variant="outline">{m.status}</Badge></td>
+                  <td className="p-2 max-w-[240px] truncate" title={m.subject ?? ""}>
+                    {m.subject ?? "—"}
+                  </td>
+                  <td className="p-2">
+                    <Badge variant="outline">{m.status}</Badge>
+                  </td>
                   <td className="p-2">{m.attempts}</td>
-                  <td className="p-2 max-w-[220px] truncate text-destructive" title={m.last_error ?? ""}>{m.last_error ?? ""}</td>
+                  <td
+                    className="p-2 max-w-[220px] truncate text-destructive"
+                    title={m.last_error ?? ""}
+                  >
+                    {m.last_error ?? ""}
+                  </td>
                   <td className="p-2 text-right">
-                    {(m.status === "failed" || m.status === "retrying" || m.status === "cancelled") && (
-                      <Button size="sm" variant="outline" onClick={() => retry.mutate(m.id)}>Retry</Button>
+                    {(m.status === "failed" ||
+                      m.status === "retrying" ||
+                      m.status === "cancelled") && (
+                      <Button size="sm" variant="outline" onClick={() => retry.mutate(m.id)}>
+                        Retry
+                      </Button>
                     )}
                   </td>
                 </tr>

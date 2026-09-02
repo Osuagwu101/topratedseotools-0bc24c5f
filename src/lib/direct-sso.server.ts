@@ -2,8 +2,7 @@
 import { LEGACY_CREDENTIAL_CUTOFF_ISO } from "@/lib/access.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 
-const SNEAKWRITE_DIRECT_SSO_ENDPOINT =
-  "https://sneakwrite.net/api/sso/toprated-account-link";
+const SNEAKWRITE_DIRECT_SSO_ENDPOINT = "https://sneakwrite.net/api/sso/toprated-account-link";
 const MAX_LAUNCH_ATTEMPTS = 5;
 const LAUNCH_WINDOW_MS = 5 * 60_000;
 
@@ -32,7 +31,8 @@ async function resolveGrantAccount(admin: any, userId: string): Promise<DirectAc
     .select("login_email, login_password, enabled, status, expires_at")
     .eq("id", grant.account_id)
     .maybeSingle();
-  if (accountError) throw new Error("SneakWrite account assignment could not be checked. Please try again.");
+  if (accountError)
+    throw new Error("SneakWrite account assignment could not be checked. Please try again.");
   if (!account?.enabled || account.status !== "working" || !isUnexpired(account.expires_at)) {
     throw new Error("The assigned SneakWrite account is not available. Contact Admin.");
   }
@@ -55,7 +55,8 @@ async function resolvePaidAccount(admin: any, userId: string): Promise<DirectAcc
     .eq("payment_status", "successful")
     .order("created_at", { ascending: false })
     .limit(20);
-  if (error) throw new Error("SneakWrite subscription access could not be checked. Please try again.");
+  if (error)
+    throw new Error("SneakWrite subscription access could not be checked. Please try again.");
 
   const order = (orders ?? []).find((row: any) => {
     if (!isUnexpired(row.expires_at)) return false;
@@ -70,7 +71,8 @@ async function resolvePaidAccount(admin: any, userId: string): Promise<DirectAcc
     .eq("order_id", order.id)
     .eq("status", "active")
     .maybeSingle();
-  if (assignmentError) throw new Error("SneakWrite account assignment could not be checked. Please try again.");
+  if (assignmentError)
+    throw new Error("SneakWrite account assignment could not be checked. Please try again.");
 
   if (assignment?.account_id) {
     const { data: account, error: accountError } = await admin
@@ -78,7 +80,8 @@ async function resolvePaidAccount(admin: any, userId: string): Promise<DirectAcc
       .select("login_email, login_password, enabled, status, expires_at")
       .eq("id", assignment.account_id)
       .maybeSingle();
-    if (accountError) throw new Error("SneakWrite account assignment could not be checked. Please try again.");
+    if (accountError)
+      throw new Error("SneakWrite account assignment could not be checked. Please try again.");
     if (account?.enabled && account.status === "working" && isUnexpired(account.expires_at)) {
       const email = String(account.login_email ?? "").trim();
       const password = String(account.login_password ?? "");
@@ -92,7 +95,8 @@ async function resolvePaidAccount(admin: any, userId: string): Promise<DirectAcc
       .select("login_email, login_password")
       .eq("tool_slug", "sneakwrite")
       .maybeSingle();
-    if (legacyError) throw new Error("SneakWrite legacy access could not be checked. Please try again.");
+    if (legacyError)
+      throw new Error("SneakWrite legacy access could not be checked. Please try again.");
     const email = String(legacy?.login_email ?? "").trim();
     const password = String(legacy?.login_password ?? "");
     if (email && password) return { email, password };
@@ -117,15 +121,19 @@ async function requestSneakWriteActionLink(account: DirectAccount) {
     throw new Error("SneakWrite secure sign-in is temporarily unavailable. Please try again.");
   }
 
-  const payload = await response.json().catch(() => null) as
-    | { ok?: boolean; launch_url?: string; error?: string }
-    | null;
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    launch_url?: string;
+    error?: string;
+  } | null;
   if (!response.ok || !payload?.ok || !payload.launch_url) {
     if (response.status === 401) {
       throw new Error("The saved SneakWrite login is no longer valid. Contact Admin.");
     }
     if (response.status === 429) {
-      throw new Error("SneakWrite secure sign-in is temporarily rate-limited. Please wait a moment and try again.");
+      throw new Error(
+        "SneakWrite secure sign-in is temporarily rate-limited. Please wait a moment and try again.",
+      );
     }
     throw new Error("SneakWrite secure sign-in could not be created. Please try again.");
   }
@@ -141,7 +149,8 @@ export async function createSneakWriteDirectSsoForUser(userId: string) {
     .select("enabled, one_click_auth_enabled")
     .eq("tool_slug", "sneakwrite")
     .maybeSingle();
-  if (settingError) throw new Error("SneakWrite launch settings could not be checked. Please try again.");
+  if (settingError)
+    throw new Error("SneakWrite launch settings could not be checked. Please try again.");
   if (setting?.enabled === false || !setting?.one_click_auth_enabled) {
     throw new Error("One-Click Login is not enabled for SneakWrite.");
   }
@@ -157,7 +166,9 @@ export async function createSneakWriteDirectSsoForUser(userId: string) {
     throw new Error("SneakWrite launch protection could not be checked. Please try again.");
   }
   if ((count ?? 0) >= MAX_LAUNCH_ATTEMPTS) {
-    throw new Error("Too many SneakWrite launch attempts. Please wait a few minutes and try again.");
+    throw new Error(
+      "Too many SneakWrite launch attempts. Please wait a few minutes and try again.",
+    );
   }
 
   const account =

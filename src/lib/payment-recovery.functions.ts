@@ -56,7 +56,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
     {
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at",
+        )
         .eq("payment_status", "successful")
         .not("order_id", "is", null)
         .order("initiated_at", { ascending: false })
@@ -93,7 +95,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
     {
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, receipt_last_error")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, receipt_last_error",
+        )
         .eq("payment_status", "failed")
         .order("initiated_at", { ascending: false })
         .limit(100);
@@ -123,7 +127,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
       const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, payment_status")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, payment_status",
+        )
         .in("payment_status", ["pending", "initiated", "processing"])
         .lt("initiated_at", cutoff)
         .order("initiated_at", { ascending: false })
@@ -154,7 +160,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
       const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at",
+        )
         .gte("initiated_at", cutoff)
         .order("initiated_at", { ascending: false })
         .limit(400);
@@ -192,7 +200,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
     {
       const { data: rows } = await admin
         .from("paystack_webhook_events")
-        .select("id, event_type, transaction_reference, last_error, received_at, processing_attempts")
+        .select(
+          "id, event_type, transaction_reference, last_error, received_at, processing_attempts",
+        )
         .eq("processing_status", "failed")
         .order("received_at", { ascending: false })
         .limit(50);
@@ -221,7 +231,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
     {
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, reconciliation_note")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at, reconciliation_note",
+        )
         .in("reconciliation_status", ["open", "investigating"])
         .order("flagged_at", { ascending: false })
         .limit(50);
@@ -250,7 +262,9 @@ export const adminListPaymentIssues = createServerFn({ method: "GET" })
     {
       const { data: rows } = await admin
         .from("tool_payments")
-        .select("id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at")
+        .select(
+          "id, paystack_reference, order_id, user_id, tool_slug, amount, currency, customer_email, initiated_at",
+        )
         .eq("payment_status", "abandoned")
         .order("initiated_at", { ascending: false })
         .limit(30);
@@ -297,7 +311,9 @@ export const retryAccessAssignment = createServerFn({ method: "POST" })
     const admin = await assertAdmin(context);
     const { data: order } = await admin
       .from("tool_orders")
-      .select("id, status, access_type, duration_days, grace_days, payment_type, paid_at, user_id, tool_slug")
+      .select(
+        "id, status, access_type, duration_days, grace_days, payment_type, paid_at, user_id, tool_slug",
+      )
       .eq("id", data.order_id)
       .maybeSingle();
     if (!order) throw new Error("Order not found");
@@ -310,31 +326,37 @@ export const retryAccessAssignment = createServerFn({ method: "POST" })
       const access = ((order.access_type as string) ?? "shared") as "shared" | "private";
       const isOneTime = (order.payment_type as string) === "one_time";
       if (access === "private") {
-        await admin.from("tool_orders").update({
-          status: "approved",
-          approved_at: paidAt.toISOString(),
-          subscription_status: "pending",
-          renewal_status: isOneTime ? "not_applicable" : "enabled",
-          payment_status: "successful",
-          fulfilment_status: "pending",
-          fulfilment_deadline_at: new Date(paidAt.getTime() + 6 * 3600_000).toISOString(),
-        }).eq("id", order.id);
+        await admin
+          .from("tool_orders")
+          .update({
+            status: "approved",
+            approved_at: paidAt.toISOString(),
+            subscription_status: "pending",
+            renewal_status: isOneTime ? "not_applicable" : "enabled",
+            payment_status: "successful",
+            fulfilment_status: "pending",
+            fulfilment_deadline_at: new Date(paidAt.getTime() + 6 * 3600_000).toISOString(),
+          })
+          .eq("id", order.id);
       } else {
         const expiresAt = new Date(paidAt.getTime() + (dur + grace) * 86400_000);
         const nextAt = new Date(paidAt.getTime() + dur * 86400_000);
-        await admin.from("tool_orders").update({
-          status: "approved",
-          approved_at: paidAt.toISOString(),
-          current_period_start: paidAt.toISOString(),
-          current_period_end: isOneTime ? null : nextAt.toISOString(),
-          next_payment_at: isOneTime ? null : nextAt.toISOString(),
-          paid_through_at: isOneTime ? null : nextAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          subscription_status: isOneTime ? "non_renewing" : "active",
-          renewal_status: isOneTime ? "not_applicable" : "enabled",
-          payment_status: "successful",
-          fulfilment_status: "not_required",
-        }).eq("id", order.id);
+        await admin
+          .from("tool_orders")
+          .update({
+            status: "approved",
+            approved_at: paidAt.toISOString(),
+            current_period_start: paidAt.toISOString(),
+            current_period_end: isOneTime ? null : nextAt.toISOString(),
+            next_payment_at: isOneTime ? null : nextAt.toISOString(),
+            paid_through_at: isOneTime ? null : nextAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            subscription_status: isOneTime ? "non_renewing" : "active",
+            renewal_status: isOneTime ? "not_applicable" : "enabled",
+            payment_status: "successful",
+            fulfilment_status: "not_required",
+          })
+          .eq("id", order.id);
       }
       approved = true;
     }
@@ -370,9 +392,7 @@ export const retryWebhookEvent = createServerFn({ method: "POST" })
     // event processed. This is safer than replaying the raw payload.
     if (ev.transaction_reference) {
       try {
-        const { adminRecheckPaystackTransaction } = await import(
-          "@/lib/transactions.functions"
-        );
+        const { adminRecheckPaystackTransaction } = await import("@/lib/transactions.functions");
         await (adminRecheckPaystackTransaction as any)({
           data: { reference: ev.transaction_reference },
         });
@@ -433,7 +453,7 @@ export const markPaymentReconciled = createServerFn({ method: "POST" })
         reconciliation_status: data.status,
         reconciliation_note: data.note ?? null,
         flagged_at: data.status === "none" ? null : new Date().toISOString(),
-        flagged_reason: data.status === "none" ? null : data.note ?? null,
+        flagged_reason: data.status === "none" ? null : (data.note ?? null),
       })
       .eq("id", data.payment_id);
     await logAdminActivity(context, {

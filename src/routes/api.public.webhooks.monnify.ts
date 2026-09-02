@@ -21,7 +21,10 @@ export const Route = createFileRoute("/api/public/webhooks/monnify")({
           .eq("slug", "monnify")
           .maybeSingle();
         const adapter = createMonnifyAdapter(
-          ((data as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>,
+          ((data as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<
+            string,
+            unknown
+          >,
         );
         return handlePaystackWebhook(request, { secret: undefined, supabaseAdmin, adapter });
       },

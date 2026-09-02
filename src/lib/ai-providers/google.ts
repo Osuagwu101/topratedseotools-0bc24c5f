@@ -57,10 +57,7 @@ export const googleProvider: AIProvider = {
   isConfigured: () => !!process.env.GOOGLE_GEMINI_API_KEY,
   async complete({ model, system, user, temperature, maxTokens }) {
     const key = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!key)
-      throw new Error(
-        "AI_PROVIDER_NOT_CONFIGURED: GOOGLE_GEMINI_API_KEY is not set.",
-      );
+    if (!key) throw new Error("AI_PROVIDER_NOT_CONFIGURED: GOOGLE_GEMINI_API_KEY is not set.");
     const cleanModel = sanitizeGeminiModel(model);
     if (!VALID_IDS.has(cleanModel)) {
       throw new Error(
@@ -92,9 +89,7 @@ export const googleProvider: AIProvider = {
       if (res.status === 429)
         throw new Error("AI_RATE_LIMITED: Gemini rate limit exceeded. Try again shortly.");
       if (res.status === 400 || res.status === 404) {
-        throw new Error(
-          `AI_PROVIDER_NOT_CONFIGURED: Gemini rejected model "${cleanModel}".`,
-        );
+        throw new Error(`AI_PROVIDER_NOT_CONFIGURED: Gemini rejected model "${cleanModel}".`);
       }
       throw new Error(`AI_PROVIDER_ERROR: Gemini returned ${res.status}.`);
     }

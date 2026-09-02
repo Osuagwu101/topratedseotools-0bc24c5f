@@ -252,10 +252,7 @@ function AdminNewTool() {
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <Link
-            to="/admin/tools"
-            className="rounded-full border px-4 py-2 text-sm hover:bg-muted"
-          >
+          <Link to="/admin/tools" className="rounded-full border px-4 py-2 text-sm hover:bg-muted">
             Cancel
           </Link>
           <button

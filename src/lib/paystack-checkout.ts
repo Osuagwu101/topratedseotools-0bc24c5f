@@ -61,7 +61,12 @@ export interface OrderSnapshot {
 export async function validateAndBuildOrderSnapshot(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
-  input: { userId: string | null | undefined; tool_slug: string; pricing_option_id: string | null | undefined; payment_type?: PaymentType },
+  input: {
+    userId: string | null | undefined;
+    tool_slug: string;
+    pricing_option_id: string | null | undefined;
+    payment_type?: PaymentType;
+  },
   env: PaystackEnv | null,
 ): Promise<OrderSnapshot> {
   if (!input.userId) {
@@ -113,12 +118,8 @@ export async function validateAndBuildOrderSnapshot(
     throw new CheckoutError("tool_disabled", "This tool is temporarily unavailable.");
   }
   if (effectiveSetting.access_level && effectiveSetting.access_level !== "purchased") {
-    throw new CheckoutError(
-      "not_purchasable",
-      "This tool is not available for direct purchase.",
-    );
+    throw new CheckoutError("not_purchasable", "This tool is not available for direct purchase.");
   }
-
 
   const { data: opt, error: oErr } = await db
     .from("tool_pricing")
@@ -136,7 +137,10 @@ export async function validateAndBuildOrderSnapshot(
     throw new CheckoutError("plan_disabled", "This plan is no longer available.");
   }
   if (opt.contact_admin) {
-    throw new CheckoutError("contact_admin", "This plan is only available via admin — please contact support.");
+    throw new CheckoutError(
+      "contact_admin",
+      "This plan is only available via admin — please contact support.",
+    );
   }
 
   const access = ((opt.access_type as string) ?? "shared") as "shared" | "private";
@@ -172,12 +176,13 @@ export async function validateAndBuildOrderSnapshot(
     );
   }
 
-
   // Derive billing period: prefer the explicit column, fall back to unit for
   // legacy rows saved before billing_period was added to the admin UI.
   let period = String(opt.billing_period ?? "").toLowerCase();
   if (!VALID_PERIODS.has(period as BillingPeriod)) {
-    const u = String(opt.unit ?? "").toLowerCase().trim();
+    const u = String(opt.unit ?? "")
+      .toLowerCase()
+      .trim();
     if (u === "month" || u === "monthly" || u === "mo") period = "monthly";
     else if (
       u === "quarter" ||
@@ -187,14 +192,10 @@ export async function validateAndBuildOrderSnapshot(
       u === "3mo"
     )
       period = "quarterly";
-    else if (u === "year" || u === "yearly" || u === "annual" || u === "yr")
-      period = "yearly";
+    else if (u === "year" || u === "yearly" || u === "annual" || u === "yr") period = "yearly";
   }
   if (!VALID_PERIODS.has(period as BillingPeriod)) {
-    throw new CheckoutError(
-      "bad_period",
-      "This plan has no valid billing period configured.",
-    );
+    throw new CheckoutError("bad_period", "This plan has no valid billing period configured.");
   }
 
   const amount = Number(opt.amount);
@@ -208,8 +209,7 @@ export async function validateAndBuildOrderSnapshot(
   }
 
   // Derive duration_days from the period when not stored explicitly.
-  const durationFallback =
-    period === "monthly" ? 28 : period === "quarterly" ? 90 : 365;
+  const durationFallback = period === "monthly" ? 28 : period === "quarterly" ? 90 : 365;
   const durationDays = Number(opt.duration_days ?? durationFallback) || durationFallback;
 
   const paymentType: PaymentType =
@@ -232,7 +232,6 @@ export async function validateAndBuildOrderSnapshot(
     paystack_environment: env,
   };
 }
-
 
 /** Server-controlled unique reference. Never trust a client-supplied ref. */
 export function generatePaystackReference(orderId: string, now: number = Date.now()): string {
@@ -312,8 +311,7 @@ export function validatePaymentVerification(
   // Multi-currency aware: compare against the actual currency + total we told
   // Paystack to charge. Falls back to legacy NGN comparison for existing rows.
   const expectedCurrency = (v.order.payment_currency ?? "NGN").toUpperCase();
-  const expectedAmountMajor =
-    v.order.final_amount_charged ?? v.order.price_amount ?? 0;
+  const expectedAmountMajor = v.order.final_amount_charged ?? v.order.price_amount ?? 0;
   const expectedMinor = Math.round(Number(expectedAmountMajor) * 100);
   if (expectedMinor <= 0 || v.tx.amount !== expectedMinor) {
     return { ok: false, reason: "amount_mismatch" };

@@ -12,14 +12,29 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck, CreditCard, Info, TrendingDown, Users, Lock, TicketPercent, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ShieldCheck,
+  CreditCard,
+  Info,
+  TrendingDown,
+  Users,
+  Lock,
+  TicketPercent,
+  X,
+} from "lucide-react";
 import { useCurrency, useMoney } from "@/components/currency/CurrencyProvider";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { findCatalogTool } from "@/lib/tool-catalog";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
-import { listToolPricing, formatPrice, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
+import {
+  listToolPricing,
+  formatPrice,
+  type ToolPricingOption,
+  type AccessType,
+} from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
   computeQuarterlySaving,
@@ -58,15 +73,11 @@ const overridesQuery = queryOptions({
   queryFn: () => listToolOverrides(),
 });
 
-
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   validateSearch: (search: Record<string, unknown>): { plan?: string } =>
     typeof search.plan === "string" ? { plan: search.plan } : {},
   head: () => ({
-    meta: [
-      { title: "Subscribe — Top Rated SEO Tools" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Subscribe — Top Rated SEO Tools" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(pricingQuery);
@@ -108,7 +119,6 @@ function OrderPage() {
     !activeGateway.data ||
     activeGateway.data.chargeCurrencies.includes(String(money.currency).toUpperCase());
 
-
   const router = useRouter();
   // Turnitin (and any future per-use tool) has no subscription checkout —
   // block any old/direct link from opening the subscription flow.
@@ -125,9 +135,7 @@ function OrderPage() {
       });
 
   const initialId =
-    (preselected && options.find((o) => o.id === preselected)?.id) ??
-    options[0]?.id ??
-    null;
+    (preselected && options.find((o) => o.id === preselected)?.id) ?? options[0]?.id ?? null;
   const [selected, setSelected] = useState<string | null>(initialId);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -172,12 +180,13 @@ function OrderPage() {
     return (
       <SiteLayout>
         <section className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6">
-          <h1 className="text-2xl font-semibold">This tool is per-{tool.perUse?.unit ?? "use"}, not a subscription</h1>
+          <h1 className="text-2xl font-semibold">
+            This tool is per-{tool.perUse?.unit ?? "use"}, not a subscription
+          </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            {tool.name} is a pay-per-{tool.perUse?.unit ?? "use"} service. There
-            is no monthly, quarterly or yearly billing, no Shared or Private
-            selection, and no automatic renewal. Any old subscription link for
-            this tool has been retired.
+            {tool.name} is a pay-per-{tool.perUse?.unit ?? "use"} service. There is no monthly,
+            quarterly or yearly billing, no Shared or Private selection, and no automatic renewal.
+            Any old subscription link for this tool has been retired.
           </p>
           <Link
             to="/tools/$slug"
@@ -350,7 +359,7 @@ function OrderPage() {
                                 ? "Quarterly"
                                 : kind === "yearly"
                                   ? "Yearly"
-                                  : o.label ?? "Standard";
+                                  : (o.label ?? "Standard");
                           return (
                             <li key={o.id}>
                               <label
@@ -380,7 +389,9 @@ function OrderPage() {
                                       ) : null}
                                     </span>
                                     {o.label && o.label !== billingLabel ? (
-                                      <span className="text-[11px] text-muted-foreground">{o.label}</span>
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {o.label}
+                                      </span>
                                     ) : null}
                                     {billingDescription(kind) ? (
                                       <span className="text-[11px] text-muted-foreground">
@@ -404,14 +415,24 @@ function OrderPage() {
             )}
           </div>
 
-
-          {chosen ? <CheckoutSummary chosen={chosen} allOptions={options} currency={currency} price={price} config={config} discount={discount} coupon={coupon} /> : null}
+          {chosen ? (
+            <CheckoutSummary
+              chosen={chosen}
+              allOptions={options}
+              currency={currency}
+              price={price}
+              config={config}
+              discount={discount}
+              coupon={coupon}
+            />
+          ) : null}
 
           {chosen ? (
             <div className="rounded-2xl border bg-card p-6 shadow-card">
               <div className="text-sm font-semibold">Choose how to pay</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Both options use the exact price above. The channels shown at checkout depend on your choice.
+                Both options use the exact price above. The channels shown at checkout depend on
+                your choice.
               </p>
               {!gatewayRecurring ? (
                 <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
@@ -421,7 +442,6 @@ function OrderPage() {
                 </div>
               ) : null}
               <div className="mt-3 space-y-3">
-
                 <label
                   className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     payMode === "recurring_subscription"
@@ -440,8 +460,8 @@ function OrderPage() {
                   <span className="flex-1">
                     <span className="block font-medium">Auto-Renew Subscription</span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
-                      Pay by Card or Direct Debit. Your subscription will renew automatically at
-                      the end of each billing period until you disable renewal.
+                      Pay by Card or Direct Debit. Your subscription will renew automatically at the
+                      end of each billing period until you disable renewal.
                     </span>
                   </span>
                 </label>
@@ -472,8 +492,8 @@ function OrderPage() {
                 {payMode === "one_time" ? (
                   <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
                     <div className="text-warning">
-                      This payment method supports one-time payment only. Your access will last
-                      for the selected billing period and will not renew automatically.
+                      This payment method supports one-time payment only. Your access will last for
+                      the selected billing period and will not renew automatically.
                     </div>
                     <label className="mt-2 flex items-start gap-2 text-foreground">
                       <input
@@ -507,7 +527,9 @@ function OrderPage() {
                       ? `${coupon.discount_value}% off`
                       : `${money.fmt(coupon.discount_value)} off`}
                     {coupon.description ? (
-                      <span className="block text-xs text-muted-foreground">{coupon.description}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {coupon.description}
+                      </span>
                     ) : null}
                   </span>
                   <button
@@ -569,11 +591,11 @@ function OrderPage() {
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
             <div>
               You'll be redirected to <strong>{gatewayName}</strong> to pay securely.
-              <strong> Shared Access</strong> is activated after payment
-              confirmation, subject to availability.
-              <strong> Private Access</strong> orders are marked pending
-              fulfilment after payment — contact Admin on WhatsApp to complete
-              the account assignment (usually within six hours).
+              <strong> Shared Access</strong> is activated after payment confirmation, subject to
+              availability.
+              <strong> Private Access</strong> orders are marked pending fulfilment after payment —
+              contact Admin on WhatsApp to complete the account assignment (usually within six
+              hours).
             </div>
           </div>
 
@@ -597,8 +619,6 @@ function OrderPage() {
                   ? `Pay ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount, discount)} once with ${gatewayName}`
                   : `Subscribe · ${chosen.amount == null || chosen.contact_admin ? formatPrice(chosen) : money.fmt(chosen.amount)} with ${gatewayName}`}
           </button>
-
-
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <Info className="mt-0.5 h-3 w-3 shrink-0" />
@@ -627,7 +647,9 @@ function CheckoutSummary({
   coupon: CouponPreview | null;
   currency: import("@/lib/currency-convert").SupportedCurrency;
   price: (ngn: number) => import("@/lib/currency-convert").PricingBreakdown | null;
-  config: Awaited<ReturnType<typeof import("@/lib/currency.functions").getPublicCurrencyConfig>> | undefined;
+  config:
+    | Awaited<ReturnType<typeof import("@/lib/currency.functions").getPublicCurrencyConfig>>
+    | undefined;
 }) {
   const money = useMoney();
   const kind = normaliseBillingKind(getBillingKind(chosen));
@@ -669,7 +691,7 @@ function CheckoutSummary({
         ? "Quarterly Subscription"
         : kind === "yearly"
           ? "Yearly Subscription"
-          : chosen.label ?? "Standard";
+          : (chosen.label ?? "Standard");
 
   const ngn = Number(chosen.amount ?? 0);
   // Total payable in the selected currency; the international adjustment is
@@ -714,9 +736,7 @@ function CheckoutSummary({
         {coupon ? (
           <div className="flex items-center justify-between">
             <dt className="text-muted-foreground">Coupon {coupon.code}</dt>
-            <dd className="font-medium text-success">
-              −{money.fmt(coupon.discount_amount_ngn)}
-            </dd>
+            <dd className="font-medium text-success">−{money.fmt(coupon.discount_amount_ngn)}</dd>
           </div>
         ) : null}
 
@@ -731,9 +751,7 @@ function CheckoutSummary({
             <span>{savingLine}</span>
           </div>
         ) : null}
-        {renewal ? (
-          <p className="text-[11px] text-muted-foreground">{renewal}</p>
-        ) : null}
+        {renewal ? <p className="text-[11px] text-muted-foreground">{renewal}</p> : null}
       </dl>
     </div>
   );

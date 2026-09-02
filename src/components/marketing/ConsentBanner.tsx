@@ -35,7 +35,9 @@ export function ConsentBanner() {
     writeConsent({ analytics: a, marketing: m });
     pushDataLayer("consent_update", { analytics_storage: a, ad_storage: m });
     try {
-      await recordConsentChoice({ data: { visitor_id: getVisitorId(), analytics: a, marketing: m } });
+      await recordConsentChoice({
+        data: { visitor_id: getVisitorId(), analytics: a, marketing: m },
+      });
       // Link consent record to signed-in user so server-side event dispatch
       // can look up the caller's consent by user_id.
       if (m) {
@@ -58,9 +60,9 @@ export function ConsentBanner() {
         <div className="flex-1 text-sm">
           <div className="font-semibold">Your privacy matters</div>
           <p className="mt-1 text-muted-foreground">
-            We use cookies for essential site functions, and (with your
-            permission) for analytics and marketing measurement through Meta
-            and Google. You can change your choice anytime from the footer.
+            We use cookies for essential site functions, and (with your permission) for analytics
+            and marketing measurement through Meta and Google. You can change your choice anytime
+            from the footer.
           </p>
           {advanced ? (
             <div className="mt-3 space-y-2 text-xs">

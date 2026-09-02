@@ -7,7 +7,11 @@
  * `buildPricingBreakdown`, which performs currency conversion and the
  * international adjustment — there is no separate coupon price path.
  */
-import { computeDiscountNgn, type CouponDiscountType, type DiscountInput } from "@/lib/currency-convert";
+import {
+  computeDiscountNgn,
+  type CouponDiscountType,
+  type DiscountInput,
+} from "@/lib/currency-convert";
 
 export interface CouponRow {
   id: string;

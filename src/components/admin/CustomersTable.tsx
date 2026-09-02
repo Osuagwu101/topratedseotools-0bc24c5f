@@ -27,14 +27,19 @@ export function CustomersTable({ segment }: { segment: CustomerSegment }) {
     if (segment !== "new") return { segment, search: search || undefined };
     const now = new Date();
     let f: Date | null = null;
-    if (range === "today") { f = new Date(now); f.setUTCHours(0, 0, 0, 0); }
-    else if (range === "7d") { f = new Date(now.getTime() - 7 * 86400_000); }
-    else if (range === "30d") { f = new Date(now.getTime() - 30 * 86400_000); }
+    if (range === "today") {
+      f = new Date(now);
+      f.setUTCHours(0, 0, 0, 0);
+    } else if (range === "7d") {
+      f = new Date(now.getTime() - 7 * 86400_000);
+    } else if (range === "30d") {
+      f = new Date(now.getTime() - 30 * 86400_000);
+    }
     return {
       segment,
       search: search || undefined,
-      from: range === "custom" ? (from || undefined) : f?.toISOString(),
-      to: range === "custom" ? (to || undefined) : now.toISOString(),
+      from: range === "custom" ? from || undefined : f?.toISOString(),
+      to: range === "custom" ? to || undefined : now.toISOString(),
     };
   }, [segment, search, range, from, to]);
 
@@ -81,10 +86,18 @@ export function CustomersTable({ segment }: { segment: CustomerSegment }) {
             </select>
             {range === "custom" && (
               <>
-                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                       className="rounded-md border bg-background px-2 py-1.5 text-sm" />
-                <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                       className="rounded-md border bg-background px-2 py-1.5 text-sm" />
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="rounded-md border bg-background px-2 py-1.5 text-sm"
+                />
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="rounded-md border bg-background px-2 py-1.5 text-sm"
+                />
               </>
             )}
           </>
@@ -146,7 +159,11 @@ export function CustomersTable({ segment }: { segment: CustomerSegment }) {
                 </tr>
               ))}
               {rows.length === 0 && !isLoading && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">No customers match this view.</td></tr>
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    No customers match this view.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

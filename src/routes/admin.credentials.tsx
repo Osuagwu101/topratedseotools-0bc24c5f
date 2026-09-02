@@ -30,7 +30,9 @@ const credsQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/credentials")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [
       { title: "Credentials — Admin — Top Rated SEO Tools" },
@@ -93,8 +95,8 @@ function CredentialsPage() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold tracking-tight">Login credentials</h1>
             <p className="text-sm text-muted-foreground">
-              These credentials are shown to subscribers with an active plan.
-              They are hidden from everyone else and revoked automatically on expiry.
+              These credentials are shown to subscribers with an active plan. They are hidden from
+              everyone else and revoked automatically on expiry.
             </p>
           </div>
         </div>
@@ -118,9 +120,7 @@ function CredentialsPage() {
                 tool={t}
                 current={c}
                 showPassword={!!reveal[t.slug]}
-                onToggleReveal={() =>
-                  setReveal((r) => ({ ...r, [t.slug]: !r[t.slug] }))
-                }
+                onToggleReveal={() => setReveal((r) => ({ ...r, [t.slug]: !r[t.slug] }))}
                 onSave={async (patch) => {
                   await upsert({ data: { tool_slug: t.slug, ...patch } });
                   toast.success(`Saved credentials for ${t.name}`);

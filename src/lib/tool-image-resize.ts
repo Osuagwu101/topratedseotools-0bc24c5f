@@ -98,5 +98,11 @@ export async function resizeEmailLogo(file: File, maxW = 480, maxH = 160): Promi
   ctx.drawImage(img, 0, 0, width, height);
 
   const base64 = toBase64(canvas.toDataURL("image/png"));
-  return { base64, contentType: "image/png", bytes: Math.round((base64.length * 3) / 4), width, height };
+  return {
+    base64,
+    contentType: "image/png",
+    bytes: Math.round((base64.length * 3) / 4),
+    width,
+    height,
+  };
 }

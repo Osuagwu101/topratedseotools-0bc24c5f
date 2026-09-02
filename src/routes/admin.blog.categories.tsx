@@ -7,17 +7,15 @@ import { toast } from "sonner";
 import { Plus, Trash2, Edit3 } from "lucide-react";
 import { BlogAdminNav } from "@/components/blog/BlogAdminNav";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import {
-  listCategories,
-  adminUpsertCategory,
-  adminDeleteCategory,
-} from "@/lib/blog.functions";
+import { listCategories, adminUpsertCategory, adminDeleteCategory } from "@/lib/blog.functions";
 
 const q = queryOptions({ queryKey: ["blog", "categories"], queryFn: () => listCategories() });
 
 export const Route = createFileRoute("/admin/blog/categories")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({ meta: [{ title: "Categories — Admin" }, { name: "robots", content: "noindex" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: CategoriesAdmin,
@@ -28,7 +26,12 @@ function CategoriesAdmin() {
   const qc = useQueryClient();
   const upsert = useServerFn(adminUpsertCategory);
   const del = useServerFn(adminDeleteCategory);
-  const [editing, setEditing] = useState<{ id?: string; name: string; slug: string; description: string } | null>(null);
+  const [editing, setEditing] = useState<{
+    id?: string;
+    name: string;
+    slug: string;
+    description: string;
+  } | null>(null);
 
   const save = useMutation({
     mutationFn: upsert,
@@ -54,7 +57,9 @@ function CategoriesAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Blog categories</h1>
         </div>
-        <div className="mt-6"><BlogAdminNav /></div>
+        <div className="mt-6">
+          <BlogAdminNav />
+        </div>
 
         <div className="mt-6 flex justify-end">
           <button
@@ -119,11 +124,20 @@ function CategoriesAdmin() {
               <div>
                 <div className="font-medium">{c.name}</div>
                 <div className="text-xs text-muted-foreground">/{c.slug}</div>
-                {c.description && <p className="mt-1 text-sm text-muted-foreground">{c.description}</p>}
+                {c.description && (
+                  <p className="mt-1 text-sm text-muted-foreground">{c.description}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditing({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? "" })}
+                  onClick={() =>
+                    setEditing({
+                      id: c.id,
+                      name: c.name,
+                      slug: c.slug,
+                      description: c.description ?? "",
+                    })
+                  }
                   className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
                 >
                   <Edit3 className="h-3.5 w-3.5" /> Edit

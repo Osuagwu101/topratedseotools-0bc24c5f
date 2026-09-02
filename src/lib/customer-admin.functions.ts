@@ -53,10 +53,8 @@ export function findOfflineDuplicates<T extends OfflinePaymentLike>(
     if (r.user_id !== candidate.user_id || r.tool_slug !== candidate.tool_slug) return false;
     if (Number(r.amount ?? 0) !== Number(candidate.amount ?? 0)) return false;
     const rAt = r.paid_at ? new Date(r.paid_at).getTime() : NaN;
-    const sameDay =
-      Number.isFinite(rAt) && Number.isFinite(cAt) && Math.abs(rAt - cAt) <= day;
-    const sameRef =
-      cRef.length > 0 && (r.reference_note ?? "").trim().toLowerCase() === cRef;
+    const sameDay = Number.isFinite(rAt) && Number.isFinite(cAt) && Math.abs(rAt - cAt) <= day;
+    const sameRef = cRef.length > 0 && (r.reference_note ?? "").trim().toLowerCase() === cRef;
     return sameDay || sameRef;
   });
 }
@@ -77,16 +75,17 @@ async function assertNotAdminEmail(admin: any, email: string) {
     .eq("account_email", email)
     .maybeSingle();
   if (data) {
-    throw new Error(
-      "This email belongs to an Admin account and cannot be used for a customer.",
-    );
+    throw new Error("This email belongs to an Admin account and cannot be used for a customer.");
   }
 }
 
 // -------- Create customer --------
 
 const createInput = z.object({
-  email: z.string().email().transform((v) => v.trim().toLowerCase()),
+  email: z
+    .string()
+    .email()
+    .transform((v) => v.trim().toLowerCase()),
   fullName: z.string().trim().min(1).max(120),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
@@ -238,9 +237,7 @@ export const adminResetCustomerPassword = createServerFn({ method: "POST" })
 
 export const changeMyPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ newPassword: z.string().min(8).max(200) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ newPassword: z.string().min(8).max(200) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
@@ -434,7 +431,6 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       console.warn("[account-pool] offline auto-assign failed", e);
     }
 
-
     // Queue offline-payment confirmation.
     try {
       const { queueEmail } = await import("@/lib/email/queue");
@@ -617,8 +613,16 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const [profRes, metaRes, ordersRes, paymentsRes, auditRes] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id, email, full_name, created_at").eq("id", data.userId).maybeSingle(),
-      supabaseAdmin.from("customer_admin_meta").select("phone, admin_notes").eq("user_id", data.userId).maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, email, full_name, created_at")
+        .eq("id", data.userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("customer_admin_meta")
+        .select("phone, admin_notes")
+        .eq("user_id", data.userId)
+        .maybeSingle(),
       supabaseAdmin
         .from("tool_orders")
         .select(
@@ -656,7 +660,9 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
       createdAt: o.created_at,
       fulfilmentStatus: o.fulfilment_status,
     }));
-    const successful = (paymentsRes.data ?? []).filter((p: any) => p.payment_status === "successful");
+    const successful = (paymentsRes.data ?? []).filter(
+      (p: any) => p.payment_status === "successful",
+    );
     const totalPaid = successful.reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0);
     const onlinePaid = successful
       .filter((p: any) => (p.source ?? "paystack") === "paystack")
@@ -664,12 +670,11 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
     const offlinePaid = successful
       .filter((p: any) => p.source === "offline")
       .reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0);
-    const lastPaymentAt =
-      successful.reduce<string | null>((latest, p: any) => {
-        const at = (p.paid_at as string) ?? (p.created_at as string);
-        if (!latest || new Date(at) > new Date(latest)) return at;
-        return latest;
-      }, null);
+    const lastPaymentAt = successful.reduce<string | null>((latest, p: any) => {
+      const at = (p.paid_at as string) ?? (p.created_at as string);
+      if (!latest || new Date(at) > new Date(latest)) return at;
+      return latest;
+    }, null);
     const activeSubscriptions = orders.filter(
       (o) => o.status === "approved" && (!o.expiresAt || new Date(o.expiresAt) > now),
     ).length;

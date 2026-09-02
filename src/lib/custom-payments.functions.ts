@@ -19,9 +19,17 @@ import {
 } from "@/lib/custom-payment-currency";
 
 const SITE_ORIGIN = "https://topratedseotools.com";
-const tokenSchema = z.string().min(20).max(120).regex(/^[A-Za-z0-9_-]+$/);
+const tokenSchema = z
+  .string()
+  .min(20)
+  .max(120)
+  .regex(/^[A-Za-z0-9_-]+$/);
 const gatewaySchema = z.enum(["paystack", "flutterwave"]);
-const currencySchema = z.string().trim().transform((v) => v.toUpperCase()).refine((v) => /^[A-Z]{3}$/.test(v), "Invalid currency code");
+const currencySchema = z
+  .string()
+  .trim()
+  .transform((v) => v.toUpperCase())
+  .refine((v) => /^[A-Z]{3}$/.test(v), "Invalid currency code");
 
 async function assertSuperAdmin(context: { supabase: any; userId: string }) {
   const { data: isAdmin, error: roleError } = await context.supabase.rpc("has_role", {
@@ -51,7 +59,7 @@ function parseMetadata(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
     } catch {
       return {};
     }
@@ -76,7 +84,8 @@ async function loadCustomPaymentGateway(admin: any, gateway: CustomPaymentGatewa
     .eq("slug", gateway)
     .maybeSingle();
   if (error) throw new Error(`Could not load ${gatewayLabel(gateway)} configuration.`);
-  if (!provider?.enabled) throw new Error(`${gatewayLabel(gateway)} is disabled in Payment Settings.`);
+  if (!provider?.enabled)
+    throw new Error(`${gatewayLabel(gateway)} is disabled in Payment Settings.`);
 
   const adapter = getAdapter(gateway, (provider.config ?? {}) as Record<string, unknown>);
   if (!adapter.isConfigured()) throw new Error(`${gatewayLabel(gateway)} is not fully configured.`);
@@ -89,8 +98,11 @@ async function loadCustomPaymentGateway(admin: any, gateway: CustomPaymentGatewa
 
 function validateGatewayCurrency(gateway: CustomPaymentGateway, currency: string) {
   if (!customPaymentGatewaySupportsCurrency(gateway, currency)) {
-    if (gateway === "paystack") throw new Error("Paystack Custom Payments are charged in NGN only.");
-    throw new Error(`${currency} is not in the supported Flutterwave Custom Payment currency list.`);
+    if (gateway === "paystack")
+      throw new Error("Paystack Custom Payments are charged in NGN only.");
+    throw new Error(
+      `${currency} is not in the supported Flutterwave Custom Payment currency list.`,
+    );
   }
 }
 
@@ -137,13 +149,16 @@ export const getCustomPaymentLink = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await (supabaseAdmin as any)
       .from("custom_payment_links")
-      .select("title, description, amount, amount_ngn, currency, payment_gateway, recipient_name, recipient_email, status, expires_at, paid_at")
+      .select(
+        "title, description, amount, amount_ngn, currency, payment_gateway, recipient_name, recipient_email, status, expires_at, paid_at",
+      )
       .eq("public_token", data.token)
       .maybeSingle();
     if (error) throw new Error("Could not load this payment link.");
     if (!row) throw new Error("Payment link not found.");
     const currency = normalizeCustomPaymentCurrency(row.currency ?? "NGN");
-    const payment_gateway: CustomPaymentGateway = row.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+    const payment_gateway: CustomPaymentGateway =
+      row.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
     return {
       title: row.title as string,
       description: row.description as string | null,
@@ -162,10 +177,19 @@ export const adminListCustomPaymentLinks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertSuperAdmin(context);
-    const [{ data: links, error: linksError }, { data: transactions, error: txError }] = await Promise.all([
-      admin.from("custom_payment_links").select("*").order("created_at", { ascending: false }).limit(200),
-      admin.from("custom_payment_transactions").select("*").order("created_at", { ascending: false }).limit(500),
-    ]);
+    const [{ data: links, error: linksError }, { data: transactions, error: txError }] =
+      await Promise.all([
+        admin
+          .from("custom_payment_links")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        admin
+          .from("custom_payment_transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ]);
     if (linksError) throw new Error(linksError.message);
     if (txError) throw new Error(txError.message);
     return {
@@ -187,16 +211,20 @@ export const adminListCustomPaymentLinks = createServerFn({ method: "GET" })
 
 export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({
-    title: z.string().trim().min(2).max(140),
-    description: z.string().trim().max(1000).optional().nullable(),
-    amount: z.coerce.number().positive().max(100_000_000),
-    currency: currencySchema,
-    payment_gateway: gatewaySchema,
-    recipient_name: z.string().trim().max(140).optional().nullable(),
-    recipient_email: z.string().trim().email().max(254).optional().nullable().or(z.literal("")),
-    expires_hours: z.coerce.number().int().min(1).max(720).optional().nullable(),
-  }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({
+        title: z.string().trim().min(2).max(140),
+        description: z.string().trim().max(1000).optional().nullable(),
+        amount: z.coerce.number().positive().max(100_000_000),
+        currency: currencySchema,
+        payment_gateway: gatewaySchema,
+        recipient_name: z.string().trim().max(140).optional().nullable(),
+        recipient_email: z.string().trim().email().max(254).optional().nullable().or(z.literal("")),
+        expires_hours: z.coerce.number().int().min(1).max(720).optional().nullable(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
     const gateway = data.payment_gateway as CustomPaymentGateway;
@@ -207,7 +235,9 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
 
     const { randomBytes } = await import("crypto");
     const token = randomBytes(24).toString("base64url");
-    const expiresAt = data.expires_hours ? new Date(Date.now() + data.expires_hours * 3600_000).toISOString() : null;
+    const expiresAt = data.expires_hours
+      ? new Date(Date.now() + data.expires_hours * 3600_000).toISOString()
+      : null;
     const { data: row, error } = await admin
       .from("custom_payment_links")
       .insert({
@@ -245,13 +275,23 @@ export const adminCreateCustomPaymentLink = createServerFn({ method: "POST" })
 
 export const adminSetCustomPaymentLinkStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ id: z.string().uuid(), status: z.enum(["active", "disabled"]) }).parse(input))
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid(), status: z.enum(["active", "disabled"]) }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { data: current } = await admin.from("custom_payment_links").select("id, status, title").eq("id", data.id).maybeSingle();
+    const { data: current } = await admin
+      .from("custom_payment_links")
+      .select("id, status, title")
+      .eq("id", data.id)
+      .maybeSingle();
     if (!current) throw new Error("Payment link not found.");
-    if (current.status === "paid") throw new Error("A paid payment link cannot be re-opened or disabled.");
-    const { error } = await admin.from("custom_payment_links").update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.id);
+    if (current.status === "paid")
+      throw new Error("A paid payment link cannot be re-opened or disabled.");
+    const { error } = await admin
+      .from("custom_payment_links")
+      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     await logAdminActivity(context, {
       action: `custom_payment.${data.status}`,
@@ -273,31 +313,45 @@ function newMerchantReference(gateway: CustomPaymentGateway, randomHex: string):
 }
 
 export const initializeCustomPayment = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({
-    token: tokenSchema,
-    payer_name: z.string().trim().min(2).max(140),
-    payer_email: z.string().trim().email().max(254),
-  }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({
+        token: tokenSchema,
+        payer_name: z.string().trim().min(2).max(140),
+        payer_email: z.string().trim().email().max(254),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
 
-    const { data: siteGate } = await admin.from("site_settings").select("payments_paused, maintenance_mode").eq("id", true).maybeSingle();
-    if (siteGate?.maintenance_mode) throw new Error("Payments are temporarily unavailable during maintenance.");
-    if (siteGate?.payments_paused) throw new Error("Payments are temporarily paused. Please try again later.");
+    const { data: siteGate } = await admin
+      .from("site_settings")
+      .select("payments_paused, maintenance_mode")
+      .eq("id", true)
+      .maybeSingle();
+    if (siteGate?.maintenance_mode)
+      throw new Error("Payments are temporarily unavailable during maintenance.");
+    if (siteGate?.payments_paused)
+      throw new Error("Payments are temporarily paused. Please try again later.");
 
     const { data: link, error: linkError } = await admin
       .from("custom_payment_links")
-      .select("id, public_token, title, amount, amount_ngn, currency, payment_gateway, status, expires_at")
+      .select(
+        "id, public_token, title, amount, amount_ngn, currency, payment_gateway, status, expires_at",
+      )
       .eq("public_token", data.token)
       .maybeSingle();
     if (linkError || !link) throw new Error("Payment link not found.");
     const status = computePublicStatus(link);
     if (status === "paid") throw new Error("This payment has already been completed.");
     if (status === "disabled") throw new Error("This payment link has been disabled.");
-    if (status === "expired") throw new Error("This payment link has expired. Contact Admin for a new link.");
+    if (status === "expired")
+      throw new Error("This payment link has expired. Contact Admin for a new link.");
 
-    const gateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+    const gateway: CustomPaymentGateway =
+      link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
     const currency = normalizeCustomPaymentCurrency(link.currency ?? "NGN");
     validateGatewayCurrency(gateway, currency);
     const { adapter, environment } = await loadCustomPaymentGateway(admin, gateway);
@@ -348,7 +402,7 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
       });
 
       // Paystack's returned reference is the authoritative gateway reference.
-      const gatewayReference = gateway === "paystack" ? (init.reference || null) : null;
+      const gatewayReference = gateway === "paystack" ? init.reference || null : null;
       if (gateway === "paystack") {
         if (!gatewayReference) throw new Error("Paystack did not return a transaction reference.");
         const { error: refError } = await admin
@@ -366,12 +420,17 @@ export const initializeCustomPayment = createServerFn({ method: "POST" })
         gateway_reference: gatewayReference,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : `${gatewayLabel(gateway)} initialization failed.`;
-      await admin.from("custom_payment_transactions").update({
-        status: "failed",
-        last_error: message.slice(0, 500),
-        updated_at: new Date().toISOString(),
-      }).eq("link_id", link.id).eq("merchant_reference", merchantReference);
+      const message =
+        err instanceof Error ? err.message : `${gatewayLabel(gateway)} initialization failed.`;
+      await admin
+        .from("custom_payment_transactions")
+        .update({
+          status: "failed",
+          last_error: message.slice(0, 500),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("link_id", link.id)
+        .eq("merchant_reference", merchantReference);
       throw new Error(message);
     }
   });
@@ -389,29 +448,38 @@ export type CustomPaymentVerifyResult = {
  * inputs; nothing here trusts `status`, browser state, or local row status.
  */
 export const verifyCustomPayment = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({
-    token: tokenSchema,
-    /** Paystack-issued reference from the callback. */
-    gateway_reference: z.string().trim().min(6).max(160).optional(),
-    /** Flutterwave-issued transaction id from the callback. */
-    transaction_id: z.coerce.string().trim().min(1).max(80).optional(),
-  }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({
+        token: tokenSchema,
+        /** Paystack-issued reference from the callback. */
+        gateway_reference: z.string().trim().min(6).max(160).optional(),
+        /** Flutterwave-issued transaction id from the callback. */
+        transaction_id: z.coerce.string().trim().min(1).max(80).optional(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }): Promise<CustomPaymentVerifyResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
     const { data: link } = await admin
       .from("custom_payment_links")
-      .select("id, amount, amount_ngn, currency, payment_gateway, status, paid_reference, paid_gateway_reference, paid_gateway_transaction_id")
+      .select(
+        "id, amount, amount_ngn, currency, payment_gateway, status, paid_reference, paid_gateway_reference, paid_gateway_transaction_id",
+      )
       .eq("public_token", data.token)
       .maybeSingle();
     if (!link) throw new Error("Payment link not found.");
 
-    const gateway: CustomPaymentGateway = link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
+    const gateway: CustomPaymentGateway =
+      link.payment_gateway === "flutterwave" ? "flutterwave" : "paystack";
     if (link.status === "paid") {
       return {
         ok: true,
         status: "paid",
-        gateway_identifier: (link.paid_gateway_transaction_id ?? link.paid_gateway_reference ?? null) as string | null,
+        gateway_identifier: (link.paid_gateway_transaction_id ??
+          link.paid_gateway_reference ??
+          null) as string | null,
         payment_gateway: gateway,
       };
     }
@@ -423,7 +491,8 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
 
     const markFailed = async (attemptId: string | null, reason: string) => {
       if (!attemptId) return;
-      await admin.from("custom_payment_transactions")
+      await admin
+        .from("custom_payment_transactions")
         .update({ status: "failed", last_error: reason, updated_at: new Date().toISOString() })
         .eq("id", attemptId);
     };
@@ -439,12 +508,15 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
       }
       const { data: row } = await admin
         .from("custom_payment_transactions")
-        .select("id, link_id, merchant_reference, reference, gateway_reference, payer_name, payer_email, payment_gateway, status")
+        .select(
+          "id, link_id, merchant_reference, reference, gateway_reference, payer_name, payer_email, payment_gateway, status",
+        )
         .eq("link_id", link.id)
         .eq("gateway_reference", data.gateway_reference)
         .maybeSingle();
       if (!row) throw new Error("This payment reference does not belong to this bill.");
-      if (row.payment_gateway && row.payment_gateway !== gateway) throw new Error("Payment gateway did not match this bill.");
+      if (row.payment_gateway && row.payment_gateway !== gateway)
+        throw new Error("Payment gateway did not match this bill.");
       attempt = row;
       tx = await adapter.verify(data.gateway_reference);
       if (tx.status === "failed") {
@@ -454,7 +526,8 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
       if (tx.status !== "success") {
         return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
       }
-      if (tx.reference !== data.gateway_reference) throw new Error("Gateway verification reference did not match this bill.");
+      if (tx.reference !== data.gateway_reference)
+        throw new Error("Gateway verification reference did not match this bill.");
       gatewayReference = data.gateway_reference;
       gatewayTransactionId = tx.id == null ? null : String(tx.id);
     } else {
@@ -465,28 +538,39 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
         throw new Error("This gateway cannot verify payments by transaction id.");
       }
       tx = await adapter.verifyByTransactionId(data.transaction_id);
-      if (tx.status === "failed") return { ok: false, status: "failed", gateway_identifier: null, payment_gateway: gateway };
-      if (tx.status !== "success") return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
+      if (tx.status === "failed")
+        return { ok: false, status: "failed", gateway_identifier: null, payment_gateway: gateway };
+      if (tx.status !== "success")
+        return { ok: false, status: "pending", gateway_identifier: null, payment_gateway: gateway };
       if (tx.id == null || String(tx.id) !== String(data.transaction_id)) {
         throw new Error("Gateway transaction id did not match the verified transaction.");
       }
       const merchantReference = String(tx.reference ?? "");
-      if (!merchantReference) throw new Error("Gateway verification did not return a merchant correlation key.");
+      if (!merchantReference)
+        throw new Error("Gateway verification did not return a merchant correlation key.");
       const { data: row } = await admin
         .from("custom_payment_transactions")
-        .select("id, link_id, merchant_reference, reference, payer_name, payer_email, payment_gateway, status")
+        .select(
+          "id, link_id, merchant_reference, reference, payer_name, payer_email, payment_gateway, status",
+        )
         .eq("link_id", link.id)
         .eq("merchant_reference", merchantReference)
         .maybeSingle();
       if (!row) throw new Error("This payment does not belong to this bill.");
-      if (row.payment_gateway && row.payment_gateway !== gateway) throw new Error("Payment gateway did not match this bill.");
+      if (row.payment_gateway && row.payment_gateway !== gateway)
+        throw new Error("Payment gateway did not match this bill.");
       attempt = row;
       gatewayTransactionId = String(tx.id);
     }
 
-    if (Number(tx.amount) !== expectedMinor || String(tx.currency ?? "").toUpperCase() !== currency) {
+    if (
+      Number(tx.amount) !== expectedMinor ||
+      String(tx.currency ?? "").toUpperCase() !== currency
+    ) {
       await markFailed(attempt.id, "Verified amount or currency mismatch");
-      throw new Error("Payment verification failed because the amount or currency did not match this bill.");
+      throw new Error(
+        "Payment verification failed because the amount or currency did not match this bill.",
+      );
     }
     const metadata = parseMetadata(tx.metadata);
     if (String(metadata.custom_payment_link_id ?? "") !== String(link.id)) {
@@ -505,7 +589,8 @@ export const verifyCustomPayment = createServerFn({ method: "POST" })
       _paid_at: paidAt,
     });
     if (error) throw new Error("Payment was verified but could not be recorded. Contact Admin.");
-    if (!accepted) throw new Error("This bill was already paid through a different transaction. Contact Admin.");
+    if (!accepted)
+      throw new Error("This bill was already paid through a different transaction. Contact Admin.");
     return {
       ok: true,
       status: "paid",

@@ -7,7 +7,17 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Star, ShieldCheck, ChevronDown, ChevronUp, Eye, EyeOff, Check, X, Clock } from "lucide-react";
+import {
+  Star,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  Clock,
+} from "lucide-react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,12 +38,15 @@ export const Route = createFileRoute("/admin/reviews")({
   head: () => ({ meta: [{ title: "Reviews — Admin" }] }),
   validateSearch: (s: Record<string, unknown>): ReviewsSearch => {
     const allowed: (ReviewStatus | "all")[] = ["pending", "approved", "rejected", "hidden", "all"];
-    const status = allowed.includes(s.status as ReviewStatus | "all") ? (s.status as ReviewStatus | "all") : undefined;
-    const min_rating = typeof s.min_rating === "number" && s.min_rating >= 0 && s.min_rating <= 5
-      ? s.min_rating
-      : typeof s.min_rating === "string" && !Number.isNaN(Number(s.min_rating))
-        ? Number(s.min_rating)
-        : undefined;
+    const status = allowed.includes(s.status as ReviewStatus | "all")
+      ? (s.status as ReviewStatus | "all")
+      : undefined;
+    const min_rating =
+      typeof s.min_rating === "number" && s.min_rating >= 0 && s.min_rating <= 5
+        ? s.min_rating
+        : typeof s.min_rating === "string" && !Number.isNaN(Number(s.min_rating))
+          ? Number(s.min_rating)
+          : undefined;
     const tool_slug = typeof s.tool_slug === "string" ? s.tool_slug : undefined;
     return { status, min_rating, tool_slug };
   },
@@ -93,7 +106,9 @@ function ReviewsPage() {
             >
               <option value="all">All</option>
               {STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </label>
@@ -106,7 +121,9 @@ function ReviewsPage() {
             >
               <option value="">All tools</option>
               {TOOLS.map((t) => (
-                <option key={t.slug} value={t.slug}>{t.name}</option>
+                <option key={t.slug} value={t.slug}>
+                  {t.name}
+                </option>
               ))}
             </select>
           </label>
@@ -118,7 +135,9 @@ function ReviewsPage() {
               onChange={(e) => setMinRating(Number(e.target.value))}
             >
               {[0, 1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>{n === 0 ? "Any" : `${n}+`}</option>
+                <option key={n} value={n}>
+                  {n === 0 ? "Any" : `${n}+`}
+                </option>
               ))}
             </select>
           </label>
@@ -179,13 +198,16 @@ function ReviewRow({ review }: { review: AdminReview }) {
           </span>
         </div>
         <div className="text-xs text-muted-foreground">
-          {tool?.name ?? review.tool_slug} · {review.customer_name || "Customer"} · <span className="font-mono">{review.customer_email}</span>
+          {tool?.name ?? review.tool_slug} · {review.customer_name || "Customer"} ·{" "}
+          <span className="font-mono">{review.customer_email}</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
         <p className="whitespace-pre-line text-sm">{review.body}</p>
         {review.display_name ? (
-          <p className="text-xs text-muted-foreground">Public display name: {review.display_name}</p>
+          <p className="text-xs text-muted-foreground">
+            Public display name: {review.display_name}
+          </p>
         ) : null}
 
         <div>
@@ -198,20 +220,49 @@ function ReviewRow({ review }: { review: AdminReview }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => moderate.mutate("approved")} disabled={moderate.isPending}>
+          <Button
+            size="sm"
+            onClick={() => moderate.mutate("approved")}
+            disabled={moderate.isPending}
+          >
             <Check className="mr-1 h-3.5 w-3.5" /> Approve
           </Button>
-          <Button size="sm" variant="outline" onClick={() => moderate.mutate("rejected")} disabled={moderate.isPending}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => moderate.mutate("rejected")}
+            disabled={moderate.isPending}
+          >
             <X className="mr-1 h-3.5 w-3.5" /> Reject
           </Button>
-          <Button size="sm" variant="outline" onClick={() => moderate.mutate("hidden")} disabled={moderate.isPending}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => moderate.mutate("hidden")}
+            disabled={moderate.isPending}
+          >
             <EyeOff className="mr-1 h-3.5 w-3.5" /> Hide
           </Button>
-          <Button size="sm" variant="outline" onClick={() => moderate.mutate("pending")} disabled={moderate.isPending}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => moderate.mutate("pending")}
+            disabled={moderate.isPending}
+          >
             <Clock className="mr-1 h-3.5 w-3.5" /> Return to pending
           </Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setShowHistory((v) => !v)}>
-            {showHistory ? <ChevronUp className="mr-1 h-3.5 w-3.5" /> : <ChevronDown className="mr-1 h-3.5 w-3.5" />} History
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => setShowHistory((v) => !v)}
+          >
+            {showHistory ? (
+              <ChevronUp className="mr-1 h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="mr-1 h-3.5 w-3.5" />
+            )}{" "}
+            History
           </Button>
         </div>
 
@@ -223,17 +274,28 @@ function ReviewRow({ review }: { review: AdminReview }) {
               <div className="text-muted-foreground">No previous versions.</div>
             ) : (
               <ul className="space-y-2">
-                {(versions.data?.versions ?? []).map((v: { id: string; version_no: number; rating: number; title: string; body: string; submitted_at: string }) => (
-                  <li key={v.id} className="border-b pb-2 last:border-b-0">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">v{v.version_no}</Badge>
-                      <Stars rating={v.rating} />
-                      <span className="font-medium">{v.title}</span>
-                      <span className="ml-auto text-muted-foreground">{new Date(v.submitted_at).toLocaleString()}</span>
-                    </div>
-                    <p className="mt-1 whitespace-pre-line text-foreground/80">{v.body}</p>
-                  </li>
-                ))}
+                {(versions.data?.versions ?? []).map(
+                  (v: {
+                    id: string;
+                    version_no: number;
+                    rating: number;
+                    title: string;
+                    body: string;
+                    submitted_at: string;
+                  }) => (
+                    <li key={v.id} className="border-b pb-2 last:border-b-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">v{v.version_no}</Badge>
+                        <Stars rating={v.rating} />
+                        <span className="font-medium">{v.title}</span>
+                        <span className="ml-auto text-muted-foreground">
+                          {new Date(v.submitted_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-foreground/80">{v.body}</p>
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </div>
@@ -247,7 +309,10 @@ function Stars({ rating }: { rating: number }) {
   return (
     <span className="inline-flex" aria-label={`${rating} out of 5`}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <Star key={n} className={`h-3.5 w-3.5 ${n <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`} />
+        <Star
+          key={n}
+          className={`h-3.5 w-3.5 ${n <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`}
+        />
       ))}
     </span>
   );
@@ -260,5 +325,15 @@ function StatusBadge({ status }: { status: ReviewStatus }) {
     rejected: "bg-destructive/15 text-destructive",
     hidden: "bg-muted text-muted-foreground",
   };
-  return <Badge className={map[status]}>{status === "approved" ? <><Eye className="mr-1 h-3 w-3" /> Approved</> : status}</Badge>;
+  return (
+    <Badge className={map[status]}>
+      {status === "approved" ? (
+        <>
+          <Eye className="mr-1 h-3 w-3" /> Approved
+        </>
+      ) : (
+        status
+      )}
+    </Badge>
+  );
 }

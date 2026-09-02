@@ -8,7 +8,6 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import type {
-
   GatewayAdapter,
   GatewayConfig,
   GatewayInitInput,
@@ -94,24 +93,25 @@ export function createMonnifyAdapter(config: GatewayConfig = {}): GatewayAdapter
 
     async initialize(input: GatewayInitInput): Promise<GatewayInitResult> {
       if (!contractCode) throw new Error("Monnify contract code is not configured.");
-      const data = await api<{ checkoutUrl: string; transactionReference: string; paymentReference: string }>(
-        "/api/v1/merchant/transactions/init-transaction",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            amount: minorToMajor(input.amountMinor),
-            customerName: input.customerName || input.email,
-            customerEmail: input.email,
-            paymentReference: input.reference,
-            paymentDescription: (input.description ?? "Tool access").slice(0, 60),
-            currencyCode: input.currency,
-            contractCode,
-            redirectUrl: input.callbackUrl,
-            paymentMethods: ["CARD", "ACCOUNT_TRANSFER", "USSD", "PHONE_NUMBER"],
-            metaData: input.metadata,
-          }),
-        },
-      );
+      const data = await api<{
+        checkoutUrl: string;
+        transactionReference: string;
+        paymentReference: string;
+      }>("/api/v1/merchant/transactions/init-transaction", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: minorToMajor(input.amountMinor),
+          customerName: input.customerName || input.email,
+          customerEmail: input.email,
+          paymentReference: input.reference,
+          paymentDescription: (input.description ?? "Tool access").slice(0, 60),
+          currencyCode: input.currency,
+          contractCode,
+          redirectUrl: input.callbackUrl,
+          paymentMethods: ["CARD", "ACCOUNT_TRANSFER", "USSD", "PHONE_NUMBER"],
+          metaData: input.metadata,
+        }),
+      });
       return {
         authorization_url: data.checkoutUrl,
         reference: input.reference,
@@ -159,26 +159,23 @@ export function createMonnifyAdapter(config: GatewayConfig = {}): GatewayAdapter
     },
 
     normalizeWebhook(payload: unknown): GatewayWebhookEvent | null {
-      const p = payload as
-        | {
-            eventType?: string;
-            eventData?: {
-              paymentReference?: string;
-              paymentStatus?: string;
-              amountPaid?: number;
-              currency?: string;
-              currencyCode?: string;
-              metaData?: Record<string, unknown>;
-              paymentMethod?: string;
-              transactionReference?: string;
-            };
-          }
-        | null;
+      const p = payload as {
+        eventType?: string;
+        eventData?: {
+          paymentReference?: string;
+          paymentStatus?: string;
+          amountPaid?: number;
+          currency?: string;
+          currencyCode?: string;
+          metaData?: Record<string, unknown>;
+          paymentMethod?: string;
+          transactionReference?: string;
+        };
+      } | null;
       const d = p?.eventData;
       if (!d?.paymentReference) return null;
       const type = String(p?.eventType ?? "").toUpperCase();
-      const status =
-        type === "SUCCESSFUL_TRANSACTION" ? "success" : mapStatus(d.paymentStatus);
+      const status = type === "SUCCESSFUL_TRANSACTION" ? "success" : mapStatus(d.paymentStatus);
       if (status === "pending") return null;
       return {
         event: status === "success" ? "charge.success" : "charge.failed",

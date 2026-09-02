@@ -25,12 +25,19 @@ export function ToolIconUpload({
 
   async function pick(file: File | undefined) {
     if (!file) return;
-    const safeSlug = (slug || "tool").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    const safeSlug = (slug || "tool")
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-|-$/g, "");
     setBusy(true);
     try {
       const resized = await resizeToolIcon(file);
       const out = await upload({
-        data: { slug: safeSlug || "tool", contentType: resized.contentType, base64: resized.base64 },
+        data: {
+          slug: safeSlug || "tool",
+          contentType: resized.contentType,
+          base64: resized.base64,
+        },
       });
       onChange(out.url);
       toast.success(`Icon optimised to ${TOOL_ICON_SIZE}×${TOOL_ICON_SIZE}`);
@@ -75,7 +82,11 @@ export function ToolIconUpload({
         disabled={busy}
         className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50"
       >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+        {busy ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ImagePlus className="h-3.5 w-3.5" />
+        )}
         {busy ? "Optimising…" : value ? "Replace icon" : "Upload icon"}
       </button>
 

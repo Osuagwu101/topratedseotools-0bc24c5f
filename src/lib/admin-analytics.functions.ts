@@ -19,7 +19,8 @@ async function assertAdminAndGetAdmin(context: {
     _user_id: context.userId,
     _role: "admin",
   });
-  if (error) throw new Error(String((error as { message?: string }).message ?? "role check failed"));
+  if (error)
+    throw new Error(String((error as { message?: string }).message ?? "role check failed"));
   if (!data) throw new Error("Forbidden");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
@@ -105,38 +106,45 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     const now = new Date();
     const nowIso = now.toISOString();
 
-    const startOfDay = new Date(now); startOfDay.setUTCHours(0, 0, 0, 0);
+    const startOfDay = new Date(now);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-    const trendStart = new Date(now); trendStart.setUTCDate(trendStart.getUTCDate() - (trendDays - 1)); trendStart.setUTCHours(0, 0, 0, 0);
+    const trendStart = new Date(now);
+    trendStart.setUTCDate(trendStart.getUTCDate() - (trendDays - 1));
+    trendStart.setUTCHours(0, 0, 0, 0);
     const in7d = new Date(now.getTime() + 7 * 86400_000);
     const in6h = new Date(now.getTime() + 6 * 3600_000);
 
     // Parallel fetches
-    const [
-      profilesCountRes,
-      profilesRes,
-      ordersActiveRes,
-      ordersAllRes,
-      paymentsRes,
-    ] = await Promise.all([
-      admin.from("profiles").select("id", { count: "exact", head: true }),
-      admin.from("profiles").select("id, email, full_name, created_at").order("created_at", { ascending: false }),
-      admin
-        .from("tool_orders")
-        .select("id, user_id, tool_slug, status, access_type, billing_period, payment_type, expires_at, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, created_at, updated_at, approved_at, price_amount")
-        .eq("status", "approved"),
-      admin
-        .from("tool_orders")
-        .select("id, user_id, tool_slug, status, access_type, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, expires_at, created_at, updated_at, approved_at")
-        .order("created_at", { ascending: false })
-        .limit(2000),
-      admin
-        .from("tool_payments")
-        .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, base_amount_ngn, payment_currency, payment_status, paid_at, created_at, source")
-        .order("created_at", { ascending: false })
-        .limit(5000),
-    ]);
+    const [profilesCountRes, profilesRes, ordersActiveRes, ordersAllRes, paymentsRes] =
+      await Promise.all([
+        admin.from("profiles").select("id", { count: "exact", head: true }),
+        admin
+          .from("profiles")
+          .select("id, email, full_name, created_at")
+          .order("created_at", { ascending: false }),
+        admin
+          .from("tool_orders")
+          .select(
+            "id, user_id, tool_slug, status, access_type, billing_period, payment_type, expires_at, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, created_at, updated_at, approved_at, price_amount",
+          )
+          .eq("status", "approved"),
+        admin
+          .from("tool_orders")
+          .select(
+            "id, user_id, tool_slug, status, access_type, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, expires_at, created_at, updated_at, approved_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(2000),
+        admin
+          .from("tool_payments")
+          .select(
+            "id, user_id, order_id, tool_slug, payment_type, classification, amount, base_amount_ngn, payment_currency, payment_status, paid_at, created_at, source",
+          )
+          .order("created_at", { ascending: false })
+          .limit(5000),
+      ]);
 
     const profiles = profilesRes.data ?? [];
     const activeOrders = ordersActiveRes.data ?? [];
@@ -183,7 +191,10 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       allTime: sum(successful),
       recurring: sum(successful, (r) => r.payment_type === "recurring_subscription"),
       oneTime: sum(successful, (r) => r.payment_type !== "recurring_subscription"),
-      online: sum(successful, (r) => ((r as { source?: string }).source ?? "paystack") !== "offline"),
+      online: sum(
+        successful,
+        (r) => ((r as { source?: string }).source ?? "paystack") !== "offline",
+      ),
       offline: sum(successful, (r) => (r as { source?: string }).source === "offline"),
       successfulPayments: successful.length,
       failedPayments: payments.filter((p) => p.payment_status === "failed").length,
@@ -390,7 +401,14 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       attention,
       breakdown,
       topTools,
-      trend: { days, registrations, newSubscribers, revenueTotal, revenueRecurring, revenueOneTime },
+      trend: {
+        days,
+        registrations,
+        newSubscribers,
+        revenueTotal,
+        revenueRecurring,
+        revenueOneTime,
+      },
       recentActivity,
     };
     // Suppress noise in dev logs for unused variables
@@ -400,12 +418,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
 
 // -------- Customer list --------
 
-export type CustomerSegment =
-  | "all"
-  | "active"
-  | "all_time"
-  | "inactive"
-  | "new";
+export type CustomerSegment = "all" | "active" | "all_time" | "inactive" | "new";
 
 const listInput = z.object({
   segment: z.enum(["all", "active", "all_time", "inactive", "new"]),
@@ -434,7 +447,10 @@ export const listPlatformCustomers = createServerFn({ method: "POST" })
     const now = new Date();
 
     const [profilesRes, ordersRes, paymentsRes] = await Promise.all([
-      admin.from("profiles").select("id, email, full_name, created_at").order("created_at", { ascending: false }),
+      admin
+        .from("profiles")
+        .select("id, email, full_name, created_at")
+        .order("created_at", { ascending: false }),
       admin
         .from("tool_orders")
         .select("id, user_id, status, expires_at")
@@ -450,10 +466,7 @@ export const listPlatformCustomers = createServerFn({ method: "POST" })
 
     const activeByUser = new Map<string, number>();
     for (const o of orders) {
-      if (
-        o.status === "approved" &&
-        (!o.expires_at || new Date(o.expires_at as string) > now)
-      ) {
+      if (o.status === "approved" && (!o.expires_at || new Date(o.expires_at as string) > now)) {
         const uid = o.user_id as string;
         activeByUser.set(uid, (activeByUser.get(uid) ?? 0) + 1);
       }
@@ -508,8 +521,7 @@ export const listPlatformCustomers = createServerFn({ method: "POST" })
       const q = data.search.toLowerCase();
       rows = rows.filter(
         (r) =>
-          (r.email ?? "").toLowerCase().includes(q) ||
-          (r.fullName ?? "").toLowerCase().includes(q),
+          (r.email ?? "").toLowerCase().includes(q) || (r.fullName ?? "").toLowerCase().includes(q),
       );
     }
 

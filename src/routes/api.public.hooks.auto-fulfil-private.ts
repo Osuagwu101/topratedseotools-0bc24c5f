@@ -87,10 +87,9 @@ export const Route = createFileRoute("/api/public/hooks/auto-fulfil-private")({
           }
         }
 
-        return new Response(
-          JSON.stringify({ ok: true, processed, checked: (due ?? []).length }),
-          { headers: { "content-type": "application/json" } },
-        );
+        return new Response(JSON.stringify({ ok: true, processed, checked: (due ?? []).length }), {
+          headers: { "content-type": "application/json" },
+        });
       },
     },
   },

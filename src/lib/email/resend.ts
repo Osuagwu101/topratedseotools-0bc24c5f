@@ -16,7 +16,12 @@ export class ResendError extends Error {
 
 function apiKey(): string {
   const k = process.env.RESEND_API_KEY;
-  if (!k) throw new ResendError(0, "", "Resend is not configured. Add RESEND_API_KEY as a server secret.");
+  if (!k)
+    throw new ResendError(
+      0,
+      "",
+      "Resend is not configured. Add RESEND_API_KEY as a server secret.",
+    );
   return k;
 }
 
@@ -95,7 +100,10 @@ export interface ResendDomain {
   region?: string;
 }
 
-export async function resendCreateDomain(name: string, region = "us-east-1"): Promise<ResendDomain> {
+export async function resendCreateDomain(
+  name: string,
+  region = "us-east-1",
+): Promise<ResendDomain> {
   return rq<ResendDomain>("/domains", {
     method: "POST",
     body: JSON.stringify({ name, region }),

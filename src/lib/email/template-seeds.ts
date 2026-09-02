@@ -19,7 +19,8 @@ export interface TemplateSeed {
 const H = (text: string) =>
   `<h1 style="margin:0 0 12px;font-size:21px;line-height:1.3;font-weight:700;letter-spacing:-0.3px;color:#0f172a;">${text}</h1>`;
 const P = (text: string) => `<p style="margin:0 0 14px;">${text}</p>`;
-const MUTED = (text: string) => `<p style="margin:16px 0 0;font-size:13px;color:#64748b;">${text}</p>`;
+const MUTED = (text: string) =>
+  `<p style="margin:16px 0 0;font-size:13px;color:#64748b;">${text}</p>`;
 const CTA = (url: string, label: string) =>
   `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 6px;"><tr><td align="center" bgcolor="{{brand_color}}" style="border-radius:10px;"><a href="${url}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a></td></tr></table>`;
 
@@ -39,7 +40,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "You were almost done — {{tool_name}} access",
     html_body:
       H("You were almost done getting your access to {{tool_name}}.") +
-      P("Hi {{name}}, your checkout is still saved. Pick it back up whenever you're ready — it only takes a moment.") +
+      P(
+        "Hi {{name}}, your checkout is still saved. Pick it back up whenever you're ready — it only takes a moment.",
+      ) +
       TOOL_LINE +
       PANEL(
         ROW("Tool", "{{tool_name}}") +
@@ -77,8 +80,14 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "We couldn't process your payment for {{tool_name}}",
     html_body:
       H("Your payment didn't go through") +
-      P("Hi {{name}}, we couldn't complete your payment for {{tool_name}}. Nothing has been charged — you can try again safely.") +
-      PANEL(ROW("Tool", "{{tool_name}}") + ROW("Reference", "{{reference}}") + ROW("Reason", "{{reason}}")) +
+      P(
+        "Hi {{name}}, we couldn't complete your payment for {{tool_name}}. Nothing has been charged — you can try again safely.",
+      ) +
+      PANEL(
+        ROW("Tool", "{{tool_name}}") +
+          ROW("Reference", "{{reference}}") +
+          ROW("Reason", "{{reason}}"),
+      ) +
       CTA("{{retry_url}}", "Try again") +
       MUTED("If this keeps happening, reply to this email or contact {{support_email}}."),
   },
@@ -88,7 +97,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Payment received — Private Access setup in progress",
     html_body:
       H("We're preparing your private access") +
-      P("Hi {{name}}, thanks for your payment. Your dedicated credentials for {{tool_name}} are being set up now.") +
+      P(
+        "Hi {{name}}, thanks for your payment. Your dedicated credentials for {{tool_name}} are being set up now.",
+      ) +
       TOOL_LINE +
       PANEL(
         ROW("Tool", "{{tool_name}}") +
@@ -108,8 +119,14 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
       H("Your access to {{tool_name}} is ready") +
       P("Hi {{name}}, your private credentials are now available in your dashboard.") +
       TOOL_LINE +
-      PANEL(ROW("Tool", "{{tool_name}}") + ROW("Access type", "Private") + ROW("Status", "Ready to use")) +
-      P("Open your dashboard, choose {{tool_name}} and select <strong>Launch tool</strong> — your login details are shown there. Keep them private; they're issued to your account only.") +
+      PANEL(
+        ROW("Tool", "{{tool_name}}") +
+          ROW("Access type", "Private") +
+          ROW("Status", "Ready to use"),
+      ) +
+      P(
+        "Open your dashboard, choose {{tool_name}} and select <strong>Launch tool</strong> — your login details are shown there. Keep them private; they're issued to your account only.",
+      ) +
       CTA("{{dashboard_url}}", "Open your dashboard") +
       MUTED("Trouble signing in? Contact {{support_email}} and we'll sort it out quickly."),
   },
@@ -139,8 +156,14 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Your {{tool_name}} subscription renewed",
     html_body:
       H("Your subscription renewed") +
-      P("Hi {{name}}, your {{tool_name}} subscription renewed successfully — nothing to do on your side.") +
-      PANEL(ROW("Tool", "{{tool_name}}") + ROW("Amount", "{{currency}} {{amount}}") + ROW("Next billing", "{{next_billing_date}}")) +
+      P(
+        "Hi {{name}}, your {{tool_name}} subscription renewed successfully — nothing to do on your side.",
+      ) +
+      PANEL(
+        ROW("Tool", "{{tool_name}}") +
+          ROW("Amount", "{{currency}} {{amount}}") +
+          ROW("Next billing", "{{next_billing_date}}"),
+      ) +
       CTA("{{dashboard_url}}", "Open your dashboard"),
   },
   {
@@ -149,7 +172,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Renewal failed for {{tool_name}}",
     html_body:
       H("We couldn't renew your subscription") +
-      P("Hi {{name}}, the renewal for {{tool_name}} didn't go through. Update your payment details to keep your access active.") +
+      P(
+        "Hi {{name}}, the renewal for {{tool_name}} didn't go through. Update your payment details to keep your access active.",
+      ) +
       PANEL(ROW("Tool", "{{tool_name}}") + ROW("Amount due", "{{currency}} {{amount}}")) +
       CTA("{{billing_url}}", "Manage billing") +
       MUTED("Need help? Contact {{support_email}}."),
@@ -160,7 +185,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Auto-renewal turned off for {{tool_name}}",
     html_body:
       H("Auto-renewal is now off") +
-      P("Hi {{name}}, auto-renewal for {{tool_name}} has been turned off. Your access continues until {{expiry_date}}.") +
+      P(
+        "Hi {{name}}, auto-renewal for {{tool_name}} has been turned off. Your access continues until {{expiry_date}}.",
+      ) +
       CTA("{{dashboard_url}}", "Re-enable in dashboard") +
       MUTED("Changed your mind? You can switch auto-renewal back on any time."),
   },
@@ -170,7 +197,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Welcome to {{brand_name}}",
     html_body:
       H("Welcome to {{brand_name}}") +
-      P("Hi {{name}}, thanks for joining. You now have one account for premium SEO, AI and productivity tools — pay only for the ones you need, when you need them.") +
+      P(
+        "Hi {{name}}, thanks for joining. You now have one account for premium SEO, AI and productivity tools — pay only for the ones you need, when you need them.",
+      ) +
       PANEL(
         ROW("Instant access", "Shared plans activate immediately") +
           ROW("Private access", "Dedicated credentials on request") +
@@ -185,9 +214,13 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Reset your {{brand_name}} password",
     html_body:
       H("Reset your password") +
-      P("Hi {{name}}, we received a request to reset the password for your {{brand_name}} account. Use the button below to choose a new one.") +
+      P(
+        "Hi {{name}}, we received a request to reset the password for your {{brand_name}} account. Use the button below to choose a new one.",
+      ) +
       CTA("{{reset_url}}", "Reset password") +
-      P("This link expires shortly and can be used once. If you didn't request a reset, you can safely ignore this email — your password stays unchanged.") +
+      P(
+        "This link expires shortly and can be used once. If you didn't request a reset, you can safely ignore this email — your password stays unchanged.",
+      ) +
       MUTED("For your security we never include passwords in email. Need help? {{support_email}}"),
   },
   {
@@ -196,7 +229,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "Your {{brand_name}} account is ready",
     html_body:
       H("Your account is ready") +
-      P("Hi {{name}}, an account has been created for you at {{brand_name}}. Set your password to sign in.") +
+      P(
+        "Hi {{name}}, an account has been created for you at {{brand_name}}. Set your password to sign in.",
+      ) +
       CTA("{{setup_url}}", "Set your password") +
       MUTED("For your security we never include passwords in email."),
   },
@@ -206,7 +241,9 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     subject: "How is {{tool_name}} working for you?",
     html_body:
       H("How is {{tool_name}} working for you?") +
-      P("Hi {{name}}, thanks for your purchase. If you have a moment, a short review helps other customers decide.") +
+      P(
+        "Hi {{name}}, thanks for your purchase. If you have a moment, a short review helps other customers decide.",
+      ) +
       TOOL_LINE +
       CTA("{{review_url}}", "Write a review") +
       MUTED("It takes under a minute, and we read every one."),

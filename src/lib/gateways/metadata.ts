@@ -59,7 +59,10 @@ export function normalizeCurrency(currency: string | null | undefined): string {
   return String(currency ?? "NGN").toUpperCase();
 }
 
-export function gatewaySupportsCurrency(slug: GatewaySlug, currency: string | null | undefined): boolean {
+export function gatewaySupportsCurrency(
+  slug: GatewaySlug,
+  currency: string | null | undefined,
+): boolean {
   return GATEWAY_METADATA[slug].chargeCurrencies.includes(normalizeCurrency(currency));
 }
 

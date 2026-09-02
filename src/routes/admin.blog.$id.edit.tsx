@@ -4,8 +4,12 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 
 export const Route = createFileRoute("/admin/blog/$id/edit")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
-  head: () => ({ meta: [{ title: "Edit article — Admin" }, { name: "robots", content: "noindex" }] }),
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
+  head: () => ({
+    meta: [{ title: "Edit article — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: EditPage,
 });
 

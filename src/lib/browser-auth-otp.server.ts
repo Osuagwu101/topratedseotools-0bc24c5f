@@ -2,10 +2,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface OtpContext {
   detected_type: "email" | "sms" | "authenticator" | "security_question" | "unknown";
-  detected_at: string; field_selector?: string; page_text?: string; error?: string; attempt_count: number;
+  detected_at: string;
+  field_selector?: string;
+  page_text?: string;
+  error?: string;
+  attempt_count: number;
 }
 export interface CapturedSessionState {
-  authenticated_cookies: Array<{ name: string; value: string; domain?: string; path?: string; expires?: number; secure?: boolean; httpOnly?: boolean; sameSite?: string }>;
+  authenticated_cookies: Array<{
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+    expires?: number;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: string;
+  }>;
   session_tokens: Record<string, any>;
   auth_headers: Record<string, string>;
 }
@@ -45,24 +58,49 @@ export function submitOtpExpression(code: string, fieldSelector?: string): strin
   })()`;
 }
 
-export async function captureSessionStateThroughCdp(client: any, sessionId?: string): Promise<CapturedSessionState> {
+export async function captureSessionStateThroughCdp(
+  client: any,
+  sessionId?: string,
+): Promise<CapturedSessionState> {
   await client.send("Network.enable", {}, sessionId).catch(() => undefined);
-  const cookiesResult = await client.send("Network.getAllCookies", {}, sessionId).catch(() => ({ cookies: [] }));
+  const cookiesResult = await client
+    .send("Network.getAllCookies", {}, sessionId)
+    .catch(() => ({ cookies: [] }));
   const cookies = (cookiesResult?.cookies ?? [])
     .filter((c: any) => c?.name && !c.name.includes("_ga") && !c.name.includes("_utm"))
-    .map((c: any) => ({ name:c.name,value:c.value,domain:c.domain,path:c.path,expires:c.expires,secure:c.secure,httpOnly:c.httpOnly,sameSite:c.sameSite }));
-  const storageResult = await client.send("Runtime.evaluate", {
-    expression: `(() => { const read=s=>{const o={};for(let i=0;i<s.length;i++){const k=s.key(i);if(k)o[k]=s.getItem(k)}return o};return {localStorage:read(localStorage),sessionStorage:read(sessionStorage)}})()`,
-    returnByValue: true,
-  }, sessionId).catch(() => null);
+    .map((c: any) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      expires: c.expires,
+      secure: c.secure,
+      httpOnly: c.httpOnly,
+      sameSite: c.sameSite,
+    }));
+  const storageResult = await client
+    .send(
+      "Runtime.evaluate",
+      {
+        expression: `(() => { const read=s=>{const o={};for(let i=0;i<s.length;i++){const k=s.key(i);if(k)o[k]=s.getItem(k)}return o};return {localStorage:read(localStorage),sessionStorage:read(sessionStorage)}})()`,
+        returnByValue: true,
+      },
+      sessionId,
+    )
+    .catch(() => null);
   return {
     authenticated_cookies: cookies,
-    session_tokens: { captured_at: new Date().toISOString(), storage: storageResult?.result?.value ?? { localStorage:{}, sessionStorage:{} } },
+    session_tokens: {
+      captured_at: new Date().toISOString(),
+      storage: storageResult?.result?.value ?? { localStorage: {}, sessionStorage: {} },
+    },
     auth_headers: {},
   };
 }
 
-export function injectSessionCookiesExpression(cookies: Array<{ name: string; value: string }>): string {
+export function injectSessionCookiesExpression(
+  cookies: Array<{ name: string; value: string }>,
+): string {
   return `(() => { const cookies=${JSON.stringify(cookies)};let injected=0;for(const cookie of cookies){try{document.cookie=\`\${cookie.name}=\${cookie.value}; path=/; SameSite=Lax\`;injected++}catch{}}window.location.reload();return {injected,total:cookies.length}; })()`;
 }
 

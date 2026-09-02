@@ -48,9 +48,8 @@ export const previewCoupon = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<CouponPreview> => {
-    const { detectCheckoutEnvironment, validateAndBuildOrderSnapshot, CheckoutError } = await import(
-      "@/lib/paystack-checkout"
-    );
+    const { detectCheckoutEnvironment, validateAndBuildOrderSnapshot, CheckoutError } =
+      await import("@/lib/paystack-checkout");
     const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
 
     let snapshot;
@@ -177,7 +176,9 @@ export const adminUpdateCoupon = createServerFn({ method: "POST" })
 
 export const adminSetCouponActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { error } = await context.supabase
@@ -205,7 +206,9 @@ export const adminListCouponRedemptions = createServerFn({ method: "GET" })
     await assertAdmin(context);
     const { data, error } = await context.supabase
       .from("coupon_redemptions")
-      .select("id, coupon_code, user_id, order_id, discount_amount_ngn, base_amount_ngn, payment_currency, final_amount, paystack_reference, created_at")
+      .select(
+        "id, coupon_code, user_id, order_id, discount_amount_ngn, base_amount_ngn, payment_currency, final_amount, paystack_reference, created_at",
+      )
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);

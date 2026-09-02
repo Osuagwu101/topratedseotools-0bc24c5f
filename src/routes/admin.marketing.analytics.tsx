@@ -15,10 +15,7 @@ export const Route = createFileRoute("/admin/marketing/analytics")({
     await requireAdminOrRedirect();
   },
   head: () => ({
-    meta: [
-      { title: "Marketing analytics — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Marketing analytics — Admin" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: AnalyticsPage,
@@ -32,8 +29,7 @@ function AnalyticsPage() {
         <header>
           <h1 className="text-xl font-semibold">Marketing analytics</h1>
           <p className="text-sm text-muted-foreground">
-            Last 30 days, based on verified successful payments and captured
-            campaign attribution.
+            Last 30 days, based on verified successful payments and captured campaign attribution.
           </p>
         </header>
 
@@ -51,19 +47,28 @@ function AnalyticsPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Split title="Access" rows={[
-            { label: "Shared", value: data.accessMix.shared },
-            { label: "Private", value: data.accessMix.private },
-          ]} />
-          <Split title="Billing" rows={[
-            { label: "Monthly", value: data.billingMix.monthly },
-            { label: "Quarterly", value: data.billingMix.quarterly },
-            { label: "Yearly", value: data.billingMix.yearly },
-          ]} />
-          <Split title="Payment type" rows={[
-            { label: "Recurring", value: data.paymentTypeMix.recurring },
-            { label: "One-time", value: data.paymentTypeMix.oneTime },
-          ]} />
+          <Split
+            title="Access"
+            rows={[
+              { label: "Shared", value: data.accessMix.shared },
+              { label: "Private", value: data.accessMix.private },
+            ]}
+          />
+          <Split
+            title="Billing"
+            rows={[
+              { label: "Monthly", value: data.billingMix.monthly },
+              { label: "Quarterly", value: data.billingMix.quarterly },
+              { label: "Yearly", value: data.billingMix.yearly },
+            ]}
+          />
+          <Split
+            title="Payment type"
+            rows={[
+              { label: "Recurring", value: data.paymentTypeMix.recurring },
+              { label: "One-time", value: data.paymentTypeMix.oneTime },
+            ]}
+          />
         </div>
 
         <Table title="Top tools" rows={data.byTool} labelKey="tool" />

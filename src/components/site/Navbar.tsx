@@ -134,7 +134,9 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t pt-3">
-              <div className="px-1"><CurrencySwitcher className="h-9 w-full text-sm" /></div>
+              <div className="px-1">
+                <CurrencySwitcher className="h-9 w-full text-sm" />
+              </div>
               {user ? (
                 <>
                   <Link

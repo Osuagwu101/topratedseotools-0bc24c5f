@@ -1,6 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
+import {
+  CreditCard,
+  Sparkles,
+  Star,
+  Clock,
+  User,
+  CheckCircle2,
+  ExternalLink,
+  MessageSquare,
+} from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,10 +20,7 @@ import { listMyReviewEligibility } from "@/lib/reviews.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
-    meta: [
-      { title: "Dashboard — Top Rated SEO Tools" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Dashboard — Top Rated SEO Tools" }, { name: "robots", content: "noindex" }],
   }),
   component: Dashboard,
 });
@@ -62,7 +68,14 @@ function Dashboard() {
   });
   const reviewItems = (reviewEligibility?.items ?? [])
     .map((e) => ({ eligibility: e, tool: getTool(e.tool_slug) }))
-    .filter((r): r is { eligibility: typeof r.eligibility; tool: NonNullable<ReturnType<typeof getTool>> } => !!r.tool)
+    .filter(
+      (
+        r,
+      ): r is {
+        eligibility: typeof r.eligibility;
+        tool: NonNullable<ReturnType<typeof getTool>>;
+      } => !!r.tool,
+    )
     .filter((r) => r.eligibility.qualifying_count > 0 || r.eligibility.review);
 
   const { data: profile } = useQuery({
@@ -112,9 +125,7 @@ function Dashboard() {
   const now = Date.now();
   const orders = ordersData?.orders ?? [];
   const activeOrders = orders.filter(
-    (o) =>
-      o.status === "approved" &&
-      (!o.expires_at || new Date(o.expires_at).getTime() > now),
+    (o) => o.status === "approved" && (!o.expires_at || new Date(o.expires_at).getTime() > now),
   );
   const activeGrants = grantsData?.grants ?? [];
   const paidSlugs = new Set(activeOrders.map((o) => o.tool_slug));
@@ -134,9 +145,7 @@ function Dashboard() {
     })[0];
   const nextRenewalDate = nextRenewalOrder
     ? new Date(
-        nextRenewalOrder.next_payment_at ??
-          nextRenewalOrder.expires_at ??
-          Date.now(),
+        nextRenewalOrder.next_payment_at ?? nextRenewalOrder.expires_at ?? Date.now(),
       ).toLocaleDateString()
     : "—";
 
@@ -155,7 +164,9 @@ function Dashboard() {
           <div className="min-w-0">
             <h1 className="truncate text-3xl font-bold tracking-tight">{greeting}</h1>
 
-            <p className="mt-1 text-sm text-muted-foreground">Here's a snapshot of your workspace.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Here's a snapshot of your workspace.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -222,7 +233,9 @@ function Dashboard() {
                           Active
                         </span>
                         {o.access_type ? <span className="capitalize">{o.access_type}</span> : null}
-                        {o.billing_period ? <span className="capitalize">· {o.billing_period}</span> : null}
+                        {o.billing_period ? (
+                          <span className="capitalize">· {o.billing_period}</span>
+                        ) : null}
                       </div>
                     </div>
                     <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
@@ -261,7 +274,9 @@ function Dashboard() {
         <div className="mt-10">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">My reviews</h2>
-            <span className="text-xs text-muted-foreground">One review per tool. A repurchase unlocks one update.</span>
+            <span className="text-xs text-muted-foreground">
+              One review per tool. A repurchase unlocks one update.
+            </span>
           </div>
           {reviewItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-10 text-center">
@@ -275,9 +290,14 @@ function Dashboard() {
               {reviewItems.map(({ eligibility: e, tool: t }) => {
                 let label = "Write a Review";
                 let updateAvailable = false;
-                if (e.review && e.canEdit) { label = "Update Your Review"; updateAvailable = true; }
-                else if (e.review) { label = "Review Submitted"; }
-                else if (!e.canReview) { label = "Not eligible yet"; }
+                if (e.review && e.canEdit) {
+                  label = "Update Your Review";
+                  updateAvailable = true;
+                } else if (e.review) {
+                  label = "Review Submitted";
+                } else if (!e.canReview) {
+                  label = "Not eligible yet";
+                }
                 const submitted = e.review?.submitted_at
                   ? new Date(e.review.submitted_at).toLocaleDateString()
                   : "—";
@@ -307,7 +327,9 @@ function Dashboard() {
                         ) : null}
                       </div>
                     </div>
-                    <span className="text-xs font-medium text-primary group-hover:underline">{label} →</span>
+                    <span className="text-xs font-medium text-primary group-hover:underline">
+                      {label} →
+                    </span>
                   </Link>
                 );
               })}
@@ -328,7 +350,10 @@ function Dashboard() {
             <div className="mt-8">
               <Section
                 title="Your favourites"
-                empty={{ icon: Star, text: "No favourites yet — tap the star on any tool to save it here." }}
+                empty={{
+                  icon: Star,
+                  text: "No favourites yet — tap the star on any tool to save it here.",
+                }}
                 items={favTools}
               />
             </div>
@@ -350,10 +375,16 @@ function Dashboard() {
               </div>
             </dl>
             <div className="mt-5 flex flex-col gap-2">
-              <Link to="/profile" className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted">
+              <Link
+                to="/profile"
+                className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted"
+              >
                 Profile settings
               </Link>
-              <Link to="/orders" className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted">
+              <Link
+                to="/orders"
+                className="rounded-md border border-input px-3 py-2 text-center text-sm font-medium hover:bg-muted"
+              >
                 My subscriptions
               </Link>
             </div>
@@ -406,18 +437,18 @@ function Section({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {items.slice(0, 6).map((t) => (
-              <Link
-                key={t.slug}
-                to="/tools/$slug"
-                params={{ slug: t.slug }}
-                className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
-              >
-                <ToolBrandMark tool={t} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{t.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{t.tagline}</div>
-                </div>
-              </Link>
+            <Link
+              key={t.slug}
+              to="/tools/$slug"
+              params={{ slug: t.slug }}
+              className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card transition hover:border-primary/40"
+            >
+              <ToolBrandMark tool={t} size="sm" />
+              <div className="min-w-0">
+                <div className="truncate font-medium">{t.name}</div>
+                <div className="truncate text-xs text-muted-foreground">{t.tagline}</div>
+              </div>
+            </Link>
           ))}
         </div>
       )}

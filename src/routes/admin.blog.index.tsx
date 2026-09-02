@@ -16,7 +16,9 @@ const postsQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/blog/")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({ meta: [{ title: "Blog — Admin" }, { name: "robots", content: "noindex" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(postsQuery),
   component: AdminBlogList,
@@ -41,7 +43,9 @@ function AdminBlogList() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Blog</h1>
-            <p className="text-sm text-muted-foreground">Manage articles, categories, tags and comments.</p>
+            <p className="text-sm text-muted-foreground">
+              Manage articles, categories, tags and comments.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link

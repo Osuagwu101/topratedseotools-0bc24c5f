@@ -90,9 +90,7 @@ function ReceiptPage() {
                 {t.paystack_environment}
               </span>
             </div>
-            {disclaimer && (
-              <p className="mt-1 text-xs text-muted-foreground">{disclaimer}</p>
-            )}
+            {disclaimer && <p className="mt-1 text-xs text-muted-foreground">{disclaimer}</p>}
           </div>
 
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
@@ -112,17 +110,13 @@ function ReceiptPage() {
             <Field label="Payment gateway">{gatewayLabel(t)}</Field>
             <Field label="Customer paid">
               {formatPaid(t)}{" "}
-              <span className="text-[11px] uppercase text-muted-foreground">
-                {paidCurrency(t)}
-              </span>
+              <span className="text-[11px] uppercase text-muted-foreground">{paidCurrency(t)}</span>
             </Field>
             <Field label="Accounting value (NGN)">{formatAccounting(t)}</Field>
             {rateHint(t) && <Field label="Exchange rate">{rateHint(t)}</Field>}
             <Field label="Payment channel">{t.payment_channel ?? "—"}</Field>
 
-            <Field label="Paid at">
-              {t.paid_at ? new Date(t.paid_at).toLocaleString() : "—"}
-            </Field>
+            <Field label="Paid at">{t.paid_at ? new Date(t.paid_at).toLocaleString() : "—"}</Field>
           </dl>
 
           {data.history.length > 0 && (
@@ -150,7 +144,10 @@ function ReceiptPage() {
           <div className="mt-6 rounded-lg border bg-muted/30 p-3 text-xs">
             <p className="font-semibold">Need help with this transaction?</p>
             <p className="text-muted-foreground">
-              Email <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{" "}
+              Email{" "}
+              <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
+              </a>{" "}
               with the reference above.
             </p>
           </div>

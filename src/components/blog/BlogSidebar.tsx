@@ -1,7 +1,15 @@
 import { Link } from "@tanstack/react-router";
 
-interface Cat { id: string; name: string; slug: string }
-interface Tag { id: string; name: string; slug: string }
+interface Cat {
+  id: string;
+  name: string;
+  slug: string;
+}
+interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export function BlogSidebar({
   categories,
@@ -15,7 +23,9 @@ export function BlogSidebar({
   return (
     <aside className="space-y-6">
       <div className="rounded-2xl border bg-card p-5 shadow-card">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Categories</h4>
+        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Categories
+        </h4>
         <ul className="mt-3 space-y-1.5">
           {categories.slice(0, 12).map((c) => (
             <li key={c.id}>
@@ -28,12 +38,16 @@ export function BlogSidebar({
               </Link>
             </li>
           ))}
-          {categories.length === 0 && <li className="text-sm text-muted-foreground">No categories yet</li>}
+          {categories.length === 0 && (
+            <li className="text-sm text-muted-foreground">No categories yet</li>
+          )}
         </ul>
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-card">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Popular</h4>
+        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Popular
+        </h4>
         <ul className="mt-3 space-y-3">
           {popular.slice(0, 5).map((p) => (
             <li key={p.id}>
@@ -51,7 +65,9 @@ export function BlogSidebar({
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-card">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Tags</h4>
+        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Tags
+        </h4>
         <div className="mt-3 flex flex-wrap gap-2">
           {tags.slice(0, 30).map((t) => (
             <Link

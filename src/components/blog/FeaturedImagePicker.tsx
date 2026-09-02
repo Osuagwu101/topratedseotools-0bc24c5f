@@ -33,7 +33,15 @@ export function FeaturedImagePicker({
   const [prompt, setPrompt] = useState(articleTitle ?? "");
   const [query, setQuery] = useState(articleTitle ?? "");
   const [results, setResults] = useState<
-    Array<{ id: string; url: string; thumbnail: string; creator: string; source_url: string; license: string; title: string }>
+    Array<{
+      id: string;
+      url: string;
+      thumbnail: string;
+      creator: string;
+      source_url: string;
+      license: string;
+      title: string;
+    }>
   >([]);
   const [manualUrl, setManualUrl] = useState(value.url ?? "");
 
@@ -71,7 +79,9 @@ export function FeaturedImagePicker({
 
   async function autoAlt(url: string): Promise<string> {
     try {
-      const r = (await altFn({ data: { imageUrl: url, context: articleTitle } })) as { alt: string };
+      const r = (await altFn({ data: { imageUrl: url, context: articleTitle } })) as {
+        alt: string;
+      };
       return r.alt || "";
     } catch {
       return "";
@@ -121,7 +131,9 @@ export function FeaturedImagePicker({
         <div className="mt-2 space-y-1.5">
           <input
             value={value.alt}
-            onChange={(e) => onChange({ ...value, alt: e.target.value, source: value.source as any })}
+            onChange={(e) =>
+              onChange({ ...value, alt: e.target.value, source: value.source as any })
+            }
             placeholder="Alt text (SEO & accessibility)"
             className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
           />
@@ -174,7 +186,11 @@ export function FeaturedImagePicker({
             onClick={() => gen.mutate()}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
           >
-            {gen.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {gen.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
             Generate with AI
           </button>
         </div>
@@ -196,7 +212,11 @@ export function FeaturedImagePicker({
               disabled={search.isPending || query.trim().length < 2}
               className="rounded-md border px-2 py-1.5 text-xs hover:bg-muted disabled:opacity-60"
             >
-              {search.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+              {search.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ImageIcon className="h-3.5 w-3.5" />
+              )}
             </button>
           </div>
           {results.length > 0 && (
@@ -225,7 +245,9 @@ export function FeaturedImagePicker({
               ))}
             </div>
           )}
-          <p className="text-[10px] text-muted-foreground">Powered by Openverse · Creative Commons</p>
+          <p className="text-[10px] text-muted-foreground">
+            Powered by Openverse · Creative Commons
+          </p>
         </div>
       )}
 

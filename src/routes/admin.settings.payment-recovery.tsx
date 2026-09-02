@@ -41,10 +41,7 @@ const issuesQuery = queryOptions({
 export const Route = createFileRoute("/admin/settings/payment-recovery")({
   ssr: false,
   head: () => ({
-    meta: [
-      { title: "Payment Management — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Payment Management — Admin" }, { name: "robots", content: "noindex" }],
   }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
@@ -57,18 +54,16 @@ export const Route = createFileRoute("/admin/settings/payment-recovery")({
 
 type Category = RecoveryIssue["category"];
 
-const CATEGORY_META: Record<
-  Category,
-  { label: string; icon: typeof AlertTriangle; tint: string }
-> = {
-  paid_no_access: { label: "Paid — no access", icon: ShieldAlert, tint: "text-destructive" },
-  failed_payment: { label: "Failed payments", icon: XCircle, tint: "text-destructive" },
-  pending_payment: { label: "Pending payments", icon: Clock, tint: "text-warning" },
-  duplicate_attempt: { label: "Duplicate attempts", icon: Users, tint: "text-warning" },
-  webhook_failed: { label: "Webhook failures", icon: Webhook, tint: "text-destructive" },
-  refund_requested: { label: "Refund / flagged", icon: CircleDollarSign, tint: "text-warning" },
-  cancelled_transaction: { label: "Cancelled", tint: "text-muted-foreground", icon: XCircle },
-};
+const CATEGORY_META: Record<Category, { label: string; icon: typeof AlertTriangle; tint: string }> =
+  {
+    paid_no_access: { label: "Paid — no access", icon: ShieldAlert, tint: "text-destructive" },
+    failed_payment: { label: "Failed payments", icon: XCircle, tint: "text-destructive" },
+    pending_payment: { label: "Pending payments", icon: Clock, tint: "text-warning" },
+    duplicate_attempt: { label: "Duplicate attempts", icon: Users, tint: "text-warning" },
+    webhook_failed: { label: "Webhook failures", icon: Webhook, tint: "text-destructive" },
+    refund_requested: { label: "Refund / flagged", icon: CircleDollarSign, tint: "text-warning" },
+    cancelled_transaction: { label: "Cancelled", tint: "text-muted-foreground", icon: XCircle },
+  };
 
 const CATEGORY_ORDER: Category[] = [
   "paid_no_access",
@@ -145,7 +140,8 @@ function PaymentRecoveryPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight">Payment Management</h1>
             <p className="text-sm text-muted-foreground">
-              Fix payment issues without touching code. Every action is logged in the admin activity feed.
+              Fix payment issues without touching code. Every action is logged in the admin activity
+              feed.
             </p>
           </div>
           <button
@@ -171,7 +167,9 @@ function PaymentRecoveryPage() {
                   isSel ? "border-primary bg-primary/5" : ""
                 }`}
               >
-                <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${meta.tint}`}>
+                <div
+                  className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${meta.tint}`}
+                >
                   <Icon className="h-3.5 w-3.5" />
                   {meta.label}
                 </div>
@@ -212,7 +210,9 @@ function PaymentRecoveryPage() {
                 <li key={issue.id} className="rounded-2xl border bg-card p-4 shadow-card">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${meta.tint}`}>
+                      <div
+                        className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide ${meta.tint}`}
+                      >
                         <Icon className="h-3.5 w-3.5" /> {meta.label}
                       </div>
                       <div className="mt-1 font-semibold">{issue.title}</div>

@@ -71,10 +71,7 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
  * Internal helper — called from webhook + offline flow after an order
  * becomes approved. Idempotent per order.
  */
-export async function tryAutoAssignAccount(
-  admin: any,
-  orderId: string,
-): Promise<string | null> {
+export async function tryAutoAssignAccount(admin: any, orderId: string): Promise<string | null> {
   const { data, error } = await admin.rpc("assign_tool_account_for_order", {
     _order_id: orderId,
   });
@@ -123,9 +120,7 @@ function decorate(rows: any[], counts: Record<string, number>): ToolAccountWithU
 // ---------- ADMIN: list accounts for a tool ----------
 export const adminListAccountsForTool = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ tool_slug: z.string().min(1).max(120) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ tool_slug: z.string().min(1).max(120) }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -135,7 +130,10 @@ export const adminListAccountsForTool = createServerFn({ method: "GET" })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     const rows = (accounts ?? []) as any[];
-    const counts = await countsByAccount(supabaseAdmin, rows.map((r) => r.id as string));
+    const counts = await countsByAccount(
+      supabaseAdmin,
+      rows.map((r) => r.id as string),
+    );
     return { accounts: decorate(rows, counts) };
   });
 
@@ -150,16 +148,17 @@ export const adminListAllAccounts = createServerFn({ method: "GET" })
       .order("tool_slug", { ascending: true });
     if (error) throw new Error(error.message);
     const rows = (accounts ?? []) as any[];
-    const counts = await countsByAccount(supabaseAdmin, rows.map((r) => r.id as string));
+    const counts = await countsByAccount(
+      supabaseAdmin,
+      rows.map((r) => r.id as string),
+    );
     return { accounts: decorate(rows, counts) };
   });
 
 // ---------- ADMIN: list assignments on an account ----------
 export const adminListAccountAssignments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ account_id: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ account_id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -168,7 +167,7 @@ export const adminListAccountAssignments = createServerFn({ method: "GET" })
       .eq("account_id", data.account_id)
       .order("assigned_at", { ascending: false })
       .limit(200);
-    const list = ((rows ?? []) as any[]);
+    const list = (rows ?? []) as any[];
     const userIds = Array.from(new Set(list.map((r) => r.user_id as string)));
     const profiles: Record<string, { email: string | null; full_name: string | null }> = {};
     if (userIds.length) {
@@ -380,8 +379,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("account_id", data.new_account_id)
       .eq("status", "active");
-    if ((count ?? 0) >= t.max_capacity)
-      throw new Error("Target account has no available spaces.");
+    if ((count ?? 0) >= t.max_capacity) throw new Error("Target account has no available spaces.");
 
     const { data: current } = await tbl(supabaseAdmin, "tool_account_assignments")
       .select("id, account_id")
@@ -400,10 +398,7 @@ export const adminReassignCustomer = createServerFn({ method: "POST" })
         .eq("id", (current as any).id);
     }
 
-    const { data: inserted, error: insErr } = await tbl(
-      supabaseAdmin,
-      "tool_account_assignments",
-    )
+    const { data: inserted, error: insErr } = await tbl(supabaseAdmin, "tool_account_assignments")
       .insert({
         account_id: data.new_account_id,
         user_id: orderRow.user_id,
@@ -514,7 +509,7 @@ export const getMyAssignedAccounts = createServerFn({ method: "GET" })
       .select("account_id, tool_slug, access_type")
       .eq("user_id", context.userId)
       .eq("status", "active");
-    const list = ((assigns ?? []) as any[]);
+    const list = (assigns ?? []) as any[];
     const ids = list.map((a) => a.account_id as string);
     if (!ids.length) return { assignments: [] as MyAssignedAccount[] };
     const { data: accounts } = await tbl(supabaseAdmin, "tool_accounts")
@@ -523,7 +518,7 @@ export const getMyAssignedAccounts = createServerFn({ method: "GET" })
       )
       .in("id", ids);
     const byId = new Map<string, any>();
-    for (const a of ((accounts ?? []) as any[])) byId.set(a.id as string, a);
+    for (const a of (accounts ?? []) as any[]) byId.set(a.id as string, a);
     const out: MyAssignedAccount[] = list
       .map((a) => {
         const acc = byId.get(a.account_id as string);

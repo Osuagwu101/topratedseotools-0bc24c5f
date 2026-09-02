@@ -30,9 +30,19 @@ export const Route = createFileRoute("/tools/")({
   head: () => ({
     meta: [
       { title: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
-      { name: "description", content: "Every tool is subscribed to separately. Explore premium SEO, AI, writing, research, design, and productivity tools and pay only for the ones you need." },
-      { property: "og:title", content: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
-      { property: "og:description", content: "Every tool is subscribed to separately — pay only for the tools you need." },
+      {
+        name: "description",
+        content:
+          "Every tool is subscribed to separately. Explore premium SEO, AI, writing, research, design, and productivity tools and pay only for the ones you need.",
+      },
+      {
+        property: "og:title",
+        content: "Browse Individual Tool Subscriptions — Top Rated SEO Tools",
+      },
+      {
+        property: "og:description",
+        content: "Every tool is subscribed to separately — pay only for the tools you need.",
+      },
     ],
   }),
   component: ToolsDirectory,
@@ -61,9 +71,6 @@ function ToolsDirectory() {
     return m;
   }, [pricing.options]);
 
-
-
-
   const filtered = useMemo(() => {
     return effectiveTools.filter((t) => {
       const matchesCat = cat === "All" || t.category === cat;
@@ -80,7 +87,9 @@ function ToolsDirectory() {
     <SiteLayout>
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Browse Individual Tool Subscriptions</h1>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            Browse Individual Tool Subscriptions
+          </h1>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
             Every tool is subscribed to separately, so you pay only for the products you need.
             Explore premium tools across SEO, AI, writing, research, design, and productivity.
@@ -106,9 +115,7 @@ function ToolsDirectory() {
               onClick={() => setCat(c as ToolCategory | "All")}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                cat === c
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "hover:bg-muted",
+                cat === c ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
               {c}
@@ -120,7 +127,8 @@ function ToolsDirectory() {
           <div className="rounded-2xl border border-dashed p-16 text-center">
             <Sparkles className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              No tools match "<span className="font-medium text-foreground">{q}</span>". Try another search.
+              No tools match "<span className="font-medium text-foreground">{q}</span>". Try another
+              search.
             </p>
           </div>
         ) : (
@@ -167,7 +175,6 @@ function ToolsDirectory() {
                     <div className="font-medium text-primary">Pricing confirmed on WhatsApp</div>
                   )}
                 </div>
-
               </Link>
             ))}
           </div>

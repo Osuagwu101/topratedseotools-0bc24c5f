@@ -40,15 +40,13 @@ export function checkReviewSafety(input: {
     return { ok: false, reason: "Please remove any email addresses from your review." };
   if (PHONE.test(blob))
     return { ok: false, reason: "Please remove phone numbers from your review." };
-  if (URL.test(blob))
-    return { ok: false, reason: "Please remove links from your review." };
+  if (URL.test(blob)) return { ok: false, reason: "Please remove links from your review." };
   if (CARD.test(blob) || PAYMENT_WORDS.test(blob))
     return { ok: false, reason: "Please remove payment or bank information from your review." };
   if (CREDENTIAL_WORDS.test(blob))
     return {
       ok: false,
-      reason:
-        "Please do not include login details, passwords or credentials in your review.",
+      reason: "Please do not include login details, passwords or credentials in your review.",
     };
   if (ABUSE.test(blob))
     return { ok: false, reason: "Please rewrite your review without abusive language." };

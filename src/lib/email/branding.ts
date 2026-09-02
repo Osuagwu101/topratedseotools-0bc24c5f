@@ -37,7 +37,10 @@ export function normalizeBranding(row: Record<string, unknown> | null | undefine
   return {
     brandName: str("brand_name", str("sender_name", DEFAULT_EMAIL_BRANDING.brandName)),
     brandColor: sanitizeColor(str("brand_color", DEFAULT_EMAIL_BRANDING.brandColor)),
-    logoUrl: absoluteUrl(str("brand_logo_url", DEFAULT_EMAIL_BRANDING.logoUrl), str("footer_website_url", DEFAULT_EMAIL_BRANDING.websiteUrl)),
+    logoUrl: absoluteUrl(
+      str("brand_logo_url", DEFAULT_EMAIL_BRANDING.logoUrl),
+      str("footer_website_url", DEFAULT_EMAIL_BRANDING.websiteUrl),
+    ),
     footerCompany: str("footer_company", DEFAULT_EMAIL_BRANDING.footerCompany),
     footerMessage: str("footer_message", DEFAULT_EMAIL_BRANDING.footerMessage),
     supportEmail: str("footer_support_email", DEFAULT_EMAIL_BRANDING.supportEmail),
@@ -70,7 +73,11 @@ export function escapeHtmlValue(s: string): string {
 }
 
 /** Rounded, table-based CTA button (bulletproof in Outlook / mobile Gmail). */
-export function emailButton(url: string, label: string, color = DEFAULT_EMAIL_BRANDING.brandColor): string {
+export function emailButton(
+  url: string,
+  label: string,
+  color = DEFAULT_EMAIL_BRANDING.brandColor,
+): string {
   const c = sanitizeColor(color);
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;"><tr><td align="center" bgcolor="${c}" style="border-radius:10px;">
 <a href="${escapeHtmlValue(url)}" style="display:inline-block;padding:13px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${escapeHtmlValue(label)}</a>

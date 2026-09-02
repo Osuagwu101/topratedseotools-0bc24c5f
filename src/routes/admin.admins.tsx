@@ -113,10 +113,7 @@ function AdminAdminsPage() {
           </div>
         </div>
 
-        <form
-          onSubmit={onCreate}
-          className="mt-8 rounded-2xl border bg-card p-5 shadow-card"
-        >
+        <form onSubmit={onCreate} className="mt-8 rounded-2xl border bg-card p-5 shadow-card">
           <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold">
             <UserPlus className="h-4 w-4" /> Invite a new admin
           </div>
@@ -145,7 +142,8 @@ function AdminAdminsPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Use an email that is not registered as a customer. Existing customer accounts cannot be reused for Admin access.
+            Use an email that is not registered as a customer. Existing customer accounts cannot be
+            reused for Admin access.
           </p>
         </form>
 
