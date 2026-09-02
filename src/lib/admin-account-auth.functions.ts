@@ -25,10 +25,15 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
     if (!isAdmin) throw new Error("Only admins can refresh tool authentication.");
 
     const { data: account, error: accountError } = await (admin as any).from("tool_accounts")
-      .select("id, tool_slug, login_email, login_password, login_url, enabled, status")
+      .select("id, tool_slug, login_email, login_password, login_url, enabled, status, expires_at")
       .eq("id", data.account_id).maybeSingle();
     if (accountError) throw new Error("Could not load the tool account for authentication.");
-    if (!account?.enabled) throw new Error("This tool account is disabled.");
+    if (!account?.enabled || account.status !== "working") {
+      throw new Error("This tool account is not active.");
+    }
+    if (account.expires_at && new Date(account.expires_at).getTime() <= Date.now()) {
+      throw new Error("This tool account has expired.");
+    }
     const username = String(account.login_email ?? "").trim();
     const password = String(account.login_password ?? "").trim();
     if (!username || !password) throw new Error("Configure the account email and password first.");
