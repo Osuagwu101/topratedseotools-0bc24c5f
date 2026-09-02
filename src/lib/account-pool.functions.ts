@@ -59,7 +59,7 @@ export interface ToolAccountWithUsage extends ToolAccount {
 
 type AppSupabase = SupabaseClient<Database>;
 type ToolAccountRow = Database["public"]["Tables"]["tool_accounts"]["Row"];
-type ToolAccountPatch = Database["public"]["Tables"]["tool_accounts"]["Update"];
+type ToolAccountInsert = Database["public"]["Tables"]["tool_accounts"]["Insert"];
 type ToolAccountSummaryRow = Pick<
   ToolAccountRow,
   | "id"
@@ -292,25 +292,25 @@ export const adminUpsertAccount = createServerFn({ method: "POST" })
       data.max_capacity = 1;
     }
 
-    const patch: ToolAccountPatch = {
+    const patch: ToolAccountInsert = {
       tool_slug: data.tool_slug,
       access_type: data.access_type,
+      ...(data.label !== undefined ? { label: data.label } : {}),
+      ...(data.login_email !== undefined ? { login_email: data.login_email } : {}),
+      ...(data.login_password !== undefined ? { login_password: data.login_password } : {}),
+      ...(data.login_url !== undefined ? { login_url: data.login_url } : {}),
+      ...(data.login_notes !== undefined ? { login_notes: data.login_notes } : {}),
+      ...(data.one_click_login_url !== undefined
+        ? { one_click_login_url: data.one_click_login_url }
+        : {}),
+      ...(data.max_capacity !== undefined ? { max_capacity: data.max_capacity } : {}),
+      ...(data.expires_at !== undefined ? { expires_at: data.expires_at } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+      ...(data.needs_capacity_review !== undefined
+        ? { needs_capacity_review: data.needs_capacity_review }
+        : {}),
     };
-    for (const k of [
-      "label",
-      "login_email",
-      "login_password",
-      "login_url",
-      "login_notes",
-      "one_click_login_url",
-      "max_capacity",
-      "expires_at",
-      "status",
-      "enabled",
-      "needs_capacity_review",
-    ] as const) {
-      if (data[k] !== undefined) patch[k] = data[k];
-    }
 
     if (data.id) {
       const { data: updated, error } = await supabaseAdmin.from("tool_accounts")
