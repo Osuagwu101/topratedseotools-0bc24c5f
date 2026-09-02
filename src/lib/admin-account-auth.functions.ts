@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { launchBrowserUse, launchCloudflare, reconnectBrowserUseSession, reconnectCloudflareSession, type BrowserAuthProvider } from "@/lib/browser-auth.server";
 import { captureSessionStateThroughCdp } from "@/lib/browser-auth-otp.server";
+import { attachBrowserUsePage, waitForAuthenticatedPage } from "@/lib/browser-auth-session.server";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 
@@ -58,12 +59,21 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
         return { status: "awaiting_otp" as const, session_id: row.id, expires_at: launched.expiresAt };
       }
 
-      let cdp = provider === "cloudflare"
+      const cdp = provider === "cloudflare"
         ? await reconnectCloudflareSession(admin, launched.providerSessionId)
         : await reconnectBrowserUseSession(admin, launched.providerSessionId);
       if (!cdp) throw new Error("Login completed but the authenticated browser could not be reconnected for capture.");
       try {
-        const state = await captureSessionStateThroughCdp(cdp);
+        const pageSessionId = provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;
+        const auth = await waitForAuthenticatedPage(cdp, pageSessionId, 15_000);
+        if (!auth.authenticated) {
+          throw new Error("Phrasly login was not confirmed. Authentication state was not saved.");
+        }
+
+        const state = await captureSessionStateThroughCdp(cdp, pageSessionId);
+        if (!state.authenticated_cookies.length) {
+          throw new Error("Phrasly authenticated but no reusable session cookies were captured.");
+        }
         await (admin as any).from("tool_account_sessions").upsert({
           account_id: account.id, provider, provider_session_id: launched.providerSessionId,
           authenticated_cookies: state.authenticated_cookies, session_tokens: state.session_tokens, auth_headers: state.auth_headers,
