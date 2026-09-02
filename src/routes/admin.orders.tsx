@@ -91,8 +91,8 @@ function AdminOrdersPage() {
     let list = filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter);
     if (q) {
       list = list.filter((o) => {
-        const email = ((o as any).customer_email ?? (o as any).user_email ?? "").toLowerCase();
-        const ref = ((o as any).paystack_reference ?? (o as any).reference ?? "").toLowerCase();
+        const email = (o.customer_email ?? "").toLowerCase();
+        const ref = (o.paystack_reference ?? "").toLowerCase();
         return (
           email.includes(q) ||
           ref.includes(q) ||
@@ -221,23 +221,23 @@ function AdminOrdersPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold">{tool?.name ?? o.tool_slug}</span>
-                        {(o as any).access_type && (
+                        {o.access_type && (
                           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                            {(o as any).access_type}
+                            {o.access_type}
                           </span>
                         )}
-                        {(o as any).billing_period && (
+                        {o.billing_period && (
                           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide capitalize">
-                            {(o as any).billing_period}
+                            {o.billing_period}
                           </span>
                         )}
-                        {(o as any).fulfilment_status === "pending" &&
-                          (o as any).access_type === "private" && (
+                        {o.fulfilment_status === "pending" &&
+                          o.access_type === "private" && (
                             <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
                               Awaiting private fulfilment
                             </span>
                           )}
-                        {(o as any).auto_fulfilled_at && (
+                        {o.auto_fulfilled_at && (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                             Auto-fulfilled
                           </span>
@@ -331,8 +331,8 @@ function AdminOrdersPage() {
                       </>
                     )}
                     {o.status === "approved" &&
-                      (o as any).access_type === "private" &&
-                      (o as any).fulfilment_status === "pending" && (
+                      o.access_type === "private" &&
+                      o.fulfilment_status === "pending" && (
                         <button
                           onClick={() => {
                             setFulfilOpen(fulfilOpen === o.id ? null : o.id);
@@ -344,8 +344,8 @@ function AdminOrdersPage() {
                         </button>
                       )}
                     {o.status === "approved" &&
-                      (o as any).access_type === "private" &&
-                      (o as any).auto_fulfilled_at && (
+                      o.access_type === "private" &&
+                      o.auto_fulfilled_at && (
                         <button
                           onClick={() => {
                             setReconcileOpen(reconcileOpen === o.id ? null : o.id);
