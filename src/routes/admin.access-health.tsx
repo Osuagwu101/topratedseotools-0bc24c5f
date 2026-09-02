@@ -20,7 +20,7 @@ import {
   dispatchAdminAlertEmails,
 } from "@/lib/access-health.functions";
 import { adminRecordHealthCheck } from "@/lib/account-pool.functions";
-import type { HealthStatus } from "@/lib/access-health";
+import type { AlertSettings, HealthStatus } from "@/lib/access-health";
 import {
   AlertTriangle,
   Activity,
@@ -32,6 +32,7 @@ import {
   ArrowRightLeft,
   Stethoscope,
   Clock,
+  type LucideIcon,
 } from "lucide-react";
 
 const overviewQuery = queryOptions({
@@ -105,7 +106,7 @@ function AccessHealthPage() {
   const soon = now + data.settings.expiryDays * 86400_000;
   const filtered = data.accounts.filter((a) => {
     if (toolFilter !== "all" && a.tool_slug !== toolFilter) return false;
-    if (typeFilter !== "all" && (a as any).access_type !== typeFilter) return false;
+    if (typeFilter !== "all" && a.access_type !== typeFilter) return false;
     if (healthFilter !== "all" && a.health !== healthFilter) return false;
     if (capacityFilter === "full" && a.available > 0) return false;
     if (capacityFilter === "available" && a.available === 0) return false;
@@ -138,12 +139,16 @@ function AccessHealthPage() {
             </Link>
             <button
               onClick={async () => {
-                const r = await dispatchAlerts().catch(
-                  (e) => ({ sent: 0, error: String(e) }) as any,
-                );
-                if ((r as any).skipped === "emails_disabled")
-                  toast.info("Alert emails are disabled.");
-                else toast.success(`Queued ${r.sent ?? 0} admin alert email(s).`);
+                try {
+                  const result = await dispatchAlerts();
+                  if ("skipped" in result && result.skipped === "emails_disabled") {
+                    toast.info("Alert emails are disabled.");
+                  } else {
+                    toast.success(`Queued ${result.sent ?? 0} admin alert email(s).`);
+                  }
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not send alerts.");
+                }
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
             >
@@ -242,7 +247,7 @@ function AccessHealthPage() {
           </select>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as any)}
+            onChange={(e) => setTypeFilter(e.target.value as "all" | "shared" | "private")}
             className="rounded-lg border bg-background px-2 py-1.5"
           >
             <option value="all">Shared + Private</option>
@@ -251,7 +256,7 @@ function AccessHealthPage() {
           </select>
           <select
             value={healthFilter}
-            onChange={(e) => setHealthFilter(e.target.value as any)}
+            onChange={(e) => setHealthFilter(e.target.value as "all" | HealthStatus)}
             className="rounded-lg border bg-background px-2 py-1.5"
           >
             <option value="all">Any health</option>
@@ -263,7 +268,7 @@ function AccessHealthPage() {
           </select>
           <select
             value={capacityFilter}
-            onChange={(e) => setCapacityFilter(e.target.value as any)}
+            onChange={(e) => setCapacityFilter(e.target.value as "all" | "full" | "available" | "expiring" | "review")}
             className="rounded-lg border bg-background px-2 py-1.5"
           >
             <option value="all">All capacity</option>
@@ -296,8 +301,8 @@ function AccessHealthPage() {
               {filtered.map((a) => (
                 <tr key={a.id} className="border-b last:border-0">
                   <td className="px-3 py-2 font-medium">{a.tool_slug}</td>
-                  <td className="px-3 py-2">{(a as any).label}</td>
-                  <td className="px-3 py-2 capitalize">{(a as any).access_type}</td>
+                  <td className="px-3 py-2">{a.label}</td>
+                  <td className="px-3 py-2 capitalize">{a.access_type}</td>
                   <td className="px-3 py-2">{a.max_capacity}</td>
                   <td className="px-3 py-2">{a.active_count}</td>
                   <td className="px-3 py-2">{a.available}</td>
@@ -309,8 +314,8 @@ function AccessHealthPage() {
                     <span className={healthTone(a.health)}>{HEALTH_LABELS[a.health]}</span>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {(a as any).last_health_check_at
-                      ? new Date((a as any).last_health_check_at).toLocaleDateString()
+                    {a.last_health_check_at
+                      ? new Date(a.last_health_check_at).toLocaleDateString()
                       : "—"}
                   </td>
                   <td className="px-3 py-2">{a.active_count}</td>
@@ -394,7 +399,7 @@ function Kpi({
 }: {
   label: string;
   value: number;
-  icon: any;
+  icon: LucideIcon;
   tone: "default" | "warning" | "destructive";
 }) {
   const toneCls =
@@ -431,7 +436,7 @@ function HealthCheckDialog({ accountId, onClose }: { accountId: string; onClose:
       <label className="text-sm">Result</label>
       <select
         value={result}
-        onChange={(e) => setResult(e.target.value as any)}
+        onChange={(e) => setResult(e.target.value as "working" | "login_failed" | "password_changed" | "suspended" | "expired" | "tool_unavailable" | "other")}
         className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
       >
         <option value="working">Working</option>
@@ -497,8 +502,8 @@ function BulkReassignDialog({ accountId, onClose }: { accountId: string; onClose
               });
               toast.success(`Moved ${r.moved}. Still awaiting: ${r.still_awaiting}.`);
               onClose();
-            } catch (e: any) {
-              toast.error(e?.message ?? "Failed");
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Failed");
             }
           }}
           className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
@@ -510,7 +515,7 @@ function BulkReassignDialog({ accountId, onClose }: { accountId: string; onClose
   );
 }
 
-function AlertSettingsDialog({ initial, onClose }: { initial: any; onClose: () => void }) {
+function AlertSettingsDialog({ initial, onClose }: { initial: AlertSettings; onClose: () => void }) {
   const [pct, setPct] = useState<number>(initial.almostFullPct);
   const [days, setDays] = useState<number>(initial.expiryDays);
   const [enabled, setEnabled] = useState<boolean>(initial.emailsEnabled);
@@ -567,8 +572,8 @@ function AlertSettingsDialog({ initial, onClose }: { initial: any; onClose: () =
               });
               toast.success("Alert settings saved.");
               onClose();
-            } catch (e: any) {
-              toast.error(e?.message ?? "Failed");
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Failed");
             }
           }}
           className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
