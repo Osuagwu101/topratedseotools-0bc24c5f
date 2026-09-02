@@ -10,3 +10,18 @@ export function requiresAdminManagedSharedAuth(toolSlug: string): boolean {
 
 export const ADMIN_REAUTH_REQUIRED_MESSAGE =
   "Phrasly access is temporarily unavailable while an administrator refreshes authentication.";
+
+export function resolveSharedAuthLandingUrl(
+  toolSlug: string,
+  configuredLoginUrl: string,
+): string {
+  if (!requiresAdminManagedSharedAuth(toolSlug)) return configuredLoginUrl;
+
+  const url = new URL(configuredLoginUrl);
+  if (toolSlug.trim().toLowerCase() === "phrasly") {
+    url.pathname = "/dashboard";
+    url.search = "";
+    url.hash = "";
+  }
+  return url.toString();
+}
