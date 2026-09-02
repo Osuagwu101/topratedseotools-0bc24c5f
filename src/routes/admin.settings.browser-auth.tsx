@@ -103,7 +103,11 @@ function BrowserAuthAdminPage() {
     setBusy(`test:${p}`);
     try {
       const result = await testProvider({ data: { provider: p } });
-      result.ok ? toast.success(result.message) : toast.error(result.message);
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Connection test failed");
     } finally {
