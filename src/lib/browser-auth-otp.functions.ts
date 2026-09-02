@@ -10,7 +10,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   submitOtpExpression,
-  checkAuthenticationStatusExpression,
   captureSessionStateThroughCdp,
   type CapturedSessionState,
 } from "@/lib/browser-auth-otp.server";
@@ -19,6 +18,7 @@ import {
   reconnectBrowserUseSession,
   reconnectCloudflareSession,
 } from "@/lib/browser-auth.server";
+import { attachBrowserUsePage, waitForAuthenticatedPage } from "@/lib/browser-auth-session.server";
 
 class RetryableOtpError extends Error {}
 
@@ -88,14 +88,22 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         );
       }
 
+      // Browser Use reconnects at browser scope; attach to the page target first.
+      const pageSessionId =
+        sess.provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;
+
       // Submit OTP code
       let submitResult: any;
       try {
-        submitResult = await cdp.send("Runtime.evaluate", {
-          expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
-          returnByValue: true,
-          awaitPromise: true,
-        });
+        submitResult = await cdp.send(
+          "Runtime.evaluate",
+          {
+            expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
+            returnByValue: true,
+            awaitPromise: true,
+          },
+          pageSessionId,
+        );
       } catch (e: any) {
         submitResult = {
           result: {
@@ -110,23 +118,16 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         );
       }
 
-      // Wait for login to complete (2 seconds, then check auth status)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Verify login succeeded
-      const authCheck = await cdp?.send("Runtime.evaluate", {
-        expression: checkAuthenticationStatusExpression(),
-        returnByValue: true,
-        awaitPromise: true,
-      });
-
-      const authStatus = authCheck?.result?.value as any;
-      if (!authStatus?.authenticated) {
+      // Phrasly redirects asynchronously after OTP; poll through navigation.
+      const authStatus = await waitForAuthenticatedPage(cdp, pageSessionId, 15_000);
+      if (!authStatus.authenticated) {
         throw new RetryableOtpError("OTP was not accepted or login verification did not complete.");
       }
 
-      // Capture authenticated session state
-      const sessionState = await captureSessionStateThroughCdp(cdp);
+      const sessionState = await captureSessionStateThroughCdp(cdp, pageSessionId);
+      if (!sessionState.authenticated_cookies.length) {
+        throw new RetryableOtpError("Login succeeded but no reusable Phrasly session cookies were captured.");
+      }
 
       // Store authenticated session for reuse
       let accountId = otpCtx.account_id as string | undefined;
@@ -183,7 +184,7 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
       // Audit success
       await (admin as any).from("browser_auth_otp_audit").insert({
         session_id: data.session_id,
-        account_id: null,
+        account_id: accountId ?? null,
         event: "otp_accepted",
         otp_type: otpCtx.detected_type,
         submitted_by: context.userId,

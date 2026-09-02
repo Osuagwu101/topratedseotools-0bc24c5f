@@ -323,7 +323,9 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
         existingSession?.authenticated_cookies &&
         existingSession?.verification_status === "active"
       ) {
-        const sessionExpiry = new Date(existingSession.expires_at).getTime();
+        const sessionExpiry = existingSession.expires_at
+          ? new Date(existingSession.expires_at).getTime()
+          : 0;
 
         if (sessionExpiry <= Date.now()) {
           // Session has expired - deny access and notify admin
@@ -341,9 +343,12 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
         }
 
         // Session still valid, use captured cookies
+        if (!Array.isArray(existingSession.authenticated_cookies)) {
+          throw new Error("The saved authentication state is invalid. Please contact the administrator to re-authenticate.");
+        }
         capturedCookies = existingSession.authenticated_cookies
-          .slice(0, 10)
-          .map((c: any) => ({ name: c.name, value: c.value }));
+          .filter((cookie: any) => cookie && typeof cookie === "object" && "name" in cookie && "value" in cookie)
+          .map((cookie: any) => ({ name: String(cookie.name), value: String(cookie.value) }));
       }
 
       const launched =
