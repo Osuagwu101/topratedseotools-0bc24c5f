@@ -22,13 +22,13 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Apply deterministic formatter and ESLint autofixes
         run: |
-          bunx prettier --write "src/**/*.{ts,tsx}"
+          bunx prettier --write "src/**/*.{ts,tsx}" "tests/**/*.{ts,tsx}"
           bunx eslint . --fix || true
       - name: Commit autofixes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src
+          git add src tests
           if git diff --cached --quiet; then
             echo "No autofixes to commit."
           else
