@@ -24,8 +24,14 @@ function normalizeEmail(e: string) {
 }
 
 type AppSupabase = SupabaseClient<Database>;
-type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"];
-type AdminInvitationRow = Database["public"]["Tables"]["admin_invitations"]["Row"];
+type UserRoleRow = Pick<
+  Database["public"]["Tables"]["user_roles"]["Row"],
+  "id" | "user_id" | "is_active" | "is_super_admin"
+>;
+type AdminInvitationRow = Pick<
+  Database["public"]["Tables"]["admin_invitations"]["Row"],
+  "id" | "email" | "auth_user_id" | "status" | "expires_at" | "accepted_at" | "created_at"
+>;
 type Ctx = { supabase: AppSupabase; userId: string; claims?: Record<string, unknown> };
 
 async function assertActiveAdmin(ctx: Ctx) {
@@ -195,7 +201,9 @@ export const listStaff = createServerFn({ method: "GET" })
         .in("auth_user_id", ids)
         .order("created_at", { ascending: false });
       for (const row of invRows ?? []) {
-        if (!invitations[row.auth_user_id]) invitations[row.auth_user_id] = row;
+        if (row.auth_user_id && !invitations[row.auth_user_id]) {
+          invitations[row.auth_user_id] = row;
+        }
       }
 
       for (const uid of ids) {
