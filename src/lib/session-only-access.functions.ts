@@ -10,7 +10,8 @@ import {
   WRITER_REAUTH_MESSAGE,
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
-import type { BrowserAuthProvider } from "@/lib/browser-auth.server";\nimport { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
+import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
+import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 function unexpired(v: string | null | undefined) { return !v || new Date(v).getTime() > Date.now(); }
