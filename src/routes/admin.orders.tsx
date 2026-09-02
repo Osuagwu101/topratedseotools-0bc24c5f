@@ -6,7 +6,7 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Clock, Inbox, ShieldAlert } from "lucide-react";
 import { getTool } from "@/lib/tools-data";
@@ -86,7 +86,7 @@ function AdminOrdersPage() {
     );
   }
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const q = search.trim().toLowerCase();
     let list = filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter);
     if (q) {
@@ -102,7 +102,7 @@ function AdminOrdersPage() {
       });
     }
     return list;
-  }, [data.orders, filter, search]);
+  })();
 
   async function act(
     id: string,
