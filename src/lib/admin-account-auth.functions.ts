@@ -3,7 +3,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { launchBrowserUse, launchCloudflare, reconnectBrowserUseSession, reconnectCloudflareSession, type BrowserAuthProvider } from "@/lib/browser-auth.server";
+import {
+  closeRemoteBrowserSession,
+  launchBrowserUse,
+  launchCloudflare,
+  reconnectBrowserUseSession,
+  reconnectCloudflareSession,
+  type BrowserAuthProvider,
+} from "@/lib/browser-auth.server";
 import { captureSessionStateThroughCdp } from "@/lib/browser-auth-otp.server";
 import { attachBrowserUsePage, waitForAuthOrOtp } from "@/lib/browser-auth-session.server";
 
@@ -166,6 +173,11 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
         otp_type: "admin_refresh",
         submitted_by: context.userId,
       });
+
+      // No OTP is pending and reusable state is persisted, so close the
+      // privileged admin browser rather than leaving it live until timeout.
+      await closeRemoteBrowserSession(admin, provider, launched.providerSessionId);
+
       return { status: "ready" as const, session_id: row.id, expires_at: launched.expiresAt };
     } catch (e) {
       await (admin as any).from("browser_auth_sessions").update({ status: "failed", error_code: e instanceof Error ? e.message.slice(0, 120) : "admin_refresh_failed", updated_at: new Date().toISOString() }).eq("id", row.id);
