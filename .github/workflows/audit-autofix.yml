@@ -1,9 +1,7 @@
 name: Audit Autofix
 
 on:
-  push:
-    branches:
-      - audit/typecheck-20260902
+  workflow_dispatch:
 
 permissions:
   contents: write
