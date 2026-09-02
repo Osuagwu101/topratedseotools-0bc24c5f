@@ -295,7 +295,7 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
       let capturedCookies: Array<{ name: string; value: string }> | undefined;
       const { data: existingSession } = await admin
         .from("tool_account_sessions")
-        .select("authenticated_cookies, verification_status, expires_at")
+        .select("authenticated_cookies, verification_status, expires_at, created_by")
         .eq("account_id", (resolved as any).credentials?.id || "")
         .eq("provider", provider)
         .eq("verification_status", "active")
@@ -303,12 +303,28 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
 
       if (existingSession?.authenticated_cookies && existingSession?.verification_status === "active") {
         const sessionExpiry = new Date(existingSession.expires_at).getTime();
-        if (sessionExpiry > Date.now()) {
-          // Session still valid, use captured cookies
-          capturedCookies = existingSession.authenticated_cookies
-            .slice(0, 10)
-            .map((c: any) => ({ name: c.name, value: c.value }));
+
+        if (sessionExpiry <= Date.now()) {
+          // Session has expired - deny access and notify admin
+          await admin
+            .from("browser_auth_otp_audit")
+            .insert({
+              session_id: auditRow.id,
+              event: "session_expired_on_reuse",
+              otp_type: "session_reuse",
+              error_message: "Captured session expired",
+              submitted_by: existingSession.created_by,
+            });
+
+          throw new Error(
+            "The admin's captured session has expired. Please contact the administrator to re-authenticate and capture a new session."
+          );
         }
+
+        // Session still valid, use captured cookies
+        capturedCookies = existingSession.authenticated_cookies
+          .slice(0, 10)
+          .map((c: any) => ({ name: c.name, value: c.value }));
       }
 
       const launched = provider === "cloudflare"

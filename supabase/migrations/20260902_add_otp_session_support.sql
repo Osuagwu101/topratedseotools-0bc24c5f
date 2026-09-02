@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS public.browser_auth_otp_audit (
   session_id uuid NOT NULL REFERENCES public.browser_auth_sessions(id) ON DELETE CASCADE,
   account_id uuid REFERENCES public.tool_accounts(id) ON DELETE SET NULL,
   event text NOT NULL
-    CHECK (event IN ('otp_detected', 'otp_submitted', 'otp_accepted', 'otp_rejected', 'otp_timeout')),
+    CHECK (event IN ('otp_detected', 'otp_submitted', 'otp_accepted', 'otp_rejected', 'otp_timeout', 'session_expired_on_reuse')),
   otp_type text,
   error_message text,
   submitted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
