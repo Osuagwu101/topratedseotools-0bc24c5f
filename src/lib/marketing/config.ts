@@ -24,7 +24,7 @@ export function isValidGtmId(id: string | null | undefined): boolean {
  * Deterministic for a given (kind, natural_key) pair.
  */
 export function buildEventId(kind: string, key: string): string {
-  return `${kind}:${key}`.replace(/[^a-zA-Z0-9:_\-]/g, "_").slice(0, 64);
+  return `${kind}:${key}`.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 64);
 }
 
 export const MARKETING_EVENTS = {
