@@ -3,7 +3,7 @@
  * Run: bun tests/phrasly-auth-state.test.ts
  */
 import { waitForAuthOrOtp, waitForAuthenticatedPage } from "../src/lib/browser-auth-session.server";
-import type { CdpClient } from "../src/lib/browser-auth.server";
+import type { CdpClient } from "../src/lib/browser-auth.server";\nimport { requiresAdminManagedSharedAuth } from "../src/lib/shared-auth-policy";
 
 let passed = 0;
 let failed = 0;
