@@ -84,7 +84,7 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
         </button>
       </div>
 
-      {summary && <SummaryPanel slug={slug} summary={summary} />}
+      {summary && <SummaryPanel summary={summary} />}
 
       {showNew && (
         <AccountForm
@@ -105,14 +105,12 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
 
 type SummaryShape = NonNullable<Awaited<ReturnType<typeof getToolAccountSummary>>["summary"]>;
 
-function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }) {
+function SummaryPanel({ summary }: { summary: SummaryShape }) {
   const items: Array<{
     label: string;
     value: number;
     tone?: string;
-    to?: any;
-    search?: any;
-    hash?: string;
+    to?: "/admin/awaiting-assignments";
   }> = [
     { label: "Total accounts", value: summary.totalAccounts },
     { label: "Healthy", value: summary.healthy, tone: "text-emerald-600" },
@@ -143,8 +141,8 @@ function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }
     },
     {
       label: "Needs capacity review",
-      value: (summary as any).needsReview ?? 0,
-      tone: ((summary as any).needsReview ?? 0) > 0 ? "text-amber-600" : undefined,
+      value: summary.needsReview,
+      tone: summary.needsReview > 0 ? "text-amber-600" : undefined,
     },
   ];
   return (
@@ -155,7 +153,6 @@ function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }
         </div>
         <Link
           to="/admin/access-health"
-          search={{ tool: slug } as any}
           className="text-xs text-primary hover:underline"
         >
           Open in Access Health →
@@ -308,8 +305,8 @@ function AccountRow({
               });
               toast.success(account.enabled ? "Account disabled" : "Account enabled");
               onChange();
-            } catch (e: any) {
-              toast.error(e.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Operation failed");
             }
           }}
           className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
@@ -323,12 +320,30 @@ function AccountRow({
               "working",
             );
             if (!result) return;
+            const allowedResults = [
+              "working",
+              "login_failed",
+              "password_changed",
+              "suspended",
+              "expired",
+              "tool_unavailable",
+              "other",
+            ] as const;
+            if (!allowedResults.includes(result as (typeof allowedResults)[number])) {
+              toast.error("Invalid health-check result.");
+              return;
+            }
             try {
-              await health({ data: { account_id: account.id, result: result as any } });
+              await health({
+                data: {
+                  account_id: account.id,
+                  result: result as (typeof allowedResults)[number],
+                },
+              });
               toast.success("Health check recorded");
               onChange();
-            } catch (e: any) {
-              toast.error(e.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Operation failed");
             }
           }}
           className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
@@ -343,8 +358,8 @@ function AccountRow({
               await remove({ data: { id: account.id } });
               toast.success("Account deleted");
               onChange();
-            } catch (e: any) {
-              toast.error(e.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Operation failed");
             }
           }}
           className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/5"
@@ -534,8 +549,8 @@ function AccountForm({
               });
               toast.success(existing ? "Account updated" : "Account created");
               onDone();
-            } catch (e: any) {
-              toast.error(e.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Operation failed");
             } finally {
               setSaving(false);
             }
@@ -577,7 +592,10 @@ function AssignmentsPanel({
     [allQ.data.accounts, account],
   );
   const reassign = useServerFn(adminReassignCustomer);
-  const active = q.data.assignments.filter((a: any) => a.status === "active");
+  const active = q.data.assignments.filter(
+    (assignment): assignment is typeof assignment & { order_id: string } =>
+      assignment.status === "active" && typeof assignment.order_id === "string",
+  );
 
   return (
     <div className="mt-3 rounded-lg border bg-background p-3">
@@ -590,7 +608,7 @@ function AssignmentsPanel({
         </div>
       ) : (
         <ul className="mt-2 space-y-2">
-          {active.map((a: any) => (
+          {active.map((a) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
@@ -614,8 +632,8 @@ function AssignmentsPanel({
                     toast.success("Customer reassigned");
                     qc.invalidateQueries({ queryKey: key });
                     onChange();
-                  } catch (err: any) {
-                    toast.error(err.message);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Reassignment failed");
                   }
                 }}
                 className="rounded-md border bg-background px-2 py-1 text-xs"
