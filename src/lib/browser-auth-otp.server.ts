@@ -85,8 +85,10 @@ export function submitOtpExpression(code: string, fieldSelector?: string): strin
     const digitInputs=Array.from(document.querySelectorAll('input[maxlength="1"]')).filter(
       el=>visible(el)&&(/numeric|tel/i.test(String(el.getAttribute('inputmode')||el.getAttribute('type')||''))||/code|otp|verification/i.test(String(el.getAttribute('name')||el.getAttribute('id')||el.getAttribute('aria-label')||'')))
     );
+    let activeField=null;
     if(digitInputs.length>=4 && code.length<=digitInputs.length){
       [...code].forEach((char,index)=>setValue(digitInputs[index],char));
+      activeField=digitInputs[0];
     } else {
       let otpField=findStored(selector);
       if(!visible(otpField)) {
@@ -111,6 +113,7 @@ export function submitOtpExpression(code: string, fieldSelector?: string): strin
       }
       if(!otpField) return {success:false,error:'Could not find OTP input field'};
       setValue(otpField,code);
+      activeField=otpField;
     }
 
     await new Promise(resolve=>setTimeout(resolve,100));
@@ -118,7 +121,6 @@ export function submitOtpExpression(code: string, fieldSelector?: string): strin
     const text=el=>String(el.innerText||el.value||el.getAttribute('aria-label')||'').trim().toLowerCase();
     const submitBtn=controls.find(el=>/^(verify|confirm|continue|submit|next)$/.test(text(el)))||controls.find(el=>/(verify|confirm|continue|submit)/.test(text(el)));
     if(submitBtn){submitBtn.click();return {success:true,action:'clicked_submit'}}
-    const activeField=digitInputs[0]||findStored(selector);
     if(activeField?.form){activeField.form.requestSubmit?.();return {success:true,action:'submitted_form'}}
     return {success:true,action:'code_injected_no_submit'};
   })()`;
