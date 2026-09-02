@@ -626,6 +626,54 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_auth_otp_audit: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          error_message: string | null
+          event: string
+          id: string
+          otp_type: string | null
+          session_id: string
+          submitted_by: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event: string
+          id?: string
+          otp_type?: string | null
+          session_id: string
+          submitted_by?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event?: string
+          id?: string
+          otp_type?: string | null
+          session_id?: string
+          submitted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_auth_otp_audit_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "browser_auth_otp_audit_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "browser_auth_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       browser_auth_sessions: {
         Row: {
           created_at: string
@@ -634,6 +682,9 @@ export type Database = {
           grant_id: string | null
           id: string
           order_id: string | null
+          otp_context: Json | null
+          otp_submission_error: string | null
+          otp_submitted_at: string | null
           provider: string
           provider_session_id: string | null
           status: string
@@ -648,6 +699,9 @@ export type Database = {
           grant_id?: string | null
           id?: string
           order_id?: string | null
+          otp_context?: Json | null
+          otp_submission_error?: string | null
+          otp_submitted_at?: string | null
           provider: string
           provider_session_id?: string | null
           status?: string
@@ -662,6 +716,9 @@ export type Database = {
           grant_id?: string | null
           id?: string
           order_id?: string | null
+          otp_context?: Json | null
+          otp_submission_error?: string | null
+          otp_submitted_at?: string | null
           provider?: string
           provider_session_id?: string | null
           status?: string
@@ -2106,6 +2163,62 @@ export type Database = {
           },
         ]
       }
+      tool_account_sessions: {
+        Row: {
+          account_id: string
+          auth_headers: Json | null
+          authenticated_cookies: Json | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          last_verified_at: string | null
+          provider: string
+          provider_session_id: string | null
+          session_tokens: Json | null
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          account_id: string
+          auth_headers?: Json | null
+          authenticated_cookies?: Json | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_verified_at?: string | null
+          provider: string
+          provider_session_id?: string | null
+          session_tokens?: Json | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          account_id?: string
+          auth_headers?: Json | null
+          authenticated_cookies?: Json | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_verified_at?: string | null
+          provider?: string
+          provider_session_id?: string | null
+          session_tokens?: Json | null
+          updated_at?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_account_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "tool_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_accounts: {
         Row: {
           access_type: string
@@ -3119,12 +3232,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3148,11 +3261,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3173,11 +3286,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3198,11 +3311,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3215,11 +3328,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
