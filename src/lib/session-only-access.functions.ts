@@ -44,7 +44,12 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
     }
     if (!accountId) throw new Error(WRITER_REAUTH_MESSAGE);
 
-    const { data: account } = await (admin as any).from("tool_accounts").select("id, login_url, enabled, status, expires_at").eq("id", accountId).maybeSingle();
+    const { data: account } = await (admin as any)
+      .from("tool_accounts")
+      .select("id, tool_slug, login_url, enabled, status, expires_at")
+      .eq("id", accountId)
+      .eq("tool_slug", data.tool_slug)
+      .maybeSingle();
     if (!account?.enabled || account.status !== "working" || !unexpired(account.expires_at)) throw new Error(WRITER_REAUTH_MESSAGE);
     const loginUrl = String(account.login_url ?? toolSetting.official_login_url ?? "").trim();
     if (!loginUrl) throw new Error(WRITER_REAUTH_MESSAGE);
@@ -57,7 +62,8 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       .select("authenticated_cookies, session_tokens, verification_status, expires_at, created_by")
       .eq("account_id", accountId).eq("provider", provider).maybeSingle();
     if (!saved || saved.verification_status !== "active" || !Array.isArray(saved.authenticated_cookies) || !saved.authenticated_cookies.length) throw new Error(WRITER_REAUTH_MESSAGE);
-    if (!saved.expires_at || new Date(saved.expires_at).getTime() <= Date.now()) {
+    const savedExpiryMs = saved.expires_at ? new Date(saved.expires_at).getTime() : 0;
+    if (!Number.isFinite(savedExpiryMs) || savedExpiryMs <= Date.now()) {
       await (admin as any).from("tool_account_sessions").update({ verification_status: "expired" }).eq("account_id", accountId).eq("provider", provider);
       throw new Error(WRITER_REAUTH_MESSAGE);
     }
@@ -76,7 +82,21 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       const launched = provider === "cloudflare"
         ? await launchCloudflareSessionOnly(admin, { loginUrl: sessionLandingUrl, timeoutMinutes, state })
         : await launchBrowserUseSessionOnly(admin, { loginUrl: sessionLandingUrl, timeoutMinutes, state });
-      await (admin as any).from("browser_auth_sessions").update({ status: "ready", provider_session_id: launched.providerSessionId, expires_at: launched.expiresAt, updated_at: new Date().toISOString() }).eq("id", auditRow.id);
+      const { error: readyError } = await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          status: "ready",
+          provider_session_id: launched.providerSessionId,
+          expires_at: launched.expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", auditRow.id);
+      if (readyError) {
+        const { closeRemoteBrowserSession } = await import("@/lib/browser-auth.server");
+        await closeRemoteBrowserSession(admin, provider, launched.providerSessionId);
+        throw new Error(WRITER_TEMPORARY_MESSAGE);
+      }
+
       await (admin as any).from("tool_usage").insert({ tool_slug: data.tool_slug, user_id: context.userId });
       return { ok: true, status: "ready" as const, provider: launched.provider, launch_url: launched.liveUrl, expires_at: launched.expiresAt };
     } catch (e) {
