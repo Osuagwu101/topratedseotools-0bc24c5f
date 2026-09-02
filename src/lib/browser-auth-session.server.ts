@@ -1,0 +1,103 @@
+/* Server-only helpers for resuming and verifying remote authentication sessions. */
+import { CdpClient } from "@/lib/browser-auth.server";
+import {
+  checkAuthenticationStatusExpression,
+  detectOtpExpression,
+} from "@/lib/browser-auth-otp.server";
+
+export async function attachBrowserUsePage(client: CdpClient): Promise<string> {
+  const targets = await client.send("Target.getTargets");
+  let targetId = (targets?.targetInfos ?? []).find(
+    (target: { type?: string; url?: string }) =>
+      target.type === "page" && target.url !== "about:blank",
+  )?.targetId as string | undefined;
+
+  if (!targetId) {
+    targetId = (targets?.targetInfos ?? []).find(
+      (target: { type?: string }) => target.type === "page",
+    )?.targetId as string | undefined;
+  }
+
+  if (!targetId) {
+    const created = await client.send("Target.createTarget", { url: "about:blank" });
+    targetId = String(created.targetId);
+  }
+
+  const attached = await client.send("Target.attachToTarget", {
+    targetId,
+    flatten: true,
+  });
+  if (!attached?.sessionId) throw new Error("Could not attach to the authentication page.");
+  return String(attached.sessionId);
+}
+
+export async function waitForAuthOrOtp(
+  client: CdpClient,
+  sessionId?: string,
+  timeoutMs = 15_000,
+): Promise<
+  | { status: "authenticated"; url?: string; title?: string }
+  | { status: "otp"; type?: string; fieldSelector?: string }
+  | { status: "timeout"; url?: string; title?: string }
+> {
+  const deadline = Date.now() + timeoutMs;
+  let lastUrl: string | undefined;
+  let lastTitle: string | undefined;
+
+  while (Date.now() < deadline) {
+    try {
+      const authResult = await client.send(
+        "Runtime.evaluate",
+        {
+          expression: checkAuthenticationStatusExpression(),
+          returnByValue: true,
+          awaitPromise: true,
+        },
+        sessionId,
+      );
+      const auth = authResult?.result?.value;
+      if (auth && typeof auth === "object") {
+        lastUrl = typeof auth.url === "string" ? auth.url : lastUrl;
+        lastTitle = typeof auth.title === "string" ? auth.title : lastTitle;
+        if (auth.authenticated) {
+          return { status: "authenticated", url: lastUrl, title: lastTitle };
+        }
+      }
+
+      const otpResult = await client.send(
+        "Runtime.evaluate",
+        { expression: detectOtpExpression(), returnByValue: true },
+        sessionId,
+      );
+      const otp = otpResult?.result?.value;
+      if (otp?.detected) {
+        return {
+          status: "otp",
+          type: typeof otp.type === "string" ? otp.type : "unknown",
+          fieldSelector:
+            typeof otp.fieldSelector === "string" ? otp.fieldSelector : undefined,
+        };
+      }
+    } catch {
+      // Redirects can invalidate the current execution context briefly.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  return { status: "timeout", url: lastUrl, title: lastTitle };
+}
+
+export async function waitForAuthenticatedPage(
+  client: CdpClient,
+  sessionId?: string,
+  timeoutMs = 15_000,
+): Promise<{ authenticated: boolean; url?: string; title?: string }> {
+  const result = await waitForAuthOrOtp(client, sessionId, timeoutMs);
+  return result.status === "authenticated"
+    ? { authenticated: true, url: result.url, title: result.title }
+    : {
+        authenticated: false,
+        url: result.status === "timeout" ? result.url : undefined,
+        title: result.status === "timeout" ? result.title : undefined,
+      };
+}
