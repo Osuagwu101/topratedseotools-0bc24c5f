@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { launchBrowserUse, launchCloudflare, reconnectBrowserUseSession, reconnectCloudflareSession, type BrowserAuthProvider } from "@/lib/browser-auth.server";
 import { captureSessionStateThroughCdp } from "@/lib/browser-auth-otp.server";
-import { attachBrowserUsePage, waitForAuthenticatedPage } from "@/lib/browser-auth-session.server";
+import { attachBrowserUsePage, waitForAuthOrOtp } from "@/lib/browser-auth-session.server";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 
@@ -44,19 +44,29 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
 
     await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_started", otp_type: "admin_refresh", submitted_by: context.userId });
 
+    const markAwaitingOtp = async (providerSessionId: string, expiresAt: string, type?: string, fieldSelector?: string) => {
+      const detectedType = type || "unknown";
+      await (admin as any).from("browser_auth_sessions").update({
+        status: "awaiting_otp", provider_session_id: providerSessionId,
+        otp_context: { account_id: account.id, purpose: "admin_refresh", detected_type: detectedType, detected_at: new Date().toISOString(), field_selector: fieldSelector, attempt_count: 0 },
+        expires_at: expiresAt, updated_at: new Date().toISOString(),
+      }).eq("id", row.id);
+      await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_otp_required", otp_type: detectedType, submitted_by: context.userId });
+      return { status: "awaiting_otp" as const, session_id: row.id, expires_at: expiresAt };
+    };
+
     try {
       const launched = provider === "cloudflare"
         ? await launchCloudflare(admin, { loginUrl, username, password, timeoutMinutes })
         : await launchBrowserUse(admin, { loginUrl, username, password, timeoutMinutes });
 
       if (launched.otp_status?.detected) {
-        await (admin as any).from("browser_auth_sessions").update({
-          status: "awaiting_otp", provider_session_id: launched.providerSessionId,
-          otp_context: { account_id: account.id, purpose: "admin_refresh", detected_type: launched.otp_status.type || "unknown", detected_at: new Date().toISOString(), field_selector: launched.otp_status.field_selector, attempt_count: 0 },
-          expires_at: launched.expiresAt, updated_at: new Date().toISOString(),
-        }).eq("id", row.id);
-        await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_otp_required", otp_type: launched.otp_status.type || "unknown", submitted_by: context.userId });
-        return { status: "awaiting_otp" as const, session_id: row.id, expires_at: launched.expiresAt };
+        return await markAwaitingOtp(
+          launched.providerSessionId,
+          launched.expiresAt,
+          launched.otp_status.type,
+          launched.otp_status.field_selector,
+        );
       }
 
       const cdp = provider === "cloudflare"
@@ -65,8 +75,16 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
       if (!cdp) throw new Error("Login completed but the authenticated browser could not be reconnected for capture.");
       try {
         const pageSessionId = provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;
-        const auth = await waitForAuthenticatedPage(cdp, pageSessionId, 15_000);
-        if (!auth.authenticated) {
+        const outcome = await waitForAuthOrOtp(cdp, pageSessionId, 15_000);
+        if (outcome.status === "otp") {
+          return await markAwaitingOtp(
+            launched.providerSessionId,
+            launched.expiresAt,
+            outcome.type,
+            outcome.fieldSelector,
+          );
+        }
+        if (outcome.status !== "authenticated") {
           throw new Error("Phrasly login was not confirmed. Authentication state was not saved.");
         }
 
