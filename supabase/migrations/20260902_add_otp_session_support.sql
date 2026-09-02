@@ -15,8 +15,7 @@ ALTER TABLE public.browser_auth_sessions
 
 -- 3. Add OTP context fields
 ALTER TABLE public.browser_auth_sessions
-  ADD COLUMN IF NOT EXISTS otp_context jsonb
-    COMMENT 'Contains: {detected_type: "email"|"sms"|"authenticator", field_selector: "...", error: "...", attempt_count: 0}',
+  ADD COLUMN IF NOT EXISTS otp_context jsonb,
   ADD COLUMN IF NOT EXISTS otp_submitted_at timestamptz,
   ADD COLUMN IF NOT EXISTS otp_submission_error text;
 
@@ -28,9 +27,9 @@ CREATE TABLE IF NOT EXISTS public.tool_account_sessions (
   provider_session_id text,
 
   -- Captured authenticated state
-  authenticated_cookies jsonb COMMENT 'Array of {name, value, domain, path, expires, secure, httpOnly}',
-  session_tokens jsonb COMMENT '{accessToken?, refreshToken?, ...}',
-  auth_headers jsonb COMMENT 'Common headers from authenticated requests',
+  authenticated_cookies jsonb,
+  session_tokens jsonb,
+  auth_headers jsonb,
 
   -- Verification & lifecycle
   last_verified_at timestamptz,
@@ -43,6 +42,15 @@ CREATE TABLE IF NOT EXISTS public.tool_account_sessions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+COMMENT ON COLUMN public.browser_auth_sessions.otp_context IS
+  'Contains: {detected_type: "email"|"sms"|"authenticator", field_selector: "...", error: "...", attempt_count: 0}';
+COMMENT ON COLUMN public.tool_account_sessions.authenticated_cookies IS
+  'Array of {name, value, domain, path, expires, secure, httpOnly}';
+COMMENT ON COLUMN public.tool_account_sessions.session_tokens IS
+  '{accessToken?, refreshToken?, ...}';
+COMMENT ON COLUMN public.tool_account_sessions.auth_headers IS
+  'Common headers from authenticated requests';
 
 CREATE INDEX IF NOT EXISTS tool_account_sessions_account_idx
   ON public.tool_account_sessions(account_id, verification_status);
