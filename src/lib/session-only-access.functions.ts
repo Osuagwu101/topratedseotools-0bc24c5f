@@ -10,7 +10,7 @@ import {
   WRITER_REAUTH_MESSAGE,
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
-import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
+import type { BrowserAuthProvider } from "@/lib/browser-auth.server";\nimport { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 function unexpired(v: string | null | undefined) { return !v || new Date(v).getTime() > Date.now(); }
@@ -48,6 +48,7 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
     const loginUrl = String(account.login_url ?? toolSetting.official_login_url ?? "").trim();
     if (!loginUrl) throw new Error(WRITER_REAUTH_MESSAGE);
     try { if (new URL(loginUrl).protocol !== "https:") throw new Error(); } catch { throw new Error(WRITER_REAUTH_MESSAGE); }
+    const sessionLandingUrl = resolveSharedAuthLandingUrl(data.tool_slug, loginUrl);
 
     const provider = validProvider(toolSetting.auth_provider) ?? validProvider(global.default_provider) ?? "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
@@ -72,8 +73,8 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
     try {
       const state = { authenticated_cookies: saved.authenticated_cookies, session_tokens: saved.session_tokens };
       const launched = provider === "cloudflare"
-        ? await launchCloudflareSessionOnly(admin, { loginUrl, timeoutMinutes, state })
-        : await launchBrowserUseSessionOnly(admin, { loginUrl, timeoutMinutes, state });
+        ? await launchCloudflareSessionOnly(admin, { loginUrl: sessionLandingUrl, timeoutMinutes, state })
+        : await launchBrowserUseSessionOnly(admin, { loginUrl: sessionLandingUrl, timeoutMinutes, state });
       await (admin as any).from("browser_auth_sessions").update({ status: "ready", provider_session_id: launched.providerSessionId, expires_at: launched.expiresAt, updated_at: new Date().toISOString() }).eq("id", auditRow.id);
       await (admin as any).from("tool_usage").insert({ tool_slug: data.tool_slug, user_id: context.userId });
       return { ok: true, status: "ready" as const, provider: launched.provider, launch_url: launched.liveUrl, expires_at: launched.expiresAt };
