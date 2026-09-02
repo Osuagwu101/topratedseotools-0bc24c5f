@@ -90,25 +90,25 @@ async function loadAwaitingOrders(admin: AppSupabase): Promise<AlertInputOrder[]
     .limit(500);
   const list = (orders ?? []).filter(
     (o) =>
-      (order.payment_status ?? "paid") === "paid" &&
-      (order.access_type ?? "shared") === "shared" && // private is handled via fulfilment
-      (!order.expires_at || new Date(order.expires_at).getTime() > Date.now()),
+      o.payment_status === "successful" &&
+      (o.access_type ?? "shared") === "shared" && // private is handled via fulfilment
+      (!o.expires_at || new Date(o.expires_at).getTime() > Date.now()),
   );
   if (list.length === 0) return [];
-  const ids = list.map((o) => order.id);
+  const ids = list.map((o) => o.id);
   const { data: assigns } = await admin.from("tool_account_assignments")
     .select("order_id")
     .in("order_id", ids)
     .eq("status", "active");
   const assigned = new Set((assigns ?? []).flatMap((a) => (a.order_id ? [a.order_id] : [])));
   return list
-    .filter((o) => !assigned.has(order.id))
+    .filter((o) => !assigned.has(o.id))
     .map((o) => ({
-      id: order.id,
-      tool_slug: order.tool_slug,
-      user_id: order.user_id,
-      access_type: normalizeAccessType(order.access_type),
-      created_at: order.created_at,
+      id: o.id,
+      tool_slug: o.tool_slug,
+      user_id: o.user_id,
+      access_type: normalizeAccessType(o.access_type),
+      created_at: o.created_at,
     }));
 }
 
@@ -204,7 +204,7 @@ export const getToolAccountSummary = createServerFn({ method: "GET" })
       loadAwaitingOrders(supabaseAdmin),
     ]);
     const toolAccounts = accounts.filter((a) => a.tool_slug === data.tool_slug);
-    const toolAwaiting = awaiting.filter((o) => order.tool_slug === data.tool_slug);
+    const toolAwaiting = awaiting.filter((o) => o.tool_slug === data.tool_slug);
     const summary = summariseByTool(toolAccounts, toolAwaiting, settings)[0] ?? null;
     return { summary: summary as ToolAccountSummary | null };
   });
