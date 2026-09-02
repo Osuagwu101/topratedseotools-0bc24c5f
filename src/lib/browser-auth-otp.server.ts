@@ -52,7 +52,7 @@ export function detectOtpExpression(): string {
     const field=fields[0];
     const id=field.getAttribute('id');
     const name=field.getAttribute('name');
-    const fieldSelector=id?`id:${id}`:(name?`name:${name}`:null);
+    const fieldSelector=id?('id:'+id):(name?('name:'+name):null);
     return {
       detected:true,
       type:detectedType,
