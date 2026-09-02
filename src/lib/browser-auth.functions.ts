@@ -323,9 +323,11 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
         existingSession?.authenticated_cookies &&
         existingSession?.verification_status === "active"
       ) {
-        const sessionExpiry = new Date(existingSession.expires_at).getTime();
+        const sessionExpiry = existingSession.expires_at
+          ? new Date(existingSession.expires_at).getTime()
+          : Number.NaN;
 
-        if (sessionExpiry <= Date.now()) {
+        if (!Number.isFinite(sessionExpiry) || sessionExpiry <= Date.now()) {
           // Session has expired - deny access and notify admin
           await admin.from("browser_auth_otp_audit").insert({
             session_id: auditRow.id,
@@ -341,9 +343,26 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
         }
 
         // Session still valid, use captured cookies
+        if (!Array.isArray(existingSession.authenticated_cookies)) {
+          throw new Error(
+            "The admin's captured session is invalid. Please contact the administrator to re-authenticate and capture a new session.",
+          );
+        }
+
         capturedCookies = existingSession.authenticated_cookies
           .slice(0, 10)
-          .map((c: any) => ({ name: c.name, value: c.value }));
+          .flatMap((cookie) => {
+            if (
+              typeof cookie !== "object" ||
+              cookie === null ||
+              Array.isArray(cookie) ||
+              typeof cookie.name !== "string" ||
+              typeof cookie.value !== "string"
+            ) {
+              return [];
+            }
+            return [{ name: cookie.name, value: cookie.value }];
+          });
       }
 
       const launched =
