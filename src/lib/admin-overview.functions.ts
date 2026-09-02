@@ -65,7 +65,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/orders",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Awaiting assignment — approved orders with no active pool assignment
     try {
@@ -91,7 +93,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           });
         }
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Failed emails
     try {
@@ -107,7 +111,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/email",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Expired invitations
     try {
@@ -123,7 +129,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/staff",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Disabled admins
     try {
@@ -140,7 +148,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/staff",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Paid but no access assigned yet
     try {
@@ -157,7 +167,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/payment-recovery",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Recent webhook failures (last 24h)
     try {
@@ -175,7 +187,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/payment-recovery",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Subscriptions expiring within 7 days
     try {
@@ -195,7 +209,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/communications",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Renewal-failed subscriptions
     try {
@@ -211,7 +227,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/communications",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Recent activity
     let recentActivity: Array<{
