@@ -7,7 +7,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildPricingBreakdown, computeDiscountNgn } from "@/lib/currency-convert";
-import { evaluateCoupon, couponRejectionMessage, normaliseCouponCode, type CouponRow } from "@/lib/coupons";
+import {
+  evaluateCoupon,
+  couponRejectionMessage,
+  normaliseCouponCode,
+  type CouponRow,
+} from "@/lib/coupons";
 
 const BASE_NGN = 10_000;
 
@@ -102,19 +107,25 @@ describe("2 — customer pays in an international currency", () => {
     expect(withCoupon.converted_amount).toBe(converted);
     expect(withCoupon.international_fee_percent).toBe(3);
     expect(withCoupon.international_fee_amount).toBeGreaterThan(0);
-    expect(withCoupon.final_amount).toBeCloseTo(
-      Math.round(converted * 1.03 * 100) / 100,
-      2,
-    );
+    expect(withCoupon.final_amount).toBeCloseTo(Math.round(converted * 1.03 * 100) / 100, 2);
     // Displayed amount and Paystack amount cannot diverge.
     expect(withCoupon.minor_units_amount).toBe(Math.round(withCoupon.final_amount * 100));
     expect(withCoupon.payment_currency).toBe("USD");
   });
 
   it("keeps the adjustment applied and the saving proportional", () => {
-    const opts = { ngn: BASE_NGN, currency: "USD" as const, rate, surchargePercent: 3, surchargeEnabled: true };
+    const opts = {
+      ngn: BASE_NGN,
+      currency: "USD" as const,
+      rate,
+      surchargePercent: 3,
+      surchargeEnabled: true,
+    };
     const full = buildPricingBreakdown(opts);
-    const discounted = buildPricingBreakdown({ ...opts, discount: { type: "percent", value: 10, code: "SAVE10" } });
+    const discounted = buildPricingBreakdown({
+      ...opts,
+      discount: { type: "percent", value: 10, code: "SAVE10" },
+    });
 
     expect(discounted.final_amount).toBeLessThan(full.final_amount);
     expect(discounted.international_fee_amount).toBeGreaterThan(0);
@@ -123,10 +134,24 @@ describe("2 — customer pays in an international currency", () => {
   });
 
   it("percent coupons give the same effective saving in every currency", () => {
-    for (const [currency, r] of [["GHS", 0.0078], ["KES", 0.086], ["ZAR", 0.012], ["USD", 0.00065]] as const) {
-      const opts = { ngn: BASE_NGN, currency, rate: r, surchargePercent: 3, surchargeEnabled: true };
+    for (const [currency, r] of [
+      ["GHS", 0.0078],
+      ["KES", 0.086],
+      ["ZAR", 0.012],
+      ["USD", 0.00065],
+    ] as const) {
+      const opts = {
+        ngn: BASE_NGN,
+        currency,
+        rate: r,
+        surchargePercent: 3,
+        surchargeEnabled: true,
+      };
       const full = buildPricingBreakdown(opts);
-      const disc = buildPricingBreakdown({ ...opts, discount: { type: "percent", value: 25, code: "Q" } });
+      const disc = buildPricingBreakdown({
+        ...opts,
+        discount: { type: "percent", value: 25, code: "Q" },
+      });
       expect(disc.final_amount / full.final_amount).toBeCloseTo(0.75, 2);
       expect(disc.minor_units_amount).toBe(Math.round(disc.final_amount * 100));
     }
@@ -181,7 +206,9 @@ describe("3 — checkout coupon field validation", () => {
     if (!reused.ok) expect(reused.reason).toBe("user_limit");
 
     // max_per_user = 0 means unlimited per customer.
-    expect(evaluateCoupon(coupon({ max_per_user: 0 }), { ...ctx, userRedemptions: 9 }).ok).toBe(true);
+    expect(evaluateCoupon(coupon({ max_per_user: 0 }), { ...ctx, userRedemptions: 9 }).ok).toBe(
+      true,
+    );
   });
 
   it("rejects a coupon that would not reduce the price", () => {
@@ -215,7 +242,11 @@ describe("4 — payment completion amount checks", () => {
     expect(Math.round(order.final_amount_charged * 100)).toBe(paystackMinor);
     // Undiscounted amount must NOT match, i.e. the discount really reached Paystack.
     const undiscounted = buildPricingBreakdown({
-      ngn: BASE_NGN, currency: "USD", rate: 0.00065, surchargePercent: 3, surchargeEnabled: true,
+      ngn: BASE_NGN,
+      currency: "USD",
+      rate: 0.00065,
+      surchargePercent: 3,
+      surchargeEnabled: true,
     });
     expect(undiscounted.minor_units_amount).not.toBe(paystackMinor);
   });

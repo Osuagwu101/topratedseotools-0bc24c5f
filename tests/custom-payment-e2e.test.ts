@@ -95,10 +95,17 @@ describe("payment initiation payloads", () => {
     let body: any;
     globalThis.fetch = vi.fn(async (_u: any, init?: RequestInit) => {
       body = JSON.parse(String(init?.body ?? "{}"));
-      return new Response(JSON.stringify({
-        status: true,
-        data: { authorization_url: "https://checkout.paystack.com/ngn", access_code: "x", reference: "CP-PS-1" },
-      }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          status: true,
+          data: {
+            authorization_url: "https://checkout.paystack.com/ngn",
+            access_code: "x",
+            reference: "CP-PS-1",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
     }) as typeof fetch;
 
     const res = await paystackAdapter.initialize({
@@ -107,7 +114,12 @@ describe("payment initiation payloads", () => {
       currency: "NGN",
       email: "payer@example.com",
       callbackUrl: "https://topratedseotools.com/pay/tok",
-      metadata: { kind: "custom_payment", amount_major: 2000, currency: "NGN", payment_gateway: "paystack" },
+      metadata: {
+        kind: "custom_payment",
+        amount_major: 2000,
+        currency: "NGN",
+        payment_gateway: "paystack",
+      },
     });
     expect(res.authorization_url).toContain("checkout.paystack.com");
     expect(body.currency).toBe("NGN");
@@ -121,12 +133,20 @@ describe("payment initiation payloads", () => {
     const seen: any[] = [];
     globalThis.fetch = vi.fn(async (_u: any, init?: RequestInit) => {
       seen.push(JSON.parse(String(init?.body ?? "{}")));
-      return new Response(JSON.stringify({ status: "success", data: { link: "https://checkout.flutterwave.com/x" } }), {
-        status: 200, headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ status: "success", data: { link: "https://checkout.flutterwave.com/x" } }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
     }) as typeof fetch;
 
-    for (const [currency, amount] of [["KES", 1500], ["USD", 19.99], ["NGN", 2500]] as const) {
+    for (const [currency, amount] of [
+      ["KES", 1500],
+      ["USD", 19.99],
+      ["NGN", 2500],
+    ] as const) {
       await flutterwaveAdapter.initialize({
         reference: `CP-FW-${currency}`,
         amountMinor: customPaymentMinorUnits(amount, currency),
@@ -138,7 +158,11 @@ describe("payment initiation payloads", () => {
         metadata: { kind: "custom_payment", currency, payment_gateway: "flutterwave" },
       });
     }
-    expect(seen.map((b) => [b.currency, b.amount])).toEqual([["KES", 1500], ["USD", 19.99], ["NGN", 2500]]);
+    expect(seen.map((b) => [b.currency, b.amount])).toEqual([
+      ["KES", 1500],
+      ["USD", 19.99],
+      ["NGN", 2500],
+    ]);
     expect(seen.every((b) => b.meta.kind === "custom_payment")).toBe(true);
   });
 });

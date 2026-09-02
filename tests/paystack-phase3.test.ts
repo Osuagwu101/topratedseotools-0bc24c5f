@@ -40,11 +40,19 @@ function sign(secret: string, body: string): string {
 function req(body: string) {
   return new Request("http://localhost/api/public/webhooks/paystack", {
     method: "POST",
-    headers: { "x-paystack-signature": sign(TEST_SECRET, body), "content-type": "application/json" },
+    headers: {
+      "x-paystack-signature": sign(TEST_SECRET, body),
+      "content-type": "application/json",
+    },
     body,
   });
 }
-function chargeSuccess(orderId: string, amountKobo = 500000, reference = "ref_" + orderId, planCode?: string) {
+function chargeSuccess(
+  orderId: string,
+  amountKobo = 500000,
+  reference = "ref_" + orderId,
+  planCode?: string,
+) {
   return JSON.stringify({
     event: "charge.success",
     data: {
@@ -72,13 +80,24 @@ async function main() {
   await test("Shared Monthly: activates, correct enum values, amount respected", async () => {
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o-shared", status: "pending", access_type: "shared", duration_days: 28, grace_days: 2, price_amount: 5000, paystack_plan_code: "PLN_shared_m" },
+      {
+        id: "o-shared",
+        status: "pending",
+        access_type: "shared",
+        duration_days: 28,
+        grace_days: 2,
+        price_amount: 5000,
+        paystack_plan_code: "PLN_shared_m",
+      },
     ]);
     const res = await handlePaystackWebhook(req(chargeSuccess("o-shared", 500000)), DEPS(db));
     assert(res.status === 200, "200");
     const o = db.all("tool_orders")[0];
     assert(o.status === "approved", "status approved");
-    assert(o.payment_status === "successful", `payment_status successful (got ${o.payment_status})`);
+    assert(
+      o.payment_status === "successful",
+      `payment_status successful (got ${o.payment_status})`,
+    );
     assert(o.subscription_status === "active", "subscription_status active");
     assert(o.renewal_status === "enabled", "renewal_status enabled");
     assert(o.fulfilment_status === "not_required", "fulfilment_status not_required");
@@ -92,7 +111,15 @@ async function main() {
   await test("Private Monthly: pending fulfilment, deadline set, no expires_at, no shared creds", async () => {
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o-priv", status: "pending", access_type: "private", duration_days: 28, grace_days: 0, price_amount: 5000, paystack_plan_code: "PLN_priv_m" },
+      {
+        id: "o-priv",
+        status: "pending",
+        access_type: "private",
+        duration_days: 28,
+        grace_days: 0,
+        price_amount: 5000,
+        paystack_plan_code: "PLN_priv_m",
+      },
     ]);
     const before = Date.now();
     const res = await handlePaystackWebhook(req(chargeSuccess("o-priv")), DEPS(db));
@@ -115,13 +142,19 @@ async function main() {
     const start = new Date().toISOString();
     db.seed("tool_orders", [
       {
-        id: "o-pren", status: "approved", access_type: "private",
-        duration_days: 28, grace_days: 0, price_amount: 5000,
+        id: "o-pren",
+        status: "approved",
+        access_type: "private",
+        duration_days: 28,
+        grace_days: 0,
+        price_amount: 5000,
         paystack_plan_code: "PLN_priv_m",
         paystack_subscription_code: "SUB_x",
         current_period_end: start,
         expires_at: start,
-        subscription_status: "active", renewal_status: "enabled", fulfilment_status: "active",
+        subscription_status: "active",
+        renewal_status: "enabled",
+        fulfilment_status: "active",
         admin_notes: "keep-me",
       },
     ]);
@@ -143,12 +176,17 @@ async function main() {
     const db = freshDb();
     db.seed("tool_orders", [
       {
-        id: "o-dup", status: "approved", access_type: "shared",
-        duration_days: 28, grace_days: 0, price_amount: 5000,
+        id: "o-dup",
+        status: "approved",
+        access_type: "shared",
+        duration_days: 28,
+        grace_days: 0,
+        price_amount: 5000,
         paystack_plan_code: "PLN_dup",
         paystack_subscription_code: "SUB_d",
         current_period_end: new Date().toISOString(),
-        subscription_status: "active", renewal_status: "enabled",
+        subscription_status: "active",
+        renewal_status: "enabled",
       },
     ]);
     const body = chargeSuccess("o-dup", 500000, "ref-dup", "PLN_dup");
@@ -164,7 +202,12 @@ async function main() {
   await test("Failed renewal marks past_due", async () => {
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o-fail", status: "approved", paystack_subscription_code: "SUB_f", subscription_status: "active" },
+      {
+        id: "o-fail",
+        status: "approved",
+        paystack_subscription_code: "SUB_f",
+        subscription_status: "active",
+      },
     ]);
     const body = JSON.stringify({
       event: "invoice.payment_failed",
@@ -181,7 +224,12 @@ async function main() {
   await test("subscription.disable → renewal disabled, non_renewing, timestamped", async () => {
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o-dis", status: "approved", paystack_subscription_code: "SUB_dis", renewal_status: "disable_pending" },
+      {
+        id: "o-dis",
+        status: "approved",
+        paystack_subscription_code: "SUB_dis",
+        renewal_status: "disable_pending",
+      },
     ]);
     const body = JSON.stringify({
       event: "subscription.disable",
@@ -207,8 +255,13 @@ async function main() {
       `Payment Status: Successful\n` +
       `Fulfilment Status: Pending`;
     for (const needle of [
-      "Private Access", "TRST-abc-1", "Semrush", "MONTHLY", "₦5,000",
-      "Payment Status: Successful", "Fulfilment Status: Pending",
+      "Private Access",
+      "TRST-abc-1",
+      "Semrush",
+      "MONTHLY",
+      "₦5,000",
+      "Payment Status: Successful",
+      "Fulfilment Status: Pending",
     ]) {
       assert(message.includes(needle), `contains ${needle}`);
     }
@@ -221,9 +274,20 @@ async function main() {
     // The webhook checks amount indirectly (payment row records amount).
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o-2500", status: "pending", access_type: "shared", duration_days: 28, grace_days: 0, price_amount: 2500, paystack_plan_code: "PLN_c" },
+      {
+        id: "o-2500",
+        status: "pending",
+        access_type: "shared",
+        duration_days: 28,
+        grace_days: 0,
+        price_amount: 2500,
+        paystack_plan_code: "PLN_c",
+      },
     ]);
-    const res = await handlePaystackWebhook(req(chargeSuccess("o-2500", 250000, "ref-2500")), DEPS(db));
+    const res = await handlePaystackWebhook(
+      req(chargeSuccess("o-2500", 250000, "ref-2500")),
+      DEPS(db),
+    );
     assert(res.status === 200, "200");
     const p = db.all("tool_payments")[0];
     assert(Number(p.amount) === 2500, `payment.amount = 2500 (got ${p.amount})`);
@@ -234,7 +298,7 @@ async function main() {
     // This mirrors the getMyAccess policy: shared creds only for shared orders.
     const rows = [
       { access_type: "private", fulfilment_status: "pending", tool_slug: "canva" },
-      { access_type: "shared",  fulfilment_status: "not_required", tool_slug: "phrasly" },
+      { access_type: "shared", fulfilment_status: "not_required", tool_slug: "phrasly" },
     ];
     const sharedSlugs = rows.filter((r) => r.access_type === "shared").map((r) => r.tool_slug);
     assert(!sharedSlugs.includes("canva"), "private not in shared vault query");

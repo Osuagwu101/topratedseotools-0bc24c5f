@@ -98,7 +98,7 @@ class QueryBuilder {
       for (const col of uniq) {
         if (
           this.mode.row[col] !== undefined &&
-          rows.some((r) => r[col] === this.mode!.row[col] as any)
+          rows.some((r) => r[col] === (this.mode!.row[col] as any))
         ) {
           return {
             data: null,

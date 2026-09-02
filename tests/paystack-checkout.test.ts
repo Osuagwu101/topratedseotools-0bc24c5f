@@ -237,7 +237,6 @@ async function main() {
     );
     assert(snap.tool_slug === "ghost", "tool_slug preserved");
     assert(snap.access_type === "shared", "access_type defaulted to shared");
-
   });
 
   await test("Temporarily unavailable tool (enabled=false) → rejected", async () => {
@@ -339,8 +338,12 @@ async function main() {
   // ---- metadata safety ----
   await test("Paystack metadata contains only safe fields", async () => {
     const m = buildPaystackMetadata({
-      order_id: "o", user_id: "u", tool_slug: "canva",
-      pricing_option_id: "p", access_type: "shared", billing_period: "monthly",
+      order_id: "o",
+      user_id: "u",
+      tool_slug: "canva",
+      pricing_option_id: "p",
+      access_type: "shared",
+      billing_period: "monthly",
     });
     const forbidden = ["password", "login_password", "secret", "one_click_token", "sb_secret"];
     for (const k of forbidden) assert(!(k in m), `metadata excludes ${k}`);
@@ -366,56 +369,81 @@ async function main() {
 
   await test("Successful payment verification", async () => {
     const v = validatePaymentVerification({
-      tx: validTx, order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+      tx: validTx,
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(v.ok === true, `expected ok, got ${JSON.stringify(v)}`);
   });
   await test("Amount mismatch", async () => {
     const v = validatePaymentVerification({
       tx: { ...validTx, amount: 100 },
-      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "amount_mismatch", "reason");
   });
   await test("Currency mismatch (USD)", async () => {
     const v = validatePaymentVerification({
       tx: { ...validTx, currency: "USD" },
-      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "currency_mismatch", "reason");
   });
   await test("Wrong order id in metadata", async () => {
     const v = validatePaymentVerification({
       tx: { ...validTx, metadata: { order_id: "someone-else" } },
-      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "meta_mismatch", "reason");
   });
   await test("Order belongs to another user", async () => {
     const v = validatePaymentVerification({
-      tx: validTx, order: { ...validOrder, user_id: OTHER },
-      callerUserId: USER, env: "test", otherOrderHasReference: false,
+      tx: validTx,
+      order: { ...validOrder, user_id: OTHER },
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "wrong_user", "reason");
   });
   await test("Reference already used by another order", async () => {
     const v = validatePaymentVerification({
-      tx: validTx, order: validOrder,
-      callerUserId: USER, env: "test", otherOrderHasReference: true,
+      tx: validTx,
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: true,
     });
     assert(!v.ok && (v as any).reason === "reference_reused", "reason");
   });
   await test("Environment mismatch (order tagged live, secret is test)", async () => {
     const v = validatePaymentVerification({
-      tx: validTx, order: { ...validOrder, paystack_environment: "live" },
-      callerUserId: USER, env: "test", otherOrderHasReference: false,
+      tx: validTx,
+      order: { ...validOrder, paystack_environment: "live" },
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "env_mismatch", "reason");
   });
   await test("Not-success tx rejected", async () => {
     const v = validatePaymentVerification({
-      tx: { ...validTx, status: "failed" }, order: validOrder,
-      callerUserId: USER, env: "test", otherOrderHasReference: false,
+      tx: { ...validTx, status: "failed" },
+      order: validOrder,
+      callerUserId: USER,
+      env: "test",
+      otherOrderHasReference: false,
     });
     assert(!v.ok && (v as any).reason === "not_success", "reason");
   });
@@ -428,7 +456,11 @@ async function main() {
 
     async function tryApprove() {
       // read status → update with guard
-      const { data: cur } = await db.from("tool_orders").select("status").eq("id", "ord-1").maybeSingle();
+      const { data: cur } = await db
+        .from("tool_orders")
+        .select("status")
+        .eq("id", "ord-1")
+        .maybeSingle();
       if (cur?.status === "approved") return "already";
       const { data } = await db
         .from("tool_orders")

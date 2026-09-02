@@ -11,10 +11,13 @@ describe("Flutterwave provider validation", () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       urls.push(String(url));
-      return new Response(JSON.stringify({ status: "success", message: "Transactions fetched", data: [] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ status: "success", message: "Transactions fetched", data: [] }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
     });
 
     const result = await runProviderConnectionTest({ slug: "flutterwave" });
@@ -29,11 +32,13 @@ describe("Flutterwave provider validation", () => {
 
   it("rejects an authentication failure", async () => {
     process.env.FLUTTERWAVE_SECRET_KEY = "invalid";
-    vi.stubGlobal("fetch", async () =>
-      new Response(JSON.stringify({ status: "error", message: "Invalid secret key" }), {
-        status: 401,
-        headers: { "content-type": "application/json" },
-      }),
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(JSON.stringify({ status: "error", message: "Invalid secret key" }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }),
     );
 
     const result = await runProviderConnectionTest({ slug: "flutterwave" });

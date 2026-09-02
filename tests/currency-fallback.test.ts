@@ -1,12 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { buildPricingBreakdown, resolveChargePlan, formatMoney, type SupportedCurrency } from "../src/lib/currency-convert";
+import {
+  buildPricingBreakdown,
+  resolveChargePlan,
+  formatMoney,
+  type SupportedCurrency,
+} from "../src/lib/currency-convert";
 import { validatePaymentVerification } from "../src/lib/paystack-checkout";
 
 const SURCHARGE = { surchargePercent: 3, surchargeEnabled: true };
 const RATES: Record<string, number> = { GHS: 0.0085, KES: 0.086, ZAR: 0.012, USD: 0.00065 };
 const MERCHANT = ["NGN"];
 
-function plan(currency: SupportedCurrency, ngn: number, discount?: { type: "percent" | "amount"; value: number; code: string }) {
+function plan(
+  currency: SupportedCurrency,
+  ngn: number,
+  discount?: { type: "percent" | "amount"; value: number; code: string },
+) {
   const b = buildPricingBreakdown({
     ngn,
     currency,
@@ -127,7 +136,12 @@ describe("display currency vs. Paystack payment currency", () => {
   });
 
   it("no fallback when the merchant account supports the currency", () => {
-    const b = buildPricingBreakdown({ ngn: 10000, currency: "USD", rate: RATES.USD!, ...SURCHARGE });
+    const b = buildPricingBreakdown({
+      ngn: 10000,
+      currency: "USD",
+      rate: RATES.USD!,
+      ...SURCHARGE,
+    });
     const charge = resolveChargePlan(b, ["NGN", "USD"]);
     expect(charge.fallback_applied).toBe(false);
     expect(charge.payment_currency).toBe("USD");

@@ -6,12 +6,24 @@
 // Minimal localStorage shim before importing modules.
 class MemStorage {
   private m = new Map<string, string>();
-  getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null; }
-  setItem(k: string, v: string) { this.m.set(k, String(v)); }
-  removeItem(k: string) { this.m.delete(k); }
-  clear() { this.m.clear(); }
-  key(i: number) { return Array.from(this.m.keys())[i] ?? null; }
-  get length() { return this.m.size; }
+  getItem(k: string) {
+    return this.m.has(k) ? this.m.get(k)! : null;
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, String(v));
+  }
+  removeItem(k: string) {
+    this.m.delete(k);
+  }
+  clear() {
+    this.m.clear();
+  }
+  key(i: number) {
+    return Array.from(this.m.keys())[i] ?? null;
+  }
+  get length() {
+    return this.m.size;
+  }
 }
 const storage = new MemStorage();
 (globalThis as unknown as { window: unknown }).window = {
@@ -27,17 +39,27 @@ const storage = new MemStorage();
 const attribution = await import("../src/lib/marketing/attribution");
 const consent = await import("../src/lib/marketing/consent");
 
-let passed = 0, failed = 0;
+let passed = 0,
+  failed = 0;
 const failures: string[] = [];
 function assert(cond: unknown, msg: string) {
   if (cond) passed++;
-  else { failed++; failures.push(msg); console.error("  ✗", msg); }
+  else {
+    failed++;
+    failures.push(msg);
+    console.error("  ✗", msg);
+  }
 }
 async function test(name: string, fn: () => void | Promise<void>) {
   console.log("• " + name);
   const before = failed;
   storage.clear();
-  try { await fn(); } catch (e) { failed++; failures.push(`${name}: ${e}`); }
+  try {
+    await fn();
+  } catch (e) {
+    failed++;
+    failures.push(`${name}: ${e}`);
+  }
   if (failed === before) console.log("  ✓ ok");
 }
 
@@ -89,4 +111,7 @@ await test("readAttribution returns empty after withdrawal even if payload linge
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed) { for (const f of failures) console.log(" -", f); process.exit(1); }
+if (failed) {
+  for (const f of failures) console.log(" -", f);
+  process.exit(1);
+}

@@ -36,7 +36,13 @@ describe("NGN customer flow", () => {
 
   it("verification accepts the matching NGN transaction", () => {
     const r = verify(
-      { ...baseOrder, price_amount: 12000, currency: "NGN", payment_currency: "NGN", final_amount_charged: 12000 },
+      {
+        ...baseOrder,
+        price_amount: 12000,
+        currency: "NGN",
+        payment_currency: "NGN",
+        final_amount_charged: 12000,
+      },
       {
         status: "success",
         reference: "TRSEO-1",
@@ -50,8 +56,20 @@ describe("NGN customer flow", () => {
 
   it("verification rejects a wrong NGN amount", () => {
     const r = verify(
-      { ...baseOrder, price_amount: 12000, currency: "NGN", payment_currency: "NGN", final_amount_charged: 12000 },
-      { status: "success", reference: "TRSEO-1", amount: 100, currency: "NGN", metadata: { order_id: "order-1" } },
+      {
+        ...baseOrder,
+        price_amount: 12000,
+        currency: "NGN",
+        payment_currency: "NGN",
+        final_amount_charged: 12000,
+      },
+      {
+        status: "success",
+        reference: "TRSEO-1",
+        amount: 100,
+        currency: "NGN",
+        metadata: { order_id: "order-1" },
+      },
     );
     expect(r).toEqual({ ok: false, reason: "amount_mismatch" });
   });
@@ -59,7 +77,13 @@ describe("NGN customer flow", () => {
   it("legacy order without currency columns still verifies on price_amount/NGN", () => {
     const r = verify(
       { ...baseOrder, price_amount: 5000, currency: "NGN" },
-      { status: "success", reference: "TRSEO-1", amount: 500000, currency: "NGN", metadata: { order_id: "order-1" } },
+      {
+        status: "success",
+        reference: "TRSEO-1",
+        amount: 500000,
+        currency: "NGN",
+        metadata: { order_id: "order-1" },
+      },
     );
     expect(r).toEqual({ ok: true });
   });
@@ -108,7 +132,13 @@ describe("international customer flow", () => {
   it("rejects a transaction charged in the wrong currency", () => {
     const b = buildPricingBreakdown({ ngn: 7500, currency: "GHS", rate: 0.0095, ...SURCHARGE });
     const r = verify(
-      { ...baseOrder, price_amount: 7500, currency: "NGN", payment_currency: "GHS", final_amount_charged: b.final_amount },
+      {
+        ...baseOrder,
+        price_amount: 7500,
+        currency: "NGN",
+        payment_currency: "GHS",
+        final_amount_charged: b.final_amount,
+      },
       {
         status: "success",
         reference: "TRSEO-1",
@@ -123,7 +153,13 @@ describe("international customer flow", () => {
   it("rejects an intl transaction that only paid the un-surcharged converted amount", () => {
     const b = buildPricingBreakdown({ ngn: 7500, currency: "GHS", rate: 0.0095, ...SURCHARGE });
     const r = verify(
-      { ...baseOrder, price_amount: 7500, currency: "NGN", payment_currency: "GHS", final_amount_charged: b.final_amount },
+      {
+        ...baseOrder,
+        price_amount: 7500,
+        currency: "NGN",
+        payment_currency: "GHS",
+        final_amount_charged: b.final_amount,
+      },
       {
         status: "success",
         reference: "TRSEO-1",
@@ -136,14 +172,32 @@ describe("international customer flow", () => {
   });
 
   it("admin can turn the surcharge off / change the percent", () => {
-    const off = buildPricingBreakdown({ ngn: 10000, currency: "USD", rate: 0.0007, surchargePercent: 3, surchargeEnabled: false });
+    const off = buildPricingBreakdown({
+      ngn: 10000,
+      currency: "USD",
+      rate: 0.0007,
+      surchargePercent: 3,
+      surchargeEnabled: false,
+    });
     expect(off.international_fee_amount).toBe(0);
     expect(off.final_amount).toBe(7);
-    const five = buildPricingBreakdown({ ngn: 10000, currency: "USD", rate: 0.0007, surchargePercent: 5, surchargeEnabled: true });
+    const five = buildPricingBreakdown({
+      ngn: 10000,
+      currency: "USD",
+      rate: 0.0007,
+      surchargePercent: 5,
+      surchargeEnabled: true,
+    });
     expect(five.international_fee_percent).toBe(5);
     expect(five.final_amount).toBe(7.35);
     // NGN is unaffected by any admin surcharge setting.
-    const ngn = buildPricingBreakdown({ ngn: 10000, currency: "NGN", rate: 1, surchargePercent: 5, surchargeEnabled: true });
+    const ngn = buildPricingBreakdown({
+      ngn: 10000,
+      currency: "NGN",
+      rate: 1,
+      surchargePercent: 5,
+      surchargeEnabled: true,
+    });
     expect(ngn.final_amount).toBe(10000);
   });
 });

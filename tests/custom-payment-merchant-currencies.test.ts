@@ -28,7 +28,9 @@ describe("Custom Payment gateway currency policy", () => {
     const options = customPaymentCurrenciesForGateway("flutterwave");
     expect(searchCustomPaymentCurrencies(options, "ghana").map((c) => c.code)).toEqual(["GHS"]);
     expect(searchCustomPaymentCurrencies(options, "kes").map((c) => c.code)).toEqual(["KES"]);
-    expect(searchCustomPaymentCurrencies(options, "south african").map((c) => c.code)).toEqual(["ZAR"]);
+    expect(searchCustomPaymentCurrencies(options, "south african").map((c) => c.code)).toEqual([
+      "ZAR",
+    ]);
   });
 
   it("rejects arbitrary ISO codes that are not in the Flutterwave collection list", () => {
