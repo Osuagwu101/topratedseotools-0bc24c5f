@@ -7,6 +7,7 @@ import {
   waitForAuthOrOtp,
 } from "../src/lib/browser-auth-session.server";
 import type { CdpClient } from "../src/lib/browser-auth.server";
+import { cookieBelongsToPageHost } from "../src/lib/browser-auth-otp.server";
 import {
   requiresAdminManagedSharedAuth,
   resolveSharedAuthLandingUrl,
@@ -52,6 +53,13 @@ assert(
   resolveSharedAuthLandingUrl("phrasly", "https://phrasly.ai/login") ===
     "https://phrasly.ai/dashboard",
   "Phrasly saved sessions are verified on the protected dashboard route",
+);
+
+assert(
+  cookieBelongsToPageHost(".phrasly.ai", "phrasly.ai") &&
+    cookieBelongsToPageHost(".phrasly.ai", "app.phrasly.ai") &&
+    !cookieBelongsToPageHost(".google.com", "phrasly.ai"),
+  "captured reusable state excludes cookies from unrelated identity-provider domains",
 );
 
 // 1. OTP must win even if the page could otherwise look authenticated.
