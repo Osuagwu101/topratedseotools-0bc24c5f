@@ -3,7 +3,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { launchBrowserUseSessionOnly, launchCloudflareSessionOnly, WRITER_REAUTH_MESSAGE } from "@/lib/shared-session-launch.server";
+import {
+  launchBrowserUseSessionOnly,
+  launchCloudflareSessionOnly,
+  SharedAuthStateRejectedError,
+  WRITER_REAUTH_MESSAGE,
+  WRITER_TEMPORARY_MESSAGE,
+} from "@/lib/shared-session-launch.server";
 import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
@@ -72,9 +78,39 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       await (admin as any).from("tool_usage").insert({ tool_slug: data.tool_slug, user_id: context.userId });
       return { ok: true, status: "ready" as const, provider: launched.provider, launch_url: launched.liveUrl, expires_at: launched.expiresAt };
     } catch (e) {
-      await (admin as any).from("tool_account_sessions").update({ verification_status: "invalid" }).eq("account_id", accountId).eq("provider", provider);
-      await (admin as any).from("browser_auth_sessions").update({ status: "failed", error_code: "admin_reauth_required", updated_at: new Date().toISOString() }).eq("id", auditRow.id);
-      await (admin as any).from("browser_auth_otp_audit").insert({ session_id: auditRow.id, account_id: accountId, event: "shared_session_rejected", otp_type: "session_reuse", error_message: "Saved authentication rejected by upstream", submitted_by: saved.created_by });
-      throw new Error(WRITER_REAUTH_MESSAGE);
+      if (e instanceof SharedAuthStateRejectedError) {
+        await (admin as any)
+          .from("tool_account_sessions")
+          .update({ verification_status: "invalid" })
+          .eq("account_id", accountId)
+          .eq("provider", provider);
+        await (admin as any)
+          .from("browser_auth_sessions")
+          .update({
+            status: "failed",
+            error_code: "admin_reauth_required",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", auditRow.id);
+        await (admin as any).from("browser_auth_otp_audit").insert({
+          session_id: auditRow.id,
+          account_id: accountId,
+          event: "shared_session_rejected",
+          otp_type: "session_reuse",
+          error_message: "Saved authentication rejected by upstream",
+          submitted_by: saved.created_by,
+        });
+        throw new Error(WRITER_REAUTH_MESSAGE);
+      }
+
+      await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          status: "failed",
+          error_code: "browser_provider_unavailable",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", auditRow.id);
+      throw new Error(WRITER_TEMPORARY_MESSAGE);
     }
   });
