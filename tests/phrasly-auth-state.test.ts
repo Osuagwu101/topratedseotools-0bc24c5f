@@ -2,7 +2,7 @@
  * Phrasly shared-auth state-machine regression tests.
  * Run: bun tests/phrasly-auth-state.test.ts
  */
-import { waitForAuthOrOtp } from "../src/lib/browser-auth-session.server";
+import { waitForAuthOrOtp, waitForAuthenticatedPage } from "../src/lib/browser-auth-session.server";
 import type { CdpClient } from "../src/lib/browser-auth.server";
 
 let passed = 0;
@@ -91,6 +91,32 @@ console.log("phrasly-auth-state");
   assert(
     result.status === "timeout" && !result.observedPage,
     "provider/CDP failure is distinguishable from an upstream auth rejection",
+  );
+}
+
+// 5. A correct OTP may leave the challenge visible briefly before redirecting.
+{
+  const mock = new MockCdp([
+    { result: { value: { detected: true, type: "email" } } },
+    { result: { value: { detected: false } } },
+    {
+      result: {
+        value: {
+          authenticated: true,
+          url: "https://phrasly.ai/dashboard",
+          title: "Phrasly",
+        },
+      },
+    },
+  ]);
+  const result = await waitForAuthenticatedPage(
+    mock as unknown as CdpClient,
+    undefined,
+    1_500,
+  );
+  assert(
+    result.authenticated,
+    "post-OTP verification waits through a transient challenge before accepting redirect",
   );
 }
 
