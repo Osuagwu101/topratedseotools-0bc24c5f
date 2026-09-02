@@ -68,13 +68,18 @@ export function injectSessionCookiesExpression(cookies: Array<{ name: string; va
 
 export function checkAuthenticationStatusExpression(): string {
   return `(() => {
-    const url=window.location.href.toLowerCase(), text=document.body.innerText.toLowerCase();
-    const loginKeywords=['sign in','login','log in','sign up','create account','enter password'];
-    const protectedKeywords=['dashboard','workspace','account','settings','profile'];
-    const onLoginPage=loginKeywords.some(k=>url.includes(k)||text.includes(k));
-    const onProtectedPage=protectedKeywords.some(k=>url.includes(k)||text.includes(k));
-    const errorElements=document.querySelectorAll('[role="alert"], .error, .alert-danger');
-    const hasError=errorElements.length>0||text.includes('invalid')||text.includes('failed');
-    return {authenticated:!onLoginPage&&onProtectedPage&&!hasError,onLoginPage,onProtectedPage,hasError,url,title:document.title};
+    const url=window.location.href.toLowerCase();
+    const path=window.location.pathname.toLowerCase();
+    const text=document.body?.innerText?.toLowerCase()||'';
+    const visible=(el)=>!!el&&!el.disabled&&el.getClientRects().length>0;
+    const visiblePassword=Array.from(document.querySelectorAll('input[type="password"], input[autocomplete="current-password"]')).some(visible);
+    const visibleEmail=Array.from(document.querySelectorAll('input[type="email"], input[autocomplete="username"]')).some(visible);
+    const loginPath=/(^|\\/)(login|signin|sign-in|register|signup|sign-up|auth)(\\/|$)/.test(path);
+    const loginForm=visiblePassword&&(visibleEmail||Array.from(document.querySelectorAll('button,input[type="submit"]')).some(el=>/sign in|log in|login/i.test(String(el.innerText||el.value||''))));
+    const protectedPath=/(^|\\/)(dashboard|workspace|account|settings|profile|humanizer|documents|editor)(\\/|$)/.test(path);
+    const accountUi=!!document.querySelector('[href*="/account"], [href*="/settings"], [href*="/profile"], [data-testid*="account" i], [aria-label*="account" i]');
+    const authError=Array.from(document.querySelectorAll('[role="alert"], .error, .alert-danger')).some(el=>visible(el)&&/invalid|incorrect|failed|expired|unauthorized/i.test(String(el.textContent||'')));
+    const authenticated=!loginPath&&!loginForm&&!authError&&(protectedPath||accountUi);
+    return {authenticated,onLoginPage:loginPath||loginForm,onProtectedPage:protectedPath||accountUi,hasError:authError,url,title:document.title};
   })()`;
 }
