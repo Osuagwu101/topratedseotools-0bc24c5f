@@ -274,6 +274,8 @@ async function injectLogin(
   password: string,
   sessionId?: string,
 ) {
+  const { detectOtpExpression } = await import("@/lib/browser-auth-otp.server");
+
   await client.send("Page.enable", {}, sessionId);
   await client.send("Runtime.enable", {}, sessionId);
   await client.send("Page.navigate", { url: loginUrl }, sessionId);
@@ -301,6 +303,23 @@ async function injectLogin(
   if (stage === "submitted") {
     await delay(1800);
     await waitForDocument(client, sessionId);
+
+    // Check for OTP/2FA requirement after login submission
+    const otpCheck = await client.send(
+      "Runtime.evaluate",
+      { expression: detectOtpExpression(), returnByValue: true },
+      sessionId,
+    ).catch(() => ({ result: { value: { detected: false } } }));
+
+    const otpDetected = otpCheck?.result?.value?.detected;
+    if (otpDetected) {
+      return {
+        submitted: true,
+        stage: "otp_detected",
+        otp_type: otpCheck?.result?.value?.type,
+        otp_field_selector: otpCheck?.result?.value?.fieldSelector,
+      };
+    }
   }
 
   return { submitted: stage === "submitted", stage: stage ?? "unknown" };
@@ -325,10 +344,18 @@ export interface RemoteBrowserLaunch {
   automationSubmitted: boolean;
 }
 
+export interface RemoteBrowserLaunchWithOtp extends RemoteBrowserLaunch {
+  otp_status?: {
+    detected: boolean;
+    type?: string;
+    field_selector?: string;
+  };
+}
+
 export async function launchBrowserUse(
   admin: any,
   input: { loginUrl: string; username: string; password: string; timeoutMinutes: number },
-): Promise<RemoteBrowserLaunch> {
+): Promise<RemoteBrowserLaunchWithOtp> {
   const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
   if (!key) throw new Error("Browser Use is not configured. Contact Admin.");
 
@@ -364,6 +391,24 @@ export async function launchBrowserUse(
     if (!automation.submitted) {
       throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
     }
+
+    // Check if OTP was detected
+    const otpDetected = (automation as any).stage === "otp_detected";
+    if (otpDetected) {
+      return {
+        provider: "browser_use",
+        providerSessionId: String(browser.id),
+        liveUrl: String(browser.liveUrl),
+        expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
+        automationSubmitted: true,
+        otp_status: {
+          detected: true,
+          type: (automation as any).otp_type,
+          field_selector: (automation as any).otp_field_selector,
+        },
+      };
+    }
+
     return {
       provider: "browser_use",
       providerSessionId: String(browser.id),
@@ -382,7 +427,7 @@ export async function launchBrowserUse(
 export async function launchCloudflare(
   admin: any,
   input: { loginUrl: string; username: string; password: string; timeoutMinutes: number },
-): Promise<RemoteBrowserLaunch> {
+): Promise<RemoteBrowserLaunchWithOtp> {
   const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
   const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
   if (!accountId || !token) throw new Error("Cloudflare Browser Run is not configured. Contact Admin.");
@@ -406,6 +451,24 @@ export async function launchCloudflare(
     if (!automation.submitted) {
       throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
     }
+
+    // Check if OTP was detected
+    const otpDetected = (automation as any).stage === "otp_detected";
+    if (otpDetected) {
+      return {
+        provider: "cloudflare",
+        providerSessionId: String(browser.sessionId),
+        liveUrl: String(target.devtoolsFrontendUrl ?? ""),
+        expiresAt: new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+        automationSubmitted: true,
+        otp_status: {
+          detected: true,
+          type: (automation as any).otp_type,
+          field_selector: (automation as any).otp_field_selector,
+        },
+      };
+    }
+
     let liveUrl = String(target.devtoolsFrontendUrl ?? "");
     try {
       const view = await cdp.send("Cloudflare.getLiveView", {

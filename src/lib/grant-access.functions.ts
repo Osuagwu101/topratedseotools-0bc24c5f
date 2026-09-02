@@ -179,6 +179,34 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
         throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
       }
 
+      // Check if OTP/2FA is required
+      if ((launched as any).otp_status?.detected) {
+        await (admin as any)
+          .from("browser_auth_sessions")
+          .update({
+            status: "awaiting_otp",
+            provider_session_id: launched.providerSessionId,
+            otp_context: {
+              detected_type: (launched as any).otp_status.type || "unknown",
+              detected_at: new Date().toISOString(),
+              field_selector: (launched as any).otp_status.field_selector,
+              attempt_count: 0,
+            },
+            expires_at: launched.expiresAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", auditRow.id);
+
+        return {
+          ok: false,
+          status: "awaiting_otp",
+          session_id: auditRow.id,
+          otp_type: (launched as any).otp_status.type || "unknown",
+          message: `${(launched as any).otp_status.type || "OTP"} verification required. Please enter the code.`,
+          expires_at: launched.expiresAt,
+        };
+      }
+
       await (admin as any)
         .from("browser_auth_sessions")
         .update({
