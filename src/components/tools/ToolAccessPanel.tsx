@@ -69,10 +69,8 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
     staleTime: 30_000,
   });
 
-  const hasPaidAccess =
-    accessData?.access.some((a) => a.tool_slug === tool.slug) ?? false;
-  const hasGrant =
-    grantData?.grants.some((g) => g.tool_slug === tool.slug) ?? false;
+  const hasPaidAccess = accessData?.access.some((a) => a.tool_slug === tool.slug) ?? false;
+  const hasGrant = grantData?.grants.some((g) => g.tool_slug === tool.slug) ?? false;
   const hasAccess = hasPaidAccess || hasGrant;
 
   const state = resolveState(effective.enabled, effective.access_level, isAuthenticated, hasAccess);
@@ -138,16 +136,15 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>
-                <strong>Shared Access:</strong> access is activated after payment
-                confirmation, subject to availability.
+                <strong>Shared Access:</strong> access is activated after payment confirmation,
+                subject to availability.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>
-                <strong>Private Access:</strong> after payment confirmation your
-                order is marked pending fulfilment. Contact Admin on WhatsApp to
-                complete the account assignment.
+                <strong>Private Access:</strong> after payment confirmation your order is marked
+                pending fulfilment. Contact Admin on WhatsApp to complete the account assignment.
               </span>
             </li>
             <li className="flex items-start gap-2">
@@ -214,6 +211,7 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
               otpType={otpState.otpType}
               message={otpState.message}
               expiresAt={otpState.expiresAt}
+              adminMode={false}
               onSuccess={() => {
                 setOtpModalOpen(false);
                 setOtpState(null);

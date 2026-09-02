@@ -15,7 +15,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Eye, EyeOff, Plus, Save, Trash2, AlertTriangle, Users2, ArrowRightLeft, Activity,
+  Eye,
+  EyeOff,
+  Plus,
+  Save,
+  Trash2,
+  AlertTriangle,
+  Users2,
+  ArrowRightLeft,
+  Activity,
 } from "lucide-react";
 import {
   adminListAccountsForTool,
@@ -28,6 +36,7 @@ import {
 } from "@/lib/account-pool.functions";
 import { getToolAccountSummary } from "@/lib/access-health.functions";
 import { Link } from "@tanstack/react-router";
+import { AdminOtpQueue } from "@/components/admin/AdminOtpQueue";
 
 const accountsQuery = (slug: string) =>
   queryOptions({
@@ -58,13 +67,13 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-6">
+      <AdminOtpQueue toolSlug={slug} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Accounts & Capacity</h2>
           <p className="text-sm text-muted-foreground">
-            Add unlimited login accounts. Customers get auto-assigned to the
-            account with the most availability. Private accounts always have
-            capacity 1.
+            Add unlimited login accounts. Customers get auto-assigned to the account with the most
+            availability. Private accounts always have capacity 1.
           </p>
         </div>
         <button
@@ -77,12 +86,13 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
 
       {summary && <SummaryPanel slug={slug} summary={summary} />}
 
-
-
       {showNew && (
         <AccountForm
           slug={slug}
-          onDone={() => { setShowNew(false); refresh(); }}
+          onDone={() => {
+            setShowNew(false);
+            refresh();
+          }}
           onCancel={() => setShowNew(false)}
         />
       )}
@@ -96,12 +106,27 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
 type SummaryShape = NonNullable<Awaited<ReturnType<typeof getToolAccountSummary>>["summary"]>;
 
 function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }) {
-  const items: Array<{ label: string; value: number; tone?: string; to?: any; search?: any; hash?: string }> = [
+  const items: Array<{
+    label: string;
+    value: number;
+    tone?: string;
+    to?: any;
+    search?: any;
+    hash?: string;
+  }> = [
     { label: "Total accounts", value: summary.totalAccounts },
     { label: "Healthy", value: summary.healthy, tone: "text-emerald-600" },
-    { label: "Almost full", value: summary.almostFull, tone: summary.almostFull > 0 ? "text-amber-600" : undefined },
+    {
+      label: "Almost full",
+      value: summary.almostFull,
+      tone: summary.almostFull > 0 ? "text-amber-600" : undefined,
+    },
     { label: "Full", value: summary.full, tone: summary.full > 0 ? "text-red-600" : undefined },
-    { label: "Unhealthy", value: summary.unhealthy, tone: summary.unhealthy > 0 ? "text-red-600" : undefined },
+    {
+      label: "Unhealthy",
+      value: summary.unhealthy,
+      tone: summary.unhealthy > 0 ? "text-red-600" : undefined,
+    },
     { label: "Total capacity", value: summary.totalCapacity },
     { label: "Active assignments", value: summary.assigned },
     { label: "Available spaces", value: summary.available },
@@ -111,7 +136,11 @@ function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }
       tone: summary.awaiting > 0 ? "text-amber-600" : undefined,
       to: "/admin/awaiting-assignments" as const,
     },
-    { label: "Expiring soon", value: summary.expiringSoon, tone: summary.expiringSoon > 0 ? "text-amber-600" : undefined },
+    {
+      label: "Expiring soon",
+      value: summary.expiringSoon,
+      tone: summary.expiringSoon > 0 ? "text-amber-600" : undefined,
+    },
     {
       label: "Needs capacity review",
       value: (summary as any).needsReview ?? 0,
@@ -136,8 +165,12 @@ function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }
         {items.map((it) => {
           const content = (
             <div className="rounded-lg border bg-background p-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{it.label}</div>
-              <div className={`mt-0.5 text-lg font-semibold tabular-nums ${it.tone ?? ""}`}>{it.value}</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {it.label}
+              </div>
+              <div className={`mt-0.5 text-lg font-semibold tabular-nums ${it.tone ?? ""}`}>
+                {it.value}
+              </div>
             </div>
           );
           if (it.to) {
@@ -154,9 +187,10 @@ function SummaryPanel({ slug, summary }: { slug: string; summary: SummaryShape }
   );
 }
 
-
 function AccountGroup({
-  title, accounts, onChange,
+  title,
+  accounts,
+  onChange,
 }: {
   title: string;
   accounts: ToolAccountWithUsage[];
@@ -183,7 +217,8 @@ function AccountGroup({
 }
 
 function AccountRow({
-  account, onChange,
+  account,
+  onChange,
 }: {
   account: ToolAccountWithUsage;
   onChange: () => void;
@@ -193,8 +228,7 @@ function AccountRow({
   const [showAssigns, setShowAssigns] = useState(false);
 
   const pct = account.fill_pct;
-  const barColor =
-    pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
+  const barColor = pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
   const healthColor =
     account.status === "working"
       ? "bg-success/15 text-success"
@@ -210,7 +244,9 @@ function AccountRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <div className="truncate text-sm font-semibold">{account.label}</div>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${healthColor}`}>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${healthColor}`}
+            >
               {account.status.replace(/_/g, " ")}
             </span>
             {!account.enabled && (
@@ -262,10 +298,19 @@ function AccountRow({
         <button
           onClick={async () => {
             try {
-              await upsert({ data: { id: account.id, tool_slug: account.tool_slug, access_type: account.access_type, enabled: !account.enabled } });
+              await upsert({
+                data: {
+                  id: account.id,
+                  tool_slug: account.tool_slug,
+                  access_type: account.access_type,
+                  enabled: !account.enabled,
+                },
+              });
               toast.success(account.enabled ? "Account disabled" : "Account enabled");
               onChange();
-            } catch (e: any) { toast.error(e.message); }
+            } catch (e: any) {
+              toast.error(e.message);
+            }
           }}
           className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
         >
@@ -273,13 +318,18 @@ function AccountRow({
         </button>
         <button
           onClick={async () => {
-            const result = window.prompt("Health check result: working | login_failed | password_changed | suspended | expired | tool_unavailable | other", "working");
+            const result = window.prompt(
+              "Health check result: working | login_failed | password_changed | suspended | expired | tool_unavailable | other",
+              "working",
+            );
             if (!result) return;
             try {
               await health({ data: { account_id: account.id, result: result as any } });
               toast.success("Health check recorded");
               onChange();
-            } catch (e: any) { toast.error(e.message); }
+            } catch (e: any) {
+              toast.error(e.message);
+            }
           }}
           className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
         >
@@ -287,12 +337,15 @@ function AccountRow({
         </button>
         <button
           onClick={async () => {
-            if (!window.confirm("Delete this account? Only allowed if no active customers.")) return;
+            if (!window.confirm("Delete this account? Only allowed if no active customers."))
+              return;
             try {
               await remove({ data: { id: account.id } });
               toast.success("Account deleted");
               onChange();
-            } catch (e: any) { toast.error(e.message); }
+            } catch (e: any) {
+              toast.error(e.message);
+            }
           }}
           className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/5"
         >
@@ -317,7 +370,10 @@ function AccountRow({
           <AccountForm
             slug={account.tool_slug}
             existing={account}
-            onDone={() => { setEdit(false); onChange(); }}
+            onDone={() => {
+              setEdit(false);
+              onChange();
+            }}
             onCancel={() => setEdit(false)}
           />
         </div>
@@ -338,7 +394,10 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 function AccountForm({
-  slug, existing, onDone, onCancel,
+  slug,
+  existing,
+  onDone,
+  onCancel,
 }: {
   slug: string;
   existing?: ToolAccountWithUsage;
@@ -361,9 +420,7 @@ function AccountForm({
 
   return (
     <div className="rounded-xl border bg-muted/30 p-4">
-      <div className="mb-2 text-sm font-semibold">
-        {existing ? "Edit account" : "New account"}
-      </div>
+      <div className="mb-2 text-sm font-semibold">{existing ? "Edit account" : "New account"}</div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">Label</span>
@@ -391,19 +448,35 @@ function AccountForm({
         </label>
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">Login email</span>
-          <input className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={f.login_email} onChange={(e) => setF({ ...f, login_email: e.target.value })} />
+          <input
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={f.login_email}
+            onChange={(e) => setF({ ...f, login_email: e.target.value })}
+          />
         </label>
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">Password</span>
-          <input className="w-full rounded-md border bg-background px-2 py-1.5 text-sm font-mono" value={f.login_password} onChange={(e) => setF({ ...f, login_password: e.target.value })} />
+          <input
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm font-mono"
+            value={f.login_password}
+            onChange={(e) => setF({ ...f, login_password: e.target.value })}
+          />
         </label>
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">Login URL</span>
-          <input className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={f.login_url} onChange={(e) => setF({ ...f, login_url: e.target.value })} />
+          <input
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={f.login_url}
+            onChange={(e) => setF({ ...f, login_url: e.target.value })}
+          />
         </label>
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">One-click login URL</span>
-          <input className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={f.one_click_login_url} onChange={(e) => setF({ ...f, one_click_login_url: e.target.value })} />
+          <input
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={f.one_click_login_url}
+            onChange={(e) => setF({ ...f, one_click_login_url: e.target.value })}
+          />
         </label>
         <label className="text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">Max capacity</span>
@@ -427,11 +500,18 @@ function AccountForm({
         </label>
         <label className="text-xs sm:col-span-2">
           <span className="mb-1 block font-medium text-muted-foreground">Notes</span>
-          <textarea rows={2} className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={f.login_notes} onChange={(e) => setF({ ...f, login_notes: e.target.value })} />
+          <textarea
+            rows={2}
+            className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={f.login_notes}
+            onChange={(e) => setF({ ...f, login_notes: e.target.value })}
+          />
         </label>
       </div>
       <div className="mt-3 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-md border px-3 py-1.5 text-xs">Cancel</button>
+        <button onClick={onCancel} className="rounded-md border px-3 py-1.5 text-xs">
+          Cancel
+        </button>
         <button
           disabled={saving}
           onClick={async () => {
@@ -454,8 +534,11 @@ function AccountForm({
               });
               toast.success(existing ? "Account updated" : "Account created");
               onDone();
-            } catch (e: any) { toast.error(e.message); }
-            finally { setSaving(false); }
+            } catch (e: any) {
+              toast.error(e.message);
+            } finally {
+              setSaving(false);
+            }
           }}
           className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
@@ -467,7 +550,8 @@ function AccountForm({
 }
 
 function AssignmentsPanel({
-  account, onChange,
+  account,
+  onChange,
 }: {
   account: ToolAccountWithUsage;
   onChange: () => void;
@@ -501,14 +585,21 @@ function AssignmentsPanel({
         {active.length} active customer{active.length === 1 ? "" : "s"}
       </div>
       {active.length === 0 ? (
-        <div className="mt-2 text-xs text-muted-foreground">No active customers on this account.</div>
+        <div className="mt-2 text-xs text-muted-foreground">
+          No active customers on this account.
+        </div>
       ) : (
         <ul className="mt-2 space-y-2">
           {active.map((a: any) => (
-            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs">
+            <li
+              key={a.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
+            >
               <div className="min-w-0">
                 <div className="truncate font-medium">{a.profile?.full_name ?? "—"}</div>
-                <div className="truncate text-muted-foreground">{a.profile?.email ?? a.user_id}</div>
+                <div className="truncate text-muted-foreground">
+                  {a.profile?.email ?? a.user_id}
+                </div>
               </div>
               <select
                 defaultValue=""
@@ -517,11 +608,15 @@ function AssignmentsPanel({
                   if (!target) return;
                   const reason = window.prompt("Reason for reassignment? (optional)") ?? undefined;
                   try {
-                    await reassign({ data: { order_id: a.order_id, new_account_id: target, reason } });
+                    await reassign({
+                      data: { order_id: a.order_id, new_account_id: target, reason },
+                    });
                     toast.success("Customer reassigned");
                     qc.invalidateQueries({ queryKey: key });
                     onChange();
-                  } catch (err: any) { toast.error(err.message); }
+                  } catch (err: any) {
+                    toast.error(err.message);
+                  }
                 }}
                 className="rounded-md border bg-background px-2 py-1 text-xs"
               >

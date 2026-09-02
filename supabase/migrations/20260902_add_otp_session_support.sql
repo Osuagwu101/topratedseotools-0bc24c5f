@@ -56,6 +56,8 @@ CREATE INDEX IF NOT EXISTS tool_account_sessions_account_idx
   ON public.tool_account_sessions(account_id, verification_status);
 CREATE INDEX IF NOT EXISTS tool_account_sessions_provider_idx
   ON public.tool_account_sessions(provider, verification_status);
+CREATE UNIQUE INDEX IF NOT EXISTS tool_account_sessions_account_provider_uidx
+  ON public.tool_account_sessions(account_id, provider);
 
 GRANT SELECT, INSERT, UPDATE ON public.tool_account_sessions TO authenticated;
 GRANT ALL ON public.tool_account_sessions TO service_role;

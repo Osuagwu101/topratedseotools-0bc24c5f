@@ -7,14 +7,7 @@
  */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  Check,
-  Clock,
-  Lock,
-  Loader2,
-  X,
-} from "lucide-react";
+import { AlertCircle, Check, Clock, Lock, Loader2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +32,7 @@ interface OtpVerificationModalProps {
   onSuccess?: () => void;
   onError?: (error: string) => void;
   onCancel?: () => void;
+  adminMode?: boolean;
 }
 
 export function OtpVerificationModal({
@@ -50,6 +44,7 @@ export function OtpVerificationModal({
   onSuccess,
   onError,
   onCancel,
+  adminMode = false,
 }: OtpVerificationModalProps) {
   const [otpCode, setOtpCode] = useState("");
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -83,7 +78,8 @@ export function OtpVerificationModal({
       }
     },
     onError: (error) => {
-      const errorMsg = error instanceof Error ? error.message : "Failed to verify OTP. Please try again.";
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to verify OTP. Please try again.";
       setLastError(errorMsg);
       toast.error(errorMsg);
       if (onError) onError(errorMsg);
@@ -126,6 +122,13 @@ export function OtpVerificationModal({
       if (onCancel) onCancel();
     }
   }, [timeRemaining, open, statusData?.timed_out, onCancel]);
+
+  useEffect(() => {
+    if (open && statusData?.status === "ready") {
+      toast.success("Phrasly verification completed. Launch again to use the saved session.");
+      onSuccess?.();
+    }
+  }, [open, statusData?.status, onSuccess]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -176,26 +179,32 @@ export function OtpVerificationModal({
             )}
           </div>
 
-          {/* Code Input */}
-          <div className="space-y-2">
-            <label htmlFor="otp-code" className="text-sm font-medium">
-              Enter Code
-            </label>
-            <input
-              id="otp-code"
-              type="text"
-              inputMode="numeric"
-              placeholder="000000"
-              maxLength={20}
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.toUpperCase())}
-              disabled={isLoading || isExpired}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter numbers, letters, or dashes as shown
-            </p>
-          </div>
+          {/* Code Input (admin only) */}
+          {adminMode ? (
+            <div className="space-y-2">
+              <label htmlFor="otp-code" className="text-sm font-medium">
+                Enter Code
+              </label>
+              <input
+                id="otp-code"
+                type="text"
+                inputMode="numeric"
+                placeholder="000000"
+                maxLength={20}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.toUpperCase())}
+                disabled={isLoading || isExpired}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter numbers, letters, or dashes as shown
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              An administrator has been notified. Keep this window open while they enter the code.
+            </div>
+          )}
 
           {/* Timer and Status */}
           <div className="space-y-2">
@@ -212,7 +221,10 @@ export function OtpVerificationModal({
             {/* Status Message */}
             {statusData && (
               <div className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
-                <p>Session Status: <span className="capitalize font-medium">{statusData.status}</span></p>
+                <p>
+                  Session Status:{" "}
+                  <span className="capitalize font-medium">{statusData.status}</span>
+                </p>
                 {statusData.error && (
                   <p className="mt-1 flex items-start gap-1 text-destructive">
                     <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
@@ -237,41 +249,51 @@ export function OtpVerificationModal({
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium">Session Expired</p>
-                  <p className="text-xs mt-1">The OTP window has closed. Please try launching again.</p>
+                  <p className="text-xs mt-1">
+                    The OTP window has closed. Please try launching again.
+                  </p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => cancelMutation.mutate()}
-              disabled={isLoading || isExpired}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => submitMutation.mutate(otpCode)}
-              disabled={!isValid || isLoading || isExpired}
-            >
-              {submitMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Verifying…
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Verify
-                </>
-              )}
-            </Button>
-          </div>
+          {adminMode ? (
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => cancelMutation.mutate()}
+                disabled={isLoading || isExpired}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => submitMutation.mutate(otpCode)}
+                disabled={!isValid || isLoading || isExpired}
+              >
+                {submitMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Verifying…
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Verify
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Close
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

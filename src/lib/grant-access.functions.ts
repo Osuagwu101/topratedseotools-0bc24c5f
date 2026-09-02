@@ -123,7 +123,10 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
     }
     if (loginUrl.protocol !== "https:") throw new Error("The configured login URL must use HTTPS.");
 
-    const provider = validProvider(toolSetting.auth_provider) ?? validProvider(global.default_provider) ?? "browser_use";
+    const provider =
+      validProvider(toolSetting.auth_provider) ??
+      validProvider(global.default_provider) ??
+      "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
@@ -133,7 +136,9 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .gte("created_at", fiveMinutesAgo);
     if ((count ?? 0) >= 3) {
-      throw new Error("Too many One-Click Login attempts. Please wait a few minutes and try again.");
+      throw new Error(
+        "Too many One-Click Login attempts. Please wait a few minutes and try again.",
+      );
     }
 
     const { data: auditRow, error: insertError } = await (admin as any)
@@ -162,23 +167,24 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
         .eq("verification_status", "active")
         .maybeSingle();
 
-      if (existingSession?.authenticated_cookies && existingSession?.verification_status === "active") {
+      if (
+        existingSession?.authenticated_cookies &&
+        existingSession?.verification_status === "active"
+      ) {
         const sessionExpiry = new Date(existingSession.expires_at).getTime();
 
         if (sessionExpiry <= Date.now()) {
           // Session has expired - deny access and notify admin
-          await (admin as any)
-            .from("browser_auth_otp_audit")
-            .insert({
-              session_id: auditRow.id,
-              event: "session_expired_on_reuse",
-              otp_type: "session_reuse",
-              error_message: "Captured session expired",
-              submitted_by: existingSession.created_by,
-            });
+          await (admin as any).from("browser_auth_otp_audit").insert({
+            session_id: auditRow.id,
+            event: "session_expired_on_reuse",
+            otp_type: "session_reuse",
+            error_message: "Captured session expired",
+            submitted_by: existingSession.created_by,
+          });
 
           throw new Error(
-            "The admin's captured session has expired. Please contact the administrator to re-authenticate and capture a new session."
+            "The admin's captured session has expired. Please contact the administrator to re-authenticate and capture a new session.",
           );
         }
 
@@ -188,21 +194,22 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
           .map((c: any) => ({ name: c.name, value: c.value }));
       }
 
-      const launched = provider === "cloudflare"
-        ? await launchCloudflare(admin, {
-            loginUrl: loginUrl.toString(),
-            username,
-            password,
-            timeoutMinutes,
-            capturedCookies,
-          })
-        : await launchBrowserUse(admin, {
-            loginUrl: loginUrl.toString(),
-            username,
-            password,
-            timeoutMinutes,
-            capturedCookies,
-          });
+      const launched =
+        provider === "cloudflare"
+          ? await launchCloudflare(admin, {
+              loginUrl: loginUrl.toString(),
+              username,
+              password,
+              timeoutMinutes,
+              capturedCookies,
+            })
+          : await launchBrowserUse(admin, {
+              loginUrl: loginUrl.toString(),
+              username,
+              password,
+              timeoutMinutes,
+              capturedCookies,
+            });
 
       if (!launched.automationSubmitted) {
         await (admin as any)
@@ -220,15 +227,13 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
       // Check if OTP/2FA is required
       if ((launched as any).otp_status?.detected) {
         // Audit OTP detection
-        await (admin as any)
-          .from("browser_auth_otp_audit")
-          .insert({
-            session_id: auditRow.id,
-            account_id: null,
-            event: "otp_detected",
-            otp_type: (launched as any).otp_status.type || "unknown",
-            submitted_by: context.userId,
-          });
+        await (admin as any).from("browser_auth_otp_audit").insert({
+          session_id: auditRow.id,
+          account_id: null,
+          event: "otp_detected",
+          otp_type: (launched as any).otp_status.type || "unknown",
+          submitted_by: context.userId,
+        });
 
         await (admin as any)
           .from("browser_auth_sessions")
@@ -240,6 +245,7 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
               detected_at: new Date().toISOString(),
               field_selector: (launched as any).otp_status.field_selector,
               attempt_count: 0,
+              account_id: account.id,
             },
             expires_at: launched.expiresAt,
             updated_at: new Date().toISOString(),

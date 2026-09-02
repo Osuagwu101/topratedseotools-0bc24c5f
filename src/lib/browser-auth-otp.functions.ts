@@ -20,6 +20,8 @@ import {
   reconnectCloudflareSession,
 } from "@/lib/browser-auth.server";
 
+class RetryableOtpError extends Error {}
+
 /**
  * Admin submits OTP code for a paused browser session.
  * Resumes automation, waits for login to complete, captures session state.
@@ -27,10 +29,12 @@ import {
 export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      session_id: z.string().uuid(),
-      otp_code: z.string().trim().min(1).max(20),
-    }).parse(input),
+    z
+      .object({
+        session_id: z.string().uuid(),
+        otp_code: z.string().trim().min(1).max(20),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
@@ -38,7 +42,9 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
     // Load the paused session
     const { data: session, error: sessionError } = await (admin as any)
       .from("browser_auth_sessions")
-      .select("id, user_id, order_id, tool_slug, provider, provider_session_id, status, expires_at, otp_context")
+      .select(
+        "id, user_id, order_id, tool_slug, provider, provider_session_id, status, expires_at, otp_context",
+      )
       .eq("id", data.session_id)
       .eq("status", "awaiting_otp")
       .maybeSingle();
@@ -48,6 +54,14 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
 
     const sess = session as any;
     const otpCtx = (sess.otp_context ?? {}) as any;
+
+    if (new Date(sess.expires_at).getTime() <= Date.now()) {
+      await (admin as any)
+        .from("browser_auth_sessions")
+        .update({ status: "expired", otp_submission_error: "OTP session expired" })
+        .eq("id", data.session_id);
+      throw new Error("The OTP session has expired. Please launch Phrasly again.");
+    }
 
     // Verify admin is authorized (must be admin)
     const isAdmin = await (admin as any)
@@ -70,81 +84,53 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
 
       if (!cdp) {
         throw new Error(
-          `Could not reconnect to ${sess.provider} session. Session may have expired. Please try launching again.`
+          `Could not reconnect to ${sess.provider} session. Session may have expired. Please try launching again.`,
         );
       }
 
       // Submit OTP code
       let submitResult: any;
       try {
-        submitResult = await cdp.send(
-          "Runtime.evaluate",
-          {
-            expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
-            returnByValue: true,
-            awaitPromise: true,
-          }
-        );
+        submitResult = await cdp.send("Runtime.evaluate", {
+          expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
+          returnByValue: true,
+          awaitPromise: true,
+        });
       } catch (e: any) {
         submitResult = {
           result: {
-            value: { success: false, error: e.message }
-          }
+            value: { success: false, error: e.message },
+          },
         };
       }
 
       if (!submitResult?.result?.value?.success) {
-        // Log failure
-        await (admin as any)
-          .from("browser_auth_otp_audit")
-          .insert({
-            session_id: data.session_id,
-            account_id: null,
-            event: "otp_rejected",
-            otp_type: otpCtx.detected_type,
-            error_message: submitResult?.result?.value?.error || "OTP submission failed",
-            submitted_by: context.userId,
-          });
-
-        throw new Error(
-          `OTP submission failed: ${submitResult?.result?.value?.error || "Unknown error"}`
+        throw new RetryableOtpError(
+          `OTP submission failed: ${submitResult?.result?.value?.error || "Unknown error"}`,
         );
       }
 
       // Wait for login to complete (2 seconds, then check auth status)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Verify login succeeded
-      const authCheck = await cdp?.send(
-        "Runtime.evaluate",
-        {
-          expression: checkAuthenticationStatusExpression(),
-          returnByValue: true,
-          awaitPromise: true,
-        }
-      );
+      const authCheck = await cdp?.send("Runtime.evaluate", {
+        expression: checkAuthenticationStatusExpression(),
+        returnByValue: true,
+        awaitPromise: true,
+      });
 
       const authStatus = authCheck?.result?.value as any;
       if (!authStatus?.authenticated) {
-        await (admin as any)
-          .from("browser_auth_otp_audit")
-          .insert({
-            session_id: data.session_id,
-            account_id: null,
-            event: "otp_accepted",
-            otp_type: otpCtx.detected_type,
-            error_message: "OTP accepted but login verification failed",
-            submitted_by: context.userId,
-          });
-
-        throw new Error("OTP accepted but login verification failed. Still on login page.");
+        throw new RetryableOtpError("OTP was not accepted or login verification did not complete.");
       }
 
       // Capture authenticated session state
       const sessionState = await captureSessionStateThroughCdp(cdp);
 
       // Store authenticated session for reuse
-      if (sess.order_id) {
+      let accountId = otpCtx.account_id as string | undefined;
+      if (!accountId && sess.order_id) {
         const { data: order } = await (admin as any)
           .from("tool_orders")
           .select("id")
@@ -160,25 +146,28 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
             .maybeSingle();
 
           if (accountAssignment) {
-            // Save authenticated session
-            await (admin as any)
-              .from("tool_account_sessions")
-              .upsert({
-                account_id: accountAssignment.account_id,
-                provider: sess.provider,
-                provider_session_id: sess.provider_session_id,
-                authenticated_cookies: sessionState.authenticated_cookies,
-                session_tokens: sessionState.session_tokens,
-                auth_headers: sessionState.auth_headers,
-                last_verified_at: new Date().toISOString(),
-                verification_status: "active",
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                created_by: context.userId,
-              }, {
-                onConflict: "account_id"
-              });
+            accountId = accountAssignment.account_id;
           }
         }
+      }
+
+      if (accountId) {
+        // Save authenticated session for both paid-order and admin-grant flows.
+        await (admin as any).from("tool_account_sessions").upsert(
+          {
+            account_id: accountId,
+            provider: sess.provider,
+            provider_session_id: sess.provider_session_id,
+            authenticated_cookies: sessionState.authenticated_cookies,
+            session_tokens: sessionState.session_tokens,
+            auth_headers: sessionState.auth_headers,
+            last_verified_at: new Date().toISOString(),
+            verification_status: "active",
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+            created_by: context.userId,
+          },
+          { onConflict: "account_id,provider" },
+        );
       }
 
       // Mark session as ready
@@ -192,41 +181,47 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         .eq("id", data.session_id);
 
       // Audit success
-      await (admin as any)
-        .from("browser_auth_otp_audit")
-        .insert({
-          session_id: data.session_id,
-          account_id: null,
-          event: "otp_accepted",
-          otp_type: otpCtx.detected_type,
-          submitted_by: context.userId,
-        });
+      await (admin as any).from("browser_auth_otp_audit").insert({
+        session_id: data.session_id,
+        account_id: null,
+        event: "otp_accepted",
+        otp_type: otpCtx.detected_type,
+        submitted_by: context.userId,
+      });
 
       return {
         ok: true,
         message: "OTP accepted. Login successful. Session saved for future use.",
       };
     } catch (err) {
-      await (admin as any)
-        .from("browser_auth_otp_audit")
-        .insert({
-          session_id: data.session_id,
-          account_id: null,
-          event: "otp_rejected",
-          otp_type: otpCtx.detected_type,
-          error_message: err instanceof Error ? err.message : "Unknown error",
-          submitted_by: context.userId,
-        });
+      const attempts = Number(otpCtx.attempt_count ?? 0) + 1;
+      const canRetry =
+        err instanceof RetryableOtpError &&
+        attempts < 3 &&
+        new Date(sess.expires_at).getTime() > Date.now();
+      await (admin as any).from("browser_auth_otp_audit").insert({
+        session_id: data.session_id,
+        account_id: null,
+        event: "otp_rejected",
+        otp_type: otpCtx.detected_type,
+        error_message: err instanceof Error ? err.message : "Unknown error",
+        submitted_by: context.userId,
+      });
 
       await (admin as any)
         .from("browser_auth_sessions")
         .update({
-          status: "failed",
-          otp_submission_error: err instanceof Error ? err.message.slice(0, 500) : "OTP submission failed",
+          status: canRetry ? "awaiting_otp" : "failed",
+          otp_context: { ...otpCtx, attempt_count: attempts },
+          otp_submission_error:
+            err instanceof Error ? err.message.slice(0, 500) : "OTP submission failed",
           updated_at: new Date().toISOString(),
         })
         .eq("id", data.session_id);
 
+      if (canRetry) {
+        throw new Error(`Verification failed. ${3 - attempts} attempt(s) remaining.`);
+      }
       throw err instanceof Error ? err : new Error("OTP submission failed");
     } finally {
       cdp?.close();
@@ -244,7 +239,9 @@ export const getOtpSessionStatus = createServerFn({ method: "GET" })
 
     const { data: session } = await (admin as any)
       .from("browser_auth_sessions")
-      .select("id, user_id, order_id, status, otp_context, otp_submission_error, expires_at, created_at, updated_at")
+      .select(
+        "id, user_id, order_id, status, otp_context, otp_submission_error, expires_at, created_at, updated_at",
+      )
       .eq("id", data.session_id)
       .maybeSingle();
 
@@ -275,6 +272,32 @@ export const getOtpSessionStatus = createServerFn({ method: "GET" })
     };
   });
 
+/** Admin queue of OTP challenges waiting for action, optionally per tool. */
+export const listAwaitingOtpSessions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ tool_slug: z.string().min(1).max(120).optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    const isAdmin = await (admin as any)
+      .rpc("has_role", { _user_id: context.userId, _role: "admin" })
+      .then((r: any) => r.data);
+    if (!isAdmin) throw new Error("Only admins can view OTP sessions.");
+
+    let query = (admin as any)
+      .from("browser_auth_sessions")
+      .select("id, tool_slug, provider, status, otp_context, expires_at, created_at")
+      .eq("status", "awaiting_otp")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (data.tool_slug) query = query.eq("tool_slug", data.tool_slug);
+    const { data: sessions, error } = await query;
+    if (error) throw new Error("Could not load awaiting OTP sessions.");
+    return { sessions: sessions ?? [] };
+  });
+
 /**
  * Admin cancels an OTP-waiting session (gives up on 2FA).
  */
@@ -300,13 +323,11 @@ export const cancelOtpSession = createServerFn({ method: "POST" })
       .eq("id", data.session_id)
       .eq("status", "awaiting_otp");
 
-    await (admin as any)
-      .from("browser_auth_otp_audit")
-      .insert({
-        session_id: data.session_id,
-        event: "otp_timeout",
-        submitted_by: context.userId,
-      });
+    await (admin as any).from("browser_auth_otp_audit").insert({
+      session_id: data.session_id,
+      event: "otp_timeout",
+      submitted_by: context.userId,
+    });
 
     return { ok: true };
   });
