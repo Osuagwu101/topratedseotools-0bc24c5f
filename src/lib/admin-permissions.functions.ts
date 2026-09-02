@@ -6,6 +6,8 @@
  * sensitive actions.
  */
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -21,18 +23,21 @@ function normalizeEmail(e: string) {
   return e.trim().toLowerCase();
 }
 
-type Ctx = { supabase: any; userId: string; claims?: any };
+type AppSupabase = SupabaseClient<Database>;
+type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"];
+type AdminInvitationRow = Database["public"]["Tables"]["admin_invitations"]["Row"];
+type Ctx = { supabase: AppSupabase; userId: string; claims?: Record<string, unknown> };
 
 async function assertActiveAdmin(ctx: Ctx) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: role } = await (supabaseAdmin as any)
+  const { data: role } = await supabaseAdmin
     .from("user_roles")
     .select("is_active, is_super_admin")
     .eq("user_id", ctx.userId)
     .eq("role", "admin")
     .maybeSingle();
   if (!role || role.is_active === false) throw new Error("Forbidden");
-  const { data: acct } = await (supabaseAdmin as any)
+  const { data: acct } = await supabaseAdmin
     .from("admin_accounts")
     .select("user_id")
     .eq("user_id", ctx.userId)
@@ -50,7 +55,7 @@ async function assertPermission(ctx: Ctx, perm: Permission) {
   const r = await assertActiveAdmin(ctx);
   if (r.isSuperAdmin) return;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await (supabaseAdmin as any).rpc("admin_effective_permission", {
+  const { data, error } = await supabaseAdmin.rpc("admin_effective_permission", {
     _uid: ctx.userId,
     _perm: perm,
   });
@@ -72,18 +77,18 @@ async function writeAudit(
   },
 ) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: acct } = await (supabaseAdmin as any)
+  const { data: acct } = await supabaseAdmin
     .from("admin_accounts")
     .select("account_email")
     .eq("user_id", ctx.userId)
     .maybeSingle();
-  const { data: role } = await (supabaseAdmin as any)
+  const { data: role } = await supabaseAdmin
     .from("user_roles")
     .select("is_super_admin")
     .eq("user_id", ctx.userId)
     .eq("role", "admin")
     .maybeSingle();
-  const { error } = await (supabaseAdmin as any).from("admin_activity_log").insert({
+  const { error } = await supabaseAdmin.from("admin_activity_log").insert({
     actor_user_id: ctx.userId,
     actor_email: acct?.account_email ?? null,
     actor_role: role?.is_super_admin ? "super_admin" : "admin",
@@ -95,18 +100,13 @@ async function writeAudit(
   }
 }
 
-/** Detect whether the installed Supabase client supports global sign-out. */
-let _canEndSessionsCache: boolean | null = null;
+/**
+ * Arbitrary-user session revocation is unavailable here.
+ * Supabase sign-out revokes sessions using the user's JWT; this admin surface
+ * stores only the user UUID and intentionally does not persist staff JWTs.
+ */
 async function detectCanEndSessions(): Promise<boolean> {
-  if (_canEndSessionsCache !== null) return _canEndSessionsCache;
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // The signOut admin method: (userId, scope?) — feature detect.
-    _canEndSessionsCache = typeof (supabaseAdmin as any)?.auth?.admin?.signOut === "function";
-  } catch {
-    _canEndSessionsCache = false;
-  }
-  return _canEndSessionsCache;
+  return false;
 }
 
 /* ---------- getMyAdminContext ---------- */
@@ -115,14 +115,14 @@ export const getMyAdminContext = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: role } = await (supabaseAdmin as any)
+    const { data: role } = await supabaseAdmin
       .from("user_roles")
       .select("is_active, is_super_admin")
       .eq("user_id", context.userId)
       .eq("role", "admin")
       .maybeSingle();
     const isActive = !!role && role.is_active !== false;
-    const { data: acct } = await (supabaseAdmin as any)
+    const { data: acct } = await supabaseAdmin
       .from("admin_accounts")
       .select("role_key")
       .eq("user_id", context.userId)
@@ -131,7 +131,7 @@ export const getMyAdminContext = createServerFn({ method: "GET" })
     const isSuperAdmin = isActiveAdmin && !!role?.is_super_admin;
     const overrides: Record<string, boolean> = {};
     if (isActiveAdmin && !isSuperAdmin) {
-      const { data: rows } = await (supabaseAdmin as any)
+      const { data: rows } = await supabaseAdmin
         .from("admin_permissions")
         .select("permission, granted")
         .eq("user_id", context.userId);
@@ -160,27 +160,27 @@ export const listStaff = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: accounts, error } = await (supabaseAdmin as any)
+    const { data: accounts, error } = await supabaseAdmin
       .from("admin_accounts")
       .select("user_id, account_email, full_name, role_key, created_at")
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
-    const ids = (accounts ?? []).map((a: any) => a.user_id);
-    let roles: Record<string, any> = {};
+    const ids = (accounts ?? []).map((a) => a.user_id);
+    let roles: Record<string, UserRoleRow> = {};
     const overrides: Record<string, Record<string, boolean>> = {};
-    const invitations: Record<string, any> = {};
+    const invitations: Record<string, AdminInvitationRow> = {};
     const lastSignInMap: Record<string, string | null> = {};
     const mustChangeMap: Record<string, boolean> = {};
 
     if (ids.length) {
-      const { data: rows } = await (supabaseAdmin as any)
+      const { data: rows } = await supabaseAdmin
         .from("user_roles")
         .select("id, user_id, is_active, is_super_admin")
         .eq("role", "admin")
         .in("user_id", ids);
-      roles = Object.fromEntries((rows ?? []).map((r: any) => [r.user_id, r]));
+      roles = Object.fromEntries((rows ?? []).map((r) => [r.user_id, r]));
 
-      const { data: permRows } = await (supabaseAdmin as any)
+      const { data: permRows } = await supabaseAdmin
         .from("admin_permissions")
         .select("user_id, permission, granted")
         .in("user_id", ids);
@@ -189,7 +189,7 @@ export const listStaff = createServerFn({ method: "GET" })
         overrides[row.user_id][row.permission] = !!row.granted;
       }
 
-      const { data: invRows } = await (supabaseAdmin as any)
+      const { data: invRows } = await supabaseAdmin
         .from("admin_invitations")
         .select("id, email, auth_user_id, status, expires_at, accepted_at, created_at")
         .in("auth_user_id", ids)
@@ -200,14 +200,14 @@ export const listStaff = createServerFn({ method: "GET" })
 
       for (const uid of ids) {
         try {
-          const { data } = await (supabaseAdmin as any).auth.admin.getUserById(uid);
+          const { data } = await supabaseAdmin.auth.admin.getUserById(uid);
           const u = data?.user;
           lastSignInMap[uid] = u?.last_sign_in_at ?? null;
           mustChangeMap[uid] = !!u?.user_metadata?.must_change_password;
           const emailConfirmed = !!u?.email_confirmed_at;
           const inv = invitations[uid];
           if (inv && inv.status === "pending" && emailConfirmed) {
-            await (supabaseAdmin as any)
+            await supabaseAdmin
               .from("admin_invitations")
               .update({ status: "accepted", accepted_at: new Date().toISOString() })
               .eq("id", inv.id);
@@ -219,7 +219,7 @@ export const listStaff = createServerFn({ method: "GET" })
             inv.expires_at &&
             new Date(inv.expires_at).getTime() < Date.now()
           ) {
-            await (supabaseAdmin as any)
+            await supabaseAdmin
               .from("admin_invitations")
               .update({ status: "expired" })
               .eq("id", inv.id);
@@ -232,7 +232,7 @@ export const listStaff = createServerFn({ method: "GET" })
     }
 
     return {
-      admins: (accounts ?? []).map((a: any) => {
+      admins: (accounts ?? []).map((a) => {
         const role = roles[a.user_id];
         const isActive = !!role && role.is_active !== false;
         const isSuperAdmin = !!role?.is_super_admin;
@@ -283,14 +283,14 @@ export const createStaff = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Reject if email already belongs to a customer
-    const { data: existingCustomer } = await (supabaseAdmin as any)
+    const { data: existingCustomer } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("email", data.email)
       .maybeSingle();
 
     // Existing admin account for this email → idempotent update
-    const { data: existingAdmin } = await (supabaseAdmin as any)
+    const { data: existingAdmin } = await supabaseAdmin
       .from("admin_accounts")
       .select("user_id")
       .eq("account_email", data.email)
@@ -298,23 +298,23 @@ export const createStaff = createServerFn({ method: "POST" })
 
     if (existingAdmin) {
       // Ensure role_key is set; ensure role row active; do NOT send a second email
-      await (supabaseAdmin as any)
+      await supabaseAdmin
         .from("admin_accounts")
         .update({ role_key: data.roleKey, full_name: data.fullName ?? null })
         .eq("user_id", existingAdmin.user_id);
-      const { data: roleRow } = await (supabaseAdmin as any)
+      const { data: roleRow } = await supabaseAdmin
         .from("user_roles")
         .select("id")
         .eq("user_id", existingAdmin.user_id)
         .eq("role", "admin")
         .maybeSingle();
       if (roleRow) {
-        await (supabaseAdmin as any)
+        await supabaseAdmin
           .from("user_roles")
           .update({ is_active: true })
           .eq("id", roleRow.id);
       } else {
-        await (supabaseAdmin as any).from("user_roles").insert({
+        await supabaseAdmin.from("user_roles").insert({
           user_id: existingAdmin.user_id,
           role: "admin",
           is_active: true,
@@ -345,7 +345,7 @@ export const createStaff = createServerFn({ method: "POST" })
     }
 
     // Idempotent: existing pending invitation returned without resending.
-    const { data: pending } = await (supabaseAdmin as any)
+    const { data: pending } = await supabaseAdmin
       .from("admin_invitations")
       .select("id, auth_user_id, status")
       .ilike("email", data.email)
@@ -356,9 +356,7 @@ export const createStaff = createServerFn({ method: "POST" })
     }
 
     // Fresh invitation
-    const { data: invited, error: inviteErr } = await (
-      supabaseAdmin as any
-    ).auth.admin.inviteUserByEmail(data.email, {
+    const { data: invited, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
       data: data.fullName ? { full_name: data.fullName } : undefined,
     });
     if (inviteErr || !invited?.user) {
@@ -366,7 +364,7 @@ export const createStaff = createServerFn({ method: "POST" })
     }
     const uid = invited.user.id;
 
-    await (supabaseAdmin as any).from("admin_accounts").insert({
+    await supabaseAdmin.from("admin_accounts").insert({
       user_id: uid,
       account_email: data.email,
       email: data.email,
@@ -374,14 +372,14 @@ export const createStaff = createServerFn({ method: "POST" })
       role_key: data.roleKey,
       invited_by: context.userId,
     });
-    await (supabaseAdmin as any).from("user_roles").insert({
+    await supabaseAdmin.from("user_roles").insert({
       user_id: uid,
       role: "admin",
       is_active: true,
       is_super_admin: false,
     });
     const expiresAt = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
-    await (supabaseAdmin as any).from("admin_invitations").insert({
+    await supabaseAdmin.from("admin_invitations").insert({
       email: data.email,
       role_key: data.roleKey,
       invited_by: context.userId,
@@ -408,16 +406,16 @@ export const resendInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: acct } = await (supabaseAdmin as any)
+    const { data: acct } = await supabaseAdmin
       .from("admin_accounts")
       .select("account_email")
       .eq("user_id", data.userId)
       .maybeSingle();
     if (!acct?.account_email) throw new Error("Admin account not found");
-    const { error } = await (supabaseAdmin as any).auth.admin.inviteUserByEmail(acct.account_email);
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(acct.account_email);
     if (error) throw new Error(error.message);
     const expiresAt = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
-    await (supabaseAdmin as any)
+    await supabaseAdmin
       .from("admin_invitations")
       .update({ status: "pending", expires_at: expiresAt })
       .eq("auth_user_id", data.userId);
@@ -439,16 +437,16 @@ export const revokeInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await (supabaseAdmin as any)
+    await supabaseAdmin
       .from("admin_invitations")
       .update({ status: "revoked" })
       .eq("auth_user_id", data.userId)
       .eq("status", "pending");
     // Best-effort: disable the auth user if still unaccepted
     try {
-      const { data: userWrap } = await (supabaseAdmin as any).auth.admin.getUserById(data.userId);
+      const { data: userWrap } = await supabaseAdmin.auth.admin.getUserById(data.userId);
       if (!userWrap?.user?.email_confirmed_at) {
-        await (supabaseAdmin as any).auth.admin.updateUserById(data.userId, {
+        await supabaseAdmin.auth.admin.updateUserById(data.userId, {
           ban_duration: "876000h",
         });
       }
@@ -481,7 +479,7 @@ export const updateStaffRole = createServerFn({ method: "POST" })
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Super admins keep their status; role_key does not apply to them.
-    const { data: role } = await (supabaseAdmin as any)
+    const { data: role } = await supabaseAdmin
       .from("user_roles")
       .select("is_super_admin")
       .eq("user_id", data.userId)
@@ -498,7 +496,7 @@ export const updateStaffRole = createServerFn({ method: "POST" })
       success: true,
       reason: `role=${data.roleKey}`,
     });
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("admin_accounts")
       .update({ role_key: data.roleKey })
       .eq("user_id", data.userId);
@@ -531,13 +529,13 @@ export const setStaffPermission = createServerFn({ method: "POST" })
       reason: `${data.permission}=${data.granted === null ? "default" : data.granted}`,
     });
     if (data.granted === null) {
-      await (supabaseAdmin as any)
+      await supabaseAdmin
         .from("admin_permissions")
         .delete()
         .eq("user_id", data.userId)
         .eq("permission", data.permission);
     } else {
-      await (supabaseAdmin as any).from("admin_permissions").upsert(
+      await supabaseAdmin.from("admin_permissions").upsert(
         {
           user_id: data.userId,
           permission: data.permission,
@@ -566,7 +564,7 @@ export const resetStaffToRoleDefaults = createServerFn({ method: "POST" })
       target_id: data.userId,
       success: true,
     });
-    await (supabaseAdmin as any).from("admin_permissions").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("admin_permissions").delete().eq("user_id", data.userId);
     return { ok: true };
   });
 
@@ -590,7 +588,7 @@ export const setStaffActive = createServerFn({ method: "POST" })
       target_id: data.userId,
       success: true,
     });
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("user_roles")
       .update({ is_active: data.isActive })
       .eq("user_id", data.userId)
@@ -614,16 +612,16 @@ export const requirePasswordReset = createServerFn({ method: "POST" })
       target_id: data.userId,
       success: true,
     });
-    const { data: userWrap } = await (supabaseAdmin as any).auth.admin.getUserById(data.userId);
+    const { data: userWrap } = await supabaseAdmin.auth.admin.getUserById(data.userId);
     const currentMeta = userWrap?.user?.user_metadata ?? {};
-    const { error } = await (supabaseAdmin as any).auth.admin.updateUserById(data.userId, {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
       user_metadata: { ...currentMeta, must_change_password: true },
     });
     if (error) throw new Error(error.message);
     // Trigger a password-reset email so they can set a new one.
     try {
       if (userWrap?.user?.email) {
-        await (supabaseAdmin as any).auth.admin.inviteUserByEmail(userWrap.user.email);
+        await supabaseAdmin.auth.admin.inviteUserByEmail(userWrap.user.email);
       }
     } catch {
       // Best-effort cleanup/audit path; the primary admin action has already completed.
@@ -638,36 +636,15 @@ export const endStaffSessions = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
-    const can = await detectCanEndSessions();
-    if (!can) {
-      await writeAudit(context, {
-        action: "staff.end_sessions",
-        area: "staff",
-        target_type: "admin",
-        target_id: data.userId,
-        success: false,
-        reason: "not_supported",
-      });
-      throw new Error("Session control not supported by the current authentication provider.");
-    }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await writeAudit(context, {
       action: "staff.end_sessions",
       area: "staff",
       target_type: "admin",
       target_id: data.userId,
-      success: true,
+      success: false,
+      reason: "jwt_required_for_arbitrary_user_revocation",
     });
-    const fn = (supabaseAdmin as any).auth.admin.signOut;
-    // Some versions take (jwt); we call with the user id and let it throw if unsupported.
-    try {
-      await fn.call((supabaseAdmin as any).auth.admin, data.userId, "global");
-    } catch (e) {
-      try {
-        await fn.call((supabaseAdmin as any).auth.admin, data.userId);
-      } catch (e2) {
-        throw new Error(e2 instanceof Error ? e2.message : "Failed to end sessions");
-      }
-    }
-    return { ok: true };
+    throw new Error(
+      "Ending another admin's sessions is not supported by the current authentication integration.",
+    );
   });
