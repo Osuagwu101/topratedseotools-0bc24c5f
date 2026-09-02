@@ -17,9 +17,10 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
     const isAdmin = await (admin as any).rpc("has_role", { _user_id: context.userId, _role: "admin" }).then((r: any) => r.data);
     if (!isAdmin) throw new Error("Only admins can refresh tool authentication.");
 
-    const { data: account } = await (admin as any).from("tool_accounts")
+    const { data: account, error: accountError } = await (admin as any).from("tool_accounts")
       .select("id, tool_slug, login_email, login_password, login_url, enabled, status")
       .eq("id", data.account_id).maybeSingle();
+    if (accountError) throw new Error("Could not load the tool account for authentication.");
     if (!account?.enabled) throw new Error("This tool account is disabled.");
     const username = String(account.login_email ?? "").trim();
     const password = String(account.login_password ?? "").trim();
@@ -33,7 +34,11 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
     const provider = validProvider(toolSetting?.auth_provider) ?? validProvider(global.default_provider) ?? "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
     const loginUrl = String(account.login_url ?? toolSetting?.official_login_url ?? "").trim();
-    if (!loginUrl || new URL(loginUrl).protocol !== "https:") throw new Error("Configure a valid HTTPS login URL first.");
+    try {
+      if (!loginUrl || new URL(loginUrl).protocol !== "https:") throw new Error();
+    } catch {
+      throw new Error("Configure a valid HTTPS login URL first.");
+    }
 
     const { data: row, error: rowError } = await (admin as any).from("browser_auth_sessions").insert({
       user_id: context.userId, order_id: null, tool_slug: account.tool_slug, provider, status: "starting",
@@ -44,14 +49,41 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
 
     await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_started", otp_type: "admin_refresh", submitted_by: context.userId });
 
-    const markAwaitingOtp = async (providerSessionId: string, expiresAt: string, type?: string, fieldSelector?: string) => {
+    const markAwaitingOtp = async (
+      providerSessionId: string,
+      expiresAt: string,
+      type?: string,
+      fieldSelector?: string,
+    ) => {
       const detectedType = type || "unknown";
-      await (admin as any).from("browser_auth_sessions").update({
-        status: "awaiting_otp", provider_session_id: providerSessionId,
-        otp_context: { account_id: account.id, purpose: "admin_refresh", detected_type: detectedType, detected_at: new Date().toISOString(), field_selector: fieldSelector, attempt_count: 0 },
-        expires_at: expiresAt, updated_at: new Date().toISOString(),
-      }).eq("id", row.id);
-      await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_otp_required", otp_type: detectedType, submitted_by: context.userId });
+      const { error: otpStateError } = await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          status: "awaiting_otp",
+          provider_session_id: providerSessionId,
+          otp_context: {
+            account_id: account.id,
+            purpose: "admin_refresh",
+            detected_type: detectedType,
+            detected_at: new Date().toISOString(),
+            field_selector: fieldSelector,
+            attempt_count: 0,
+          },
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      if (otpStateError) {
+        throw new Error("Phrasly requested OTP, but the verification session could not be saved.");
+      }
+
+      await (admin as any).from("browser_auth_otp_audit").insert({
+        session_id: row.id,
+        account_id: account.id,
+        event: "admin_refresh_otp_required",
+        otp_type: detectedType,
+        submitted_by: context.userId,
+      });
       return { status: "awaiting_otp" as const, session_id: row.id, expires_at: expiresAt };
     };
 
@@ -92,16 +124,48 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
         if (!state.authenticated_cookies.length) {
           throw new Error("Phrasly authenticated but no reusable session cookies were captured.");
         }
-        await (admin as any).from("tool_account_sessions").upsert({
-          account_id: account.id, provider, provider_session_id: launched.providerSessionId,
-          authenticated_cookies: state.authenticated_cookies, session_tokens: state.session_tokens, auth_headers: state.auth_headers,
-          last_verified_at: new Date().toISOString(), verification_status: "active",
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), created_by: context.userId,
+        const { error: saveError } = await (admin as any).from("tool_account_sessions").upsert({
+          account_id: account.id,
+          provider,
+          provider_session_id: launched.providerSessionId,
+          authenticated_cookies: state.authenticated_cookies,
+          session_tokens: state.session_tokens,
+          auth_headers: state.auth_headers,
+          last_verified_at: new Date().toISOString(),
+          verification_status: "active",
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          created_by: context.userId,
         }, { onConflict: "account_id,provider" });
+        if (saveError) {
+          throw new Error("Phrasly authenticated successfully, but the reusable session could not be saved.");
+        }
       } finally { cdp.close(); }
 
-      await (admin as any).from("browser_auth_sessions").update({ status: "ready", provider_session_id: launched.providerSessionId, expires_at: launched.expiresAt, updated_at: new Date().toISOString() }).eq("id", row.id);
-      await (admin as any).from("browser_auth_otp_audit").insert({ session_id: row.id, account_id: account.id, event: "admin_refresh_succeeded", otp_type: "admin_refresh", submitted_by: context.userId });
+      const { error: readyError } = await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          status: "ready",
+          provider_session_id: launched.providerSessionId,
+          expires_at: launched.expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      if (readyError) {
+        await (admin as any)
+          .from("tool_account_sessions")
+          .update({ verification_status: "invalid" })
+          .eq("account_id", account.id)
+          .eq("provider", provider);
+        throw new Error("Phrasly authenticated state was saved, but the admin session could not transition to ready.");
+      }
+
+      await (admin as any).from("browser_auth_otp_audit").insert({
+        session_id: row.id,
+        account_id: account.id,
+        event: "admin_refresh_succeeded",
+        otp_type: "admin_refresh",
+        submitted_by: context.userId,
+      });
       return { status: "ready" as const, session_id: row.id, expires_at: launched.expiresAt };
     } catch (e) {
       await (admin as any).from("browser_auth_sessions").update({ status: "failed", error_code: e instanceof Error ? e.message.slice(0, 120) : "admin_refresh_failed", updated_at: new Date().toISOString() }).eq("id", row.id);
