@@ -152,32 +152,13 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
       // Best-effort dashboard metric; a failed optional query must not block the overview.
     }
 
-    // Paid but no access assigned yet
-    try {
-      const { count } = await supabaseAdmin
-        .from("tool_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("payment_status", "paid")
-        .eq("status", "pending_manual");
-      if ((count ?? 0) > 0) {
-        attention.push({
-          id: "paid-no-access",
-          label: "Paid orders without access",
-          count: count ?? 0,
-          href: "/admin/settings/payment-recovery",
-        });
-      }
-    } catch {
-      // Best-effort dashboard metric; a failed optional query must not block the overview.
-    }
-
     // Recent webhook failures (last 24h)
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { count } = await supabaseAdmin
         .from("paystack_webhook_events")
         .select("id", { count: "exact", head: true })
-        .eq("status", "failed")
+        .eq("processing_status", "failed")
         .gte("created_at", since);
       if ((count ?? 0) > 0) {
         attention.push({
