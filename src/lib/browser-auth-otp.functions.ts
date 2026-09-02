@@ -15,6 +15,7 @@ import {
 } from "@/lib/browser-auth-otp.server";
 import {
   CdpClient,
+  closeRemoteBrowserSession,
   reconnectBrowserUseSession,
   reconnectCloudflareSession,
 } from "@/lib/browser-auth.server";
@@ -71,6 +72,7 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         .update({ status: "expired", otp_submission_error: "OTP session expired" })
         .eq("id", data.session_id);
       if (expireError) throw new Error("The OTP session expired and could not be closed cleanly.");
+      await closeRemoteBrowserSession(admin, sess.provider, sess.provider_session_id);
       throw new Error("The OTP session has expired. Please authenticate Phrasly again.");
     }
 
@@ -220,6 +222,10 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         submitted_by: context.userId,
       });
 
+      // The reusable cookies/storage have been captured; the privileged admin
+      // browser is no longer needed and should not remain live until timeout.
+      await closeRemoteBrowserSession(admin, sess.provider, sess.provider_session_id);
+
       return {
         ok: true,
         message: "OTP accepted. Login successful. Session saved for future use.",
@@ -257,6 +263,8 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
       if (canRetry) {
         throw new Error(`Verification failed. ${3 - attempts} attempt(s) remaining.`);
       }
+
+      await closeRemoteBrowserSession(admin, sess.provider, sess.provider_session_id);
       throw err instanceof Error ? err : new Error("OTP submission failed");
     } finally {
       cdp?.close();
@@ -348,7 +356,16 @@ export const cancelOtpSession = createServerFn({ method: "POST" })
 
     if (!isAdmin) throw new Error("Only admins can cancel OTP sessions.");
 
-    await (admin as any)
+    const { data: session, error: sessionError } = await (admin as any)
+      .from("browser_auth_sessions")
+      .select("id, provider, provider_session_id, otp_context")
+      .eq("id", data.session_id)
+      .eq("status", "awaiting_otp")
+      .maybeSingle();
+    if (sessionError) throw new Error("Could not load the OTP session.");
+    if (!session) throw new Error("Session not found or no longer awaiting OTP.");
+
+    const { error: cancelError } = await (admin as any)
       .from("browser_auth_sessions")
       .update({
         status: "failed",
@@ -357,10 +374,21 @@ export const cancelOtpSession = createServerFn({ method: "POST" })
       })
       .eq("id", data.session_id)
       .eq("status", "awaiting_otp");
+    if (cancelError) throw new Error("Could not cancel the OTP session.");
 
+    await closeRemoteBrowserSession(
+      admin,
+      session.provider,
+      session.provider_session_id,
+    );
+
+    const otpContext = (session.otp_context ?? {}) as any;
     await (admin as any).from("browser_auth_otp_audit").insert({
       session_id: data.session_id,
+      account_id:
+        typeof otpContext.account_id === "string" ? otpContext.account_id : null,
       event: "otp_timeout",
+      otp_type: otpContext.detected_type,
       submitted_by: context.userId,
     });
 
