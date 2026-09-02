@@ -1,13 +1,22 @@
 /* Server-only launcher for writer sessions. Never performs credential login. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CdpClient, loadBrowserSecret, type BrowserAuthProvider } from "@/lib/browser-auth.server";
-import { checkAuthenticationStatusExpression } from "@/lib/browser-auth-otp.server";
+import { waitForAuthOrOtp } from "@/lib/browser-auth-session.server";
 
 const BROWSER_USE_BASE = "https://api.browser-use.com/api/v3";
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
 export const WRITER_REAUTH_MESSAGE =
   "Phrasly access is temporarily unavailable while an administrator refreshes authentication.";
+export const WRITER_TEMPORARY_MESSAGE =
+  "Phrasly access is temporarily unavailable. Please try again shortly.";
+
+export class SharedAuthStateRejectedError extends Error {
+  constructor(message = WRITER_REAUTH_MESSAGE) {
+    super(message);
+    this.name = "SharedAuthStateRejectedError";
+  }
+}
 
 export type StoredCookie = {
   name: string; value: string; domain?: string; path?: string; expires?: number;
@@ -54,7 +63,7 @@ async function seedAndVerify(client: CdpClient, loginUrl: string, state: StoredB
   await client.send("Network.enable", {}, sessionId).catch(() => undefined);
   const host = new URL(loginUrl).hostname;
   const cookies = Array.isArray(state.authenticated_cookies) ? state.authenticated_cookies : [];
-  if (!cookies.length) throw new Error(WRITER_REAUTH_MESSAGE);
+  if (!cookies.length) throw new SharedAuthStateRejectedError();
 
   for (const cookie of cookies) {
     if (!cookie?.name) continue;
@@ -83,10 +92,12 @@ async function seedAndVerify(client: CdpClient, loginUrl: string, state: StoredB
     await waitForDocument(client, sessionId);
   }
 
-  const auth = await client.send("Runtime.evaluate", {
-    expression: checkAuthenticationStatusExpression(), returnByValue: true,
-  }, sessionId).catch(() => null);
-  if (!auth?.result?.value?.authenticated) throw new Error(WRITER_REAUTH_MESSAGE);
+  const outcome = await waitForAuthOrOtp(client, sessionId, 10_000);
+  if (outcome.status === "authenticated") return;
+  if (outcome.status === "otp" || (outcome.status === "timeout" && outcome.observedPage)) {
+    throw new SharedAuthStateRejectedError();
+  }
+  throw new Error(WRITER_TEMPORARY_MESSAGE);
 }
 
 async function attachPage(client: CdpClient) {
