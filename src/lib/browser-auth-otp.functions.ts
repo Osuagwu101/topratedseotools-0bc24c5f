@@ -14,7 +14,11 @@ import {
   captureSessionStateThroughCdp,
   type CapturedSessionState,
 } from "@/lib/browser-auth-otp.server";
-import { CdpClient } from "@/lib/browser-auth.server";
+import {
+  CdpClient,
+  reconnectBrowserUseSession,
+  reconnectCloudflareSession,
+} from "@/lib/browser-auth.server";
 
 /**
  * Admin submits OTP code for a paused browser session.
@@ -45,35 +49,49 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
     const sess = session as any;
     const otpCtx = (sess.otp_context ?? {}) as any;
 
-    // Verify admin is authorized (owns this order or is admin)
+    // Verify admin is authorized (must be admin)
     const isAdmin = await (admin as any)
       .rpc("has_role", { _user_id: context.userId, _role: "admin" })
       .then((r: any) => r.data);
 
-    if (!isAdmin && sess.user_id !== context.userId) {
-      throw new Error("Unauthorized to submit OTP for this session.");
+    if (!isAdmin) {
+      throw new Error("Only admins can submit OTP codes.");
     }
 
     // Reconnect to Browser Use / Cloudflare session
     let cdp: CdpClient | null = null;
     try {
-      // Note: This assumes we have access to the provider session URL
-      // In real implementation, Browser Use API would provide a way to reconnect
-      // For now, we'd need to extend this to support reconnecting to existing sessions
+      // Reconnect to the paused browser session
+      if (sess.provider === "browser_use") {
+        cdp = await reconnectBrowserUseSession(admin, sess.provider_session_id);
+      } else if (sess.provider === "cloudflare") {
+        cdp = await reconnectCloudflareSession(admin, sess.provider_session_id);
+      }
+
+      if (!cdp) {
+        throw new Error(
+          `Could not reconnect to ${sess.provider} session. Session may have expired. Please try launching again.`
+        );
+      }
 
       // Submit OTP code
-      const submitResult = await cdp?.send(
-        "Runtime.evaluate",
-        {
-          expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
-          returnByValue: true,
-          awaitPromise: true,
-        }
-      ).catch((e: any) => ({
-        result: {
-          value: { success: false, error: e.message }
-        }
-      }));
+      let submitResult: any;
+      try {
+        submitResult = await cdp.send(
+          "Runtime.evaluate",
+          {
+            expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),
+            returnByValue: true,
+            awaitPromise: true,
+          }
+        );
+      } catch (e: any) {
+        submitResult = {
+          result: {
+            value: { success: false, error: e.message }
+          }
+        };
+      }
 
       if (!submitResult?.result?.value?.success) {
         // Log failure
@@ -226,13 +244,23 @@ export const getOtpSessionStatus = createServerFn({ method: "GET" })
 
     const { data: session } = await (admin as any)
       .from("browser_auth_sessions")
-      .select("id, status, otp_context, otp_submission_error, expires_at, created_at, updated_at")
+      .select("id, user_id, order_id, status, otp_context, otp_submission_error, expires_at, created_at, updated_at")
       .eq("id", data.session_id)
       .maybeSingle();
 
     if (!session) throw new Error("Session not found.");
 
     const sess = session as any;
+
+    // Verify authorization: must be admin or session owner
+    const isAdmin = await (admin as any)
+      .rpc("has_role", { _user_id: context.userId, _role: "admin" })
+      .then((r: any) => r.data);
+
+    if (!isAdmin && sess.user_id !== context.userId) {
+      throw new Error("Unauthorized to view this session.");
+    }
+
     const otpCtx = (sess.otp_context ?? {}) as any;
     const timeoutMs = new Date(sess.expires_at).getTime() - Date.now();
     const timedOut = timeoutMs < 0;

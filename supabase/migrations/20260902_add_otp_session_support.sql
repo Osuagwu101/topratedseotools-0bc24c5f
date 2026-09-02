@@ -56,7 +56,12 @@ ALTER TABLE public.tool_account_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tool_account_sessions admin all" ON public.tool_account_sessions
   FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin'))
-  WITH CHECK (has_role(auth.uid(),'admin'));
+  WITH CHECK (has_role(auth.uid(),'admin') AND created_by = auth.uid());
+
+-- Prevent users from querying other users' sessions
+CREATE POLICY "tool_account_sessions deny select non-admin" ON public.tool_account_sessions
+  FOR SELECT TO authenticated
+  USING (has_role(auth.uid(),'admin') OR created_by = auth.uid());
 
 CREATE TRIGGER tool_account_sessions_touch BEFORE UPDATE ON public.tool_account_sessions
   FOR EACH ROW EXECUTE FUNCTION public.tg_touch_updated_at();

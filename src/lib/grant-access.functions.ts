@@ -152,18 +152,40 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
     if (insertError) throw new Error("Could not start One-Click Login. Please try again.");
 
     try {
+      // Try to load captured session from a previous admin OTP login
+      let capturedCookies: Array<{ name: string; value: string }> | undefined;
+      const { data: existingSession } = await (admin as any)
+        .from("tool_account_sessions")
+        .select("authenticated_cookies, verification_status, expires_at")
+        .eq("account_id", account.id)
+        .eq("provider", provider)
+        .eq("verification_status", "active")
+        .maybeSingle();
+
+      if (existingSession?.authenticated_cookies && existingSession?.verification_status === "active") {
+        const sessionExpiry = new Date(existingSession.expires_at).getTime();
+        if (sessionExpiry > Date.now()) {
+          // Session still valid, use captured cookies
+          capturedCookies = existingSession.authenticated_cookies
+            .slice(0, 10)
+            .map((c: any) => ({ name: c.name, value: c.value }));
+        }
+      }
+
       const launched = provider === "cloudflare"
         ? await launchCloudflare(admin, {
             loginUrl: loginUrl.toString(),
             username,
             password,
             timeoutMinutes,
+            capturedCookies,
           })
         : await launchBrowserUse(admin, {
             loginUrl: loginUrl.toString(),
             username,
             password,
             timeoutMinutes,
+            capturedCookies,
           });
 
       if (!launched.automationSubmitted) {
@@ -181,6 +203,17 @@ export const startGrantedOneClickAuth = createServerFn({ method: "POST" })
 
       // Check if OTP/2FA is required
       if ((launched as any).otp_status?.detected) {
+        // Audit OTP detection
+        await (admin as any)
+          .from("browser_auth_otp_audit")
+          .insert({
+            session_id: auditRow.id,
+            account_id: null,
+            event: "otp_detected",
+            otp_type: (launched as any).otp_status.type || "unknown",
+            submitted_by: context.userId,
+          });
+
         await (admin as any)
           .from("browser_auth_sessions")
           .update({

@@ -121,7 +121,7 @@ export async function testBrowserProvider(
   }
 }
 
-class CdpClient {
+export class CdpClient {
   private ws: WebSocket;
   private nextId = 1;
   private pending = new Map<
@@ -273,14 +273,59 @@ async function injectLogin(
   username: string,
   password: string,
   sessionId?: string,
+  capturedCookies?: Array<{ name: string; value: string }>,
 ) {
-  const { detectOtpExpression } = await import("@/lib/browser-auth-otp.server");
+  const { detectOtpExpression, injectSessionCookiesExpression, checkAuthenticationStatusExpression } = await import("@/lib/browser-auth-otp.server");
 
   await client.send("Page.enable", {}, sessionId);
   await client.send("Runtime.enable", {}, sessionId);
+
+  // If captured cookies are provided, inject them before navigating to login page
+  if (capturedCookies && capturedCookies.length > 0) {
+    // Set cookies in the CDP session
+    for (const cookie of capturedCookies) {
+      try {
+        await client.send(
+          "Network.setCookie",
+          {
+            name: cookie.name,
+            value: cookie.value,
+            domain: new URL(loginUrl).hostname,
+            path: "/",
+            secure: true,
+            httpOnly: false,
+          },
+          sessionId,
+        );
+      } catch {
+        // Cookie may not be valid for this domain/context, continue anyway
+      }
+    }
+  }
+
   await client.send("Page.navigate", { url: loginUrl }, sessionId);
   await waitForDocument(client, sessionId);
   await delay(500);
+
+  // If we injected cookies, check if already authenticated
+  if (capturedCookies && capturedCookies.length > 0) {
+    try {
+      const authCheck = await client.send(
+        "Runtime.evaluate",
+        { expression: checkAuthenticationStatusExpression(), returnByValue: true },
+        sessionId,
+      );
+      const authStatus = authCheck?.result?.value as any;
+      if (authStatus?.authenticated) {
+        return {
+          submitted: true,
+          stage: "authenticated_via_session",
+        };
+      }
+    } catch {
+      // Continue with normal login flow if auth check fails
+    }
+  }
 
   let result = await client.send(
     "Runtime.evaluate",
@@ -354,7 +399,7 @@ export interface RemoteBrowserLaunchWithOtp extends RemoteBrowserLaunch {
 
 export async function launchBrowserUse(
   admin: any,
-  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number },
+  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number; capturedCookies?: Array<{ name: string; value: string }> },
 ): Promise<RemoteBrowserLaunchWithOtp> {
   const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
   if (!key) throw new Error("Browser Use is not configured. Contact Admin.");
@@ -387,9 +432,22 @@ export async function launchBrowserUse(
       input.username,
       input.password,
       page.sessionId,
+      input.capturedCookies,
     );
     if (!automation.submitted) {
       throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
+    }
+
+    // Check if already authenticated via injected session
+    const alreadyAuthenticated = (automation as any).stage === "authenticated_via_session";
+    if (alreadyAuthenticated) {
+      return {
+        provider: "browser_use",
+        providerSessionId: String(browser.id),
+        liveUrl: String(browser.liveUrl),
+        expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
+        automationSubmitted: true,
+      };
     }
 
     // Check if OTP was detected
@@ -426,7 +484,7 @@ export async function launchBrowserUse(
 
 export async function launchCloudflare(
   admin: any,
-  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number },
+  input: { loginUrl: string; username: string; password: string; timeoutMinutes: number; capturedCookies?: Array<{ name: string; value: string }> },
 ): Promise<RemoteBrowserLaunchWithOtp> {
   const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
   const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
@@ -447,9 +505,21 @@ export async function launchCloudflare(
   let cdp: CdpClient | null = null;
   try {
     cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
-    const automation = await injectLogin(cdp, input.loginUrl, input.username, input.password);
+    const automation = await injectLogin(cdp, input.loginUrl, input.username, input.password, undefined, input.capturedCookies);
     if (!automation.submitted) {
       throw new Error("Automatic login could not be completed for this tool. Contact Admin.");
+    }
+
+    // Check if already authenticated via injected session
+    const alreadyAuthenticated = (automation as any).stage === "authenticated_via_session";
+    if (alreadyAuthenticated) {
+      return {
+        provider: "cloudflare",
+        providerSessionId: String(browser.sessionId),
+        liveUrl: String(target.devtoolsFrontendUrl ?? ""),
+        expiresAt: new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+        automationSubmitted: true,
+      };
     }
 
     // Check if OTP was detected
@@ -493,4 +563,103 @@ export async function launchCloudflare(
   } finally {
     cdp?.close();
   }
+}
+
+/**
+ * Reconnect to an existing Browser Use session using its session ID.
+ * Used to resume paused sessions for OTP submission.
+ * Includes exponential backoff retry logic for transient failures.
+ */
+export async function reconnectBrowserUseSession(
+  admin: any,
+  sessionId: string,
+  maxRetries: number = 3,
+): Promise<CdpClient | null> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
+      if (!key) return null;
+
+      // Fetch the browser session details to get CDP URL
+      const browser = await fetchJson(
+        `${BROWSER_USE_BASE}/browsers/${encodeURIComponent(sessionId)}`,
+        {
+          method: "GET",
+          headers: { "X-Browser-Use-API-Key": key },
+        },
+      );
+
+      if (!browser?.cdpUrl) {
+        // Session doesn't exist or has expired
+        return null;
+      }
+
+      // Connect to existing session
+      const cdp = await CdpClient.connect(String(browser.cdpUrl));
+      return cdp;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Transient errors: retry with exponential backoff
+      if (attempt < maxRetries - 1) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+        await delay(backoffMs);
+      }
+    }
+  }
+
+  // All retries exhausted
+  return null;
+}
+
+/**
+ * Reconnect to an existing Cloudflare Browser Run session using session ID.
+ * Used to resume paused sessions for OTP submission.
+ * Includes exponential backoff retry logic for transient failures.
+ */
+export async function reconnectCloudflareSession(
+  admin: any,
+  sessionId: string,
+  maxRetries: number = 3,
+): Promise<CdpClient | null> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
+      const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
+      if (!accountId || !token) return null;
+
+      // Get session details
+      const json = await fetchJson(
+        `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/browser/${encodeURIComponent(sessionId)}`,
+        { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      const browser = json?.result ?? json;
+      const target = (browser?.targets ?? []).find((t: any) => t.type === "page");
+
+      if (!target?.webSocketDebuggerUrl) {
+        // Session doesn't exist or has expired
+        return null;
+      }
+
+      // Connect to existing session
+      const cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
+      return cdp;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Transient errors: retry with exponential backoff
+      if (attempt < maxRetries - 1) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+        await delay(backoffMs);
+      }
+    }
+  }
+
+  // All retries exhausted
+  return null;
 }

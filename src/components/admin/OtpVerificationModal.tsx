@@ -53,6 +53,7 @@ export function OtpVerificationModal({
 }: OtpVerificationModalProps) {
   const [otpCode, setOtpCode] = useState("");
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Polling for status updates
   const { data: statusData } = useQuery({
@@ -76,12 +77,14 @@ export function OtpVerificationModal({
     onSuccess: (result) => {
       toast.success("OTP verified! Capturing authenticated session…");
       setOtpCode("");
+      setLastError(null);
       if (onSuccess) {
-        setTimeout(() => onSuccess(), 500);
+        setTimeout(() => onSuccess(), 1000);
       }
     },
     onError: (error) => {
       const errorMsg = error instanceof Error ? error.message : "Failed to verify OTP. Please try again.";
+      setLastError(errorMsg);
       toast.error(errorMsg);
       if (onError) onError(errorMsg);
     },
@@ -216,6 +219,16 @@ export function OtpVerificationModal({
                     {statusData.error}
                   </p>
                 )}
+              </div>
+            )}
+
+            {lastError && !isExpired && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 flex items-start gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Verification Failed</p>
+                  <p className="text-xs mt-1">{lastError}</p>
+                </div>
               </div>
             )}
 
