@@ -1,6 +1,9 @@
 /* Server-only helpers for resuming and verifying remote authentication sessions. */
 import { CdpClient } from "@/lib/browser-auth.server";
-import { checkAuthenticationStatusExpression } from "@/lib/browser-auth-otp.server";
+import {
+  checkAuthenticationStatusExpression,
+  detectOtpExpression,
+} from "@/lib/browser-auth-otp.server";
 
 export async function attachBrowserUsePage(client: CdpClient): Promise<string> {
   const targets = await client.send("Target.getTargets");
@@ -28,17 +31,22 @@ export async function attachBrowserUsePage(client: CdpClient): Promise<string> {
   return String(attached.sessionId);
 }
 
-export async function waitForAuthenticatedPage(
+export async function waitForAuthOrOtp(
   client: CdpClient,
   sessionId?: string,
   timeoutMs = 15_000,
-): Promise<{ authenticated: boolean; url?: string; title?: string }> {
+): Promise<
+  | { status: "authenticated"; url?: string; title?: string }
+  | { status: "otp"; type?: string; fieldSelector?: string }
+  | { status: "timeout"; url?: string; title?: string }
+> {
   const deadline = Date.now() + timeoutMs;
-  let last: { authenticated: boolean; url?: string; title?: string } = { authenticated: false };
+  let lastUrl: string | undefined;
+  let lastTitle: string | undefined;
 
   while (Date.now() < deadline) {
     try {
-      const result = await client.send(
+      const authResult = await client.send(
         "Runtime.evaluate",
         {
           expression: checkAuthenticationStatusExpression(),
@@ -47,20 +55,49 @@ export async function waitForAuthenticatedPage(
         },
         sessionId,
       );
-      const value = result?.result?.value;
-      if (value && typeof value === "object") {
-        last = {
-          authenticated: Boolean(value.authenticated),
-          url: typeof value.url === "string" ? value.url : undefined,
-          title: typeof value.title === "string" ? value.title : undefined,
+      const auth = authResult?.result?.value;
+      if (auth && typeof auth === "object") {
+        lastUrl = typeof auth.url === "string" ? auth.url : lastUrl;
+        lastTitle = typeof auth.title === "string" ? auth.title : lastTitle;
+        if (auth.authenticated) {
+          return { status: "authenticated", url: lastUrl, title: lastTitle };
+        }
+      }
+
+      const otpResult = await client.send(
+        "Runtime.evaluate",
+        { expression: detectOtpExpression(), returnByValue: true },
+        sessionId,
+      );
+      const otp = otpResult?.result?.value;
+      if (otp?.detected) {
+        return {
+          status: "otp",
+          type: typeof otp.type === "string" ? otp.type : "unknown",
+          fieldSelector:
+            typeof otp.fieldSelector === "string" ? otp.fieldSelector : undefined,
         };
-        if (last.authenticated) return last;
       }
     } catch {
-      // Navigation can briefly invalidate the execution context; retry until timeout.
+      // Redirects can invalidate the current execution context briefly.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  return last;
+  return { status: "timeout", url: lastUrl, title: lastTitle };
+}
+
+export async function waitForAuthenticatedPage(
+  client: CdpClient,
+  sessionId?: string,
+  timeoutMs = 15_000,
+): Promise<{ authenticated: boolean; url?: string; title?: string }> {
+  const result = await waitForAuthOrOtp(client, sessionId, timeoutMs);
+  return result.status === "authenticated"
+    ? { authenticated: true, url: result.url, title: result.title }
+    : {
+        authenticated: false,
+        url: result.status === "timeout" ? result.url : undefined,
+        title: result.status === "timeout" ? result.title : undefined,
+      };
 }
