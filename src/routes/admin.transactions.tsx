@@ -129,12 +129,9 @@ function AdminTransactionsPage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
         <p className="text-sm text-muted-foreground">
-          Every payment attempt across all gateways. Customer paid shows the real
-          charged currency; Accounting is the NGN equivalent used for revenue.
+          Every payment attempt across all gateways. Customer paid shows the real charged currency;
+          Accounting is the NGN equivalent used for revenue.
         </p>
-
-
-
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1.5">
@@ -251,7 +248,8 @@ function AdminTransactionsPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold">
-                        {RECEIPT_STATUS_LABEL[t.payment_status as PaymentStatus] ?? t.payment_status}
+                        {RECEIPT_STATUS_LABEL[t.payment_status as PaymentStatus] ??
+                          t.payment_status}
                       </span>
                       {t.reconciliation_status !== "none" && (
                         <div className="mt-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
@@ -288,19 +286,19 @@ function AdminTransactionsPage() {
                               className="mb-1 w-full rounded border bg-background p-1 text-xs"
                             />
                             <div className="flex flex-wrap gap-1">
-                              {(["open", "investigating", "resolved", "refunded", "none"] as const).map(
-                                (s) => (
-                                  <button
-                                    key={s}
-                                    onClick={() =>
-                                      t.paystack_reference && onReconcile(t.paystack_reference, s)
-                                    }
-                                    className="rounded border px-1.5 py-0.5 text-[10px] hover:bg-muted"
-                                  >
-                                    {s}
-                                  </button>
-                                ),
-                              )}
+                              {(
+                                ["open", "investigating", "resolved", "refunded", "none"] as const
+                              ).map((s) => (
+                                <button
+                                  key={s}
+                                  onClick={() =>
+                                    t.paystack_reference && onReconcile(t.paystack_reference, s)
+                                  }
+                                  className="rounded border px-1.5 py-0.5 text-[10px] hover:bg-muted"
+                                >
+                                  {s}
+                                </button>
+                              ))}
                             </div>
                           </div>
                         )}

@@ -125,7 +125,9 @@ function DashboardBody({ data }: { data: Overview }) {
             <AlertTriangle className="h-4 w-4 text-warning" />
             <div>
               <h2 className="text-sm font-semibold">Needs attention</h2>
-              <p className="text-xs text-muted-foreground">Only items that require action are shown here.</p>
+              <p className="text-xs text-muted-foreground">
+                Only items that require action are shown here.
+              </p>
             </div>
           </div>
 
@@ -162,7 +164,11 @@ function DashboardBody({ data }: { data: Overview }) {
             <QuickAction to="/admin/tools" icon={Settings2} label="Manage tools" />
             <QuickAction to="/admin/customers" icon={Users} label="View customers" />
             <QuickAction to="/admin/orders" icon={ClipboardList} label="Manage orders" />
-            <QuickAction to="/admin/settings/custom-payments" icon={CreditCard} label="Create custom payment" />
+            <QuickAction
+              to="/admin/settings/custom-payments"
+              icon={CreditCard}
+              label="Create custom payment"
+            />
           </div>
         </section>
       </div>
@@ -177,10 +183,15 @@ function DashboardBody({ data }: { data: Overview }) {
         </div>
         <div className="divide-y">
           {data.recentActivity.slice(0, 6).map((event) => (
-            <div key={event.id} className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
+            <div
+              key={event.id}
+              className="flex items-start justify-between gap-4 px-4 py-3 text-sm"
+            >
               <div className="min-w-0">
                 <div className="font-medium">{event.label}</div>
-                {event.detail && <div className="truncate text-xs text-muted-foreground">{event.detail}</div>}
+                {event.detail && (
+                  <div className="truncate text-xs text-muted-foreground">{event.detail}</div>
+                )}
               </div>
               <div className="shrink-0 text-[11px] text-muted-foreground">
                 {new Date(event.at).toLocaleString()}
@@ -188,7 +199,9 @@ function DashboardBody({ data }: { data: Overview }) {
             </div>
           ))}
           {data.recentActivity.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">No recent activity.</div>
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No recent activity.
+            </div>
           )}
         </div>
       </section>
@@ -196,7 +209,15 @@ function DashboardBody({ data }: { data: Overview }) {
   );
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: LucideIcon;
+}) {
   return (
     <div className="rounded-xl border bg-card p-4 shadow-card">
       <div className="flex items-center justify-between gap-3">

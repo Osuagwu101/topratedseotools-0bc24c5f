@@ -11,7 +11,6 @@ import { queueEmail } from "./queue";
 import { gatewayLabel } from "@/lib/transaction-display";
 import type { TemplateVars } from "./templates";
 
-
 export type OrderEmailKind =
   | "payment_success"
   | "payment_failed"
@@ -33,8 +32,6 @@ export interface QueueOrderEmailInput {
   eventKey?: string;
   extraPayload?: Record<string, string | number | null | undefined>;
 }
-
-
 
 /**
  * Best-effort — never throws. Looks up the customer + order and drops a
@@ -109,7 +106,6 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
       ...((i.extraPayload ?? {}) as TemplateVars),
     };
 
-
     const templateByKind: Record<OrderEmailKind, string> = {
       payment_success: "payment_success",
       payment_failed: "payment_failed",
@@ -132,4 +128,3 @@ export async function queueOrderEmail(admin: any, i: QueueOrderEmailInput): Prom
     console.warn("[email] queueOrderEmail failed", err);
   }
 }
-

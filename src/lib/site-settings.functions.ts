@@ -51,9 +51,7 @@ export const getActiveTheme = createServerFn({ method: "GET" }).handler(async ()
 
 export const setActiveTheme = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ theme: z.enum(["theme-1", "theme-2"]) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ theme: z.enum(["theme-1", "theme-2"]) }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: roleRow, error: roleErr } = await context.supabase
       .from("user_roles")

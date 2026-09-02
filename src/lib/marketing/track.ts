@@ -12,7 +12,11 @@ declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void;
     dataLayer?: unknown[];
-    __pendingFbqEvents?: Array<{ name: string; params: Dict; opts: { eventID?: string; custom?: boolean } }>;
+    __pendingFbqEvents?: Array<{
+      name: string;
+      params: Dict;
+      opts: { eventID?: string; custom?: boolean };
+    }>;
   }
 }
 

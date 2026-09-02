@@ -3,7 +3,14 @@ import { useSuspenseQuery, queryOptions, useMutation, useQueryClient } from "@ta
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, CalendarDays, Clock, User as UserIcon, Share2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  Clock,
+  User as UserIcon,
+  Share2,
+} from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { PostCard } from "@/components/blog/PostCard";
 import {
@@ -122,8 +129,18 @@ export const Route = createFileRoute("/blog/$slug")({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "https://topratedseotools.lovable.app/" },
-        { "@type": "ListItem", position: 2, name: "Blog", item: "https://topratedseotools.lovable.app/blog" },
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: "https://topratedseotools.lovable.app/",
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Blog",
+          item: "https://topratedseotools.lovable.app/blog",
+        },
         ...(loaderData.category_slug
           ? [
               {
@@ -182,9 +199,7 @@ function NotFoundArticle() {
     <SiteLayout>
       <div className="mx-auto max-w-lg px-4 py-24 text-center">
         <h1 className="text-2xl font-semibold">Article not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          It may have been moved or unpublished.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">It may have been moved or unpublished.</p>
         <Link to="/blog" className="mt-4 inline-block text-sm text-primary hover:underline">
           ← Back to blog
         </Link>
@@ -218,10 +233,17 @@ function BlogPost() {
   return (
     <SiteLayout>
       <article className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-        <nav className="mb-4 flex items-center gap-1 text-xs text-muted-foreground" aria-label="Breadcrumb">
-          <Link to="/" className="hover:text-foreground">Home</Link>
+        <nav
+          className="mb-4 flex items-center gap-1 text-xs text-muted-foreground"
+          aria-label="Breadcrumb"
+        >
+          <Link to="/" className="hover:text-foreground">
+            Home
+          </Link>
           <span>/</span>
-          <Link to="/blog" className="hover:text-foreground">Blog</Link>
+          <Link to="/blog" className="hover:text-foreground">
+            Blog
+          </Link>
           {post.category && (
             <>
               <span>/</span>
@@ -277,9 +299,9 @@ function BlogPost() {
               src={post.featured_image}
               alt={
                 (post as unknown as { featured_image_alt?: string }).featured_image_alt ||
-                ((post as unknown as { image_alts?: Record<string, string> }).image_alts?.[
+                (post as unknown as { image_alts?: Record<string, string> }).image_alts?.[
                   post.featured_image
-                ]) ||
+                ] ||
                 post.title
               }
               loading="eager"
@@ -298,7 +320,9 @@ function BlogPost() {
           <div>
             {toc.length > 0 && (
               <details className="mb-8 rounded-xl border bg-muted/30 p-4 lg:hidden" open>
-                <summary className="cursor-pointer text-sm font-semibold">Table of contents</summary>
+                <summary className="cursor-pointer text-sm font-semibold">
+                  Table of contents
+                </summary>
                 <ul className="mt-3 space-y-1.5 text-sm">
                   {toc.map((e) => (
                     <li key={e.id} className={e.level === 3 ? "pl-4" : ""}>
@@ -317,7 +341,8 @@ function BlogPost() {
             />
 
             {(() => {
-              const faq = (post as unknown as { faq?: Array<{ question: string; answer: string }> }).faq;
+              const faq = (post as unknown as { faq?: Array<{ question: string; answer: string }> })
+                .faq;
               if (!faq || faq.length === 0) return null;
               return (
                 <section className="mt-10">
@@ -342,9 +367,16 @@ function BlogPost() {
             })()}
 
             {(() => {
-              const cta = (post as unknown as {
-                cta?: { title: string; body: string; button_label: string; button_url: string } | null;
-              }).cta;
+              const cta = (
+                post as unknown as {
+                  cta?: {
+                    title: string;
+                    body: string;
+                    button_label: string;
+                    button_url: string;
+                  } | null;
+                }
+              ).cta;
               if (!cta) return null;
               return (
                 <aside className="mt-10 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">
@@ -377,13 +409,22 @@ function BlogPost() {
 
             <div className="mt-8 flex items-center gap-3 border-t pt-6">
               <span className="text-sm font-medium">Share:</span>
-              <button onClick={() => share("twitter")} className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
+              <button
+                onClick={() => share("twitter")}
+                className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+              >
                 <Share2 className="mr-1 inline h-3.5 w-3.5" /> Twitter
               </button>
-              <button onClick={() => share("facebook")} className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
+              <button
+                onClick={() => share("facebook")}
+                className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+              >
                 Facebook
               </button>
-              <button onClick={() => share("linkedin")} className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
+              <button
+                onClick={() => share("linkedin")}
+                className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+              >
                 LinkedIn
               </button>
             </div>

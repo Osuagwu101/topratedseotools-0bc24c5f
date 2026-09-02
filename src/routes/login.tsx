@@ -48,7 +48,9 @@ function LoginPage() {
   }
 
   async function onGoogle() {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
     if (result.error) toast.error(result.error.message ?? "Google sign-in failed");
   }
 
@@ -56,19 +58,41 @@ function LoginPage() {
     <AuthShell
       title="Welcome back"
       subtitle="Sign in to manage your subscriptions, payments, and tool access."
-      footer={<>Don't have an account?{" "}<Link to="/register" className="font-medium text-primary hover:underline">Create one</Link></>}
+      footer={
+        <>
+          Don't have an account?{" "}
+          <Link to="/register" className="font-medium text-primary hover:underline">
+            Create one
+          </Link>
+        </>
+      }
     >
-      <button type="button" onClick={onGoogle} disabled={!hydrated} className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted disabled:opacity-60">
+      <button
+        type="button"
+        onClick={onGoogle}
+        disabled={!hydrated}
+        className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
+      >
         <GoogleIcon /> Continue with Google
       </button>
-      <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground"><div className="h-px flex-1 bg-border" /> or continue with email <div className="h-px flex-1 bg-border" /></div>
+      <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" /> or continue with email{" "}
+        <div className="h-px flex-1 bg-border" />
+      </div>
       <form onSubmit={onSubmit} className="space-y-3">
         <FieldEmail value={email} onChange={setEmail} />
         <FieldPassword value={password} onChange={setPassword} />
         <div className="flex justify-end text-sm">
-          <Link to="/forgot-password" className="font-medium text-primary hover:underline">Forgot password?</Link>
+          <Link to="/forgot-password" className="font-medium text-primary hover:underline">
+            Forgot password?
+          </Link>
         </div>
-        <button type="submit" disabled={loading || !hydrated} aria-busy={loading || !hydrated} className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60">
+        <button
+          type="submit"
+          disabled={loading || !hydrated}
+          aria-busy={loading || !hydrated}
+          className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60"
+        >
           {!hydrated ? "Loading..." : loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
@@ -76,7 +100,17 @@ function LoginPage() {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: React.ReactNode; footer?: React.ReactNode }) {
+export function AuthShell({
+  title,
+  subtitle,
+  children,
+  footer,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-gradient-hero">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
@@ -96,13 +130,55 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
 }
 
 export function FieldEmail({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return <div><label className="mb-1 block text-sm font-medium">Email</label><input type="email" required autoComplete="email" value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary" /></div>;
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium">Email</label>
+      <input
+        type="email"
+        required
+        autoComplete="email"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+      />
+    </div>
+  );
 }
 
-export function FieldPassword({ value, onChange, label = "Password", autoComplete = "current-password" }: { value: string; onChange: (v: string) => void; label?: string; autoComplete?: string }) {
-  return <div><label className="mb-1 block text-sm font-medium">{label}</label><input type="password" required minLength={8} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary" /></div>;
+export function FieldPassword({
+  value,
+  onChange,
+  label = "Password",
+  autoComplete = "current-password",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label?: string;
+  autoComplete?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <input
+        type="password"
+        required
+        minLength={8}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+      />
+    </div>
+  );
 }
 
 export function GoogleIcon() {
-  return <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.6 4.1-5.5 4.1-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.4 14.7 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12S6.8 21.5 12 21.5c6.9 0 9.5-4.8 9.5-7.3 0-.5-.06-.9-.13-1.3H12z" /></svg>;
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.24 1.4-1.6 4.1-5.5 4.1-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.4 14.7 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12S6.8 21.5 12 21.5c6.9 0 9.5-4.8 9.5-7.3 0-.5-.06-.9-.13-1.3H12z"
+      />
+    </svg>
+  );
 }

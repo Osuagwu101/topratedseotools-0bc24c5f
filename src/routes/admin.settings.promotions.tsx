@@ -25,10 +25,7 @@ const promoQuery = queryOptions({
 export const Route = createFileRoute("/admin/settings/promotions")({
   ssr: false,
   head: () => ({
-    meta: [
-      { title: "Promotions — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Promotions — Admin" }, { name: "robots", content: "noindex" }],
   }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
@@ -66,7 +63,8 @@ function PromotionsAdmin() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold tracking-tight">Promotions</h1>
             <p className="text-sm text-muted-foreground">
-              Simple offers shown on the customer website. Toggle to activate or pause without deleting.
+              Simple offers shown on the customer website. Toggle to activate or pause without
+              deleting.
             </p>
           </div>
           <button
@@ -109,9 +107,7 @@ function PromotionsAdmin() {
                     <td className="px-4 py-3 text-xs">{p.tool_slug ?? "All tools"}</td>
                     <td className="px-4 py-3 text-xs capitalize">{p.audience}</td>
                     <td className="px-4 py-3 text-xs">
-                      {p.discount_type
-                        ? `${p.discount_value ?? "—"} ${p.discount_type}`
-                        : "—"}
+                      {p.discount_type ? `${p.discount_value ?? "—"} ${p.discount_type}` : "—"}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {p.starts_at ? new Date(p.starts_at).toLocaleDateString() : "—"}
@@ -223,9 +219,7 @@ function PromoDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-6 shadow-glow">
-        <h2 className="text-lg font-semibold">
-          {promo ? "Edit promotion" : "New promotion"}
-        </h2>
+        <h2 className="text-lg font-semibold">{promo ? "Edit promotion" : "New promotion"}</h2>
         <div className="mt-4 grid gap-3">
           <Field label="Title" required>
             <input
@@ -277,9 +271,7 @@ function PromoDialog({
             <Field label="Discount type">
               <select
                 value={discountType}
-                onChange={(e) =>
-                  setDiscountType(e.target.value as PromoDiscountType | "")
-                }
+                onChange={(e) => setDiscountType(e.target.value as PromoDiscountType | "")}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— none —</option>

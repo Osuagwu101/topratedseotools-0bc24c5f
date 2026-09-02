@@ -78,12 +78,11 @@ const overridesQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/tools/$slug")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: ({ params }) => ({
-    meta: [
-      { title: `Manage ${params.slug} — Admin` },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: `Manage ${params.slug} — Admin` }, { name: "robots", content: "noindex" }],
   }),
   loader: async ({ context, params }) => {
     // Custom (admin-created) tools live in tool_overrides, so the overrides
@@ -145,9 +144,7 @@ function AdminToolPage() {
         <div className="mt-3 flex items-center gap-3">
           <ToolBrandMark tool={tool} size="md" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
-              {tool.name}
-            </h1>
+            <h1 className="truncate text-2xl font-semibold tracking-tight">{tool.name}</h1>
             <div className="text-xs text-muted-foreground">
               {tool.category} · {tool.slug}
             </div>
@@ -413,32 +410,23 @@ function AccessTab({ slug }: { slug: string }) {
   const toolOpts = pricingData.options.filter((o) => o.tool_slug === slug);
 
   const [enabled, setEnabled] = useState(setting?.enabled ?? true);
-  const [level, setLevel] = useState<ToolAccessLevel>(
-    setting?.access_level ?? "purchased",
-  );
+  const [level, setLevel] = useState<ToolAccessLevel>(setting?.access_level ?? "purchased");
   const [shared, setShared] = useState(setting?.shared_access_enabled ?? true);
   const [priv, setPriv] = useState(setting?.private_access_enabled ?? true);
-  const [sharedAuth, setSharedAuth] = useState<
-    "confirmed" | "not_confirmed" | "not_applicable"
-  >(setting?.shared_access_authorization ?? "confirmed");
-  const [privAuth, setPrivAuth] = useState<
-    "confirmed" | "not_confirmed" | "not_applicable"
-  >(setting?.private_access_authorization ?? "confirmed");
-
-  const [ocEnabled, setOcEnabled] = useState(
-    setting?.one_click_auth_enabled ?? false,
+  const [sharedAuth, setSharedAuth] = useState<"confirmed" | "not_confirmed" | "not_applicable">(
+    setting?.shared_access_authorization ?? "confirmed",
   );
+  const [privAuth, setPrivAuth] = useState<"confirmed" | "not_confirmed" | "not_applicable">(
+    setting?.private_access_authorization ?? "confirmed",
+  );
+
+  const [ocEnabled, setOcEnabled] = useState(setting?.one_click_auth_enabled ?? false);
   const [ocUrl, setOcUrl] = useState(
-    setting?.official_login_url ??
-      (tool.domain ? `https://${tool.domain}` : ""),
+    setting?.official_login_url ?? (tool.domain ? `https://${tool.domain}` : ""),
   );
   const [ocProvider, setOcProvider] = useState(setting?.auth_provider ?? "");
-  const [ocMode, setOcMode] = useState<LaunchMode>(
-    setting?.launch_mode ?? "new_tab",
-  );
-  const [ocDisplayCreds, setOcDisplayCreds] = useState(
-    setting?.display_manual_credentials ?? true,
-  );
+  const [ocMode, setOcMode] = useState<LaunchMode>(setting?.launch_mode ?? "new_tab");
+  const [ocDisplayCreds, setOcDisplayCreds] = useState(setting?.display_manual_credentials ?? true);
 
   async function save() {
     setBusy(true);
@@ -586,9 +574,7 @@ function AccessTab({ slug }: { slug: string }) {
               <span className="text-muted-foreground">Authorisation status</span>
               <select
                 value={sharedAuth}
-                onChange={(e) =>
-                  setSharedAuth(e.target.value as typeof sharedAuth)
-                }
+                onChange={(e) => setSharedAuth(e.target.value as typeof sharedAuth)}
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               >
                 <option value="confirmed">Confirmed — can be sold</option>
@@ -609,9 +595,7 @@ function AccessTab({ slug }: { slug: string }) {
               <span className="text-muted-foreground">Authorisation status</span>
               <select
                 value={privAuth}
-                onChange={(e) =>
-                  setPrivAuth(e.target.value as typeof privAuth)
-                }
+                onChange={(e) => setPrivAuth(e.target.value as typeof privAuth)}
                 className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               >
                 <option value="confirmed">Confirmed — can be sold</option>
@@ -623,7 +607,6 @@ function AccessTab({ slug }: { slug: string }) {
         </div>
       </Card>
 
-
       <Card title="One-Click Login" icon={<Zap className="h-4 w-4" />}>
         <label className="flex items-center gap-3 text-sm">
           <input
@@ -633,7 +616,8 @@ function AccessTab({ slug }: { slug: string }) {
             className="h-4 w-4"
           />
           <span>
-            Show subscribers a single <strong>Launch Tool</strong> button instead of the raw credentials.
+            Show subscribers a single <strong>Launch Tool</strong> button instead of the raw
+            credentials.
           </span>
         </label>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -762,9 +746,7 @@ const PERIOD_UNIT: Record<Period, string> = {
 };
 
 function periodOf(o: ToolPricingOption): Period | "other" {
-  return normaliseBillingKind(getBillingKind({ unit: o.unit ?? null })) as
-    | Period
-    | "other";
+  return normaliseBillingKind(getBillingKind({ unit: o.unit ?? null })) as Period | "other";
 }
 
 function PricingTab({ slug }: { slug: string }) {
@@ -840,7 +822,8 @@ function PricingTab({ slug }: { slug: string }) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Set Shared and Private prices for Monthly, Quarterly, and Yearly. Amounts are in ₦. Turn plans off to hide them from customers without deleting existing subscribers' access.
+        Set Shared and Private prices for Monthly, Quarterly, and Yearly. Amounts are in ₦. Turn
+        plans off to hide them from customers without deleting existing subscribers' access.
       </p>
       <PriceGroup
         title="Shared Access"
@@ -947,11 +930,7 @@ function PriceRow({
         </span>
       </div>
       <label className="flex items-center gap-1.5 text-xs sm:col-span-2">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-        />
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         {enabled ? "Enabled" : "Disabled"}
       </label>
       <div className="sm:col-span-5">
@@ -970,9 +949,7 @@ function PriceRow({
       <div className="flex items-center justify-end gap-1 sm:col-span-3">
         <button
           disabled={isBusy}
-          onClick={() =>
-            onSave({ id: row?.id, access_type: access, period, amount, enabled })
-          }
+          onClick={() => onSave({ id: row?.id, access_type: access, period, amount, enabled })}
           className="inline-flex items-center gap-1 rounded-md bg-gradient-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
         >
           <Save className="h-3.5 w-3.5" /> Save
@@ -1003,7 +980,9 @@ function CredentialsTab({ tool }: { tool: CatalogTool }) {
   const qc = useQueryClient();
   const [email, setEmail] = useState(current?.login_email ?? "");
   const [password, setPassword] = useState(current?.login_password ?? "");
-  const [url, setUrl] = useState(current?.login_url ?? (tool.domain ? `https://${tool.domain}` : ""));
+  const [url, setUrl] = useState(
+    current?.login_url ?? (tool.domain ? `https://${tool.domain}` : ""),
+  );
   const [notes, setNotes] = useState(current?.login_notes ?? "");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1036,7 +1015,12 @@ function CredentialsTab({ tool }: { tool: CatalogTool }) {
         Shown to subscribers with an active plan. Hidden automatically on expiry.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input label="Login email" value={email} onChange={setEmail} placeholder="account@example.com" />
+        <Input
+          label="Login email"
+          value={email}
+          onChange={setEmail}
+          placeholder="account@example.com"
+        />
         <label className="text-xs font-medium">
           <span className="text-muted-foreground">Password</span>
           <div className="relative mt-1">
@@ -1057,7 +1041,13 @@ function CredentialsTab({ tool }: { tool: CatalogTool }) {
             </button>
           </div>
         </label>
-        <Input label="Login URL" value={url} onChange={setUrl} placeholder="https://example.com/login" full />
+        <Input
+          label="Login URL"
+          value={url}
+          onChange={setUrl}
+          placeholder="https://example.com/login"
+          full
+        />
         <label className="text-xs font-medium sm:col-span-2">
           <span className="text-muted-foreground">Notes shown to subscribers (optional)</span>
           <textarea
@@ -1085,10 +1075,7 @@ function CredentialsTab({ tool }: { tool: CatalogTool }) {
 
 function OrdersTab({ slug }: { slug: string }) {
   const { data } = useSuspenseQuery(ordersQuery);
-  const rows = useMemo(
-    () => data.orders.filter((o) => o.tool_slug === slug),
-    [data.orders, slug],
-  );
+  const rows = useMemo(() => data.orders.filter((o) => o.tool_slug === slug), [data.orders, slug]);
 
   if (rows.length === 0) {
     return (
@@ -1102,10 +1089,7 @@ function OrdersTab({ slug }: { slug: string }) {
     <div className="rounded-2xl border bg-card shadow-card">
       <div className="flex items-center justify-between border-b p-4">
         <div className="text-sm font-semibold">Subscribers & orders</div>
-        <Link
-          to="/admin/orders"
-          className="text-xs font-semibold text-primary hover:underline"
-        >
+        <Link to="/admin/orders" className="text-xs font-semibold text-primary hover:underline">
           Full orders view →
         </Link>
       </div>

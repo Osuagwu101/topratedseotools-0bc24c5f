@@ -209,13 +209,13 @@ async function fetchEligibility(
     .map((r) => r.id as string);
 
   // Exclude any order that has a refunded/reversed payment record.
-  let refundedIds = new Set<string>();
+  const refundedIds = new Set<string>();
   if (candidateIds.length > 0) {
     const { data: pays } = await context.supabase
       .from("tool_payments")
       .select("order_id, payment_status, reconciliation_status")
       .in("order_id", candidateIds);
-    for (const p of ((pays ?? []) as any[])) {
+    for (const p of (pays ?? []) as any[]) {
       if (isRefundPayment(p) && p.order_id) refundedIds.add(p.order_id as string);
     }
   }
@@ -255,9 +255,7 @@ async function fetchEligibility(
 /** Auth — returns the current user's review + eligibility for one tool. */
 export const getReviewEligibility = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ tool_slug: z.string().min(1).max(120) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ tool_slug: z.string().min(1).max(120) }).parse(input))
   .handler(async ({ data, context }) => fetchEligibility(context, data.tool_slug));
 
 /** Auth — returns eligibility for every tool the user has ever bought. */
@@ -269,9 +267,7 @@ export const listMyReviewEligibility = createServerFn({ method: "GET" })
       .select("tool_slug")
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
-    const slugs = Array.from(
-      new Set(((orders ?? []) as any[]).map((r) => r.tool_slug as string)),
-    );
+    const slugs = Array.from(new Set(((orders ?? []) as any[]).map((r) => r.tool_slug as string)));
     const items: ReviewEligibility[] = [];
     for (const s of slugs) items.push(await fetchEligibility(context, s));
     return { items };
@@ -299,9 +295,7 @@ export const submitReview = createServerFn({ method: "POST" })
 
     const eligibility = await fetchEligibility(context, data.tool_slug);
     if (!eligibility.canReview && !eligibility.canEdit) {
-      throw new Error(
-        eligibility.reason ?? "You are not eligible to review this tool right now.",
-      );
+      throw new Error(eligibility.reason ?? "You are not eligible to review this tool right now.");
     }
     if (!eligibility.latest_qualifying_order_id || !eligibility.latest_qualifying_source) {
       throw new Error("A verified purchase is required to review this tool.");
@@ -389,7 +383,9 @@ async function loadPublicReviewList(
 ): Promise<{ reviews: PublicReview[]; aggregate: RatingAggregate }> {
   // Approved reviews for aggregate (need all rows for the breakdown).
   const { data: allApproved } = await (client.from("tool_reviews") as any)
-    .select("id, tool_slug, rating, title, body, display_name, verified_source, submitted_at, qualifying_order_id")
+    .select(
+      "id, tool_slug, rating, title, body, display_name, verified_source, submitted_at, qualifying_order_id",
+    )
     .eq("tool_slug", tool_slug)
     .eq("status", "approved")
     .order("submitted_at", { ascending: false });
@@ -426,8 +422,7 @@ async function loadPublicReviewList(
     display_name: (r.display_name as string | null) ?? null,
     verified_source: (r.verified_source as ReviewSource) ?? "paystack",
     access_type:
-      (orderMap.get(r.qualifying_order_id as string) as "shared" | "private" | undefined) ??
-      null,
+      (orderMap.get(r.qualifying_order_id as string) as "shared" | "private" | undefined) ?? null,
     submitted_at: r.submitted_at as string,
   }));
 
@@ -438,7 +433,10 @@ async function loadPublicReviewList(
 export const listPublicReviews = createServerFn({ method: "GET" })
   .inputValidator((input) =>
     z
-      .object({ tool_slug: z.string().min(1).max(120), limit: z.number().int().min(1).max(100).optional() })
+      .object({
+        tool_slug: z.string().min(1).max(120),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
       .parse(input),
   )
   .handler(async ({ data }) => {
@@ -469,10 +467,9 @@ export const adminListReviews = createServerFn({ method: "GET" })
   .inputValidator((input) => adminListInput.parse(input) ?? {})
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    let q = (context.supabase.from("tool_reviews") as any).select("*").order(
-      "submitted_at",
-      { ascending: false },
-    );
+    let q = (context.supabase.from("tool_reviews") as any)
+      .select("*")
+      .order("submitted_at", { ascending: false });
     if (data?.tool_slug) q = q.eq("tool_slug", data.tool_slug);
     if (data?.status) q = q.eq("status", data.status);
     if (data?.min_rating) q = q.gte("rating", data.min_rating);

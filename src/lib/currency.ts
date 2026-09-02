@@ -23,9 +23,10 @@ import type { ToolPricingOption } from "@/lib/tool-pricing.functions";
  */
 export type BillingKind = "monthly" | "quarterly" | "yearly" | "annual" | "other";
 
-export function getBillingKind(
-  opt: { unit?: string | null; billing_period?: string | null },
-): BillingKind {
+export function getBillingKind(opt: {
+  unit?: string | null;
+  billing_period?: string | null;
+}): BillingKind {
   const bp = (opt.billing_period ?? "").toLowerCase().trim();
   if (bp === "monthly") return "monthly";
   if (bp === "quarterly") return "quarterly";
@@ -44,7 +45,6 @@ export function getBillingKind(
   if (u === "year" || u === "annual" || u === "yearly" || u === "yr") return "yearly";
   return "other";
 }
-
 
 /** Normalised, comparable kind — folds legacy "annual" into "yearly". */
 export function normaliseBillingKind(k: BillingKind): "monthly" | "quarterly" | "yearly" | "other" {
@@ -74,16 +74,16 @@ export function formatCurrency(amount: number | null | undefined, currency = "�
 }
 
 /** "per month" / "every three months" / "per year" / "per check". */
-export function billingSuffix(
-  opt: { unit?: string | null; billing_period?: string | null },
-): string {
+export function billingSuffix(opt: {
+  unit?: string | null;
+  billing_period?: string | null;
+}): string {
   const kind = normaliseBillingKind(getBillingKind(opt));
   if (kind === "monthly") return "per month";
   if (kind === "quarterly") return "every three months";
   if (kind === "yearly") return "per year";
   return opt.unit ? `per ${opt.unit}` : "";
 }
-
 
 /** Customer-facing "Billed …" line. */
 export function billingDescription(kind: BillingKind): string {
@@ -96,12 +96,10 @@ export function billingDescription(kind: BillingKind): string {
 
 export function renewalText(kind: BillingKind): string {
   const n = normaliseBillingKind(kind);
-  if (n === "monthly")
-    return "Renews automatically every month until renewal is disabled.";
+  if (n === "monthly") return "Renews automatically every month until renewal is disabled.";
   if (n === "quarterly")
     return "Renews automatically every three months until renewal is disabled.";
-  if (n === "yearly")
-    return "Renews automatically every year until renewal is disabled.";
+  if (n === "yearly") return "Renews automatically every year until renewal is disabled.";
   return "";
 }
 
@@ -131,7 +129,6 @@ export function formatPlanPriceCompact(
   if (kind === "yearly") return `${money}/year`;
   return opt.unit ? `${money} / ${opt.unit}` : money;
 }
-
 
 export interface Saving {
   amount: number;

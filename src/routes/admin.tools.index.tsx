@@ -28,7 +28,9 @@ const overridesQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/tools/")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [
       { title: "Tools — Admin — Top Rated SEO Tools" },
@@ -77,7 +79,8 @@ function AdminToolsIndex() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold tracking-tight">Tools</h1>
             <p className="text-sm text-muted-foreground">
-              Select a tool to manage its details, access, pricing, credentials, and orders in one place.
+              Select a tool to manage its details, access, pricing, credentials, and orders in one
+              place.
             </p>
           </div>
         </div>
@@ -115,15 +118,11 @@ function AdminToolsIndex() {
                   <ToolBrandMark tool={t} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{t.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {t.category}
-                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{t.category}</div>
                   </div>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                      enabled
-                        ? "bg-success/15 text-success"
-                        : "bg-destructive/10 text-destructive"
+                      enabled ? "bg-success/15 text-success" : "bg-destructive/10 text-destructive"
                     }`}
                   >
                     {enabled ? "On" : "Off"}

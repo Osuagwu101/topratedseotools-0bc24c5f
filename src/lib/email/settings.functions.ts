@@ -19,7 +19,10 @@ import { queueEmail, dispatchOne, dispatchDue, queueAbandonedReminders } from ".
 import { renderTemplate, wrapHtmlEmail } from "./templates";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+  const { data, error } = await ctx.supabase.rpc("has_role", {
+    _user_id: ctx.userId,
+    _role: "admin",
+  });
   if (error) throw new Error(String(error.message ?? "role check failed"));
   if (!data) throw new Error("Forbidden");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -52,7 +55,11 @@ const settingsInput = z.object({
   enabled_types: z.record(z.string(), z.boolean()).optional(),
   // Email branding (presentation only).
   brand_name: z.string().trim().min(1).max(120).optional(),
-  brand_color: z.string().trim().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #1e4e8c").optional(),
+  brand_color: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #1e4e8c")
+    .optional(),
   brand_logo_url: z.string().trim().max(500).optional().or(z.literal("")),
   footer_company: z.string().trim().min(1).max(160).optional(),
   footer_support_email: z.string().trim().email().max(200).optional(),
@@ -103,7 +110,12 @@ export const adminCreateEmailDomain = createServerFn({ method: "POST" })
           updated_by: context.userId,
         } as never)
         .eq("id", true);
-      return { ok: true, id: created.id, status: created.status, records: sanitizeDnsRecords(created.records) };
+      return {
+        ok: true,
+        id: created.id,
+        status: created.status,
+        records: sanitizeDnsRecords(created.records),
+      };
     } catch (e) {
       if (e instanceof ResendError && e.status === 422) {
         // Domain likely already exists — try to look it up by listing.
@@ -117,7 +129,11 @@ export const adminRefreshEmailDomain = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context);
-    const { data: cur } = await admin.from("email_settings").select("resend_domain_id").eq("id", true).maybeSingle();
+    const { data: cur } = await admin
+      .from("email_settings")
+      .select("resend_domain_id")
+      .eq("id", true)
+      .maybeSingle();
     const id = (cur as { resend_domain_id?: string } | null)?.resend_domain_id;
     if (!id) throw new Error("No domain has been created yet.");
     const dom = await resendGetDomain(id);
@@ -136,7 +152,11 @@ export const adminVerifyEmailDomain = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context);
-    const { data: cur } = await admin.from("email_settings").select("resend_domain_id").eq("id", true).maybeSingle();
+    const { data: cur } = await admin
+      .from("email_settings")
+      .select("resend_domain_id")
+      .eq("id", true)
+      .maybeSingle();
     const id = (cur as { resend_domain_id?: string } | null)?.resend_domain_id;
     if (!id) throw new Error("No domain has been created yet.");
     await resendVerifyDomain(id);
@@ -197,7 +217,11 @@ export const adminListEmailHistory = createServerFn({ method: "POST" })
   .inputValidator((input) => historyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
-    let q = admin.from("email_messages").select("*").order("created_at", { ascending: false }).limit(data.limit ?? 200);
+    let q = admin
+      .from("email_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 200);
     if (data.status && data.status !== "all") q = q.eq("status", data.status);
     if (data.template_key) q = q.eq("template_key", data.template_key);
     const { data: rows, error } = await q;
@@ -207,10 +231,18 @@ export const adminListEmailHistory = createServerFn({ method: "POST" })
       const s = data.search.toLowerCase();
       out = out.filter(
         (r) =>
-          String(r.recipient ?? "").toLowerCase().includes(s) ||
-          String(r.subject ?? "").toLowerCase().includes(s) ||
-          String(r.template_key ?? "").toLowerCase().includes(s) ||
-          String(r.event_key ?? "").toLowerCase().includes(s),
+          String(r.recipient ?? "")
+            .toLowerCase()
+            .includes(s) ||
+          String(r.subject ?? "")
+            .toLowerCase()
+            .includes(s) ||
+          String(r.template_key ?? "")
+            .toLowerCase()
+            .includes(s) ||
+          String(r.event_key ?? "")
+            .toLowerCase()
+            .includes(s),
       );
     }
     return { messages: out };
@@ -238,17 +270,26 @@ export const adminSendTestEmail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
     if (!isResendConfigured()) throw new Error("Add RESEND_API_KEY first.");
-    const { data: settings } = await admin.from("email_settings").select("*").eq("id", true).maybeSingle();
+    const { data: settings } = await admin
+      .from("email_settings")
+      .select("*")
+      .eq("id", true)
+      .maybeSingle();
     if (!settings) throw new Error("Email settings missing.");
     const s = settings as any;
     const { normalizeBranding } = await import("./branding");
     const branding = normalizeBranding(s);
     const html = wrapHtmlEmail(
       renderTemplate(
-        "<h1 style=\"margin:0 0 12px;font-size:21px;font-weight:700;letter-spacing:-0.3px;\">Sending works</h1><p style=\"margin:0 0 14px;\">Hi {{name}}, this is a test email from your {{brand_name}} admin panel. If it looks right here, your branded emails look right everywhere.</p>",
+        '<h1 style="margin:0 0 12px;font-size:21px;font-weight:700;letter-spacing:-0.3px;">Sending works</h1><p style="margin:0 0 14px;">Hi {{name}}, this is a test email from your {{brand_name}} admin panel. If it looks right here, your branded emails look right everywhere.</p>',
         { name: "there", brand_name: branding.brandName },
       ),
-      { senderName: s.sender_name, siteUrl: branding.websiteUrl, branding, preheader: "Test email — sending is working." },
+      {
+        senderName: s.sender_name,
+        siteUrl: branding.websiteUrl,
+        branding,
+        preheader: "Test email — sending is working.",
+      },
     );
     const { resendSendEmail } = await import("./resend");
     try {

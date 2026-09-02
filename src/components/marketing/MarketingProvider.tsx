@@ -11,7 +11,11 @@
  */
 import { useEffect } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { captureAttributionFromUrl, peekVisitorId, readAttribution } from "@/lib/marketing/attribution";
+import {
+  captureAttributionFromUrl,
+  peekVisitorId,
+  readAttribution,
+} from "@/lib/marketing/attribution";
 import { trackPageView, trackViewItem } from "@/lib/marketing/track";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
 import { getTool } from "@/lib/tools-data";

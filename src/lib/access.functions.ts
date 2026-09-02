@@ -14,19 +14,18 @@
  *      * wallet debits become an additional row on the order
  */
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type ToolAccessLevel = "public" | "logged_in" | "purchased";
-export type ToolOrderStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "cancelled"
-  | "expired";
+export type ToolOrderStatus = "pending" | "approved" | "rejected" | "cancelled" | "expired";
 export type LaunchMode = "new_tab" | "same_tab" | "popup";
+
+type AppSupabase = SupabaseClient<Database>;
+type ToolSettingsInsert = Database["public"]["Tables"]["tool_settings"]["Insert"];
+type ToolOrderUpdate = Database["public"]["Tables"]["tool_orders"]["Update"];
 
 export type AccessAuthorization = "confirmed" | "not_confirmed" | "not_applicable";
 
@@ -44,8 +43,6 @@ export interface ToolSetting {
   shared_access_authorization: AccessAuthorization;
   private_access_authorization: AccessAuthorization;
 }
-
-
 
 export interface ToolOrder {
   id: string;
@@ -88,6 +85,10 @@ export interface ToolOrder {
   updated_at: string;
 }
 
+export interface AdminToolOrder extends ToolOrder {
+  customer_email: string | null;
+}
+
 function publicClient() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
   const url = process.env.SUPABASE_URL!;
@@ -106,7 +107,7 @@ function publicClient() {
   });
 }
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
+async function assertAdmin(context: { supabase: AppSupabase; userId: string }) {
   const { data, error } = await context.supabase
     .from("user_roles")
     .select("role")
@@ -120,22 +121,16 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
 // ---------- PUBLIC ----------
 
 /** Public — every tool's settings. Cached and read by every tool card. Credentials are NEVER included here. */
-export const listToolSettings = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const supabase = publicClient();
-    const { data, error } = await supabase
-      .from("tool_settings")
-      .select(
-        "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
-      );
-    if (error) throw new Error(error.message);
-    return { settings: (data ?? []) as unknown as ToolSetting[] };
-  },
-);
-
-
-
-
+export const listToolSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const supabase = publicClient();
+  const { data, error } = await supabase
+    .from("tool_settings")
+    .select(
+      "tool_slug, enabled, access_level, one_click_auth_enabled, official_login_url, auth_provider, launch_mode, display_manual_credentials, shared_access_enabled, private_access_enabled, shared_access_authorization, private_access_authorization",
+    );
+  if (error) throw new Error(error.message);
+  return { settings: (data ?? []) as unknown as ToolSetting[] };
+});
 
 // ---------- USER ----------
 
@@ -159,8 +154,18 @@ export interface ResolveCredentialsInput {
     created_at: string;
     admin_notes: string | null;
   };
-  assignment: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
-  legacyCredential: { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null;
+  assignment: {
+    email: string | null;
+    password: string | null;
+    login_url: string | null;
+    login_notes: string | null;
+  } | null;
+  legacyCredential: {
+    email: string | null;
+    password: string | null;
+    login_url: string | null;
+    login_notes: string | null;
+  } | null;
   cutoffIso?: string;
 }
 
@@ -174,15 +179,21 @@ export interface ResolveCredentialsInput {
  *    when the order was created before the account-pool launch. Newer orders
  *    show `null` (UI renders "Awaiting account assignment").
  */
-export function resolveOrderCredentials(
-  input: ResolveCredentialsInput,
-): { email: string | null; password: string | null; login_url: string | null; login_notes: string | null } | null {
+export function resolveOrderCredentials(input: ResolveCredentialsInput): {
+  email: string | null;
+  password: string | null;
+  login_url: string | null;
+  login_notes: string | null;
+} | null {
   const { order, assignment, legacyCredential } = input;
   const cutoff = input.cutoffIso ?? LEGACY_CREDENTIAL_CUTOFF_ISO;
 
   if (order.access_type === "private") {
     if (order.fulfilment_status !== "active") return null;
-    if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+    if (
+      assignment &&
+      (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)
+    ) {
       return assignment;
     }
     if (order.admin_notes) {
@@ -192,7 +203,10 @@ export function resolveOrderCredentials(
   }
 
   // Shared
-  if (assignment && (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)) {
+  if (
+    assignment &&
+    (assignment.email || assignment.password || assignment.login_url || assignment.login_notes)
+  ) {
     return assignment;
   }
   // Legacy fallback only for genuinely pre-migration orders.
@@ -226,37 +240,61 @@ export const getMyAccess = createServerFn({ method: "GET" })
           .map((r) => r.tool_slug as string),
       ),
     );
-    const legacyCreds: Record<string, { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }> = {};
+    const legacyCreds: Record<
+      string,
+      {
+        email: string | null;
+        password: string | null;
+        login_url: string | null;
+        login_notes: string | null;
+      }
+    > = {};
     // Per-order account assignment (new pool). Keys by order_id.
     const assignedByOrder: Record<
       string,
-      { email: string | null; password: string | null; login_url: string | null; login_notes: string | null }
+      {
+        email: string | null;
+        password: string | null;
+        login_url: string | null;
+        login_notes: string | null;
+      }
     > = {};
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const orderIds = (data ?? []).map((r) => r.id as string);
     if (orderIds.length) {
-      const { data: aRows } = await (supabaseAdmin as any)
+      const { data: aRows } = await supabaseAdmin
         .from("tool_account_assignments")
         .select("order_id, account_id")
         .in("order_id", orderIds)
         .eq("status", "active");
-      const accIds = Array.from(new Set(((aRows ?? []) as any[]).map((r) => r.account_id as string)));
-      const accById: Record<string, any> = {};
+      const accIds = Array.from(new Set((aRows ?? []).map((row) => row.account_id)));
+      const accById = new Map<
+        string,
+        {
+          login_email: string | null;
+          login_password: string | null;
+          login_url: string | null;
+          login_notes: string | null;
+        }
+      >();
       if (accIds.length) {
-        const { data: accs } = await (supabaseAdmin as any)
+        const { data: accs } = await supabaseAdmin
           .from("tool_accounts")
           .select("id, login_email, login_password, login_url, login_notes")
           .in("id", accIds);
-        for (const a of ((accs ?? []) as any[])) accById[a.id as string] = a;
+        for (const account of accs ?? []) {
+          accById.set(account.id, account);
+        }
       }
-      for (const r of ((aRows ?? []) as any[])) {
-        const a = accById[r.account_id as string];
-        if (!a) continue;
-        assignedByOrder[r.order_id as string] = {
-          email: (a.login_email as string | null) ?? null,
-          password: (a.login_password as string | null) ?? null,
-          login_url: (a.login_url as string | null) ?? null,
-          login_notes: (a.login_notes as string | null) ?? null,
+      for (const row of aRows ?? []) {
+        if (!row.order_id) continue;
+        const account = accById.get(row.account_id);
+        if (!account) continue;
+        assignedByOrder[row.order_id] = {
+          email: account.login_email,
+          password: account.login_password,
+          login_url: account.login_url,
+          login_notes: account.login_notes,
         };
       }
     }
@@ -313,9 +351,6 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }),
     };
   });
-
-
-
 
 /** Auth — the current user's orders (all statuses). */
 export const listMyOrders = createServerFn({ method: "GET" })
@@ -455,31 +490,40 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
         url = (existing?.official_login_url as string | null) ?? null;
       }
       if (!url) {
-        throw new Error(
-          "Add an Official Login URL before enabling One-Click Login.",
-        );
+        throw new Error("Add an Official Login URL before enabling One-Click Login.");
       }
     }
-    const patch: Record<string, unknown> = { tool_slug: data.tool_slug };
-    for (const k of [
-      "enabled",
-      "access_level",
-      "one_click_auth_enabled",
-      "official_login_url",
-      "auth_provider",
-      "launch_mode",
-      "display_manual_credentials",
-      "shared_access_enabled",
-      "private_access_enabled",
-      "shared_access_authorization",
-      "private_access_authorization",
-    ] as const) {
-      if (data[k] !== undefined) patch[k] = data[k];
-    }
+    const patch: ToolSettingsInsert = {
+      tool_slug: data.tool_slug,
+      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+      ...(data.access_level !== undefined ? { access_level: data.access_level } : {}),
+      ...(data.one_click_auth_enabled !== undefined
+        ? { one_click_auth_enabled: data.one_click_auth_enabled }
+        : {}),
+      ...(data.official_login_url !== undefined
+        ? { official_login_url: data.official_login_url }
+        : {}),
+      ...(data.auth_provider !== undefined ? { auth_provider: data.auth_provider } : {}),
+      ...(data.launch_mode !== undefined ? { launch_mode: data.launch_mode } : {}),
+      ...(data.display_manual_credentials !== undefined
+        ? { display_manual_credentials: data.display_manual_credentials }
+        : {}),
+      ...(data.shared_access_enabled !== undefined
+        ? { shared_access_enabled: data.shared_access_enabled }
+        : {}),
+      ...(data.private_access_enabled !== undefined
+        ? { private_access_enabled: data.private_access_enabled }
+        : {}),
+      ...(data.shared_access_authorization !== undefined
+        ? { shared_access_authorization: data.shared_access_authorization }
+        : {}),
+      ...(data.private_access_authorization !== undefined
+        ? { private_access_authorization: data.private_access_authorization }
+        : {}),
+    };
     const { error } = await context.supabase
       .from("tool_settings")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .upsert(patch as any, { onConflict: "tool_slug" });
+      .upsert(patch, { onConflict: "tool_slug" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -500,9 +544,7 @@ export const adminListToolCredentials = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
-    const { data, error } = await context.supabase
-      .from("tool_credentials")
-      .select("*");
+    const { data, error } = await context.supabase.from("tool_credentials").select("*");
     if (error) throw new Error(error.message);
     return { credentials: (data ?? []) as ToolCredential[] };
   });
@@ -541,9 +583,6 @@ export const adminUpsertToolCredential = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
-
-
 /** Admin — list every order (paged simply, most-recent first). */
 export const adminListOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -555,14 +594,32 @@ export const adminListOrders = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    return { orders: (data ?? []) as ToolOrder[] };
+    const orders = (data ?? []) as ToolOrder[];
+    const userIds = Array.from(new Set(orders.map((order) => order.user_id)));
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const emailByUser = new Map<string, string | null>();
+    if (userIds.length) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
+      for (const profile of profiles ?? []) {
+        emailByUser.set(profile.id, profile.email);
+      }
+    }
+    return {
+      orders: orders.map(
+        (order): AdminToolOrder => ({
+          ...order,
+          customer_email: emailByUser.get(order.user_id) ?? null,
+        }),
+      ),
+    };
   });
 
 const updateOrderInput = z.object({
   id: z.string().uuid(),
-  status: z
-    .enum(["pending", "approved", "rejected", "cancelled", "expired"])
-    .optional(),
+  status: z.enum(["pending", "approved", "rejected", "cancelled", "expired"]).optional(),
   expires_at: z.string().nullable().optional(),
   admin_notes: z.string().max(2000).nullable().optional(),
 });
@@ -584,10 +641,7 @@ export const adminUpdateOrder = createServerFn({ method: "POST" })
     }
     if (data.expires_at !== undefined) patch.expires_at = data.expires_at;
     if (data.admin_notes !== undefined) patch.admin_notes = data.admin_notes;
-    const { error } = await context.supabase
-      .from("tool_orders")
-      .update(patch)
-      .eq("id", data.id);
+    const { error } = await context.supabase.from("tool_orders").update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     const { logAdminActivity } = await import("@/lib/admin-audit.server");
     await logAdminActivity(context, {
@@ -676,8 +730,7 @@ export const adminReconcilePrivateOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => reconcileInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const patch: Record<string, any> = {
+    const patch: ToolOrderUpdate = {
       fulfilment_reason: data.reason ?? null,
       fulfilment_marked_by: context.userId,
     };
@@ -695,11 +748,9 @@ export const adminReconcilePrivateOrder = createServerFn({ method: "POST" })
     }
     const { error } = await context.supabase
       .from("tool_orders")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update(patch as any)
+      .update(patch)
       .eq("id", data.id)
       .eq("access_type", "private");
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-

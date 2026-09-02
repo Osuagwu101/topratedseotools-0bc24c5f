@@ -18,14 +18,16 @@ const emptyConfig: PublicMarketingConfig = {
 
 export const getPublicMarketingConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const [{ data: integrations, error: integrationsError }, { data: settings, error: settingsError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from("marketing_integrations")
-        .select("provider, enabled, public_id")
-        .in("provider", ["meta_pixel", "gtm"]),
-      supabaseAdmin.from("site_settings").select("marketing_pause").eq("id", true).maybeSingle(),
-    ]);
+  const [
+    { data: integrations, error: integrationsError },
+    { data: settings, error: settingsError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("marketing_integrations")
+      .select("provider, enabled, public_id")
+      .in("provider", ["meta_pixel", "gtm"]),
+    supabaseAdmin.from("site_settings").select("marketing_pause").eq("id", true).maybeSingle(),
+  ]);
 
   if (integrationsError || settingsError) return emptyConfig;
 

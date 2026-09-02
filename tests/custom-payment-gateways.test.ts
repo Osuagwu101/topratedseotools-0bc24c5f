@@ -9,8 +9,10 @@ const oldFlutterwave = process.env.FLUTTERWAVE_SECRET_KEY;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  if (oldPaystack == null) delete process.env.PAYSTACK_SECRET_KEY; else process.env.PAYSTACK_SECRET_KEY = oldPaystack;
-  if (oldFlutterwave == null) delete process.env.FLUTTERWAVE_SECRET_KEY; else process.env.FLUTTERWAVE_SECRET_KEY = oldFlutterwave;
+  if (oldPaystack == null) delete process.env.PAYSTACK_SECRET_KEY;
+  else process.env.PAYSTACK_SECRET_KEY = oldPaystack;
+  if (oldFlutterwave == null) delete process.env.FLUTTERWAVE_SECRET_KEY;
+  else process.env.FLUTTERWAVE_SECRET_KEY = oldFlutterwave;
   vi.restoreAllMocks();
 });
 
@@ -23,11 +25,18 @@ describe("Custom Payment gateway adapter contract", () => {
       expect(body.amount).toBe(12345);
       expect(body.reference).toBe("CP-PS-test");
       expect(body.metadata.kind).toBe("custom_payment");
-      return new Response(JSON.stringify({
-        status: true,
-        message: "Authorization URL created",
-        data: { authorization_url: "https://checkout.paystack.com/test", access_code: "abc", reference: "CP-PS-test" },
-      }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          status: true,
+          message: "Authorization URL created",
+          data: {
+            authorization_url: "https://checkout.paystack.com/test",
+            access_code: "abc",
+            reference: "CP-PS-test",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
     });
     globalThis.fetch = fetchMock as typeof fetch;
 
@@ -53,10 +62,17 @@ describe("Custom Payment gateway adapter contract", () => {
       expect(body.tx_ref).toBe("CP-FW-test");
       expect(body.payment_options).toContain("mobilemoneyghana");
       expect(body.meta.kind).toBe("custom_payment");
-      return new Response(JSON.stringify({ status: "success", message: "Hosted Link", data: { link: "https://checkout.flutterwave.com/test" } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          status: "success",
+          message: "Hosted Link",
+          data: { link: "https://checkout.flutterwave.com/test" },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
     });
     globalThis.fetch = fetchMock as typeof fetch;
 
@@ -77,20 +93,26 @@ describe("Custom Payment gateway adapter contract", () => {
 
   it("normalizes Flutterwave verification back to the canonical amount boundary", async () => {
     process.env.FLUTTERWAVE_SECRET_KEY = "FLWSECK_TEST-custom-payment-regression";
-    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
-      status: "success",
-      message: "Transaction fetched",
-      data: {
-        id: 42,
-        tx_ref: "CP-FW-verify",
-        status: "successful",
-        amount: 75.25,
-        currency: "ZAR",
-        payment_type: "card",
-        created_at: "2026-08-19T05:00:00.000Z",
-        meta: { kind: "custom_payment", custom_payment_link_id: "link-1" },
-      },
-    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            status: "success",
+            message: "Transaction fetched",
+            data: {
+              id: 42,
+              tx_ref: "CP-FW-verify",
+              status: "successful",
+              amount: 75.25,
+              currency: "ZAR",
+              payment_type: "card",
+              created_at: "2026-08-19T05:00:00.000Z",
+              meta: { kind: "custom_payment", custom_payment_link_id: "link-1" },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    ) as typeof fetch;
 
     const tx = await flutterwaveAdapter.verify("CP-FW-verify");
     expect(tx.status).toBe("success");

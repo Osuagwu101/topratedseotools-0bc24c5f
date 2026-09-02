@@ -72,12 +72,19 @@ function ProfilePage() {
     <SiteLayout>
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold tracking-tight">Profile settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your account details and preferences.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage your account details and preferences.
+        </p>
 
         <Card title="Profile">
           <form onSubmit={saveProfile} className="space-y-4">
             <Field label="Full name" value={fullName} onChange={setFullName} />
-            <Field label="Avatar URL" value={avatarUrl} onChange={setAvatarUrl} placeholder="https://..." />
+            <Field
+              label="Avatar URL"
+              value={avatarUrl}
+              onChange={setAvatarUrl}
+              placeholder="https://..."
+            />
             <button
               type="submit"
               disabled={saving}
@@ -91,7 +98,13 @@ function ProfilePage() {
         <Card title="Change email">
           <form onSubmit={updateEmail} className="space-y-4">
             <p className="text-xs text-muted-foreground">Current: {user.email}</p>
-            <Field label="New email" type="email" value={newEmail} onChange={setNewEmail} required />
+            <Field
+              label="New email"
+              type="email"
+              value={newEmail}
+              onChange={setNewEmail}
+              required
+            />
             <button className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted">
               Send confirmation
             </button>

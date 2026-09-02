@@ -50,7 +50,7 @@ export async function runProviderConnectionTest(p: any): Promise<ProviderConnect
         ok = !authFailed && response.status < 500;
         message = ok
           ? "Connection successful — merchant account reachable"
-          : body.message ?? `HTTP ${response.status}`;
+          : (body.message ?? `HTTP ${response.status}`);
       }
     } else if (p.slug === "monnify") {
       const apiKey = process.env.MONNIFY_API_KEY;
@@ -72,7 +72,9 @@ export async function runProviderConnectionTest(p: any): Promise<ProviderConnect
           responseMessage?: string;
         };
         ok = response.ok && !!body.requestSuccessful;
-        message = ok ? "Connection successful" : body.responseMessage ?? `HTTP ${response.status}`;
+        message = ok
+          ? "Connection successful"
+          : (body.responseMessage ?? `HTTP ${response.status}`);
       }
     } else {
       message = "Test connection is not implemented for this provider yet.";
@@ -84,7 +86,6 @@ export async function runProviderConnectionTest(p: any): Promise<ProviderConnect
   return { ok, message: message.slice(0, 500) };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function recordProviderTestResult(
   admin: any,
   id: string,

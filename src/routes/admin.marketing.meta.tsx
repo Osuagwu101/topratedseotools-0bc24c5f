@@ -22,10 +22,7 @@ export const Route = createFileRoute("/admin/marketing/meta")({
     await requireAdminOrRedirect();
   },
   head: () => ({
-    meta: [
-      { title: "Facebook Pixel Integration — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Facebook Pixel Integration — Admin" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: MetaPage,
@@ -125,7 +122,11 @@ function MetaPage() {
           </div>
 
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={pixelOn} onChange={(e) => setPixelOn(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={pixelOn}
+              onChange={(e) => setPixelOn(e.target.checked)}
+            />
             Enable Facebook Pixel
           </label>
 
@@ -157,7 +158,9 @@ function MetaPage() {
               <div className="text-xs text-muted-foreground">Last check</div>
               <div>
                 {meta?.last_event_at || capi?.last_event_at
-                  ? new Date((capi?.last_event_at ?? meta?.last_event_at) as string).toLocaleString()
+                  ? new Date(
+                      (capi?.last_event_at ?? meta?.last_event_at) as string,
+                    ).toLocaleString()
                   : "—"}
               </div>
             </div>
@@ -170,8 +173,8 @@ function MetaPage() {
           </summary>
           <div className="mt-4 space-y-3 text-sm">
             <p className="text-muted-foreground">
-              Send server events for more accurate purchase measurement.
-              Deduplicated with your browser Pixel automatically.
+              Send server events for more accurate purchase measurement. Deduplicated with your
+              browser Pixel automatically.
             </p>
             <label className="flex items-center gap-2">
               <input
@@ -184,7 +187,8 @@ function MetaPage() {
             </label>
             {!data.capi_token_configured ? (
               <p className="rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
-                Server-side tracking is not connected. Facebook Pixel browser tracking will continue to work.
+                Server-side tracking is not connected. Facebook Pixel browser tracking will continue
+                to work.
               </p>
             ) : null}
             {capi?.last_error_message ? (

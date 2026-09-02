@@ -16,11 +16,7 @@ import {
   type ToolPricingOption,
   type AccessType,
 } from "@/lib/tool-pricing.functions";
-import {
-  listToolSettings,
-  adminUpsertToolSetting,
-  type ToolSetting,
-} from "@/lib/access.functions";
+import { listToolSettings, adminUpsertToolSetting, type ToolSetting } from "@/lib/access.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 
 const pricingQuery = queryOptions({
@@ -34,7 +30,9 @@ const settingsQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/pricing")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [
       { title: "Pricing — Admin — Top Rated SEO Tools" },
@@ -106,7 +104,11 @@ function AdminPricingPage() {
     settingsData.settings.map((s) => [s.tool_slug, s]),
   );
 
-  async function toggleAccess(slug: string, field: "shared_access_enabled" | "private_access_enabled", value: boolean) {
+  async function toggleAccess(
+    slug: string,
+    field: "shared_access_enabled" | "private_access_enabled",
+    value: boolean,
+  ) {
     const key = `${slug}-${field}`;
     setBusy(key);
     try {
@@ -145,7 +147,9 @@ function AdminPricingPage() {
       if (draft.enabled && !draft.contact_admin) {
         const n = Number(draft.amount);
         if (draft.amount === "" || !Number.isFinite(n) || n <= 0) {
-          throw new Error("Enabled plans need a price greater than zero. Disable or set a valid amount.");
+          throw new Error(
+            "Enabled plans need a price greater than zero. Disable or set a valid amount.",
+          );
         }
       }
       await upsert({
@@ -154,11 +158,7 @@ function AdminPricingPage() {
           tool_slug: draft.tool_slug,
           access_type: draft.access_type,
           label: draft.label.trim() || null,
-          amount: draft.contact_admin
-            ? null
-            : draft.amount === ""
-              ? null
-              : Number(draft.amount),
+          amount: draft.contact_admin ? null : draft.amount === "" ? null : Number(draft.amount),
           unit: draft.contact_admin ? null : draft.unit.trim() || null,
           currency: draft.currency || "₦",
           contact_admin: draft.contact_admin,
@@ -209,7 +209,8 @@ function AdminPricingPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Tool pricing</h1>
             <p className="text-sm text-muted-foreground">
-              Configure Shared Access and Private Access plans (Monthly, Quarterly, Yearly). Each plan can be enabled or disabled independently.
+              Configure Shared Access and Private Access plans (Monthly, Quarterly, Yearly). Each
+              plan can be enabled or disabled independently.
             </p>
           </div>
         </div>
@@ -217,7 +218,9 @@ function AdminPricingPage() {
         <div className="mt-8 space-y-6">
           {catalog.map((t) => {
             const opts = byTool.get(t.slug) ?? [];
-            const hasEnabled = opts.some((o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true));
+            const hasEnabled = opts.some(
+              (o) => o.enabled && (!o.contact_admin ? Number(o.amount) > 0 : true),
+            );
             const setting = settingsBySlug.get(t.slug);
             const sharedOn = setting?.shared_access_enabled ?? true;
             const privateOn = setting?.private_access_enabled ?? true;
@@ -226,7 +229,9 @@ function AdminPricingPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.category} · {t.slug}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.category} · {t.slug}
+                    </div>
                   </div>
                   {!hasEnabled && opts.length > 0 ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-1 text-[11px] font-medium text-warning">
@@ -244,9 +249,7 @@ function AdminPricingPage() {
                   busyKey={busy}
                   onSave={save}
                   onDelete={del}
-                  onAdd={(period) =>
-                    save(newDraft(t.slug, "shared", period, opts.length))
-                  }
+                  onAdd={(period) => save(newDraft(t.slug, "shared", period, opts.length))}
                   masterEnabled={sharedOn}
                   masterBusy={busy === `${t.slug}-shared_access_enabled`}
                   onToggleMaster={(v) => toggleAccess(t.slug, "shared_access_enabled", v)}
@@ -261,9 +264,7 @@ function AdminPricingPage() {
                   busyKey={busy}
                   onSave={save}
                   onDelete={del}
-                  onAdd={(period) =>
-                    save(newDraft(t.slug, "private", period, opts.length))
-                  }
+                  onAdd={(period) => save(newDraft(t.slug, "private", period, opts.length))}
                   masterEnabled={privateOn}
                   masterBusy={busy === `${t.slug}-private_access_enabled`}
                   onToggleMaster={(v) => toggleAccess(t.slug, "private_access_enabled", v)}
@@ -284,7 +285,13 @@ function newDraft(
   sort: number,
 ): Draft {
   const unit =
-    period === "monthly" ? "month" : period === "quarterly" ? "quarter" : period === "yearly" ? "year" : "";
+    period === "monthly"
+      ? "month"
+      : period === "quarterly"
+        ? "quarter"
+        : period === "yearly"
+          ? "year"
+          : "";
   const duration =
     period === "monthly" ? 28 : period === "quarterly" ? 90 : period === "yearly" ? 365 : 0;
   return {
@@ -339,7 +346,9 @@ function AccessGroup({
   const others = opts.filter((o) => periodOfDraft({ unit: o.unit ?? "" }) === "other");
 
   return (
-    <div className={`mt-5 rounded-xl border p-4 ${masterEnabled ? "bg-background/40" : "bg-muted/30"}`}>
+    <div
+      className={`mt-5 rounded-xl border p-4 ${masterEnabled ? "bg-background/40" : "bg-muted/30"}`}
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           {icon}
@@ -352,7 +361,9 @@ function AccessGroup({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">
-            {masterEnabled ? "Available for new purchases" : "Hidden from new purchases · existing subscribers unaffected"}
+            {masterEnabled
+              ? "Available for new purchases"
+              : "Hidden from new purchases · existing subscribers unaffected"}
           </span>
           <button
             type="button"
@@ -373,7 +384,8 @@ function AccessGroup({
       </div>
       {!masterEnabled ? (
         <p className="mb-3 rounded-md border border-dashed bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-          {title} is turned off for {tool.slug}. New customers won't see these plans. Turn it back on to resume sales.
+          {title} is turned off for {tool.slug}. New customers won't see these plans. Turn it back
+          on to resume sales.
         </p>
       ) : null}
       <div className="space-y-3">
@@ -404,7 +416,9 @@ function AccessGroup({
         })}
         {others.length > 0 ? (
           <div className="mt-3 space-y-2">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Other plans (custom unit)</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Other plans (custom unit)
+            </div>
             {others.map((row) => (
               <PricingRow
                 key={row.id}
@@ -446,7 +460,9 @@ function PricingRow({
   return (
     <div className="grid gap-2 rounded-lg border bg-background px-3 py-3 sm:grid-cols-12 sm:items-center">
       <div className="flex items-center gap-2 sm:col-span-2">
-        <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold">{periodLabel}</span>
+        <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold">
+          {periodLabel}
+        </span>
       </div>
       <label className="flex items-center gap-1.5 text-xs sm:col-span-2">
         <input
@@ -550,9 +566,10 @@ function PricingRow({
             paystack_plan_code: d.paystack_plan_code || null,
           })}
         </span>
-
         {!d.enabled ? (
-          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">Hidden from customers</span>
+          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+            Hidden from customers
+          </span>
         ) : null}
       </div>
     </div>

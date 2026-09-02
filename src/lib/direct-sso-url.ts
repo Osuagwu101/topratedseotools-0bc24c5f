@@ -27,7 +27,10 @@ export function validateSneakWriteLaunchUrl(rawUrl: string) {
   } catch {
     throw new Error("SneakWrite returned an invalid secure sign-in URL.");
   }
-  if (redirectUrl.origin !== SNEAKWRITE_APP_ORIGIN || redirectUrl.pathname !== SNEAKWRITE_APP_PATH) {
+  if (
+    redirectUrl.origin !== SNEAKWRITE_APP_ORIGIN ||
+    redirectUrl.pathname !== SNEAKWRITE_APP_PATH
+  ) {
     throw new Error("SneakWrite returned an invalid secure sign-in URL.");
   }
 

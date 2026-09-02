@@ -7,14 +7,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 async function loadAdminContext(userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: role } = await (supabaseAdmin as any)
+  const { data: role } = await supabaseAdmin
     .from("user_roles")
     .select("is_active, is_super_admin")
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();
   const isActive = !!role && role.is_active !== false;
-  const { data: acct } = await (supabaseAdmin as any)
+  const { data: acct } = await supabaseAdmin
     .from("admin_accounts")
     .select("role_key")
     .eq("user_id", userId)
@@ -27,7 +27,7 @@ async function loadAdminContext(userId: string) {
 async function canReadAudit(userId: string, isSuperAdmin: boolean) {
   if (isSuperAdmin) return true;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await (supabaseAdmin as any).rpc("admin_effective_permission", {
+  const { data } = await supabaseAdmin.rpc("admin_effective_permission", {
     _uid: userId,
     _perm: "audit.view",
   });
@@ -51,7 +51,7 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
 
     // Pending Private fulfilment
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("tool_orders")
         .select("id", { count: "exact", head: true })
         .eq("access_type", "private")
@@ -65,22 +65,24 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/orders",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Awaiting assignment — approved orders with no active pool assignment
     try {
-      const { data: orders } = await (supabaseAdmin as any)
+      const { data: orders } = await supabaseAdmin
         .from("tool_orders")
         .select("id")
         .eq("status", "approved");
-      const orderIds = (orders ?? []).map((o: any) => o.id);
+      const orderIds = (orders ?? []).map((o) => o.id);
       if (orderIds.length) {
-        const { data: assigned } = await (supabaseAdmin as any)
+        const { data: assigned } = await supabaseAdmin
           .from("tool_account_assignments")
           .select("order_id")
           .in("order_id", orderIds)
           .eq("status", "active");
-        const assignedIds = new Set((assigned ?? []).map((a: any) => a.order_id));
+        const assignedIds = new Set((assigned ?? []).map((a) => a.order_id));
         const awaiting = orderIds.filter((id: string) => !assignedIds.has(id)).length;
         if (awaiting > 0) {
           attention.push({
@@ -91,11 +93,13 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           });
         }
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Failed emails
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("email_messages")
         .select("id", { count: "exact", head: true })
         .eq("status", "failed");
@@ -107,11 +111,13 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/email",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Expired invitations
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("admin_invitations")
         .select("id", { count: "exact", head: true })
         .eq("status", "expired");
@@ -123,11 +129,13 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/staff",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Disabled admins
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("user_roles")
         .select("id", { count: "exact", head: true })
         .eq("role", "admin")
@@ -140,32 +148,17 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/staff",
         });
       }
-    } catch {}
-
-    // Paid but no access assigned yet
-    try {
-      const { count } = await (supabaseAdmin as any)
-        .from("tool_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("payment_status", "paid")
-        .eq("status", "pending_manual");
-      if ((count ?? 0) > 0) {
-        attention.push({
-          id: "paid-no-access",
-          label: "Paid orders without access",
-          count: count ?? 0,
-          href: "/admin/settings/payment-recovery",
-        });
-      }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Recent webhook failures (last 24h)
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("paystack_webhook_events")
         .select("id", { count: "exact", head: true })
-        .eq("status", "failed")
+        .eq("processing_status", "failed")
         .gte("created_at", since);
       if ((count ?? 0) > 0) {
         attention.push({
@@ -175,13 +168,15 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/payment-recovery",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Subscriptions expiring within 7 days
     try {
       const now = new Date();
       const upper = new Date(now.getTime() + 7 * 86400_000).toISOString();
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("tool_orders")
         .select("id", { count: "exact", head: true })
         .eq("status", "approved")
@@ -195,11 +190,13 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/communications",
         });
       }
-    } catch {}
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Renewal-failed subscriptions
     try {
-      const { count } = await (supabaseAdmin as any)
+      const { count } = await supabaseAdmin
         .from("tool_orders")
         .select("id", { count: "exact", head: true })
         .eq("renewal_status", "failed");
@@ -211,8 +208,9 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
           href: "/admin/settings/communications",
         });
       }
-    } catch {}
-
+    } catch {
+      // Best-effort dashboard metric; a failed optional query must not block the overview.
+    }
 
     // Recent activity
     let recentActivity: Array<{
@@ -223,12 +221,12 @@ export const getSettingsOverview = createServerFn({ method: "GET" })
       success: boolean;
     }> = [];
     if (await canReadAudit(context.userId, ctx.isSuperAdmin)) {
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await supabaseAdmin
         .from("admin_activity_log")
         .select("id, action, actor_email, created_at, success")
         .order("created_at", { ascending: false })
         .limit(10);
-      recentActivity = (data ?? []).map((r: any) => ({
+      recentActivity = (data ?? []).map((r) => ({
         id: r.id,
         action: r.action,
         actorEmail: r.actor_email,

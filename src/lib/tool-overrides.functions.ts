@@ -124,7 +124,16 @@ export const adminResetToolOverride = createServerFn({ method: "POST" })
   });
 
 /** Client-safe helper. Applies an override on top of a base Tool object. */
-export function applyOverride<T extends { slug: string; name: string; tagline: string; description: string; category: string; domain: string }>(
+export function applyOverride<
+  T extends {
+    slug: string;
+    name: string;
+    tagline: string;
+    description: string;
+    category: string;
+    domain: string;
+  },
+>(
   tool: T,
   override: ToolOverride | undefined,
 ): T & { image_url: string | null; is_visible: boolean } {

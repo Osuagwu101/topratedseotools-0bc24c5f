@@ -14,7 +14,12 @@ import {
   type DiscountInput,
   type PricingBreakdown,
 } from "@/lib/currency-convert";
-import { billingSuffix, formatCurrency, getBillingKind, normaliseBillingKind } from "@/lib/currency";
+import {
+  billingSuffix,
+  formatCurrency,
+  getBillingKind,
+  normaliseBillingKind,
+} from "@/lib/currency";
 
 const STORAGE_KEY = "ts_currency";
 
@@ -31,7 +36,6 @@ type Ctx = {
   /** Whether the switcher UI should render (feature-flagged by admin). */
   switcherEnabled: boolean;
 };
-
 
 const CurrencyContext = createContext<Ctx | null>(null);
 
@@ -61,25 +65,37 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (!config) return;
     if (!config.switching_enabled && currency !== "NGN") {
       setCurrencyState("NGN");
-      try { sessionStorage.setItem(STORAGE_KEY, "NGN"); } catch { /* ignore */ }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, "NGN");
+      } catch {
+        /* ignore */
+      }
       return;
     }
     if (!config.supported_currencies.includes(currency)) {
       setCurrencyState("NGN");
-      try { sessionStorage.setItem(STORAGE_KEY, "NGN"); } catch { /* ignore */ }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, "NGN");
+      } catch {
+        /* ignore */
+      }
     }
   }, [config, currency]);
 
   const setCurrency = (c: SupportedCurrency) => {
     setCurrencyState(c);
-    try { sessionStorage.setItem(STORAGE_KEY, c); } catch { /* ignore */ }
+    try {
+      sessionStorage.setItem(STORAGE_KEY, c);
+    } catch {
+      /* ignore */
+    }
   };
 
   const value = useMemo<Ctx>(() => {
     const price = (ngn: number, discount?: DiscountInput | null): PricingBreakdown | null => {
       if (!ngn || !Number.isFinite(ngn)) return null;
       const cur = currency;
-      const rate = cur === "NGN" ? 1 : config?.rates.find((r) => r.currency === cur)?.rate ?? 0;
+      const rate = cur === "NGN" ? 1 : (config?.rates.find((r) => r.currency === cur)?.rate ?? 0);
       if (cur !== "NGN" && (!rate || rate <= 0)) return null;
       try {
         return buildPricingBreakdown({
@@ -101,8 +117,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       isLoading,
       price,
       switcherEnabled:
-        !!config?.switching_enabled &&
-        (config?.supported_currencies?.length ?? 0) > 1,
+        !!config?.switching_enabled && (config?.supported_currencies?.length ?? 0) > 1,
     };
   }, [currency, config, isLoading]);
 
@@ -183,4 +198,3 @@ export function useMoney() {
 
   return { currency, fmt, plan };
 }
-

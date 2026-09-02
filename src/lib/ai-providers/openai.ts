@@ -18,9 +18,7 @@ export const openaiProvider: AIProvider = {
   async complete({ model, system, user, temperature, maxTokens }) {
     const key = process.env.OPENAI_API_KEY;
     if (!key)
-      throw new Error(
-        "OPENAI_API_KEY is not set. Add it in the backend secrets to use OpenAI.",
-      );
+      throw new Error("OPENAI_API_KEY is not set. Add it in the backend secrets to use OpenAI.");
     const body: Record<string, unknown> = {
       model,
       messages: [
@@ -41,8 +39,7 @@ export const openaiProvider: AIProvider = {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      if (res.status === 429)
-        throw new Error("OpenAI rate limit exceeded. Try again shortly.");
+      if (res.status === 429) throw new Error("OpenAI rate limit exceeded. Try again shortly.");
       throw new Error(`OpenAI error (${res.status}): ${text.slice(0, 300)}`);
     }
     const data = (await res.json()) as {

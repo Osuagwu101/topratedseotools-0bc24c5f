@@ -100,9 +100,7 @@ export const listMyTransactions = createServerFn({ method: "GET" })
 /** Auth — full receipt (transaction row + status history) by paystack reference. */
 export const getMyTransactionReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ reference: z.string().min(4).max(200) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ reference: z.string().min(4).max(200) }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: tx, error } = await context.supabase
       .from("tool_payments")
@@ -134,7 +132,8 @@ async function assertAdmin(context: {
     _user_id: context.userId,
     _role: "admin",
   });
-  if (error) throw new Error(String((error as { message?: string }).message ?? "role check failed"));
+  if (error)
+    throw new Error(String((error as { message?: string }).message ?? "role check failed"));
   if (!data) throw new Error("Forbidden");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
@@ -181,7 +180,8 @@ export const adminListTransactions = createServerFn({ method: "POST" })
       .limit(data.limit ?? 200);
 
     if (data.status && data.status !== "all") q = q.eq("payment_status", data.status);
-    if (data.environment && data.environment !== "all") q = q.eq("paystack_environment", data.environment);
+    if (data.environment && data.environment !== "all")
+      q = q.eq("paystack_environment", data.environment);
     if (data.tool_slug) q = q.eq("tool_slug", data.tool_slug);
     if (data.from) q = q.gte("initiated_at", data.from);
     if (data.to) q = q.lte("initiated_at", data.to);
@@ -198,10 +198,12 @@ export const adminListTransactions = createServerFn({ method: "POST" })
         .select("id, email, full_name")
         .in("id", userIds);
       profileMap = new Map(
-        (profiles ?? []).map((p: { id: string; email: string | null; full_name: string | null }) => [
-          p.id,
-          { email: p.email, full_name: p.full_name },
-        ]),
+        (profiles ?? []).map(
+          (p: { id: string; email: string | null; full_name: string | null }) => [
+            p.id,
+            { email: p.email, full_name: p.full_name },
+          ],
+        ),
       );
     }
 
@@ -251,11 +253,7 @@ export const adminGetTransaction = createServerFn({ method: "POST" })
         .select("*")
         .eq("payment_id", tx.id)
         .order("created_at", { ascending: true }),
-      admin
-        .from("profiles")
-        .select("id, email, full_name")
-        .eq("id", tx.user_id)
-        .maybeSingle(),
+      admin.from("profiles").select("id, email, full_name").eq("id", tx.user_id).maybeSingle(),
       tx.order_id
         ? admin.from("tool_orders").select("*").eq("id", tx.order_id).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -335,7 +333,10 @@ export const adminRecheckPaystackTransaction = createServerFn({ method: "POST" }
       }
     }
 
-    await admin.from("tool_payments").update(patch as never).eq("id", tx.id);
+    await admin
+      .from("tool_payments")
+      .update(patch as never)
+      .eq("id", tx.id);
 
     await admin.from("tool_payment_status_history").insert({
       payment_id: tx.id,
@@ -350,11 +351,7 @@ export const adminRecheckPaystackTransaction = createServerFn({ method: "POST" }
     // If Paystack now confirms success and no access has been granted, hand
     // off to the existing verify pipeline via a service-role update mirroring
     // its side effects, but only when the order isn't already approved.
-    if (
-      mapped === "successful" &&
-      tx.payment_status !== "successful" &&
-      tx.order_id
-    ) {
+    if (mapped === "successful" && tx.payment_status !== "successful" && tx.order_id) {
       const { data: order } = await admin
         .from("tool_orders")
         .select("id, status, access_type, duration_days, grace_days, payment_type")
@@ -433,9 +430,8 @@ export const adminUpdateReconciliation = createServerFn({ method: "POST" })
       .update({
         reconciliation_status: data.reconciliation_status,
         reconciliation_note: data.note ?? null,
-        flagged_at:
-          data.reconciliation_status === "none" ? null : new Date().toISOString(),
-        flagged_reason: data.reconciliation_status === "none" ? null : data.note ?? null,
+        flagged_at: data.reconciliation_status === "none" ? null : new Date().toISOString(),
+        flagged_reason: data.reconciliation_status === "none" ? null : (data.note ?? null),
       })
       .eq("id", tx.id);
     await admin.from("tool_payment_status_history").insert({

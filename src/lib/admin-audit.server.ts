@@ -15,10 +15,7 @@ export interface AuditEntry {
   details?: string;
 }
 
-export async function logAdminActivity(
-  ctx: { userId: string },
-  entry: AuditEntry,
-): Promise<void> {
+export async function logAdminActivity(ctx: { userId: string }, entry: AuditEntry): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: acct } = await (supabaseAdmin as any)

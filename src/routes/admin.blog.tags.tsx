@@ -13,7 +13,9 @@ const q = queryOptions({ queryKey: ["blog", "tags"], queryFn: () => listTags() }
 
 export const Route = createFileRoute("/admin/blog/tags")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({ meta: [{ title: "Tags — Admin" }, { name: "robots", content: "noindex" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: TagsAdmin,
@@ -50,7 +52,9 @@ function TagsAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Blog tags</h1>
         </div>
-        <div className="mt-6"><BlogAdminNav /></div>
+        <div className="mt-6">
+          <BlogAdminNav />
+        </div>
 
         <form
           onSubmit={(e) => {
@@ -72,7 +76,10 @@ function TagsAdmin() {
 
         <div className="mt-6 flex flex-wrap gap-2">
           {data.tags.map((t) => (
-            <span key={t.id} className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm">
+            <span
+              key={t.id}
+              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm"
+            >
               #{t.name}
               <button
                 onClick={() => {

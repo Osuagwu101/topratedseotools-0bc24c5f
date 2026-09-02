@@ -6,7 +6,7 @@ import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Clock, Inbox, ShieldAlert } from "lucide-react";
 import { getTool } from "@/lib/tools-data";
@@ -26,7 +26,9 @@ const ordersQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/orders")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [
       { title: "Order queue — Admin — Top Rated SEO Tools" },
@@ -84,13 +86,13 @@ function AdminOrdersPage() {
     );
   }
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const q = search.trim().toLowerCase();
     let list = filter === "all" ? data.orders : data.orders.filter((o) => o.status === filter);
     if (q) {
       list = list.filter((o) => {
-        const email = ((o as any).customer_email ?? (o as any).user_email ?? "").toLowerCase();
-        const ref = ((o as any).paystack_reference ?? (o as any).reference ?? "").toLowerCase();
+        const email = (o.customer_email ?? "").toLowerCase();
+        const ref = (o.paystack_reference ?? "").toLowerCase();
         return (
           email.includes(q) ||
           ref.includes(q) ||
@@ -100,7 +102,7 @@ function AdminOrdersPage() {
       });
     }
     return list;
-  }, [data.orders, filter, search]);
+  })();
 
   async function act(
     id: string,
@@ -179,7 +181,9 @@ function AdminOrdersPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                filter === f ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"
+                filter === f
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
               }`}
             >
               {f}
@@ -212,30 +216,28 @@ function AdminOrdersPage() {
               const tool = getTool(o.tool_slug);
               const isBusy = busy === o.id;
               return (
-                <li
-                  key={o.id}
-                  className="rounded-2xl border bg-card p-5 shadow-card"
-                >
+                <li key={o.id} className="rounded-2xl border bg-card p-5 shadow-card">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold">{tool?.name ?? o.tool_slug}</span>
-                        {(o as any).access_type && (
+                        {o.access_type && (
                           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                            {(o as any).access_type}
+                            {o.access_type}
                           </span>
                         )}
-                        {(o as any).billing_period && (
+                        {o.billing_period && (
                           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide capitalize">
-                            {(o as any).billing_period}
+                            {o.billing_period}
                           </span>
                         )}
-                        {(o as any).fulfilment_status === "pending" && (o as any).access_type === "private" && (
-                          <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
-                            Awaiting private fulfilment
-                          </span>
-                        )}
-                        {(o as any).auto_fulfilled_at && (
+                        {o.fulfilment_status === "pending" &&
+                          o.access_type === "private" && (
+                            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-foreground">
+                              Awaiting private fulfilment
+                            </span>
+                          )}
+                        {o.auto_fulfilled_at && (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                             Auto-fulfilled
                           </span>
@@ -320,9 +322,7 @@ function AdminOrdersPage() {
                           Revoke access
                         </button>
                         <button
-                          onClick={() =>
-                            act(o.id, { expires_at: daysFromNow(30) })
-                          }
+                          onClick={() => act(o.id, { expires_at: daysFromNow(30) })}
                           disabled={isBusy}
                           className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
@@ -331,8 +331,8 @@ function AdminOrdersPage() {
                       </>
                     )}
                     {o.status === "approved" &&
-                      (o as any).access_type === "private" &&
-                      (o as any).fulfilment_status === "pending" && (
+                      o.access_type === "private" &&
+                      o.fulfilment_status === "pending" && (
                         <button
                           onClick={() => {
                             setFulfilOpen(fulfilOpen === o.id ? null : o.id);
@@ -344,8 +344,8 @@ function AdminOrdersPage() {
                         </button>
                       )}
                     {o.status === "approved" &&
-                      (o as any).access_type === "private" &&
-                      (o as any).auto_fulfilled_at && (
+                      o.access_type === "private" &&
+                      o.auto_fulfilled_at && (
                         <button
                           onClick={() => {
                             setReconcileOpen(reconcileOpen === o.id ? null : o.id);
@@ -392,7 +392,10 @@ function AdminOrdersPage() {
                           Cancel order
                         </button>
                         <button
-                          onClick={() => { setReconcileOpen(null); setReconcileReason(""); }}
+                          onClick={() => {
+                            setReconcileOpen(null);
+                            setReconcileReason("");
+                          }}
                           className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
                           Close
@@ -410,7 +413,9 @@ function AdminOrdersPage() {
                         value={fulfilText}
                         onChange={(e) => setFulfilText(e.target.value)}
                         rows={4}
-                        placeholder={"Email: private-user@example.com\nPassword: ••••••\nAny setup notes…"}
+                        placeholder={
+                          "Email: private-user@example.com\nPassword: ••••••\nAny setup notes…"
+                        }
                         className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs"
                       />
                       <div className="mt-2 flex gap-2">
@@ -422,7 +427,10 @@ function AdminOrdersPage() {
                           Mark fulfilled
                         </button>
                         <button
-                          onClick={() => { setFulfilOpen(null); setFulfilText(""); }}
+                          onClick={() => {
+                            setFulfilOpen(null);
+                            setFulfilText("");
+                          }}
                           className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
                           Cancel

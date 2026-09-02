@@ -136,7 +136,7 @@ export function resolveEffectivePermissions(input: {
 }): Permission[] {
   if (!input.isActiveAdmin) return [];
   if (input.isSuperAdmin) return [...ALL_PERMISSIONS];
-  const defaults: Permission[] = input.roleKey ? ROLE_DEFAULTS[input.roleKey] ?? [] : [];
+  const defaults: Permission[] = input.roleKey ? (ROLE_DEFAULTS[input.roleKey] ?? []) : [];
   const set = new Set<Permission>(defaults);
   for (const perm of ALL_PERMISSIONS) {
     if (Object.prototype.hasOwnProperty.call(input.overrides, perm)) {

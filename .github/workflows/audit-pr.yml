@@ -1,0 +1,57 @@
+name: Audit PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        id: typecheck
+        shell: bash
+        run: |
+          set +e
+          bunx tsc --noEmit 2>&1 | tee typecheck.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Lint
+        id: lint
+        shell: bash
+        run: |
+          set +e
+          bun run lint 2>&1 | tee lint.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Build
+        id: build
+        shell: bash
+        run: |
+          set +e
+          bun run build 2>&1 | tee build.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-pr-logs
+          path: |
+            typecheck.log
+            lint.log
+            build.log
+      - name: Enforce audit
+        if: always()
+        run: |
+          test "${{ steps.typecheck.outputs.exit_code }}" = "0"
+          test "${{ steps.lint.outputs.exit_code }}" = "0"
+          test "${{ steps.build.outputs.exit_code }}" = "0"

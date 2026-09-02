@@ -11,7 +11,12 @@ import { toast } from "sonner";
 import { adminAssignTool } from "@/lib/customer-admin.functions";
 import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,13 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, AlertTriangle } from "lucide-react";
 
-export function AssignToolDialog({
-  userId,
-  onDone,
-}: {
-  userId: string;
-  onDone?: () => void;
-}) {
+export function AssignToolDialog({ userId, onDone }: { userId: string; onDone?: () => void }) {
   const catalog = useCatalogRegistration();
   const [open, setOpen] = useState(false);
   const [toolSlug, setToolSlug] = useState(catalog[0]?.slug ?? "");
@@ -35,7 +34,9 @@ export function AssignToolDialog({
   const [startDate, setStartDate] = useState(today);
   const [paymentDate, setPaymentDate] = useState(today);
   const [amount, setAmount] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "cash" | "whatsapp" | "other">("bank_transfer");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "bank_transfer" | "cash" | "whatsapp" | "other"
+  >("bank_transfer");
   const [referenceNote, setReferenceNote] = useState("");
   const [adminNote, setAdminNote] = useState("");
   const [duplicates, setDuplicates] = useState<
@@ -65,7 +66,8 @@ export function AssignToolDialog({
         return;
       }
       toast.success("Tool assigned and offline payment recorded.");
-      setOpen(false); setDuplicates([]);
+      setOpen(false);
+      setDuplicates([]);
       onDone?.();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -74,12 +76,19 @@ export function AssignToolDialog({
   function submit(e: React.FormEvent, confirmDuplicate = false) {
     e.preventDefault();
     if (!toolSlug) return toast.error("Pick a tool");
-    if (!Number.isFinite(Number(amount)) || Number(amount) < 0) return toast.error("Enter a valid amount");
+    if (!Number.isFinite(Number(amount)) || Number(amount) < 0)
+      return toast.error("Enter a valid amount");
     mut.mutate(confirmDuplicate);
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setDuplicates([]); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setDuplicates([]);
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" /> Assign tool
@@ -99,7 +108,9 @@ export function AssignToolDialog({
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
                 {catalog.map((t) => (
-                  <option key={t.slug} value={t.slug}>{t.name}</option>
+                  <option key={t.slug} value={t.slug}>
+                    {t.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -118,7 +129,9 @@ export function AssignToolDialog({
               <Label>Billing period</Label>
               <select
                 value={billingPeriod}
-                onChange={(e) => setBillingPeriod(e.target.value as "monthly" | "quarterly" | "yearly")}
+                onChange={(e) =>
+                  setBillingPeriod(e.target.value as "monthly" | "quarterly" | "yearly")
+                }
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
                 <option value="monthly">Monthly (28 days)</option>
@@ -128,19 +141,35 @@ export function AssignToolDialog({
             </div>
             <div>
               <Label>Subscription start</Label>
-              <Input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
             <div>
               <Label>Amount paid (₦)</Label>
               <Input
-                type="number" min="0" step="0.01" required
-                value={amount} onChange={(e) => setAmount(e.target.value)}
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">Does not change the public price.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Does not change the public price.
+              </p>
             </div>
             <div>
               <Label>Payment date</Label>
-              <Input type="date" required value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              <Input
+                type="date"
+                required
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
             </div>
             <div>
               <Label>Payment method</Label>
@@ -157,7 +186,11 @@ export function AssignToolDialog({
             </div>
             <div className="col-span-2">
               <Label>Payment reference (optional)</Label>
-              <Input value={referenceNote} onChange={(e) => setReferenceNote(e.target.value)} placeholder="e.g. bank txn ID" />
+              <Input
+                value={referenceNote}
+                onChange={(e) => setReferenceNote(e.target.value)}
+                placeholder="e.g. bank txn ID"
+              />
             </div>
             <div className="col-span-2">
               <Label>Admin note (optional)</Label>
@@ -184,7 +217,8 @@ export function AssignToolDialog({
                   Review
                 </Button>
                 <Button
-                  type="button" size="sm"
+                  type="button"
+                  size="sm"
                   onClick={(e) => submit(e as unknown as React.FormEvent, true)}
                   disabled={mut.isPending}
                 >
@@ -195,7 +229,9 @@ export function AssignToolDialog({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={mut.isPending || duplicates.length > 0}>
               {mut.isPending ? "Saving…" : "Save"}
             </Button>

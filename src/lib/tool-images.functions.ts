@@ -35,7 +35,9 @@ export const uploadToolIcon = createServerFn({ method: "POST" })
           .min(1)
           .max(120)
           .regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and dashes"),
-        contentType: z.string().regex(/^image\/(webp|png|jpeg)$/, "Only WEBP, PNG, or JPEG allowed"),
+        contentType: z
+          .string()
+          .regex(/^image\/(webp|png|jpeg)$/, "Only WEBP, PNG, or JPEG allowed"),
         // Already-resized icons are tiny; keep a hard ceiling anyway.
         base64: z.string().min(10).max(2_000_000),
       })
@@ -69,7 +71,9 @@ export const uploadEmailLogo = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
-        contentType: z.string().regex(/^image\/(png|webp|jpeg)$/, "Only PNG, WEBP, or JPEG allowed"),
+        contentType: z
+          .string()
+          .regex(/^image\/(png|webp|jpeg)$/, "Only PNG, WEBP, or JPEG allowed"),
         base64: z.string().min(10).max(3_000_000),
       })
       .parse(input),
@@ -82,7 +86,10 @@ export const uploadEmailLogo = createServerFn({ method: "POST" })
     const path = `branding/email-logo-${Date.now()}.${ext}`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const storage = (context.supabase as any).storage.from(BUCKET);
-    const { error: upErr } = await storage.upload(path, bytes, { contentType: data.contentType, upsert: true });
+    const { error: upErr } = await storage.upload(path, bytes, {
+      contentType: data.contentType,
+      upsert: true,
+    });
     if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
     const { data: signed, error: sErr } = await storage.createSignedUrl(path, SIGNED_TTL);
     if (sErr || !signed?.signedUrl) throw new Error("Failed to sign logo URL");

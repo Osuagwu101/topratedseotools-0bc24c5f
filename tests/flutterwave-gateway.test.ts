@@ -86,7 +86,11 @@ describe("Flutterwave gateway", () => {
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
       return new Response(
-        JSON.stringify({ status: "success", message: "ok", data: { link: "https://checkout.flutterwave.com/pay/abc" } }),
+        JSON.stringify({
+          status: "success",
+          message: "ok",
+          data: { link: "https://checkout.flutterwave.com/pay/abc" },
+        }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
     });
@@ -113,23 +117,25 @@ describe("Flutterwave gateway", () => {
   });
 
   it("verifies a transaction and normalises amounts to minor units", async () => {
-    vi.stubGlobal("fetch", async () =>
-      new Response(
-        JSON.stringify({
-          status: "success",
-          data: {
-            id: 998877,
-            tx_ref: "TRST-order1-1",
-            status: "successful",
-            amount: 120.5,
-            currency: "GHS",
-            payment_type: "mobilemoneygh",
-            meta: { order_id: "order1" },
-            customer: { email: "smartmove1914@gmail.com" },
-          },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              id: 998877,
+              tx_ref: "TRST-order1-1",
+              status: "successful",
+              amount: 120.5,
+              currency: "GHS",
+              payment_type: "mobilemoneygh",
+              meta: { order_id: "order1" },
+              customer: { email: "smartmove1914@gmail.com" },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
     );
     const tx = await flutterwaveAdapter.verify("TRST-order1-1");
     expect(tx.status).toBe("success");
@@ -196,7 +202,14 @@ describe("Flutterwave gateway", () => {
   it("handles duplicate webhook deliveries safely", async () => {
     const db = freshDb();
     db.seed("tool_orders", [
-      { id: "o3", user_id: "user-1", tool_slug: "seo-tool", status: "pending", duration_days: 28, grace_days: 0 },
+      {
+        id: "o3",
+        user_id: "user-1",
+        tool_slug: "seo-tool",
+        status: "pending",
+        duration_days: 28,
+        grace_days: 0,
+      },
     ]);
     const body = successBody("o3", "TRST-o3-1");
     const first = await handlePaystackWebhook(webhookRequest(body, HASH), {
@@ -222,7 +235,13 @@ describe("Flutterwave gateway", () => {
     db.seed("tool_orders", [{ id: "o4", status: "pending", duration_days: 28, grace_days: 0 }]);
     const pending = JSON.stringify({
       event: "charge.completed",
-      data: { tx_ref: "TRST-o4-1", status: "pending", amount: 10, currency: "GHS", meta: { order_id: "o4" } },
+      data: {
+        tx_ref: "TRST-o4-1",
+        status: "pending",
+        amount: 10,
+        currency: "GHS",
+        meta: { order_id: "o4" },
+      },
     });
     const res = await handlePaystackWebhook(webhookRequest(pending, HASH), {
       secret: undefined,

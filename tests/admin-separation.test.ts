@@ -28,7 +28,10 @@ function test(name: string, fn: () => void) {
 }
 
 test("admin emails are normalized before lookup", () => {
-  assert(normalizeAdminEmail(" New.Admin@Example.COM ") === "new.admin@example.com", "normalizes case and whitespace");
+  assert(
+    normalizeAdminEmail(" New.Admin@Example.COM ") === "new.admin@example.com",
+    "normalizes case and whitespace",
+  );
 });
 
 test("existing customer email is rejected for admin creation", () => {
@@ -37,7 +40,10 @@ test("existing customer email is rejected for admin creation", () => {
     assert(false, "customer email should be rejected");
   } catch (err) {
     assert(err instanceof Error, "throws an Error");
-    assert(err instanceof Error && err.message === CUSTOMER_EMAIL_ADMIN_REJECTION, "uses required rejection message");
+    assert(
+      err instanceof Error && err.message === CUSTOMER_EMAIL_ADMIN_REJECTION,
+      "uses required rejection message",
+    );
   }
 });
 

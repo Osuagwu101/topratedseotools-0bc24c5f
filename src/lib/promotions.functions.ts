@@ -110,10 +110,7 @@ export const adminUpsertPromotion = createServerFn({ method: "POST" })
       is_active: data.is_active,
     };
     if (data.id) {
-      const { error } = await context.supabase
-        .from("promotions")
-        .update(row)
-        .eq("id", data.id);
+      const { error } = await context.supabase.from("promotions").update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
     }

@@ -6,10 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/billing")({
   head: () => ({
-    meta: [
-      { title: "Billing — Top Rated SEO Tools" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Billing — Top Rated SEO Tools" }, { name: "robots", content: "noindex" }],
   }),
   component: BillingPage,
 });
@@ -39,7 +36,9 @@ function BillingPage() {
     <SiteLayout>
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your subscription, payment method and invoices.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage your subscription, payment method and invoices.
+        </p>
 
         <div className="mt-6 rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -79,7 +78,9 @@ function BillingPage() {
           </div>
           <div className="rounded-xl border border-dashed p-10 text-center">
             <Download className="mx-auto h-6 w-6 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">No invoices yet. They'll appear here after your first payment.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              No invoices yet. They'll appear here after your first payment.
+            </p>
           </div>
         </div>
       </div>

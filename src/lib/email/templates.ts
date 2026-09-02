@@ -44,4 +44,3 @@ export function wrapHtmlEmail(
   };
   return renderBrandedEmail({ branding, bodyHtml, preheader: opts.preheader });
 }
-

@@ -12,7 +12,9 @@ const activityQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/settings/activity")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Admin Activity — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Admin Activity — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -20,7 +22,9 @@ export const Route = createFileRoute("/admin/settings/activity")({
       throw redirect({ to: "/admin/dashboard" });
     }
   },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(activityQuery); },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(activityQuery);
+  },
   component: ActivityPage,
 });
 
@@ -31,7 +35,9 @@ function ActivityPage() {
       <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Admin Activity</h1>
-          <p className="text-sm text-muted-foreground">Append-only log of important admin actions. No secrets stored.</p>
+          <p className="text-sm text-muted-foreground">
+            Append-only log of important admin actions. No secrets stored.
+          </p>
         </div>
         <div className="rounded-2xl border bg-card shadow-card">
           <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 border-b p-3 text-xs font-semibold uppercase text-muted-foreground">
@@ -41,23 +47,35 @@ function ActivityPage() {
             <div>Status</div>
           </div>
           <ul className="divide-y">
-            {data.rows.map((r: typeof data.rows[number]) => (
+            {data.rows.map((r: (typeof data.rows)[number]) => (
               <li key={r.id} className="grid grid-cols-[auto_1fr_auto_auto] gap-3 p-3 text-sm">
-                <div className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(r.createdAt).toLocaleString()}
+                </div>
                 <div>
                   <div className="font-medium">{r.action}</div>
                   <div className="text-xs text-muted-foreground">
-                    {[r.area, r.targetType && `${r.targetType}${r.targetId ? `:${r.targetId.slice(0,8)}` : ""}`, r.reason]
-                      .filter(Boolean).join(" · ")}
+                    {[
+                      r.area,
+                      r.targetType &&
+                        `${r.targetType}${r.targetId ? `:${r.targetId.slice(0, 8)}` : ""}`,
+                      r.reason,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">{r.actorEmail ?? "—"}</div>
-                <div className={`text-xs font-semibold ${r.success ? "text-emerald-600" : "text-destructive"}`}>
+                <div
+                  className={`text-xs font-semibold ${r.success ? "text-emerald-600" : "text-destructive"}`}
+                >
                   {r.success ? "ok" : "failed"}
                 </div>
               </li>
             ))}
-            {data.rows.length === 0 && <li className="p-6 text-sm text-muted-foreground">No activity yet.</li>}
+            {data.rows.length === 0 && (
+              <li className="p-6 text-sm text-muted-foreground">No activity yet.</li>
+            )}
           </ul>
         </div>
       </section>

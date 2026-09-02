@@ -6,10 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/subscription")({
   head: () => ({
-    meta: [
-      { title: "Subscription — Top Rated SEO Tools" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Subscription — Top Rated SEO Tools" }, { name: "robots", content: "noindex" }],
   }),
   component: SubscriptionPage,
 });
@@ -38,9 +35,13 @@ function SubscriptionPage() {
         <h1 className="text-3xl font-bold tracking-tight">Subscription</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Top Rated SEO Tools uses per-tool access. Head to{" "}
-          <Link to="/tools" className="underline hover:text-foreground">Tools</Link>{" "}
+          <Link to="/tools" className="underline hover:text-foreground">
+            Tools
+          </Link>{" "}
           to purchase a tool, or{" "}
-          <Link to="/orders" className="underline hover:text-foreground">My orders</Link>{" "}
+          <Link to="/orders" className="underline hover:text-foreground">
+            My orders
+          </Link>{" "}
           to view active subscriptions and login credentials.
         </p>
 
@@ -48,12 +49,15 @@ function SubscriptionPage() {
           <div className="text-sm text-muted-foreground">Legacy plan record</div>
           <div className="mt-1 flex items-baseline gap-3">
             <div className="text-2xl font-bold capitalize">{plan}</div>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize">{status}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize">
+              {status}
+            </span>
           </div>
 
           <div className="mt-4 flex items-start gap-2 rounded-md bg-warning/10 p-3 text-xs text-warning-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            Plan changes are made automatically when a payment is confirmed by Paystack. Contact support if this record looks wrong.
+            Plan changes are made automatically when a payment is confirmed by Paystack. Contact
+            support if this record looks wrong.
           </div>
         </div>
       </div>

@@ -16,7 +16,9 @@ import {
 
 export const Route = createFileRoute("/admin/appearance")({
   ssr: false,
-  beforeLoad: async () => { await requireAdminOrRedirect(); },
+  beforeLoad: async () => {
+    await requireAdminOrRedirect();
+  },
   head: () => ({
     meta: [
       { title: "Appearance — Admin — Top Rated SEO Tools" },
@@ -24,11 +26,12 @@ export const Route = createFileRoute("/admin/appearance")({
     ],
   }),
   loader: async () => {
-    const [{ isAdmin }, site] = await Promise.all([
-      getIsAdmin(),
-      getPublicSiteSettings(),
-    ]);
-    return { isAdmin, activeTheme: site.activeTheme, adminWhatsappNumber: site.adminWhatsappNumber };
+    const [{ isAdmin }, site] = await Promise.all([getIsAdmin(), getPublicSiteSettings()]);
+    return {
+      isAdmin,
+      activeTheme: site.activeTheme,
+      adminWhatsappNumber: site.adminWhatsappNumber,
+    };
   },
   component: AdminAppearancePage,
   errorComponent: () => (
@@ -178,8 +181,8 @@ function AdminAppearancePage() {
             <h2 className="text-lg font-semibold">Private Access — Admin WhatsApp</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            The number customers use to contact you when they buy Private Access.
-            Use international format with no plus sign, e.g. <code>2348012345678</code>.
+            The number customers use to contact you when they buy Private Access. Use international
+            format with no plus sign, e.g. <code>2348012345678</code>.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <input

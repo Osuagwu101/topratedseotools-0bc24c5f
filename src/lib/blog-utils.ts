@@ -39,7 +39,10 @@ function escapeRawHtml(markdown: string): string {
 
 function sanitizeRenderedHtml(html: string): string {
   return html
-    .replace(/<\/?(?:script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta)[^>]*>/gi, "")
+    .replace(
+      /<\/?(?:script|style|iframe|object|embed|form|input|button|textarea|select|option|link|meta)[^>]*>/gi,
+      "",
+    )
     .replace(/\s+on[a-z]+=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/\s+(href|src)=("|')\s*javascript:[^"']*\2/gi, "")
     .replace(/\s+(href|src)=\s*javascript:[^\s>]*/gi, "");
@@ -69,4 +72,3 @@ export function extractToc(markdown: string): TocEntry[] {
   }
   return entries;
 }
-

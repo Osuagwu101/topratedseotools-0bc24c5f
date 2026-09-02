@@ -18,7 +18,9 @@ import {
 import { CURRENCY_META, type SupportedCurrency } from "@/lib/currency-convert";
 
 export const Route = createFileRoute("/admin/settings/currency")({
-  head: () => ({ meta: [{ title: "Currency & Surcharge — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Currency & Surcharge — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: CurrencySettingsPage,
 });
 
@@ -31,7 +33,10 @@ function CurrencySettingsPage() {
   const doUpdate = useServerFn(updateCurrencySettings);
   const fetchLogs = useServerFn(listExchangeRateLogs);
 
-  const { data: config } = useQuery({ queryKey: ["currency-config"], queryFn: () => fetchConfig() });
+  const { data: config } = useQuery({
+    queryKey: ["currency-config"],
+    queryFn: () => fetchConfig(),
+  });
   const { data: logs } = useQuery({ queryKey: ["exchange-rate-logs"], queryFn: () => fetchLogs() });
 
   const [switching, setSwitching] = useState(true);
@@ -76,7 +81,9 @@ function CurrencySettingsPage() {
 
   function toggle(code: SupportedCurrency) {
     if (code === "NGN") return; // NGN always supported
-    setSupported((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+    setSupported((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
+    );
   }
 
   return (
@@ -84,20 +91,29 @@ function CurrencySettingsPage() {
       <div className="mx-auto max-w-4xl space-y-6 p-6">
         <header>
           <h1 className="text-2xl font-bold">Currency & Surcharge</h1>
-          <p className="text-sm text-muted-foreground">Manage multi-currency checkout and the international payment surcharge.</p>
+          <p className="text-sm text-muted-foreground">
+            Manage multi-currency checkout and the international payment surcharge.
+          </p>
         </header>
         <section className="rounded-2xl border bg-card p-6 shadow-card">
           <h2 className="text-base font-semibold">Currency switching</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            When enabled, customers can pay in supported Paystack currencies. NGN customers are unaffected.
+            When enabled, customers can pay in supported Paystack currencies. NGN customers are
+            unaffected.
           </p>
           <label className="mt-4 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={switching} onChange={(e) => setSwitching(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={switching}
+              onChange={(e) => setSwitching(e.target.checked)}
+            />
             Enable currency switching for customers
           </label>
 
           <div className="mt-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Supported currencies</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Supported currencies
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {ALL.map((code) => {
                 const on = supported.includes(code);
@@ -120,10 +136,15 @@ function CurrencySettingsPage() {
         <section className="rounded-2xl border bg-card p-6 shadow-card">
           <h2 className="text-base font-semibold">International payment surcharge</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Applied on non-NGN payments to cover Paystack international processing charges. NGN payments never carry a surcharge.
+            Applied on non-NGN payments to cover Paystack international processing charges. NGN
+            payments never carry a surcharge.
           </p>
           <label className="mt-4 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={surcharge} onChange={(e) => setSurcharge(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={surcharge}
+              onChange={(e) => setSurcharge(e.target.checked)}
+            />
             Add surcharge on international payments
           </label>
           <label className="mt-3 flex items-center gap-3 text-sm">
@@ -154,14 +175,17 @@ function CurrencySettingsPage() {
 
         <section className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold flex items-center gap-2"><Globe className="h-4 w-4" /> Exchange rates</h2>
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Globe className="h-4 w-4" /> Exchange rates
+            </h2>
             <button
               type="button"
               onClick={() => refreshMut.mutate()}
               disabled={refreshMut.isPending}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-60"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshMut.isPending ? "animate-spin" : ""}`} /> Refresh rates now
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshMut.isPending ? "animate-spin" : ""}`} />{" "}
+              Refresh rates now
             </button>
           </div>
           <div className="mt-3 overflow-hidden rounded-md border">
@@ -178,12 +202,20 @@ function CurrencySettingsPage() {
                 {config?.rates.map((r) => (
                   <tr key={r.currency} className="border-t">
                     <td className="px-3 py-2 font-medium">{r.currency}</td>
-                    <td className="px-3 py-2 text-right">{r.currency === "NGN" ? "—" : r.rate || "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      {r.currency === "NGN" ? "—" : r.rate || "—"}
+                    </td>
                     <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                       {r.fetched_at ? new Date(r.fetched_at).toLocaleString() : "—"}
                     </td>
                     <td className="px-3 py-2 text-right text-xs">
-                      {r.currency === "NGN" ? "base" : r.stale ? <span className="text-warning">stale</span> : "fresh"}
+                      {r.currency === "NGN" ? (
+                        "base"
+                      ) : r.stale ? (
+                        <span className="text-warning">stale</span>
+                      ) : (
+                        "fresh"
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -205,16 +237,30 @@ function CurrencySettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(logs?.rows ?? []).map((row: { id: string; quote_currency: string; rate: number; source: string; fetched_at: string }) => (
-                  <tr key={row.id} className="border-t">
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(row.fetched_at).toLocaleString()}</td>
-                    <td className="px-3 py-2">{row.quote_currency}</td>
-                    <td className="px-3 py-2 text-right">{row.rate}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{row.source}</td>
-                  </tr>
-                ))}
+                {(logs?.rows ?? []).map(
+                  (row: {
+                    id: string;
+                    quote_currency: string;
+                    rate: number;
+                    source: string;
+                    fetched_at: string;
+                  }) => (
+                    <tr key={row.id} className="border-t">
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {new Date(row.fetched_at).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2">{row.quote_currency}</td>
+                      <td className="px-3 py-2 text-right">{row.rate}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{row.source}</td>
+                    </tr>
+                  ),
+                )}
                 {(logs?.rows ?? []).length === 0 ? (
-                  <tr><td colSpan={4} className="px-3 py-6 text-center text-sm text-muted-foreground">No rate refreshes yet.</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      No rate refreshes yet.
+                    </td>
+                  </tr>
                 ) : null}
               </tbody>
             </table>

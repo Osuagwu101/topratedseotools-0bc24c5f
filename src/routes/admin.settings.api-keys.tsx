@@ -20,7 +20,6 @@ import {
   adminUpsertPaymentProvider,
   adminSetProviderEnabled,
   adminSetActiveProvider,
-
   adminTestProviderConnection,
   adminDeletePaymentProvider,
   adminSaveProviderSecrets,
@@ -49,10 +48,7 @@ const providersQuery = queryOptions({
 export const Route = createFileRoute("/admin/settings/api-keys")({
   ssr: false,
   head: () => ({
-    meta: [
-      { title: "Payment Providers — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Payment Providers — Admin" }, { name: "robots", content: "noindex" }],
   }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
@@ -108,7 +104,6 @@ function PaymentProvidersPage() {
     }
   }
 
-
   async function runTest(id: string) {
     setBusy(`test:${id}`);
     try {
@@ -137,8 +132,6 @@ function PaymentProvidersPage() {
     }
   }
 
-
-
   async function toggleEnabled(id: string, enabled: boolean) {
     setBusy(`en:${id}`);
     try {
@@ -151,8 +144,6 @@ function PaymentProvidersPage() {
       setBusy(null);
     }
   }
-
-
 
   async function storeSecrets(id: string) {
     const entries = Object.entries(secretDraft[id] ?? {}).filter(([, v]) => v.trim().length > 0);
@@ -198,22 +189,26 @@ function PaymentProvidersPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Payment Providers</h1>
             <p className="text-sm text-muted-foreground">
-              Add, enable, and switch payment providers without deploying code. Secret keys are stored in encrypted secret storage and never shown here.
+              Add, enable, and switch payment providers without deploying code. Secret keys are
+              stored in encrypted secret storage and never shown here.
             </p>
           </div>
           <Button
             size="sm"
             className="col-span-2 w-full sm:w-auto"
-            onClick={() => setEditing({ slug: "", display_name: "", environment: "test", enabled: false })}
+            onClick={() =>
+              setEditing({ slug: "", display_name: "", environment: "test", enabled: false })
+            }
           >
             <Plus className="mr-1 h-4 w-4" /> Add provider
           </Button>
         </header>
 
-
         {editing && (
           <div className="mb-6 rounded-2xl border bg-card p-4 shadow-card">
-            <h2 className="text-sm font-semibold">{editing.id ? "Edit provider" : "Add provider"}</h2>
+            <h2 className="text-sm font-semibold">
+              {editing.id ? "Edit provider" : "Add provider"}
+            </h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Slug</Label>
@@ -239,7 +234,9 @@ function PaymentProvidersPage() {
                 <Label>Environment</Label>
                 <select
                   value={editing.environment ?? "test"}
-                  onChange={(e) => setEditing({ ...editing, environment: e.target.value as "test" | "live" })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, environment: e.target.value as "test" | "live" })
+                  }
                   className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
                 >
                   <option value="test">Test</option>
@@ -281,7 +278,8 @@ function PaymentProvidersPage() {
                 </div>
               ))}
 
-              {(data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []).length > 0 && (
+              {(data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []).length >
+                0 && (
                 <div className="sm:col-span-2 rounded-xl border bg-muted/30 p-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Secret credentials (write-only — stored in encrypted secret storage)
@@ -293,9 +291,12 @@ function PaymentProvidersPage() {
                   ) : (
                     <>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {(data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []).map((f) => {
+                        {(
+                          data.catalog.find((c) => c.slug === editing.slug)?.secret_fields ?? []
+                        ).map((f) => {
                           const set = (
-                            data.providers.find((x) => x.id === editing.id)?.configured_secrets ?? []
+                            data.providers.find((x) => x.id === editing.id)?.configured_secrets ??
+                            []
                           ).includes(f.name);
                           return (
                             <div key={f.name}>
@@ -315,7 +316,10 @@ function PaymentProvidersPage() {
                                 onChange={(e) =>
                                   setSecretDraft((d) => ({
                                     ...d,
-                                    [editing.id!]: { ...(d[editing.id!] ?? {}), [f.name]: e.target.value },
+                                    [editing.id!]: {
+                                      ...(d[editing.id!] ?? {}),
+                                      [f.name]: e.target.value,
+                                    },
                                   }))
                                 }
                                 placeholder={set ? "Enter a new value to replace" : "Paste value"}
@@ -363,9 +367,12 @@ function PaymentProvidersPage() {
             <div>
               <div className="font-medium">Where do secret keys go?</div>
               <p className="mt-1 text-muted-foreground">
-                Secret keys (Paystack secret, Flutterwave secret &amp; webhook hash, Monnify secret) are entered in the <b>Credentials</b> box on each provider below. They are written straight to encrypted secret storage — never saved in this page, never shown again, and never sent to the browser. Use <b>Save &amp; validate</b> or <b>Test</b> to confirm the gateway accepts them.
+                Secret keys (Paystack secret, Flutterwave secret &amp; webhook hash, Monnify secret)
+                are entered in the <b>Credentials</b> box on each provider below. They are written
+                straight to encrypted secret storage — never saved in this page, never shown again,
+                and never sent to the browser. Use <b>Save &amp; validate</b> or <b>Test</b> to
+                confirm the gateway accepts them.
               </p>
-
             </div>
           </div>
         </div>
@@ -389,8 +396,6 @@ function PaymentProvidersPage() {
                         Dormant
                       </span>
                     )}
-
-
 
                     {!p.enabled && (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -417,8 +422,13 @@ function PaymentProvidersPage() {
                     {p.last_test_at && (
                       <span className="text-muted-foreground">
                         · Last test {new Date(p.last_test_at).toLocaleString()} —
-                        <span className={p.last_test_status === "ok" ? "text-success" : "text-destructive"}>
-                          {" "}{p.last_test_status}
+                        <span
+                          className={
+                            p.last_test_status === "ok" ? "text-success" : "text-destructive"
+                          }
+                        >
+                          {" "}
+                          {p.last_test_status}
                         </span>
                       </span>
                     )}
@@ -453,7 +463,12 @@ function PaymentProvidersPage() {
                       <Power className="mr-1 h-3.5 w-3.5" /> Make active
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => runTest(p.id)} disabled={busy === `test:${p.id}`}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => runTest(p.id)}
+                    disabled={busy === `test:${p.id}`}
+                  >
                     <RefreshCw className="mr-1 h-3.5 w-3.5" /> Test
                   </Button>
 
@@ -464,7 +479,6 @@ function PaymentProvidersPage() {
                       onClick={() => toggleEnabled(p.id, false)}
                       disabled={busy === `en:${p.id}`}
                     >
-
                       <PowerOff className="mr-1 h-3.5 w-3.5" /> Disable
                     </Button>
                   ) : (
@@ -479,10 +493,14 @@ function PaymentProvidersPage() {
                   <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
                     Edit
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(p.id)} disabled={busy === `del:${p.id}`}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => remove(p.id)}
+                    disabled={busy === `del:${p.id}`}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-
                 </div>
               </div>
               {(data.catalog.find((c) => c.slug === p.slug)?.secret_fields ?? []).length > 0 && (
@@ -521,7 +539,11 @@ function PaymentProvidersPage() {
                     })}
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <Button size="sm" onClick={() => storeSecrets(p.id)} disabled={busy === `sec:${p.id}`}>
+                    <Button
+                      size="sm"
+                      onClick={() => storeSecrets(p.id)}
+                      disabled={busy === `sec:${p.id}`}
+                    >
                       {busy === `sec:${p.id}` ? "Saving…" : "Save & validate credentials"}
                     </Button>
                     {!data.is_super_admin && (
@@ -540,7 +562,8 @@ function PaymentProvidersPage() {
         </ul>
 
         <div className="mt-8 text-xs text-muted-foreground">
-          Providers with a green tick have both configuration and a secret key installed. Use <b>Test</b> to verify each provider can reach its API before making it active.
+          Providers with a green tick have both configuration and a secret key installed. Use{" "}
+          <b>Test</b> to verify each provider can reach its API before making it active.
         </div>
       </section>
     </AdminShell>

@@ -58,7 +58,9 @@ function ChangePasswordPage() {
         {mustChange && (
           <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>Your account was created by Admin. Please change your temporary password to continue.</p>
+            <p>
+              Your account was created by Admin. Please change your temporary password to continue.
+            </p>
           </div>
         )}
         <h1 className="text-lg font-semibold">Set a new password</h1>
@@ -76,11 +78,27 @@ function ChangePasswordPage() {
         >
           <div>
             <Label htmlFor="new-pw">New password</Label>
-            <Input id="new-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={8} />
+            <Input
+              id="new-pw"
+              type="password"
+              autoComplete="new-password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              required
+              minLength={8}
+            />
           </div>
           <div>
             <Label htmlFor="new-pw2">Confirm password</Label>
-            <Input id="new-pw2" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} />
+            <Input
+              id="new-pw2"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              minLength={8}
+            />
           </div>
           <Button type="submit" className="w-full" disabled={mut.isPending}>
             {mut.isPending ? "Updating…" : "Update password"}

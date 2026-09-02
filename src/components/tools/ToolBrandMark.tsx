@@ -30,7 +30,8 @@ const iconSize = {
 export function ToolBrandMark({ tool, size = "md", className }: ToolBrandMarkProps) {
   const Icon = tool.icon;
   const hasDomain = Boolean(tool.domain);
-  const logoSrc = tool.slug === "sneakwrite" ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
+  const logoSrc =
+    tool.slug === "sneakwrite" ? sneakWriteLogo : hasDomain ? getToolLogo(tool.domain) : "";
   const hasLogo = Boolean(logoSrc);
 
   return (

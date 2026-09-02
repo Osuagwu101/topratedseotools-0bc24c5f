@@ -52,16 +52,13 @@ export function formatBaseMonthly(amount: number, currency?: string | null): str
 }
 
 /** Lowest enabled, purchasable MONTHLY price for one access type. */
-function lowestMonthly(
-  options: ToolPricingOption[],
-  access: AccessType,
-): ToolPricingOption | null {
+function lowestMonthly(options: ToolPricingOption[], access: AccessType): ToolPricingOption | null {
   const rows = options.filter(
     (o) =>
       o.enabled &&
       !o.contact_admin &&
       o.amount != null &&
-      (((o.access_type as AccessType) ?? "shared") === access) &&
+      ((o.access_type as AccessType) ?? "shared") === access &&
       normaliseBillingKind(getBillingKind(o)) === "monthly",
   );
   if (rows.length === 0) return null;

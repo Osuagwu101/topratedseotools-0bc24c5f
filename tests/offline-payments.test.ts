@@ -12,12 +12,20 @@ let passed = 0;
 let failed = 0;
 function assert(cond: unknown, msg: string) {
   if (cond) passed++;
-  else { failed++; console.error("  ✗", msg); }
+  else {
+    failed++;
+    console.error("  ✗", msg);
+  }
 }
 function test(name: string, fn: () => void) {
   console.log("• " + name);
   const before = failed;
-  try { fn(); } catch (err) { failed++; console.error("  ✗ threw:", err); }
+  try {
+    fn();
+  } catch (err) {
+    failed++;
+    console.error("  ✗ threw:", err);
+  }
   if (failed === before) console.log("  ✓ ok");
 }
 
@@ -38,42 +46,83 @@ test("access window computes end = start + duration", () => {
 
 test("duplicate detection matches same user+tool+amount ±1 day", () => {
   const existing = [
-    { id: "a", user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-05T10:00:00Z", reference_note: null },
+    {
+      id: "a",
+      user_id: "u1",
+      tool_slug: "quillbot",
+      amount: 200,
+      paid_at: "2026-01-05T10:00:00Z",
+      reference_note: null,
+    },
   ];
   const d = findOfflineDuplicates(existing, {
-    user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-05T15:00:00Z",
+    user_id: "u1",
+    tool_slug: "quillbot",
+    amount: 200,
+    paid_at: "2026-01-05T15:00:00Z",
   });
   assert(d.length === 1, "same-day dup");
   const d2 = findOfflineDuplicates(existing, {
-    user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-10T10:00:00Z",
+    user_id: "u1",
+    tool_slug: "quillbot",
+    amount: 200,
+    paid_at: "2026-01-10T10:00:00Z",
   });
   assert(d2.length === 0, "different day, no dup");
   const d3 = findOfflineDuplicates(existing, {
-    user_id: "u2", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-05T15:00:00Z",
+    user_id: "u2",
+    tool_slug: "quillbot",
+    amount: 200,
+    paid_at: "2026-01-05T15:00:00Z",
   });
   assert(d3.length === 0, "different user, no dup");
 });
 
 test("duplicate detection matches on same non-empty reference", () => {
   const existing = [
-    { id: "a", user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-01T00:00:00Z", reference_note: "TXN-77" },
+    {
+      id: "a",
+      user_id: "u1",
+      tool_slug: "quillbot",
+      amount: 200,
+      paid_at: "2026-01-01T00:00:00Z",
+      reference_note: "TXN-77",
+    },
   ];
   const dup = findOfflineDuplicates(existing, {
-    user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-06-01T00:00:00Z", reference_note: "TXN-77",
+    user_id: "u1",
+    tool_slug: "quillbot",
+    amount: 200,
+    paid_at: "2026-06-01T00:00:00Z",
+    reference_note: "TXN-77",
   });
   assert(dup.length === 1, "ref match");
   const notDup = findOfflineDuplicates(existing, {
-    user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-06-01T00:00:00Z", reference_note: "",
+    user_id: "u1",
+    tool_slug: "quillbot",
+    amount: 200,
+    paid_at: "2026-06-01T00:00:00Z",
+    reference_note: "",
   });
   assert(notDup.length === 0, "empty ref does not match");
 });
 
 test("amount mismatch is not a duplicate", () => {
   const existing = [
-    { id: "a", user_id: "u1", tool_slug: "quillbot", amount: 200, paid_at: "2026-01-01T00:00:00Z", reference_note: null },
+    {
+      id: "a",
+      user_id: "u1",
+      tool_slug: "quillbot",
+      amount: 200,
+      paid_at: "2026-01-01T00:00:00Z",
+      reference_note: null,
+    },
   ];
   const d = findOfflineDuplicates(existing, {
-    user_id: "u1", tool_slug: "quillbot", amount: 500, paid_at: "2026-01-01T00:00:00Z",
+    user_id: "u1",
+    tool_slug: "quillbot",
+    amount: 500,
+    paid_at: "2026-01-01T00:00:00Z",
   });
   assert(d.length === 0, "different amount, no dup");
 });

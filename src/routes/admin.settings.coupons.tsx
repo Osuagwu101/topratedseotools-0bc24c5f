@@ -35,7 +35,10 @@ export const Route = createFileRoute("/admin/settings/coupons")({
   head: () => ({
     meta: [
       { title: "Coupons — Admin" },
-      { name: "description", content: "Create and manage Naira-based coupon codes for tool checkouts." },
+      {
+        name: "description",
+        content: "Create and manage Naira-based coupon codes for tool checkouts.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -155,7 +158,9 @@ function CouponsAdmin() {
   const redemptions = redemptionData.redemptions;
 
   const describe = (c: CouponRow) =>
-    c.discount_type === "percent" ? `${c.discount_value}% off` : `${formatNaira(c.discount_value)} off`;
+    c.discount_type === "percent"
+      ? `${c.discount_value}% off`
+      : `${formatNaira(c.discount_value)} off`;
 
   return (
     <AdminShell>
@@ -195,7 +200,10 @@ function CouponsAdmin() {
                 <select
                   value={form.discount_type}
                   onChange={(e) =>
-                    setForm({ ...form, discount_type: e.target.value as FormState["discount_type"] })
+                    setForm({
+                      ...form,
+                      discount_type: e.target.value as FormState["discount_type"],
+                    })
                   }
                   className={inputCls}
                 >
@@ -361,7 +369,11 @@ function CouponsAdmin() {
                     <td className="px-4 py-3 font-mono font-semibold">{c.code}</td>
                     <td className="px-4 py-3">{describe(c)}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {[c.tool_slug ?? "All tools", c.access_type ?? "any access", c.billing_period ?? "any period"].join(" · ")}
+                      {[
+                        c.tool_slug ?? "All tools",
+                        c.access_type ?? "any access",
+                        c.billing_period ?? "any period",
+                      ].join(" · ")}
                     </td>
                     <td className="px-4 py-3">
                       {c.redemptions_count ?? 0}
@@ -391,7 +403,11 @@ function CouponsAdmin() {
                             refresh();
                           }}
                         >
-                          {c.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                          {c.is_active ? (
+                            <PowerOff className="h-4 w-4" />
+                          ) : (
+                            <Power className="h-4 w-4" />
+                          )}
                         </IconBtn>
                         <IconBtn label="Edit" onClick={() => setForm(toForm(c))}>
                           <Pencil className="h-4 w-4" />

@@ -123,7 +123,12 @@ export function AddCustomerDialog() {
                 <Label className="text-xs">Email</Label>
                 <div className="flex items-center gap-2">
                   <Input readOnly value={issued.email} className="font-mono text-sm" />
-                  <Button type="button" size="icon" variant="outline" onClick={() => copy(issued.email, "Email")}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => copy(issued.email, "Email")}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -132,7 +137,12 @@ export function AddCustomerDialog() {
                 <Label className="text-xs">Temporary password</Label>
                 <div className="flex items-center gap-2">
                   <Input readOnly value={issued.password} className="font-mono text-sm" />
-                  <Button type="button" size="icon" variant="outline" onClick={() => copy(issued.password, "Password")}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => copy(issued.password, "Password")}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -165,11 +175,22 @@ export function AddCustomerDialog() {
           >
             <div>
               <Label htmlFor="cus-name">Full name</Label>
-              <Input id="cus-name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <Input
+                id="cus-name"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="cus-email">Email</Label>
-              <Input id="cus-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="cus-email"
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="cus-phone">Phone (optional)</Label>
@@ -188,10 +209,20 @@ export function AddCustomerDialog() {
                   autoComplete="new-password"
                   className="font-mono"
                 />
-                <Button type="button" size="icon" variant="outline" onClick={() => setShowPw((s) => !s)}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setShowPw((s) => !s)}
+                >
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => setPassword(randomPassword())}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPassword(randomPassword())}
+                >
                   Regenerate
                 </Button>
               </div>
@@ -201,7 +232,12 @@ export function AddCustomerDialog() {
             </div>
             <div>
               <Label htmlFor="cus-notes">Admin notes (optional)</Label>
-              <Textarea id="cus-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <Textarea
+                id="cus-notes"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>

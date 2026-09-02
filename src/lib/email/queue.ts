@@ -21,7 +21,6 @@ export function sanitizeTagValue(value: string): string {
   return cleaned.replace(/^-+|-+$/g, "") || "unknown";
 }
 
-
 export interface QueueEmailInput {
   eventKey: string;
   templateKey: string;
@@ -48,7 +47,10 @@ export async function getEmailSettings(admin: any): Promise<EmailSettingsRow | n
   return (data as EmailSettingsRow | null) ?? null;
 }
 
-export async function queueEmail(admin: any, input: QueueEmailInput): Promise<{ queued: boolean; skipped?: string; id?: string }> {
+export async function queueEmail(
+  admin: any,
+  input: QueueEmailInput,
+): Promise<{ queued: boolean; skipped?: string; id?: string }> {
   const settings = await getEmailSettings(admin);
   if (settings && settings.enabled_types && settings.enabled_types[input.templateKey] === false) {
     return { queued: false, skipped: "type_disabled" };
@@ -96,7 +98,10 @@ export async function queueEmail(admin: any, input: QueueEmailInput): Promise<{ 
   return { queued: true, id };
 }
 
-export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean; reason?: string }> {
+export async function dispatchOne(
+  admin: any,
+  id: string,
+): Promise<{ ok: boolean; reason?: string }> {
   const { data: row } = await admin.from("email_messages").select("*").eq("id", id).maybeSingle();
   if (!row) return { ok: false, reason: "not_found" };
   if (row.status === "sent" || row.status === "cancelled") return { ok: true };
@@ -112,17 +117,23 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
       .select("status, payment_status")
       .eq("id", row.related_order_id)
       .maybeSingle();
-    if (order && (order.status === "approved" || order.payment_status === "successful" || order.payment_status === "failed")) {
+    if (
+      order &&
+      (order.status === "approved" ||
+        order.payment_status === "successful" ||
+        order.payment_status === "failed")
+    ) {
       return await markCancelled(admin, id, "order_no_longer_pending");
     }
   }
 
   const settings = await getEmailSettings(admin);
   if (!settings) return await markCancelled(admin, id, "no_settings");
-  if (!settings.production_sending) return await markCancelled(admin, id, "production_sending_disabled");
-  if (settings.enabled_types?.[row.template_key] === false) return await markCancelled(admin, id, "type_disabled");
+  if (!settings.production_sending)
+    return await markCancelled(admin, id, "production_sending_disabled");
+  if (settings.enabled_types?.[row.template_key] === false)
+    return await markCancelled(admin, id, "type_disabled");
   if (!isResendConfigured()) return await scheduleRetry(admin, row, "RESEND_API_KEY missing");
-
 
   const { data: tpl } = await admin
     .from("email_templates")
@@ -168,7 +179,6 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
     branding,
   });
 
-
   try {
     const res = await resendSendEmail({
       from: `${settings.sender_name} <${settings.from_email}>`,
@@ -182,7 +192,6 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
         { name: "template", value: sanitizeTagValue(row.template_key) },
         { name: "event", value: sanitizeTagValue(row.event_key).slice(0, 60) },
       ],
-
     });
     await admin
       .from("email_messages")
@@ -197,14 +206,24 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
       .eq("id", id);
     return { ok: true };
   } catch (err) {
-    const message = err instanceof ResendError ? `[${err.status}] ${err.message}` : err instanceof Error ? err.message : String(err);
+    const message =
+      err instanceof ResendError
+        ? `[${err.status}] ${err.message}`
+        : err instanceof Error
+          ? err.message
+          : String(err);
     // Permanent failure — most 4xx (except 429) shouldn't retry endlessly.
     const status = err instanceof ResendError ? err.status : 0;
     const permanent = status >= 400 && status < 500 && status !== 408 && status !== 429;
     if (permanent) {
       await admin
         .from("email_messages")
-        .update({ status: "failed", subject, attempts: (row.attempts ?? 0) + 1, last_error: message.slice(0, 500) })
+        .update({
+          status: "failed",
+          subject,
+          attempts: (row.attempts ?? 0) + 1,
+          last_error: message.slice(0, 500),
+        })
         .eq("id", id);
       return { ok: false, reason: message };
     }
@@ -213,7 +232,10 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
 }
 
 async function markCancelled(admin: any, id: string, reason: string) {
-  await admin.from("email_messages").update({ status: "cancelled", last_error: reason }).eq("id", id);
+  await admin
+    .from("email_messages")
+    .update({ status: "cancelled", last_error: reason })
+    .eq("id", id);
   return { ok: true, reason };
 }
 
@@ -222,7 +244,12 @@ async function scheduleRetry(admin: any, row: any, error: string) {
   if (attempts >= MAX_ATTEMPTS) {
     await admin
       .from("email_messages")
-      .update({ status: "failed", attempts, last_error: error.slice(0, 500), subject: row.subject ?? null })
+      .update({
+        status: "failed",
+        attempts,
+        last_error: error.slice(0, 500),
+        subject: row.subject ?? null,
+      })
       .eq("id", row.id);
     return { ok: false, reason: error };
   }
@@ -242,9 +269,16 @@ async function scheduleRetry(admin: any, row: any, error: string) {
 }
 
 /** Dispatch every due row (used by cron). Small cap per run to avoid long executions. */
-export async function dispatchDue(admin: any, limit = 50): Promise<{ processed: number; sent: number; failed: number; paused?: boolean }> {
+export async function dispatchDue(
+  admin: any,
+  limit = 50,
+): Promise<{ processed: number; sent: number; failed: number; paused?: boolean }> {
   // Emergency control — admin can pause all outgoing email without touching code.
-  const { data: pauseRow } = await admin.from("site_settings").select("emails_paused").eq("id", true).maybeSingle();
+  const { data: pauseRow } = await admin
+    .from("site_settings")
+    .select("emails_paused")
+    .eq("id", true)
+    .maybeSingle();
   if (pauseRow?.emails_paused) return { processed: 0, sent: 0, failed: 0, paused: true };
   const { data } = await admin
     .from("email_messages")
@@ -276,7 +310,9 @@ export async function queueAbandonedReminders(admin: any): Promise<{ queued: num
 
   const { data: orders } = await admin
     .from("tool_orders")
-    .select("id, user_id, tool_slug, price_amount, currency, access_type, billing_period, created_at, price_label")
+    .select(
+      "id, user_id, tool_slug, price_amount, currency, access_type, billing_period, created_at, price_label",
+    )
     .eq("status", "pending")
     .lte("created_at", cutoff)
     .limit(200);
@@ -290,7 +326,10 @@ export async function queueAbandonedReminders(admin: any): Promise<{ queued: num
     .select("id, email, full_name")
     .in("id", userIds);
   const pMap = new Map<string, { email: string | null; name: string | null }>(
-    ((profiles ?? []) as any[]).map((p) => [p.id as string, { email: p.email as string | null, name: p.full_name as string | null }]),
+    ((profiles ?? []) as any[]).map((p) => [
+      p.id as string,
+      { email: p.email as string | null, name: p.full_name as string | null },
+    ]),
   );
 
   let queued = 0;

@@ -6,7 +6,12 @@
  * The resolved discount is always fed into `buildPricingBreakdown`, never
  * applied to a price on its own.
  */
-import { evaluateCoupon, normaliseCouponCode, type CouponEvaluation, type CouponRow } from "@/lib/coupons";
+import {
+  evaluateCoupon,
+  normaliseCouponCode,
+  type CouponEvaluation,
+  type CouponRow,
+} from "@/lib/coupons";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -24,11 +29,7 @@ export async function resolveCouponForCheckout(
   const code = normaliseCouponCode(input.code);
   if (!code) return { ok: false, reason: "not_found" };
 
-  const { data } = await admin
-    .from("coupons")
-    .select("*")
-    .ilike("code", code)
-    .maybeSingle();
+  const { data } = await admin.from("coupons").select("*").ilike("code", code).maybeSingle();
   const coupon = (data ?? null) as CouponRow | null;
   if (!coupon) return { ok: false, reason: "not_found" };
 

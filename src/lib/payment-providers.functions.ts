@@ -13,7 +13,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
-import { loadGatewaySecrets, missingSecrets, isGatewaySecretName } from "@/lib/gateways/secrets.server";
+import {
+  loadGatewaySecrets,
+  missingSecrets,
+  isGatewaySecretName,
+} from "@/lib/gateways/secrets.server";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -93,7 +97,11 @@ const KNOWN: Record<
       { name: "FLUTTERWAVE_SECRET_KEY", label: "Secret key", required: true },
       { name: "FLUTTERWAVE_PUBLIC_KEY", label: "Public key", required: false },
       { name: "FLUTTERWAVE_ENCRYPTION_KEY", label: "Encryption key", required: false },
-      { name: "FLUTTERWAVE_WEBHOOK_HASH", label: "Webhook secret hash (verif-hash)", required: true },
+      {
+        name: "FLUTTERWAVE_WEBHOOK_HASH",
+        label: "Webhook secret hash (verif-hash)",
+        required: true,
+      },
     ],
   },
   monnify: {
@@ -186,7 +194,10 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
       .eq("slug", data.slug)
       .maybeSingle();
     const mergedConfig = {
-      ...(((existingRow as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>),
+      ...(((existingRow as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<
+        string,
+        unknown
+      >),
       ...(data.config ?? {}),
     };
 
@@ -200,9 +211,8 @@ export const adminUpsertPaymentProvider = createServerFn({ method: "POST" })
         if (missing.length) {
           throw new Error(`Cannot enable ${known.display_name} — missing: ${missing.join(", ")}.`);
         }
-        const { runProviderConnectionTest } = await import(
-          "@/lib/gateways/provider-validation.server"
-        );
+        const { runProviderConnectionTest } =
+          await import("@/lib/gateways/provider-validation.server");
         const test = await runProviderConnectionTest({ slug: data.slug, config: mergedConfig });
         if (!test.ok) {
           throw new Error(
@@ -261,12 +271,15 @@ export const adminTestProviderConnection = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
     await loadGatewaySecrets(admin, true);
-    const { data: p } = await admin.from("payment_providers").select("*").eq("id", data.id).maybeSingle();
+    const { data: p } = await admin
+      .from("payment_providers")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     if (!p) throw new Error("Provider not found");
 
-    const { recordProviderTestResult, runProviderConnectionTest } = await import(
-      "@/lib/gateways/provider-validation.server"
-    );
+    const { recordProviderTestResult, runProviderConnectionTest } =
+      await import("@/lib/gateways/provider-validation.server");
     const r = await runProviderConnectionTest(p);
     await recordProviderTestResult(admin, data.id, r);
     await logAdminActivity(context, {
@@ -292,7 +305,11 @@ export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { data: p } = await admin.from("payment_providers").select("*").eq("id", data.id).maybeSingle();
+    const { data: p } = await admin
+      .from("payment_providers")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     if (!p) throw new Error("Provider not found");
     const known = KNOWN[p.slug as string];
     if (!known) throw new Error("Unknown gateway");
@@ -313,9 +330,8 @@ export const adminSaveProviderSecrets = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     await loadGatewaySecrets(admin, true);
 
-    const { recordProviderTestResult, runProviderConnectionTest } = await import(
-      "@/lib/gateways/provider-validation.server"
-    );
+    const { recordProviderTestResult, runProviderConnectionTest } =
+      await import("@/lib/gateways/provider-validation.server");
     const r = await runProviderConnectionTest(p);
     await recordProviderTestResult(admin, data.id, r);
     await logAdminActivity(context, {
@@ -334,7 +350,11 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
-    const { data: p } = await admin.from("payment_providers").select("slug").eq("id", data.id).maybeSingle();
+    const { data: p } = await admin
+      .from("payment_providers")
+      .select("slug")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await admin.from("payment_providers").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     await logAdminActivity(context, {
@@ -349,9 +369,7 @@ export const adminDeletePaymentProvider = createServerFn({ method: "POST" })
 
 export const adminSetProviderEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertSuperAdmin(context);
     const { data: target } = await admin
@@ -373,9 +391,8 @@ export const adminSetProviderEnabled = createServerFn({ method: "POST" })
         if (missing.length) {
           throw new Error(`Cannot enable ${known.display_name} — missing: ${missing.join(", ")}.`);
         }
-        const { recordProviderTestResult, runProviderConnectionTest } = await import(
-          "@/lib/gateways/provider-validation.server"
-        );
+        const { recordProviderTestResult, runProviderConnectionTest } =
+          await import("@/lib/gateways/provider-validation.server");
         const test = await runProviderConnectionTest(target);
         await recordProviderTestResult(admin, data.id, test);
         if (!test.ok) throw new Error(`Cannot enable — credential check failed: ${test.message}`);
@@ -424,9 +441,8 @@ export const adminSetActiveProvider = createServerFn({ method: "POST" })
       if (missing.length) {
         throw new Error(`Cannot activate ${known.display_name} — missing: ${missing.join(", ")}.`);
       }
-      const { recordProviderTestResult, runProviderConnectionTest } = await import(
-        "@/lib/gateways/provider-validation.server"
-      );
+      const { recordProviderTestResult, runProviderConnectionTest } =
+        await import("@/lib/gateways/provider-validation.server");
       const test = await runProviderConnectionTest(target);
       await recordProviderTestResult(admin, data.id, test);
       if (!test.ok) throw new Error(`Cannot activate — credential check failed: ${test.message}`);

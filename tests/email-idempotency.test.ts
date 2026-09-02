@@ -40,18 +40,21 @@ function makeDb(): MockDb {
       resend_domain_status: "unconfigured",
     },
   ]);
-  db.seed("email_templates", [
-    "payment_success",
-    "payment_failed",
-    "private_pending",
-    "private_fulfilled",
-    "renewal_success",
-    "renewal_failed",
-    "renewal_disabled",
-    "abandoned_checkout",
-    "offline_confirmed",
-    "customer_invite",
-  ].map((key) => ({ key, subject: key, html_body: "<p>{{name}}</p>", enabled: true })));
+  db.seed(
+    "email_templates",
+    [
+      "payment_success",
+      "payment_failed",
+      "private_pending",
+      "private_fulfilled",
+      "renewal_success",
+      "renewal_failed",
+      "renewal_disabled",
+      "abandoned_checkout",
+      "offline_confirmed",
+      "customer_invite",
+    ].map((key) => ({ key, subject: key, html_body: "<p>{{name}}</p>", enabled: true })),
+  );
   return db;
 }
 
@@ -60,9 +63,20 @@ async function main() {
   {
     const db = makeDb();
     const key = "payment_success:order-1";
-    await queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: key, templateKey: "payment_success", recipient: EMAIL });
-    assert(db.all("email_messages").length === 1, "T1: single payment_success row for same event_key");
+    await queueEmail(db as any, {
+      eventKey: key,
+      templateKey: "payment_success",
+      recipient: EMAIL,
+    });
+    await queueEmail(db as any, {
+      eventKey: key,
+      templateKey: "payment_success",
+      recipient: EMAIL,
+    });
+    assert(
+      db.all("email_messages").length === 1,
+      "T1: single payment_success row for same event_key",
+    );
   }
 
   // 2. Callback + webhook race — still one row.
@@ -81,8 +95,16 @@ async function main() {
   // 3. Two separate renewals → two rows.
   {
     const db = makeDb();
-    await queueEmail(db as any, { eventKey: "renewal_success:REF-JAN", templateKey: "renewal_success", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: "renewal_success:REF-FEB", templateKey: "renewal_success", recipient: EMAIL });
+    await queueEmail(db as any, {
+      eventKey: "renewal_success:REF-JAN",
+      templateKey: "renewal_success",
+      recipient: EMAIL,
+    });
+    await queueEmail(db as any, {
+      eventKey: "renewal_success:REF-FEB",
+      templateKey: "renewal_success",
+      recipient: EMAIL,
+    });
     assert(db.all("email_messages").length === 2, "T3: two renewals → two rows");
   }
 
@@ -91,7 +113,11 @@ async function main() {
     const db = makeDb();
     const key = "renewal_success:REF-JAN";
     for (let i = 0; i < 3; i++) {
-      await queueEmail(db as any, { eventKey: key, templateKey: "renewal_success", recipient: EMAIL });
+      await queueEmail(db as any, {
+        eventKey: key,
+        templateKey: "renewal_success",
+        recipient: EMAIL,
+      });
     }
     assert(db.all("email_messages").length === 1, "T4: replay same renewal → one row");
   }
@@ -99,18 +125,37 @@ async function main() {
   // 5. A failed renewal sends one email for that failure.
   {
     const db = makeDb();
-    await queueEmail(db as any, { eventKey: "renewal_failed:INV-99", templateKey: "renewal_failed", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: "renewal_failed:INV-99", templateKey: "renewal_failed", recipient: EMAIL });
+    await queueEmail(db as any, {
+      eventKey: "renewal_failed:INV-99",
+      templateKey: "renewal_failed",
+      recipient: EMAIL,
+    });
+    await queueEmail(db as any, {
+      eventKey: "renewal_failed:INV-99",
+      templateKey: "renewal_failed",
+      recipient: EMAIL,
+    });
     const rows = db.all("email_messages");
-    assert(rows.length === 1 && rows[0].template_key === "renewal_failed", "T5: renewal_failed dedup by invoice code");
+    assert(
+      rows.length === 1 && rows[0].template_key === "renewal_failed",
+      "T5: renewal_failed dedup by invoice code",
+    );
   }
 
   // 6. Abandoned checkout queued once.
   {
     const db = makeDb();
     const key = "abandoned_checkout:order-77";
-    await queueEmail(db as any, { eventKey: key, templateKey: "abandoned_checkout", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: key, templateKey: "abandoned_checkout", recipient: EMAIL });
+    await queueEmail(db as any, {
+      eventKey: key,
+      templateKey: "abandoned_checkout",
+      recipient: EMAIL,
+    });
+    await queueEmail(db as any, {
+      eventKey: key,
+      templateKey: "abandoned_checkout",
+      recipient: EMAIL,
+    });
     assert(db.all("email_messages").length === 1, "T6: abandoned checkout queued once");
   }
 
@@ -127,15 +172,25 @@ async function main() {
     });
     if (res.id) await dispatchOne(db as any, res.id);
     const row = db.all("email_messages")[0];
-    assert(row.status === "cancelled" && row.last_error === "order_no_longer_pending",
-      `T7: completed order cancels reminder (status=${row.status}, err=${row.last_error})`);
+    assert(
+      row.status === "cancelled" && row.last_error === "order_no_longer_pending",
+      `T7: completed order cancels reminder (status=${row.status}, err=${row.last_error})`,
+    );
   }
 
   // 8. Offline payments keyed by paymentId.
   {
     const db = makeDb();
-    await queueEmail(db as any, { eventKey: "offline_payment:pay-abc", templateKey: "offline_confirmed", recipient: EMAIL });
-    await queueEmail(db as any, { eventKey: "offline_payment:pay-abc", templateKey: "offline_confirmed", recipient: EMAIL });
+    await queueEmail(db as any, {
+      eventKey: "offline_payment:pay-abc",
+      templateKey: "offline_confirmed",
+      recipient: EMAIL,
+    });
+    await queueEmail(db as any, {
+      eventKey: "offline_payment:pay-abc",
+      templateKey: "offline_confirmed",
+      recipient: EMAIL,
+    });
     assert(db.all("email_messages").length === 1, "T8: offline_payment dedup by paymentId");
   }
 
@@ -155,7 +210,10 @@ async function main() {
     const row = db.all("email_messages")[0];
     assert(row.status === "retrying", `T9: failed send scheduled retry (status=${row.status})`);
     assert((row.attempts ?? 0) >= 1, "T9: attempts incremented");
-    assert(new Date(row.scheduled_for).getTime() > Date.now(), "T9: scheduled_for pushed into the future");
+    assert(
+      new Date(row.scheduled_for).getTime() > Date.now(),
+      "T9: scheduled_for pushed into the future",
+    );
   }
 
   // 10. Customer invite payload has no plain-text password.
@@ -195,7 +253,10 @@ async function main() {
       }
     };
     scan("src");
-    assert(bad.length === 0, `T11: no browser bundle references RESEND (offenders: ${bad.join(", ")})`);
+    assert(
+      bad.length === 0,
+      `T11: no browser bundle references RESEND (offenders: ${bad.join(", ")})`,
+    );
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

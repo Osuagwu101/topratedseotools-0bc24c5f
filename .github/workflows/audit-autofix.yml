@@ -1,0 +1,35 @@
+name: Audit Autofix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/typecheck-20260902
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Apply deterministic formatter and ESLint autofixes
+        run: |
+          bunx prettier --write "src/**/*.{ts,tsx}" "tests/**/*.{ts,tsx}"
+          bunx eslint . --fix || true
+      - name: Commit autofixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests
+          if git diff --cached --quiet; then
+            echo "No autofixes to commit."
+          else
+            git commit -m "Apply audit lint autofixes"
+            git push origin HEAD:audit/typecheck-20260902
+          fi

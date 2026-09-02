@@ -24,7 +24,11 @@ const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * already inside a link, image, code block/inline code, or heading.
  * Returns the possibly-modified body and whether a link was inserted.
  */
-function injectLinkOnce(body: string, needle: string, href: string): { body: string; inserted: boolean } {
+function injectLinkOnce(
+  body: string,
+  needle: string,
+  href: string,
+): { body: string; inserted: boolean } {
   const pattern = new RegExp(`\\b(${escapeReg(needle)})\\b`, "i");
   // Walk the body line by line so we can skip code fences and headings.
   const lines = body.split("\n");
@@ -157,7 +161,9 @@ export function selectBestCta(
   // If nothing matched targeting, prefer default; else top-scored
   const top = scored[0];
   if (!top) return null;
-  const withTargets = scored.find((s) => s.t.target_tool_slugs.length || s.t.target_category_slugs.length);
+  const withTargets = scored.find(
+    (s) => s.t.target_tool_slugs.length || s.t.target_category_slugs.length,
+  );
   if (withTargets && withTargets.score > (top.t.is_default ? top.score : -1)) return withTargets.t;
   return top.t;
 }

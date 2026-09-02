@@ -82,9 +82,7 @@ async function main() {
   await test("valid signed charge.success approves order + records processed", async () => {
     const db = freshDb();
     const orderId = "order-1";
-    db.seed("tool_orders", [
-      { id: orderId, status: "pending", duration_days: 28, grace_days: 2 },
-    ]);
+    db.seed("tool_orders", [{ id: orderId, status: "pending", duration_days: 28, grace_days: 2 }]);
     const body = chargeSuccessBody(orderId);
     const res = await handlePaystackWebhook(makeRequest(body, TEST_SECRET), {
       secret: TEST_SECRET,
@@ -105,10 +103,10 @@ async function main() {
     const db = freshDb();
     db.seed("tool_orders", [{ id: "o", status: "pending", duration_days: 28, grace_days: 0 }]);
     const body = chargeSuccessBody("o");
-    const res = await handlePaystackWebhook(
-      makeRequest(body, TEST_SECRET, { badSig: true }),
-      { secret: TEST_SECRET, supabaseAdmin: db },
-    );
+    const res = await handlePaystackWebhook(makeRequest(body, TEST_SECRET, { badSig: true }), {
+      secret: TEST_SECRET,
+      supabaseAdmin: db,
+    });
     assert(res.status === 401, `status 401 (got ${res.status})`);
     assert(db.all("paystack_webhook_events").length === 0, "no event recorded");
     assert(db.all("tool_orders")[0].status === "pending", "order unchanged");
@@ -117,9 +115,7 @@ async function main() {
   // 3. Sequential duplicate
   await test("sequential duplicate → 200, order not re-approved, single event row", async () => {
     const db = freshDb();
-    db.seed("tool_orders", [
-      { id: "o3", status: "pending", duration_days: 28, grace_days: 0 },
-    ]);
+    db.seed("tool_orders", [{ id: "o3", status: "pending", duration_days: 28, grace_days: 0 }]);
     const body = chargeSuccessBody("o3");
     const r1 = await handlePaystackWebhook(makeRequest(body, TEST_SECRET), {
       secret: TEST_SECRET,
@@ -141,9 +137,7 @@ async function main() {
   // 4. Concurrent duplicate (simulated: mark existing as 'processing' before 2nd call)
   await test("concurrent duplicate → 200, no double-approval", async () => {
     const db = freshDb();
-    db.seed("tool_orders", [
-      { id: "o4", status: "pending", duration_days: 28, grace_days: 0 },
-    ]);
+    db.seed("tool_orders", [{ id: "o4", status: "pending", duration_days: 28, grace_days: 0 }]);
     const body = chargeSuccessBody("o4");
     // Pre-seed an event row already in 'processing' with matching key
     const { buildIdempotencyKey } = await import("../src/lib/paystack-webhook");
@@ -173,9 +167,7 @@ async function main() {
   // 5. Failed processing followed by retry
   await test("failed → retry approves order and marks processed", async () => {
     const db = freshDb();
-    db.seed("tool_orders", [
-      { id: "o5", status: "pending", duration_days: 28, grace_days: 0 },
-    ]);
+    db.seed("tool_orders", [{ id: "o5", status: "pending", duration_days: 28, grace_days: 0 }]);
     const body = chargeSuccessBody("o5");
     const { buildIdempotencyKey } = await import("../src/lib/paystack-webhook");
     const key = buildIdempotencyKey({
@@ -200,7 +192,10 @@ async function main() {
     assert(res.status === 200, "status 200");
     const evt = db.all("paystack_webhook_events")[0];
     assert(evt.processing_status === "processed", "retry marked processed");
-    assert(evt.processing_attempts === 2, `attempts incremented to 2 (got ${evt.processing_attempts})`);
+    assert(
+      evt.processing_attempts === 2,
+      `attempts incremented to 2 (got ${evt.processing_attempts})`,
+    );
     assert(evt.last_error === null, "last_error cleared");
     assert(db.all("tool_orders")[0].status === "approved", "order now approved");
   });
@@ -278,9 +273,7 @@ async function main() {
   // 9. Unrecognised secret-key prefix
   await test("unrecognised secret prefix → 503, no event, no order mutation", async () => {
     const db = freshDb();
-    db.seed("tool_orders", [
-      { id: "o9", status: "pending", duration_days: 28, grace_days: 0 },
-    ]);
+    db.seed("tool_orders", [{ id: "o9", status: "pending", duration_days: 28, grace_days: 0 }]);
     // Body signed with BAD secret so signature check would pass IF we got that far.
     const body = chargeSuccessBody("o9");
     const res = await handlePaystackWebhook(makeRequest(body, BAD_SECRET), {

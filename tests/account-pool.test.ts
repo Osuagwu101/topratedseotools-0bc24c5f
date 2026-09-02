@@ -7,11 +7,16 @@
  */
 import { MockDb } from "./mock-db";
 
-let passed = 0, failed = 0;
+let passed = 0,
+  failed = 0;
 const failures: string[] = [];
 function assert(cond: any, msg: string) {
   if (cond) passed++;
-  else { failed++; failures.push(msg); console.error("  ✗", msg); }
+  else {
+    failed++;
+    failures.push(msg);
+    console.error("  ✗", msg);
+  }
 }
 
 // A minimal in-memory pool that mirrors assign_tool_account_for_order semantics.
@@ -19,8 +24,19 @@ function assert(cond: any, msg: string) {
 // asserts the *invariants* we depend on so a regression in the SQL contract
 // is caught by CI (SQL parity test lives in schema.sql when we run migrations).
 
-type Account = { id: string; tool: string; type: "shared" | "private"; cap: number; enabled: boolean };
-type Assignment = { id: string; account_id: string; order_id: string; status: "active" | "released" | "reassigned" };
+type Account = {
+  id: string;
+  tool: string;
+  type: "shared" | "private";
+  cap: number;
+  enabled: boolean;
+};
+type Assignment = {
+  id: string;
+  account_id: string;
+  order_id: string;
+  status: "active" | "released" | "reassigned";
+};
 
 class Pool {
   accounts: Account[] = [];
@@ -60,8 +76,14 @@ class Pool {
     const target = this.accounts.find((a) => a.id === newAccountId);
     if (!target || !target.enabled) return false;
     if (this.activeCount(newAccountId) >= target.cap) return false;
-    for (const a of this.assigns) if (a.order_id === orderId && a.status === "active") a.status = "reassigned";
-    this.assigns.push({ id: "asn_" + (this.assigns.length + 1), account_id: newAccountId, order_id: orderId, status: "active" });
+    for (const a of this.assigns)
+      if (a.order_id === orderId && a.status === "active") a.status = "reassigned";
+    this.assigns.push({
+      id: "asn_" + (this.assigns.length + 1),
+      account_id: newAccountId,
+      order_id: orderId,
+      status: "active",
+    });
     return true;
   }
 }
@@ -115,7 +137,10 @@ console.log("account-pool");
   const a = p.assign({ id: "same", tool: "q", type: "shared" });
   const b = p.assign({ id: "same", tool: "q", type: "shared" });
   assert(a === b, "double assignment for same order returns same row");
-  assert(p.assigns.filter((x) => x.order_id === "same" && x.status === "active").length === 1, "no duplicate active per order");
+  assert(
+    p.assigns.filter((x) => x.order_id === "same" && x.status === "active").length === 1,
+    "no duplicate active per order",
+  );
 }
 
 // 6. Disabled accounts skipped
@@ -138,4 +163,7 @@ console.log("account-pool");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) { for (const f of failures) console.error("  •", f); process.exit(1); }
+if (failed > 0) {
+  for (const f of failures) console.error("  •", f);
+  process.exit(1);
+}

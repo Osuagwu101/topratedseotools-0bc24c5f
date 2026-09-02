@@ -122,7 +122,9 @@ export const listPublishedPosts = createServerFn({ method: "GET" })
     const posts = (rows ?? []) as unknown as PostSummary[];
 
     // Hydrate authors and tags
-    const authorIds = Array.from(new Set(posts.map((p) => p.author_id).filter(Boolean))) as string[];
+    const authorIds = Array.from(
+      new Set(posts.map((p) => p.author_id).filter(Boolean)),
+    ) as string[];
     if (authorIds.length) {
       const { data: authors } = await supabase
         .from("profiles")
@@ -175,10 +177,7 @@ export const getPostBySlug = createServerFn({ method: "GET" })
             .eq("id", post.author_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
-      supabase
-        .from("blog_post_tags")
-        .select("tag:blog_tags(id,name,slug)")
-        .eq("post_id", post.id),
+      supabase.from("blog_post_tags").select("tag:blog_tags(id,name,slug)").eq("post_id", post.id),
     ]);
     const tags = (tagJoins ?? [])
       .map((j) => j.tag as unknown as { id: string; name: string; slug: string } | null)
@@ -236,10 +235,7 @@ export const listCategories = createServerFn({ method: "GET" }).handler(async ()
 /** Public: list tags. */
 export const listTags = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = serverPublic();
-  const { data, error } = await supabase
-    .from("blog_tags")
-    .select("id,name,slug")
-    .order("name");
+  const { data, error } = await supabase.from("blog_tags").select("id,name,slug").order("name");
   if (error) throw new Error(error.message);
   return { tags: data ?? [] };
 });
@@ -259,13 +255,14 @@ export const listApprovedComments = createServerFn({ method: "GET" })
     return { comments: rows ?? [] };
   });
 
-
 /** Public: blog settings (singleton, latest row). */
 export const getBlogSettings = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = serverPublic();
   const { data } = await supabase
     .from("blog_settings")
-    .select("id,comments_enabled,hero_title,hero_subtitle,posts_per_page,keyword_highlight_enabled,keyword_highlight_color")
+    .select(
+      "id,comments_enabled,hero_title,hero_subtitle,posts_per_page,keyword_highlight_enabled,keyword_highlight_color",
+    )
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -409,7 +406,8 @@ export const adminCreatePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => postInputSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const slug = (data.slug && data.slug.length > 0 ? data.slug : slugify(data.title)) || slugify(data.title);
+    const slug =
+      (data.slug && data.slug.length > 0 ? data.slug : slugify(data.title)) || slugify(data.title);
     const readingTime = estimateReadingTime(data.content ?? "");
     const publishedAt =
       data.status === "published"
@@ -450,9 +448,9 @@ export const adminCreatePost = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     if (data.tag_ids && data.tag_ids.length) {
-      await context.supabase.from("blog_post_tags").insert(
-        data.tag_ids.map((tid) => ({ post_id: inserted.id, tag_id: tid })),
-      );
+      await context.supabase
+        .from("blog_post_tags")
+        .insert(data.tag_ids.map((tid) => ({ post_id: inserted.id, tag_id: tid })));
     }
     return { id: inserted.id };
   });
@@ -482,7 +480,7 @@ export const adminUpdatePost = createServerFn({ method: "POST" })
       });
     }
 
-    const slug = (data.slug && data.slug.length > 0 ? data.slug : slugify(data.title));
+    const slug = data.slug && data.slug.length > 0 ? data.slug : slugify(data.title);
     const readingTime = estimateReadingTime(data.content ?? "");
     const publishedAt =
       data.status === "published"
@@ -737,7 +735,9 @@ export const adminListComments = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("blog_comments")
-      .select("id,post_id,author_name,author_email,content,status,created_at,post:blog_posts(id,title,slug)")
+      .select(
+        "id,post_id,author_name,author_email,content,status,created_at,post:blog_posts(id,title,slug)",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { comments: data ?? [] };

@@ -18,20 +18,37 @@ import { renderTemplate } from "../src/lib/email/templates";
 import { MockDb } from "./mock-db";
 import { queueEmail } from "../src/lib/email/queue";
 
-let passed = 0, failed = 0;
+let passed = 0,
+  failed = 0;
 const failures: string[] = [];
 function assert(cond: any, msg: string) {
-  if (cond) { passed++; } else { failed++; failures.push(msg); console.error("  ✗", msg); }
+  if (cond) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(msg);
+    console.error("  ✗", msg);
+  }
 }
 
-const settings = { ...DEFAULT_ALERT_SETTINGS, emailsEnabled: true, emailRecipients: ["ops@example.com"] };
+const settings = {
+  ...DEFAULT_ALERT_SETTINGS,
+  emailsEnabled: true,
+  emailRecipients: ["ops@example.com"],
+};
 const now = Date.parse("2026-08-01T00:00:00Z");
 
 function acc(o: Partial<AlertInputAccount>): AlertInputAccount {
   return {
-    id: o.id ?? "a1", tool_slug: o.tool_slug ?? "quillbot", label: o.label ?? "A",
-    status: o.status ?? "working", enabled: o.enabled ?? true, expires_at: o.expires_at ?? null,
-    active_count: o.active_count ?? 0, max_capacity: o.max_capacity ?? 10, fill_pct: 0,
+    id: o.id ?? "a1",
+    tool_slug: o.tool_slug ?? "quillbot",
+    label: o.label ?? "A",
+    status: o.status ?? "working",
+    enabled: o.enabled ?? true,
+    expires_at: o.expires_at ?? null,
+    active_count: o.active_count ?? 0,
+    max_capacity: o.max_capacity ?? 10,
+    fill_pct: 0,
     needs_capacity_review: o.needs_capacity_review ?? false,
   } as any;
 }
@@ -62,7 +79,8 @@ console.log("admin_alert email behaviour");
   assert(rendered.includes("2026-08-01"), "timestamp rendered");
 
   const banned = ["password", "login_email", "otp", "cookie", "session_token", "card", "cvv"];
-  for (const b of banned) assert(!rendered.toLowerCase().includes(b), `template must not contain "${b}"`);
+  for (const b of banned)
+    assert(!rendered.toLowerCase().includes(b), `template must not contain "${b}"`);
 }
 
 // 2. Alert keys are stable → dedup contract holds across calls.
@@ -86,24 +104,47 @@ console.log("admin_alert email behaviour");
 {
   const bad = acc({ id: "acc-z", status: "login_failed", active_count: 3, max_capacity: 10 });
   const drained = { ...bad, active_count: 0 };
-  const before = buildAccountAlerts([bad], [], settings, now).some((x) => x.kind === "customers_on_unhealthy_account");
-  const after = buildAccountAlerts([drained], [], settings, now).some((x) => x.kind === "customers_on_unhealthy_account");
+  const before = buildAccountAlerts([bad], [], settings, now).some(
+    (x) => x.kind === "customers_on_unhealthy_account",
+  );
+  const after = buildAccountAlerts([drained], [], settings, now).some(
+    (x) => x.kind === "customers_on_unhealthy_account",
+  );
   assert(before && !after, "unhealthy-with-customers alert clears when drained");
 }
 
 // 5. Assigning a waiting customer resolves the awaiting alert.
 {
-  const orders: AlertInputOrder[] = [{ id: "o1", tool_slug: "quillbot", user_id: "u1", access_type: "shared", created_at: new Date(now).toISOString() }];
-  const before = buildAccountAlerts([], orders, settings, now).some((x) => x.kind === "awaiting_assignment");
-  const after = buildAccountAlerts([], [], settings, now).some((x) => x.kind === "awaiting_assignment");
+  const orders: AlertInputOrder[] = [
+    {
+      id: "o1",
+      tool_slug: "quillbot",
+      user_id: "u1",
+      access_type: "shared",
+      created_at: new Date(now).toISOString(),
+    },
+  ];
+  const before = buildAccountAlerts([], orders, settings, now).some(
+    (x) => x.kind === "awaiting_assignment",
+  );
+  const after = buildAccountAlerts([], [], settings, now).some(
+    (x) => x.kind === "awaiting_assignment",
+  );
   assert(before && !after, "awaiting alert clears after assignment");
 }
 
 // 6. Confirming capacity resolves needs_capacity_review.
 {
   const flagged = acc({ id: "acc-r", needs_capacity_review: true });
-  const before = buildAccountAlerts([flagged], [], settings, now).some((x) => x.kind === "needs_capacity_review");
-  const after = buildAccountAlerts([{ ...flagged, needs_capacity_review: false }], [], settings, now).some((x) => x.kind === "needs_capacity_review");
+  const before = buildAccountAlerts([flagged], [], settings, now).some(
+    (x) => x.kind === "needs_capacity_review",
+  );
+  const after = buildAccountAlerts(
+    [{ ...flagged, needs_capacity_review: false }],
+    [],
+    settings,
+    now,
+  ).some((x) => x.kind === "needs_capacity_review");
   assert(before && !after, "needs_capacity_review clears after confirmation");
 }
 
@@ -117,13 +158,18 @@ async function testQueueSkipDisabled() {
     recipient: "ops@example.com",
     payload: { title: "t" },
   });
-  assert(res.queued === false && res.skipped === "type_disabled", "disabled admin_alert type => skipped");
+  assert(
+    res.queued === false && res.skipped === "type_disabled",
+    "disabled admin_alert type => skipped",
+  );
 }
 
 // 8. queueEmail queues when enabled.
 async function testQueueEnabled() {
   const db = new MockDb({ uniqueColumns: { email_messages: ["event_key"] } });
-  db.seed("email_settings", [{ id: true, enabled_types: { admin_alert: true }, production_sending: false }]);
+  db.seed("email_settings", [
+    { id: true, enabled_types: { admin_alert: true }, production_sending: false },
+  ]);
   const res = await queueEmail(db as any, {
     eventKey: "admin_alert:y:ops@example.com",
     templateKey: "admin_alert",
@@ -138,15 +184,23 @@ async function testQueueEnabled() {
     recipient: "ops@example.com",
     payload: { title: "t" },
   });
-  assert(dup.queued === false && dup.skipped === "already_queued", "duplicate event_key => already_queued");
+  assert(
+    dup.queued === false && dup.skipped === "already_queued",
+    "duplicate event_key => already_queued",
+  );
 }
 
 // 9. Badge count filter (mirrors getAccessHealthBadgeCounts).
 {
   const attentionKinds = new Set<AlertKind>([
-    "full", "expired", "login_problem", "suspended",
-    "disabled_with_customers", "customers_on_unhealthy_account",
-    "awaiting_assignment", "needs_capacity_review",
+    "full",
+    "expired",
+    "login_problem",
+    "suspended",
+    "disabled_with_customers",
+    "customers_on_unhealthy_account",
+    "awaiting_assignment",
+    "needs_capacity_review",
   ]);
   function badge(alerts: AccountAlert[]): number {
     return alerts.filter(
@@ -157,12 +211,18 @@ async function testQueueEnabled() {
     ).length;
   }
   const accounts = [
-    acc({ id: "b1", active_count: 10, max_capacity: 10, fill_pct: 100 }),      // full → counts
-    acc({ id: "b2", active_count: 8, max_capacity: 10, fill_pct: 80 }),        // almost_full → excluded
-    acc({ id: "b3", status: "suspended", active_count: 0 }),                    // suspended w/no cust → excluded from badge
+    acc({ id: "b1", active_count: 10, max_capacity: 10, fill_pct: 100 }), // full → counts
+    acc({ id: "b2", active_count: 8, max_capacity: 10, fill_pct: 80 }), // almost_full → excluded
+    acc({ id: "b3", status: "suspended", active_count: 0 }), // suspended w/no cust → excluded from badge
   ];
   const orders: AlertInputOrder[] = [
-    { id: "o9", tool_slug: "x", user_id: "u", access_type: "shared", created_at: new Date(now).toISOString() },
+    {
+      id: "o9",
+      tool_slug: "x",
+      user_id: "u",
+      access_type: "shared",
+      created_at: new Date(now).toISOString(),
+    },
   ];
   const alerts = buildAccountAlerts(accounts, orders, settings, now);
   const count = badge(alerts);
@@ -174,5 +234,8 @@ async function testQueueEnabled() {
   await testQueueSkipDisabled();
   await testQueueEnabled();
   console.log(`\n${passed} passed, ${failed} failed`);
-  if (failed > 0) { for (const f of failures) console.error("  •", f); process.exit(1); }
+  if (failed > 0) {
+    for (const f of failures) console.error("  •", f);
+    process.exit(1);
+  }
 })();

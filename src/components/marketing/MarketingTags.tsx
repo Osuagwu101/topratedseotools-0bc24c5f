@@ -6,7 +6,10 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
-import { getPublicMarketingConfig, type PublicMarketingConfig } from "@/lib/marketing/public-config.functions";
+import {
+  getPublicMarketingConfig,
+  type PublicMarketingConfig,
+} from "@/lib/marketing/public-config.functions";
 import { flushPendingFbqEvents } from "@/lib/marketing/track";
 
 function loadPixel(pixelId: string) {
@@ -62,11 +65,20 @@ export function MarketingTags() {
   useEffect(() => {
     let cancelled = false;
     const loadConfig = () => {
-      getPublicMarketingConfig().then((next) => {
-        if (!cancelled) setConfig(next);
-      }).catch(() => {
-        if (!cancelled) setConfig({ pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false });
-      });
+      getPublicMarketingConfig()
+        .then((next) => {
+          if (!cancelled) setConfig(next);
+        })
+        .catch(() => {
+          if (!cancelled)
+            setConfig({
+              pixelId: null,
+              gtmId: null,
+              pixelEnabled: false,
+              gtmEnabled: false,
+              paused: false,
+            });
+        });
     };
     loadConfig();
     const off = onConsentChange(setConsent);

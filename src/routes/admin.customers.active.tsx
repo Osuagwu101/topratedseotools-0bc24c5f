@@ -4,7 +4,9 @@ import { CustomersTable } from "@/components/admin/CustomersTable";
 
 export const Route = createFileRoute("/admin/customers/active")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Active subscribers — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Active subscribers — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: () => (
     <AdminShell>
       <CustomersTable segment="active" />

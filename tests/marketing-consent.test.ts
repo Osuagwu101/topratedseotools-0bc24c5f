@@ -35,8 +35,20 @@ async function test(name: string, fn: () => Promise<void>) {
 function seedProviders(db: MockDb, { pixel = true, capi = true, paused = false } = {}) {
   db.seed("site_settings", [{ id: true, marketing_pause: paused }]);
   db.seed("marketing_integrations", [
-    { provider: "meta_pixel", enabled: pixel, connected: pixel, public_id: pixel ? "123" : null, test_event_code: null },
-    { provider: "meta_capi", enabled: capi, connected: capi, public_id: capi ? "123" : null, test_event_code: null },
+    {
+      provider: "meta_pixel",
+      enabled: pixel,
+      connected: pixel,
+      public_id: pixel ? "123" : null,
+      test_event_code: null,
+    },
+    {
+      provider: "meta_capi",
+      enabled: capi,
+      connected: capi,
+      public_id: capi ? "123" : null,
+      test_event_code: null,
+    },
   ]);
 }
 
@@ -44,7 +56,7 @@ function seedProviders(db: MockDb, { pixel = true, capi = true, paused = false }
 let capiCalls: unknown[] = [];
 const origFetch = globalThis.fetch;
 globalThis.fetch = async (input: unknown, init?: RequestInit): Promise<Response> => {
-  const url = typeof input === "string" ? input : (input as Request).url ?? "";
+  const url = typeof input === "string" ? input : ((input as Request).url ?? "");
   if (url.includes("graph.facebook.com")) {
     capiCalls.push({ url, body: init?.body });
     return new Response(JSON.stringify({ events_received: 1 }), { status: 200 });

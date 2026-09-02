@@ -5,10 +5,7 @@ import { useSuspenseQuery, queryOptions, useQueryClient } from "@tanstack/react-
 import { useState } from "react";
 import { toast } from "sonner";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import {
-  listMarketingEvents,
-  retryFailedEvent,
-} from "@/lib/marketing/integrations.functions";
+import { listMarketingEvents, retryFailedEvent } from "@/lib/marketing/integrations.functions";
 
 const q = queryOptions({
   queryKey: ["admin-marketing-events"],
@@ -21,10 +18,7 @@ export const Route = createFileRoute("/admin/marketing/events")({
     await requireAdminOrRedirect();
   },
   head: () => ({
-    meta: [
-      { title: "Marketing events — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Marketing events — Admin" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: EventsPage,
@@ -63,8 +57,8 @@ function EventsPage() {
           <div>
             <h1 className="text-xl font-semibold">Event history</h1>
             <p className="text-sm text-muted-foreground">
-              Server-side audit trail. Duplicates are enforced by a unique
-              index on (platform, event_id) for status=sent — safe to retry.
+              Server-side audit trail. Duplicates are enforced by a unique index on (platform,
+              event_id) for status=sent — safe to retry.
             </p>
           </div>
           <select
@@ -96,7 +90,9 @@ function EventsPage() {
             <tbody>
               {filtered.map((e) => (
                 <tr key={e.id} className="border-t">
-                  <td className="p-2 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    {new Date(e.created_at).toLocaleString()}
+                  </td>
                   <td className="p-2">{e.event_name}</td>
                   <td className="p-2">{e.platform}</td>
                   <td className="p-2">
@@ -112,14 +108,19 @@ function EventsPage() {
                       {e.status}
                     </span>
                     {e.error_message ? (
-                      <div className="mt-1 max-w-xs truncate text-[11px] text-destructive" title={e.error_message}>
+                      <div
+                        className="mt-1 max-w-xs truncate text-[11px] text-destructive"
+                        title={e.error_message}
+                      >
                         {e.error_message}
                       </div>
                     ) : null}
                   </td>
                   <td className="p-2 text-xs">
                     {e.tool_slug ?? "—"}
-                    {e.order_id ? <div className="text-muted-foreground">{e.order_id.slice(0, 8)}…</div> : null}
+                    {e.order_id ? (
+                      <div className="text-muted-foreground">{e.order_id.slice(0, 8)}…</div>
+                    ) : null}
                   </td>
                   <td className="p-2 text-right">
                     {e.amount ? `${e.currency ?? "NGN"} ${Number(e.amount).toLocaleString()}` : "—"}

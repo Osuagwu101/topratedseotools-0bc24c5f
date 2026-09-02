@@ -44,7 +44,9 @@ function TagPage() {
     <SiteLayout>
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <nav className="mb-4 flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/blog" className="hover:text-foreground">Blog</Link>
+          <Link to="/blog" className="hover:text-foreground">
+            Blog
+          </Link>
           <span>/</span>
           <span>Tag</span>
         </nav>

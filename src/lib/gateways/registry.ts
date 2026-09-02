@@ -51,8 +51,11 @@ export async function readActiveGatewaySlug(db: any): Promise<GatewaySlug> {
  * which converts the displayed total to one of the merchant/gateway settlement
  * currencies (NGN for the current Paystack account) without changing provider.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveActiveGateway(db: any, _displayCurrency?: string): Promise<ResolvedGateway> {
+
+export async function resolveActiveGateway(
+  db: any,
+  _displayCurrency?: string,
+): Promise<ResolvedGateway> {
   await loadGatewaySecrets(db);
   const slug = await readActiveGatewaySlug(db);
   let config: GatewayConfig = {};
@@ -75,8 +78,11 @@ export async function resolveActiveGateway(db: any, _displayCurrency?: string): 
 }
 
 /** Which gateway processed a given reference — used by verify + receipts. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveGatewayForReference(db: any, reference: string): Promise<ResolvedGateway> {
+
+export async function resolveGatewayForReference(
+  db: any,
+  reference: string,
+): Promise<ResolvedGateway> {
   await loadGatewaySecrets(db);
   let slug: GatewaySlug = DEFAULT_GATEWAY;
   try {

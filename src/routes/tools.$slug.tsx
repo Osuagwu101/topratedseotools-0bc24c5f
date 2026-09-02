@@ -1,14 +1,27 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
-import { ArrowLeft, Check, Tag, TrendingDown, Users, Lock, MessageCircle, ShieldAlert } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Tag,
+  TrendingDown,
+  Users,
+  Lock,
+  MessageCircle,
+  ShieldAlert,
+} from "lucide-react";
 import type { Tool } from "@/lib/tools-data";
 import { getPublicSiteSettings } from "@/lib/site-settings.functions";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { ToolAccessPanel } from "@/components/tools/ToolAccessPanel";
 import { mergeToolCatalog, findCatalogTool } from "@/lib/tool-catalog";
-import { listToolPricing, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
+import {
+  listToolPricing,
+  type ToolPricingOption,
+  type AccessType,
+} from "@/lib/tool-pricing.functions";
 import {
   billingDescription,
   computeQuarterlySaving,
@@ -94,7 +107,9 @@ export const Route = createFileRoute("/tools/$slug")({
     <SiteLayout>
       <div className="mx-auto max-w-xl px-4 py-24 text-center">
         <h1 className="text-2xl font-semibold">Tool not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">This tool doesn't exist or was removed.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This tool doesn't exist or was removed.
+        </p>
         <Link to="/tools" className="mt-6 inline-flex text-sm text-primary hover:underline">
           ← Back to all tools
         </Link>
@@ -126,17 +141,13 @@ function ToolPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             This tool is currently hidden and not available to customers.
           </p>
-          <Link
-            to="/tools"
-            className="mt-6 inline-block text-sm text-primary hover:underline"
-          >
+          <Link to="/tools" className="mt-6 inline-block text-sm text-primary hover:underline">
             Browse other tools
           </Link>
         </div>
       </SiteLayout>
     );
   }
-
 
   const badge =
     setting?.enabled === false
@@ -151,7 +162,10 @@ function ToolPage() {
     <SiteLayout>
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-5xl px-4 pb-14 pt-10 sm:px-6 lg:px-8">
-          <Link to="/tools" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/tools"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> All tools
           </Link>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
@@ -166,8 +180,12 @@ function ToolPage() {
             )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full border bg-background/60 px-2 py-0.5">{tool.category}</span>
-                <span className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${badge.cls}`}>
+                <span className="rounded-full border bg-background/60 px-2 py-0.5">
+                  {tool.category}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${badge.cls}`}
+                >
                   {badge.label}
                 </span>
               </div>
@@ -209,8 +227,6 @@ function ToolPage() {
         ) : null}
 
         <ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} />
-
-
 
         {related.length > 0 && (
           <>
@@ -284,9 +300,7 @@ function SubscriptionCard({
   const privateAllowed =
     (setting?.private_access_enabled ?? true) &&
     (setting?.private_access_authorization ?? "confirmed") === "confirmed";
-  const purchasable = options.filter(
-    (o) => o.enabled && !o.contact_admin && o.amount != null,
-  );
+  const purchasable = options.filter((o) => o.enabled && !o.contact_admin && o.amount != null);
   const shared = bucketize(
     purchasable.filter((o) => ((o.access_type as AccessType) ?? "shared") === "shared"),
   );
@@ -360,7 +374,6 @@ function SubscriptionCard({
   );
 }
 
-
 function AccessSection({
   slug,
   title,
@@ -387,24 +400,15 @@ function AccessSection({
         <span>{title}</span>
       </div>
       <div className="mt-3 grid gap-3">
-        {bucket.monthly ? (
-          <PlanTile slug={slug} opt={bucket.monthly} label="Monthly" />
-        ) : null}
+        {bucket.monthly ? <PlanTile slug={slug} opt={bucket.monthly} label="Monthly" /> : null}
         {bucket.quarterly ? (
           <PlanTile
             slug={slug}
             opt={bucket.quarterly}
             label="Quarterly"
-
-            badge={
-              qSave
-                ? `Save ${money.fmt(qSave.amount)}`
-                : null
-            }
+            badge={qSave ? `Save ${money.fmt(qSave.amount)}` : null}
             savingText={
-              qSave
-                ? `Save ${money.fmt(qSave.amount)} compared with three monthly payments`
-                : null
+              qSave ? `Save ${money.fmt(qSave.amount)} compared with three monthly payments` : null
             }
           />
         ) : null}
@@ -413,7 +417,6 @@ function AccessSection({
             slug={slug}
             opt={bucket.yearly}
             label="Yearly"
-
             badge={
               ySave
                 ? `Save ${money.fmt(ySave.amount)}`
@@ -438,19 +441,12 @@ function AccessSection({
           />
         ) : null}
         {bucket.other.map((o) => (
-          <PlanTile
-            key={o.id}
-            slug={slug}
-            opt={o}
-            label={o.label ?? "Standard"}
-
-          />
+          <PlanTile key={o.id} slug={slug} opt={o} label={o.label ?? "Standard"} />
         ))}
       </div>
     </div>
   );
 }
-
 
 function PlanTile({
   slug,
@@ -491,9 +487,7 @@ function PlanTile({
           <div className="text-base font-bold" aria-label={money.plan(opt)}>
             {money.plan(opt)}
           </div>
-          {billing ? (
-            <div className="text-[11px] text-muted-foreground">{billing}</div>
-          ) : null}
+          {billing ? <div className="text-[11px] text-muted-foreground">{billing}</div> : null}
         </div>
       </div>
 
@@ -505,9 +499,7 @@ function PlanTile({
           <TrendingDown className="h-3 w-3" /> {savingText}
         </p>
       ) : null}
-      {renewal ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">{renewal}</p>
-      ) : null}
+      {renewal ? <p className="mt-2 text-[11px] text-muted-foreground">{renewal}</p> : null}
 
       <Link
         to="/order/$slug"
@@ -546,19 +538,17 @@ function PerUsePanel({ tool }: { tool: Tool }) {
         <Tag className="h-4 w-4 text-primary" /> {perUnit} per {perUse.unit}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {tool.name} is a one-time, pay-per-{perUse.unit} service. You choose how
-        many {perUse.unit}s you need and pay the total once — there is no
-        monthly, quarterly or yearly billing, no Shared or Private Access
-        selection, and no automatic renewal.
+        {tool.name} is a one-time, pay-per-{perUse.unit} service. You choose how many {perUse.unit}s
+        you need and pay the total once — there is no monthly, quarterly or yearly billing, no
+        Shared or Private Access selection, and no automatic renewal.
       </p>
 
       <QuantityCalculator perUse={perUse} />
 
       <div className="mt-5 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
-        Online per-{perUse.unit} checkout is being finalised. To place an order
-        now, message us on WhatsApp with the number of {perUse.unit}s you need
-        and the documents you want submitted, and we will send you a payment
-        link and return the reports.
+        Online per-{perUse.unit} checkout is being finalised. To place an order now, message us on
+        WhatsApp with the number of {perUse.unit}s you need and the documents you want submitted,
+        and we will send you a payment link and return the reports.
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -589,11 +579,7 @@ function PerUsePanel({ tool }: { tool: Tool }) {
   );
 }
 
-function QuantityCalculator({
-  perUse,
-}: {
-  perUse: NonNullable<Tool["perUse"]>;
-}) {
+function QuantityCalculator({ perUse }: { perUse: NonNullable<Tool["perUse"]> }) {
   const money = useMoney();
   const currency = perUse.currency || "₦";
   const [qty, setQty] = useStateNumber(1);
@@ -613,9 +599,7 @@ function QuantityCalculator({
         />
         <div className="text-sm text-muted-foreground">
           × {money.fmt(perUse.amount)} ={" "}
-          <span className="text-base font-bold text-foreground">
-            {money.fmt(total)}
-          </span>
+          <span className="text-base font-bold text-foreground">{money.fmt(total)}</span>
         </div>
       </div>
     </div>

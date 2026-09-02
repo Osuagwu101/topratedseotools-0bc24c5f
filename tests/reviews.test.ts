@@ -2,19 +2,34 @@
  * Unit tests for the review eligibility gate and content safety.
  * Uses pure helpers so we don't need to mock the DB layer.
  */
-import { deriveReviewGate, isQualifyingOrder, reviewSourceFor, filterRefundedOrders, isRefundPayment } from "../src/lib/reviews.functions";
+import {
+  deriveReviewGate,
+  isQualifyingOrder,
+  reviewSourceFor,
+  filterRefundedOrders,
+  isRefundPayment,
+} from "../src/lib/reviews.functions";
 import { checkReviewSafety } from "../src/lib/reviews-safety";
 
 let passed = 0;
 let failed = 0;
 function assert(cond: unknown, msg: string) {
-  if (cond) { passed++; }
-  else { failed++; console.error("  ✗", msg); }
+  if (cond) {
+    passed++;
+  } else {
+    failed++;
+    console.error("  ✗", msg);
+  }
 }
 function test(name: string, fn: () => void) {
   console.log("• " + name);
   const before = failed;
-  try { fn(); } catch (err) { failed++; console.error("  ✗ threw:", err); }
+  try {
+    fn();
+  } catch (err) {
+    failed++;
+    console.error("  ✗ threw:", err);
+  }
   if (failed === before) console.log("  ✓ ok");
 }
 
@@ -53,22 +68,70 @@ test("third qualifying purchase unlocks another update", () => {
 // ---------- isQualifyingOrder ----------
 
 test("paystack shared approved → qualifies", () => {
-  assert(isQualifyingOrder({ status: "approved", cancelled_at: null, access_type: "shared", fulfilment_status: "not_required" }), "qualifies");
+  assert(
+    isQualifyingOrder({
+      status: "approved",
+      cancelled_at: null,
+      access_type: "shared",
+      fulfilment_status: "not_required",
+    }),
+    "qualifies",
+  );
 });
 test("offline shared approved → qualifies", () => {
-  assert(isQualifyingOrder({ status: "approved", cancelled_at: null, access_type: "shared", fulfilment_status: null }), "qualifies");
+  assert(
+    isQualifyingOrder({
+      status: "approved",
+      cancelled_at: null,
+      access_type: "shared",
+      fulfilment_status: null,
+    }),
+    "qualifies",
+  );
 });
 test("pending order → does not qualify", () => {
-  assert(!isQualifyingOrder({ status: "pending", cancelled_at: null, access_type: "shared", fulfilment_status: null }), "no");
+  assert(
+    !isQualifyingOrder({
+      status: "pending",
+      cancelled_at: null,
+      access_type: "shared",
+      fulfilment_status: null,
+    }),
+    "no",
+  );
 });
 test("cancelled order → does not qualify", () => {
-  assert(!isQualifyingOrder({ status: "approved", cancelled_at: "2026-01-01", access_type: "shared", fulfilment_status: null }), "no");
+  assert(
+    !isQualifyingOrder({
+      status: "approved",
+      cancelled_at: "2026-01-01",
+      access_type: "shared",
+      fulfilment_status: null,
+    }),
+    "no",
+  );
 });
 test("private pending fulfilment → does not qualify", () => {
-  assert(!isQualifyingOrder({ status: "approved", cancelled_at: null, access_type: "private", fulfilment_status: "pending" }), "no");
+  assert(
+    !isQualifyingOrder({
+      status: "approved",
+      cancelled_at: null,
+      access_type: "private",
+      fulfilment_status: "pending",
+    }),
+    "no",
+  );
 });
 test("private fulfilled → qualifies", () => {
-  assert(isQualifyingOrder({ status: "approved", cancelled_at: null, access_type: "private", fulfilment_status: "active" }), "qualifies");
+  assert(
+    isQualifyingOrder({
+      status: "approved",
+      cancelled_at: null,
+      access_type: "private",
+      fulfilment_status: "active",
+    }),
+    "qualifies",
+  );
 });
 
 test("verified source: paystack default, offline when origin=offline", () => {
@@ -82,8 +145,14 @@ test("verified source: paystack default, offline when origin=offline", () => {
 test("refunded payment_status marks refund", () => {
   assert(isRefundPayment({ payment_status: "refunded" }), "refunded");
   assert(isRefundPayment({ payment_status: "reversed" }), "reversed");
-  assert(isRefundPayment({ payment_status: "successful", reconciliation_status: "refunded" }), "reconciliation");
-  assert(!isRefundPayment({ payment_status: "successful", reconciliation_status: "resolved" }), "clean");
+  assert(
+    isRefundPayment({ payment_status: "successful", reconciliation_status: "refunded" }),
+    "reconciliation",
+  );
+  assert(
+    !isRefundPayment({ payment_status: "successful", reconciliation_status: "resolved" }),
+    "clean",
+  );
 });
 
 test("refunded order removed from qualifying set", () => {
@@ -121,7 +190,10 @@ test("blocks URLs", () => {
   assert(!r.ok, "blocked");
 });
 test("blocks credential leaks", () => {
-  const r = checkReviewSafety({ title: "Nice", body: "The password was included so I could log in" });
+  const r = checkReviewSafety({
+    title: "Nice",
+    body: "The password was included so I could log in",
+  });
   assert(!r.ok, "blocked");
 });
 test("blocks payment info", () => {
@@ -133,7 +205,10 @@ test("blocks abusive language", () => {
   assert(!r.ok, "blocked");
 });
 test("accepts a normal review", () => {
-  const r = checkReviewSafety({ title: "Good value", body: "Worked well for my writing tasks, delivery was quick." });
+  const r = checkReviewSafety({
+    title: "Good value",
+    body: "Worked well for my writing tasks, delivery was quick.",
+  });
   assert(r.ok, "accepted");
 });
 

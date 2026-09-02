@@ -15,7 +15,9 @@ const healthQuery = queryOptions({
 
 export const Route = createFileRoute("/admin/settings/system-health")({
   ssr: false,
-  head: () => ({ meta: [{ title: "System Health & Repair — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "System Health & Repair — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   beforeLoad: async () => {
     await requireAdminOrRedirect();
     const ctx = await getMyAdminContext();
@@ -23,7 +25,9 @@ export const Route = createFileRoute("/admin/settings/system-health")({
       throw redirect({ to: "/admin/dashboard" });
     }
   },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(healthQuery); },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(healthQuery);
+  },
   component: HealthPage,
 });
 
@@ -54,7 +58,9 @@ function HealthPage() {
         <Card>
           <CardHeader>
             <CardTitle>Checks</CardTitle>
-            <CardDescription>Generated {new Date(data.generatedAt).toLocaleString()}</CardDescription>
+            <CardDescription>
+              Generated {new Date(data.generatedAt).toLocaleString()}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
@@ -76,7 +82,15 @@ function HealthPage() {
   );
 }
 
-function StatCard({ label, count, className }: { label: string; count: number; className?: string }) {
+function StatCard({
+  label,
+  count,
+  className,
+}: {
+  label: string;
+  count: number;
+  className?: string;
+}) {
   return (
     <div className="rounded-2xl border bg-card p-3 shadow-card">
       <div className="text-xs uppercase text-muted-foreground">{label}</div>

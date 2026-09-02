@@ -29,10 +29,7 @@ export const Route = createFileRoute("/admin/blog/ai-generator")({
     await requireAdminOrRedirect();
   },
   head: () => ({
-    meta: [
-      { title: "AI Article Generator — Admin" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "AI Article Generator — Admin" }, { name: "robots", content: "noindex" }],
   }),
   loader: ({ context }) =>
     Promise.all([
@@ -62,8 +59,7 @@ function Field({
   );
 }
 
-const inputCls =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
+const inputCls = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
 
 /* ------------- component ------------- */
 
@@ -77,7 +73,14 @@ const TONES = [
   "Playful",
 ];
 const READING_LEVELS = ["Beginner", "Intermediate", "Advanced", "Expert"];
-const WRITING_STYLES = ["Blog", "Journalistic", "How-to guide", "Listicle", "Case study", "Editorial"];
+const WRITING_STYLES = [
+  "Blog",
+  "Journalistic",
+  "How-to guide",
+  "Listicle",
+  "Case study",
+  "Editorial",
+];
 const LENGTHS = [
   "Short (600-900 words)",
   "Medium (1200-1500 words)",
@@ -181,9 +184,7 @@ function AiGeneratorPage() {
     mutationFn: runGenerate,
     onSuccess: (res) => {
       setResult(res.article);
-      toast.success(
-        res.post_id ? "Article generated and saved" : "Article generated",
-      );
+      toast.success(res.post_id ? "Article generated and saved" : "Article generated");
       if (res.post_id) {
         qc.invalidateQueries({ queryKey: ["blog"] });
       }
@@ -661,9 +662,9 @@ function AiGeneratorPage() {
             <div className="mt-2 rounded-xl border bg-muted/30 p-4">
               <h3 className="text-sm font-semibold">Brand promotion</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                When the article topic is relevant (SEO / AI / writing / marketing tools, group buying,
-                subscription platforms, comparisons), the generator features this brand naturally and
-                prominently — usually in the position below.
+                When the article topic is relevant (SEO / AI / writing / marketing tools, group
+                buying, subscription platforms, comparisons), the generator features this brand
+                naturally and prominently — usually in the position below.
               </p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label="Brand name">
@@ -701,7 +702,10 @@ function AiGeneratorPage() {
                     className={inputCls}
                   />
                 </Field>
-                <Field label="Short brand description" hint="Only mention features that exist on the platform">
+                <Field
+                  label="Short brand description"
+                  hint="Only mention features that exist on the platform"
+                >
                   <textarea
                     value={prov.brand_description}
                     onChange={(e) => setProv({ ...prov, brand_description: e.target.value })}
@@ -760,7 +764,6 @@ function AiGeneratorPage() {
             </div>
           </div>
         )}
-
 
         {/* Result */}
         {result && (

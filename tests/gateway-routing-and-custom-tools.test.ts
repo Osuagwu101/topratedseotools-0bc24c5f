@@ -97,7 +97,9 @@ describe("admin-created tools in the catalogue", () => {
     const merged = mergeToolCatalog([custom]);
     expect(merged.length).toBe(base.length + 1);
     expect(merged.some((t) => t.slug === "qa-temp-tool")).toBe(true);
-    expect(slugTaken(merged as unknown as ToolOverride[] extends never ? never : never[], "x")).toBe(false);
+    expect(
+      slugTaken(merged as unknown as ToolOverride[] extends never ? never : never[], "x"),
+    ).toBe(false);
     expect(slugTaken([custom], "qa-temp-tool")).toBe(true);
   });
 
