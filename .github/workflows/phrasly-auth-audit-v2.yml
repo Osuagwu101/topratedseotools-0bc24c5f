@@ -1,0 +1,64 @@
+name: Phrasly Auth Audit V2
+
+on:
+  push:
+    branches:
+      - audit/phrasly-shared-auth-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/phrasly-shared-auth-20260902
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Apply Phrasly OTP resume patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/browser-auth-otp.functions.ts')
+          s=p.read_text()
+          imp='import { attachBrowserUsePage, waitForAuthenticatedPage } from "@/lib/browser-auth-session.server";'
+          if imp not in s:
+            anchor='''import {\n  CdpClient,\n  reconnectBrowserUseSession,\n  reconnectCloudflareSession,\n} from "@/lib/browser-auth.server";'''
+            s=s.replace(anchor,anchor+'\n'+imp)
+          needle='''      // Submit OTP code\n      let submitResult: any;'''
+          if needle in s:
+            s=s.replace(needle,'''      // Browser Use reconnects at browser scope; attach to the page target first.\n      const pageSessionId =\n        sess.provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;\n\n      // Submit OTP code\n      let submitResult: any;''')
+          s=s.replace('''        submitResult = await cdp.send("Runtime.evaluate", {\n          expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),\n          returnByValue: true,\n          awaitPromise: true,\n        });''','''        submitResult = await cdp.send(\n          "Runtime.evaluate",\n          {\n            expression: submitOtpExpression(data.otp_code, otpCtx.field_selector),\n            returnByValue: true,\n            awaitPromise: true,\n          },\n          pageSessionId,\n        );''')
+          old='''      // Wait for login to complete (2 seconds, then check auth status)\n      await new Promise((resolve) => setTimeout(resolve, 2000));\n\n      // Verify login succeeded\n      const authCheck = await cdp?.send("Runtime.evaluate", {\n        expression: checkAuthenticationStatusExpression(),\n        returnByValue: true,\n        awaitPromise: true,\n      });\n\n      const authStatus = authCheck?.result?.value as any;\n      if (!authStatus?.authenticated) {\n        throw new RetryableOtpError("OTP was not accepted or login verification did not complete.");\n      }\n\n      // Capture authenticated session state\n      const sessionState = await captureSessionStateThroughCdp(cdp);'''
+          new='''      // Phrasly redirects asynchronously after OTP; poll through navigation.\n      const authStatus = await waitForAuthenticatedPage(cdp, pageSessionId, 15_000);\n      if (!authStatus.authenticated) {\n        throw new RetryableOtpError("OTP was not accepted or login verification did not complete.");\n      }\n\n      const sessionState = await captureSessionStateThroughCdp(cdp, pageSessionId);\n      if (!sessionState.authenticated_cookies.length) {\n        throw new RetryableOtpError("Login succeeded but no reusable Phrasly session cookies were captured.");\n      }'''
+          if old in s: s=s.replace(old,new)
+          s=s.replace('''  submitOtpExpression,\n  checkAuthenticationStatusExpression,\n  captureSessionStateThroughCdp,''','''  submitOtpExpression,\n  captureSessionStateThroughCdp,''')
+          s=s.replace('''        account_id: null,\n        event: "otp_accepted",''','''        account_id: accountId ?? null,\n        event: "otp_accepted",''')
+          if 'pageSessionId' not in s: raise SystemExit('OTP page-session patch missing')
+          p.write_text(s)
+
+          p=Path('src/lib/browser-auth.functions.ts')
+          s=p.read_text()
+          s=s.replace('''        const sessionExpiry = new Date(existingSession.expires_at).getTime();\n\n        if (sessionExpiry <= Date.now()) {''','''        const sessionExpiry = existingSession.expires_at\n          ? new Date(existingSession.expires_at).getTime()\n          : 0;\n\n        if (sessionExpiry <= Date.now()) {''')
+          s=s.replace('''        capturedCookies = existingSession.authenticated_cookies\n          .slice(0, 10)\n          .map((c: any) => ({ name: c.name, value: c.value }));''','''        if (!Array.isArray(existingSession.authenticated_cookies)) {\n          throw new Error("The saved authentication state is invalid. Please contact the administrator to re-authenticate.");\n        }\n        capturedCookies = existingSession.authenticated_cookies\n          .filter((cookie: any) => cookie && typeof cookie === "object" && "name" in cookie && "value" in cookie)\n          .map((cookie: any) => ({ name: String(cookie.name), value: String(cookie.value) }));''')
+          p.write_text(s)
+          PY
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bunx tsc --noEmit
+      - name: Production build
+        run: bun run build
+      - name: Commit verified fixes
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/browser-auth-otp.functions.ts src/lib/browser-auth.functions.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix Phrasly OTP resume and auth state typing"
+            git push origin HEAD:audit/phrasly-shared-auth-20260902
+          fi
