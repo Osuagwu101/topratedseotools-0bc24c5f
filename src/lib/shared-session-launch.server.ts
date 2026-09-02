@@ -88,7 +88,11 @@ async function seedAndVerify(client: CdpClient, loginUrl: string, state: StoredB
   if (storage && typeof storage === "object") {
     const expression = `(() => { const s=${JSON.stringify(storage)}; for (const [k,v] of Object.entries(s.localStorage||{})) localStorage.setItem(k,String(v)); for (const [k,v] of Object.entries(s.sessionStorage||{})) sessionStorage.setItem(k,String(v)); return true; })()`;
     await client.send("Runtime.evaluate", { expression, returnByValue: true }, sessionId).catch(() => undefined);
-    await client.send("Page.reload", {}, sessionId).catch(() => undefined);
+
+    // Revisit the intended protected landing URL after storage seeding. If the
+    // first request redirected to /login because authentication lived in web
+    // storage, reloading would only reload /login and falsely reject valid state.
+    await client.send("Page.navigate", { url: loginUrl }, sessionId).catch(() => undefined);
     await waitForDocument(client, sessionId);
   }
 
