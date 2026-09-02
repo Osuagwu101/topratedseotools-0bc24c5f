@@ -12,35 +12,114 @@ export interface CapturedSessionState {
 
 export function detectOtpExpression(): string {
   return `(() => {
-    const pageText=document.body.innerText.toLowerCase();
-    const otpInputs=Array.from(document.querySelectorAll('input[name*="code"], input[placeholder*="code"], input[aria-label*="code"], input[type="text"][maxlength="6"], input[placeholder*="verification"], input[placeholder*="otp"], input[name*="otp"], input[name*="2fa"]'));
-    const email=['verification code','email code','check your email','sent to your email'];
-    const sms=['text message','sms','phone number','mobile','sent to'];
-    const auth=['authenticator','google authenticator','authy','totp','scanning the qr'];
+    const visible=(el)=>!!el&&!el.disabled&&el.getClientRects().length>0;
+    const selectors=[
+      'input[autocomplete="one-time-code"]',
+      'input[name*="otp" i]',
+      'input[id*="otp" i]',
+      'input[name*="code" i]',
+      'input[id*="code" i]',
+      'input[placeholder*="code" i]',
+      'input[aria-label*="code" i]',
+      'input[placeholder*="verification" i]',
+      'input[name*="verification" i]',
+      'input[name*="2fa" i]',
+      'input[id*="2fa" i]',
+      'input[name*="recovery" i]',
+      'input[placeholder*="recovery" i]',
+      'input[inputmode="numeric"][maxlength="4"]',
+      'input[inputmode="numeric"][maxlength="6"]',
+      'input[inputmode="numeric"][maxlength="8"]'
+    ];
+    const otpInputs=Array.from(document.querySelectorAll(selectors.join(','))).filter(visible);
+    const digitInputs=Array.from(document.querySelectorAll('input[maxlength="1"]')).filter(
+      el=>visible(el)&&(/numeric|tel/i.test(String(el.getAttribute('inputmode')||el.getAttribute('type')||''))||/code|otp|verification/i.test(String(el.getAttribute('name')||el.getAttribute('id')||el.getAttribute('aria-label')||'')))
+    );
+    const fields=otpInputs.length?otpInputs:(digitInputs.length>=4?digitInputs:[]);
+    if(!fields.length) return {detected:false};
+
+    const pageText=(document.body?.innerText||'').toLowerCase();
+    const email=['verification code','email code','check your email','sent to your email','email verification'];
+    const sms=['text message','sms','phone number','mobile','sent to your phone'];
+    const auth=['authenticator','google authenticator','authy','totp','scan the qr'];
     const security=['security key','security question','recovery code'];
     let detectedType='unknown';
-    if(email.some(k=>pageText.includes(k))) detectedType='email'; else if(sms.some(k=>pageText.includes(k))) detectedType='sms'; else if(auth.some(k=>pageText.includes(k))) detectedType='authenticator'; else if(security.some(k=>pageText.includes(k))) detectedType='security_question';
-    const suggests=['verification','verify','confirm','2-factor','two-factor','two factor','second factor'].some(k=>pageText.includes(k));
-    if(otpInputs.length||suggests) return {detected:true,type:detectedType,hasOtpField:otpInputs.length>0,fieldSelector:otpInputs.length?(otpInputs[0].getAttribute('name')||otpInputs[0].getAttribute('id')||'code_field'):null,pageTextSnippet:pageText.substring(0,200)};
-    return {detected:false};
+    if(email.some(k=>pageText.includes(k))) detectedType='email';
+    else if(sms.some(k=>pageText.includes(k))) detectedType='sms';
+    else if(auth.some(k=>pageText.includes(k))) detectedType='authenticator';
+    else if(security.some(k=>pageText.includes(k))) detectedType='security_question';
+
+    const field=fields[0];
+    const id=field.getAttribute('id');
+    const name=field.getAttribute('name');
+    const fieldSelector=id?`id:${id}`:(name?`name:${name}`:null);
+    return {
+      detected:true,
+      type:detectedType,
+      hasOtpField:true,
+      fieldSelector,
+      digitFieldCount:digitInputs.length>=4?digitInputs.length:0,
+      pageTextSnippet:pageText.substring(0,200)
+    };
   })()`;
 }
 
 export function submitOtpExpression(code: string, fieldSelector?: string): string {
-  return `(() => {
+  return `(async () => {
     const code=${JSON.stringify(code)}, selector=${JSON.stringify(fieldSelector)};
-    let otpField=null;
-    if(selector) otpField=document.querySelector(\`input[name="\${selector}"]\`)||document.querySelector(\`#\${selector}\`);
-    if(!otpField) otpField=document.querySelector('input[name*="code"], input[placeholder*="code"], input[aria-label*="code"], input[type="text"][maxlength="6"], input[placeholder*="verification"], input[placeholder*="otp"]');
-    if(!otpField) return {success:false,error:'Could not find OTP input field'};
-    const proto=otpField instanceof HTMLInputElement?HTMLInputElement.prototype:HTMLElement.prototype;
-    const setter=Object.getOwnPropertyDescriptor(proto,'value')?.set; if(setter) setter.call(otpField,code); else otpField.value=code;
-    otpField.dispatchEvent(new Event('input',{bubbles:true})); otpField.dispatchEvent(new Event('change',{bubbles:true}));
-    const controls=Array.from(document.querySelectorAll('button, input[type="submit"], [role="button"]')).filter(el=>el&&!el.disabled&&el.getClientRects().length>0);
+    const visible=(el)=>!!el&&!el.disabled&&el.getClientRects().length>0;
+    const setValue=(el,value)=>{
+      const proto=el instanceof HTMLInputElement?HTMLInputElement.prototype:HTMLElement.prototype;
+      const setter=Object.getOwnPropertyDescriptor(proto,'value')?.set;
+      if(setter) setter.call(el,value); else el.value=value;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+    const findStored=(token)=>{
+      if(!token) return null;
+      if(token.startsWith('id:')) return document.getElementById(token.slice(3));
+      if(token.startsWith('name:')) return document.getElementsByName(token.slice(5))[0]||null;
+      return document.getElementById(token)||document.getElementsByName(token)[0]||null;
+    };
+
+    const digitInputs=Array.from(document.querySelectorAll('input[maxlength="1"]')).filter(
+      el=>visible(el)&&(/numeric|tel/i.test(String(el.getAttribute('inputmode')||el.getAttribute('type')||''))||/code|otp|verification/i.test(String(el.getAttribute('name')||el.getAttribute('id')||el.getAttribute('aria-label')||'')))
+    );
+    if(digitInputs.length>=4 && code.length<=digitInputs.length){
+      [...code].forEach((char,index)=>setValue(digitInputs[index],char));
+    } else {
+      let otpField=findStored(selector);
+      if(!visible(otpField)) {
+        otpField=Array.from(document.querySelectorAll([
+          'input[autocomplete="one-time-code"]',
+          'input[name*="otp" i]',
+          'input[id*="otp" i]',
+          'input[name*="code" i]',
+          'input[id*="code" i]',
+          'input[placeholder*="code" i]',
+          'input[aria-label*="code" i]',
+          'input[placeholder*="verification" i]',
+          'input[name*="verification" i]',
+          'input[name*="2fa" i]',
+          'input[id*="2fa" i]',
+          'input[name*="recovery" i]',
+          'input[placeholder*="recovery" i]',
+          'input[inputmode="numeric"][maxlength="4"]',
+          'input[inputmode="numeric"][maxlength="6"]',
+          'input[inputmode="numeric"][maxlength="8"]'
+        ].join(','))).find(visible)||null;
+      }
+      if(!otpField) return {success:false,error:'Could not find OTP input field'};
+      setValue(otpField,code);
+    }
+
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const controls=Array.from(document.querySelectorAll('button, input[type="submit"], [role="button"]')).filter(visible);
     const text=el=>String(el.innerText||el.value||el.getAttribute('aria-label')||'').trim().toLowerCase();
     const submitBtn=controls.find(el=>/^(verify|confirm|continue|submit|next)$/.test(text(el)))||controls.find(el=>/(verify|confirm|continue|submit)/.test(text(el)));
     if(submitBtn){submitBtn.click();return {success:true,action:'clicked_submit'}}
-    if(otpField.form){otpField.form.requestSubmit?.();return {success:true,action:'submitted_form'}}
+    const activeField=digitInputs[0]||findStored(selector);
+    if(activeField?.form){activeField.form.requestSubmit?.();return {success:true,action:'submitted_form'}}
     return {success:true,action:'code_injected_no_submit'};
   })()`;
 }
