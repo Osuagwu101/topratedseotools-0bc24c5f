@@ -102,16 +102,20 @@ export async function closeRemoteBrowserSession(
 ): Promise<void> {
   if (!sessionId) return;
 
-  if (provider === "browser_use") {
-    const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
-    if (key) await stopBrowserUseSession(key, sessionId);
-    return;
-  }
+  try {
+    if (provider === "browser_use") {
+      const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
+      if (key) await stopBrowserUseSession(key, sessionId);
+      return;
+    }
 
-  const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
-  const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
-  if (accountId && token) {
-    await closeCloudflareSession(accountId, token, sessionId);
+    const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
+    const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
+    if (accountId && token) {
+      await closeCloudflareSession(accountId, token, sessionId);
+    }
+  } catch {
+    // Cleanup must never hide the primary authentication result/error.
   }
 }
 
