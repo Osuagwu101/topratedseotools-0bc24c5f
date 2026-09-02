@@ -19,6 +19,10 @@ import {
   testBrowserProvider,
   type BrowserAuthProvider,
 } from "@/lib/browser-auth.server";
+import {
+  ADMIN_REAUTH_REQUIRED_MESSAGE,
+  requiresAdminManagedSharedAuth,
+} from "@/lib/shared-auth-policy";
 import { LEGACY_CREDENTIAL_CUTOFF_ISO } from "@/lib/access.functions";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
@@ -245,6 +249,12 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ tool_slug: z.string().min(1).max(120) }).parse(input))
   .handler(async ({ data, context }) => {
+    // Phrasly is admin-authenticated only. This legacy endpoint is intentionally
+    // blocked so a writer cannot trigger credential login or an OTP transition.
+    if (requiresAdminManagedSharedAuth(data.tool_slug)) {
+      throw new Error(ADMIN_REAUTH_REQUIRED_MESSAGE);
+    }
+
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
 
     const { data: global } = await admin

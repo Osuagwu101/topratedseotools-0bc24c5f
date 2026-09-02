@@ -24,6 +24,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: SneakWrite SSO regression test
         run: bun tests/direct-sso-url.test.ts
+      - name: Phrasly shared-auth regression tests
+        run: bun tests/phrasly-auth-state.test.ts
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
       - name: Typecheck

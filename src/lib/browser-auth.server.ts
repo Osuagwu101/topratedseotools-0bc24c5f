@@ -90,6 +90,35 @@ async function closeCloudflareSession(accountId: string, token: string, sessionI
   }
 }
 
+/**
+ * Best-effort terminal cleanup for an authentication browser.
+ * OTP-waiting sessions intentionally remain open; call this only when the
+ * authentication attempt is complete, cancelled, expired, or terminally failed.
+ */
+export async function closeRemoteBrowserSession(
+  admin: any,
+  provider: BrowserAuthProvider,
+  sessionId: string | null | undefined,
+): Promise<void> {
+  if (!sessionId) return;
+
+  try {
+    if (provider === "browser_use") {
+      const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
+      if (key) await stopBrowserUseSession(key, sessionId);
+      return;
+    }
+
+    const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
+    const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
+    if (accountId && token) {
+      await closeCloudflareSession(accountId, token, sessionId);
+    }
+  } catch {
+    // Cleanup must never hide the primary authentication result/error.
+  }
+}
+
 export async function testBrowserProvider(
   admin: any,
   provider: BrowserAuthProvider,
