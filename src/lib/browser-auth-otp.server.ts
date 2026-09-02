@@ -10,6 +10,19 @@ export interface CapturedSessionState {
   auth_headers: Record<string, string>;
 }
 
+export function cookieBelongsToPageHost(
+  cookieDomain: string | null | undefined,
+  pageHost: string,
+): boolean {
+  const host = pageHost.trim().toLowerCase().replace(/^\.+|\.+$/g, "");
+  const domain = String(cookieDomain ?? host)
+    .trim()
+    .toLowerCase()
+    .replace(/^\.+|\.+$/g, "");
+  if (!host || !domain) return false;
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 export function detectOtpExpression(): string {
   return `(() => {
     const visible=(el)=>!!el&&!el.disabled&&el.getClientRects().length>0;
@@ -128,9 +141,29 @@ export function submitOtpExpression(code: string, fieldSelector?: string): strin
 
 export async function captureSessionStateThroughCdp(client: any, sessionId?: string): Promise<CapturedSessionState> {
   await client.send("Network.enable", {}, sessionId).catch(() => undefined);
+
+  const hostResult = await client
+    .send(
+      "Runtime.evaluate",
+      { expression: "location.hostname", returnByValue: true },
+      sessionId,
+    )
+    .catch(() => null);
+  const pageHost =
+    typeof hostResult?.result?.value === "string"
+      ? hostResult.result.value.trim().toLowerCase()
+      : "";
+
   const cookiesResult = await client.send("Network.getAllCookies", {}, sessionId).catch(() => ({ cookies: [] }));
   const cookies = (cookiesResult?.cookies ?? [])
-    .filter((c: any) => c?.name && !c.name.includes("_ga") && !c.name.includes("_utm"))
+    .filter(
+      (c: any) =>
+        pageHost &&
+        c?.name &&
+        !c.name.includes("_ga") &&
+        !c.name.includes("_utm") &&
+        cookieBelongsToPageHost(c.domain, pageHost),
+    )
     .map((c: any) => ({ name:c.name,value:c.value,domain:c.domain,path:c.path,expires:c.expires,secure:c.secure,httpOnly:c.httpOnly,sameSite:c.sameSite }));
   const storageResult = await client.send("Runtime.evaluate", {
     expression: `(() => { const read=s=>{const o={};for(let i=0;i<s.length;i++){const k=s.key(i);if(k)o[k]=s.getItem(k)}return o};return {localStorage:read(localStorage),sessionStorage:read(sessionStorage)}})()`,
