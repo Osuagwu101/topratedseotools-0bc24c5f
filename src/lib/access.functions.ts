@@ -87,7 +87,7 @@ export interface ToolOrder {
 
 export interface AdminToolOrder extends ToolOrder {
   customer_email: string | null;
-
+}
 
 function publicClient() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
