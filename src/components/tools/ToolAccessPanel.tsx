@@ -1,18 +1,6 @@
 /**
  * ToolAccessPanel — centralized paywall/access gate for a single tool page.
- *
- * Renders one of four states derived from three inputs:
- *   1. tool_settings.enabled            → "Currently unavailable"
- *   2. tool_settings.access_level       → who is required
- *   3. auth + paid access/admin grants  → is the current viewer allowed?
- *
- * States:
- *   • disabled           — admin toggled the tool off
- *   • sign_in_required   — visitor clicked Launch; must log in
- *   • paywall            — logged-in user without active access for this tool
- *   • granted            — user has access, show "Launch tool"
  */
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Lock, LogIn, Rocket, ShieldAlert, Sparkles } from "lucide-react";
@@ -21,7 +9,6 @@ import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
 import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { launchTool } from "@/lib/tool-launcher";
-import { OtpVerificationModal } from "@/components/admin/OtpVerificationModal";
 
 interface Props {
   tool: Tool;
@@ -44,14 +31,6 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
 };
 
 export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
-  const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [otpState, setOtpState] = useState<{
-    sessionId: string;
-    otpType: string;
-    message: string;
-    expiresAt: string;
-  } | null>(null);
-
   const effective = setting ?? { tool_slug: tool.slug, ...DEFAULT_SETTING };
 
   const shouldFetchAccess =
@@ -72,21 +51,11 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
   const hasPaidAccess = accessData?.access.some((a) => a.tool_slug === tool.slug) ?? false;
   const hasGrant = grantData?.grants.some((g) => g.tool_slug === tool.slug) ?? false;
   const hasAccess = hasPaidAccess || hasGrant;
-
   const state = resolveState(effective.enabled, effective.access_level, isAuthenticated, hasAccess);
 
   const handleLaunchTool = async () => {
-    const result = await launchTool(tool, effective, { grantAccess: hasGrant });
-
-    if (result.status === "awaiting_otp" && result.sessionId) {
-      setOtpState({
-        sessionId: result.sessionId,
-        otpType: result.otpType || "unknown",
-        message: result.message || "Enter the one-time code",
-        expiresAt: result.expiresAt || new Date(Date.now() + 10 * 60_000).toISOString(),
-      });
-      setOtpModalOpen(true);
-    }
+    // Writer launches are session-only. This path can never request or submit a Phrasly OTP.
+    await launchTool(tool, effective, { grantAccess: hasGrant });
   };
 
   return (
@@ -135,17 +104,11 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
           <ul className="mt-4 grid gap-2 text-sm">
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>
-                <strong>Shared Access:</strong> access is activated after payment confirmation,
-                subject to availability.
-              </span>
+              <span><strong>Shared Access:</strong> access is activated after payment confirmation, subject to availability.</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>
-                <strong>Private Access:</strong> after payment confirmation your order is marked
-                pending fulfilment. Contact Admin on WhatsApp to complete the account assignment.
-              </span>
+              <span><strong>Private Access:</strong> after payment confirmation your order is marked pending fulfilment. Contact Admin on WhatsApp to complete the account assignment.</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -175,60 +138,33 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
       )}
 
       {state === "granted" && (
-        <>
-          <StateBlock
-            icon={Rocket}
-            title="You have access"
-            body={
-              effective.one_click_auth_enabled
-                ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
-                : hasGrant
-                  ? "Lifetime access is active for this tool."
-                  : "Your subscription is active for this tool. Launch it below."
-            }
-          >
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleLaunchTool}
-                className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
-              >
-                <Rocket className="h-4 w-4" /> Launch {tool.name}
-              </button>
-              <Link
-                to="/orders"
-                className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
-              >
-                My subscriptions
-              </Link>
-            </div>
-          </StateBlock>
-
-          {otpState && (
-            <OtpVerificationModal
-              open={otpModalOpen}
-              sessionId={otpState.sessionId}
-              otpType={otpState.otpType}
-              message={otpState.message}
-              expiresAt={otpState.expiresAt}
-              adminMode={false}
-              onSuccess={() => {
-                setOtpModalOpen(false);
-                setOtpState(null);
-                // After successful OTP, the authenticated session should be captured
-                // and the user can now launch the tool without further OTP
-              }}
-              onError={(error) => {
-                // Error handled - user can retry
-                console.error("OTP verification error:", error);
-              }}
-              onCancel={() => {
-                setOtpModalOpen(false);
-                setOtpState(null);
-              }}
-            />
-          )}
-        </>
+        <StateBlock
+          icon={Rocket}
+          title="You have access"
+          body={
+            effective.one_click_auth_enabled
+              ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
+              : hasGrant
+                ? "Lifetime access is active for this tool."
+                : "Your subscription is active for this tool. Launch it below."
+          }
+        >
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleLaunchTool}
+              className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
+            >
+              <Rocket className="h-4 w-4" /> Launch {tool.name}
+            </button>
+            <Link
+              to="/orders"
+              className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              My subscriptions
+            </Link>
+          </div>
+        </StateBlock>
       )}
     </div>
   );
