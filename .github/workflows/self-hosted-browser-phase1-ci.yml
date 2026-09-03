@@ -1,0 +1,80 @@
+name: Self-Hosted Browser Phase 1 CI
+
+on:
+  push:
+    branches:
+      - self-hosted-browser-phase1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase1-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate worker unit tests
+        working-directory: self-hosted-browser-runtime/browser-worker
+        run: node --test test/*.test.mjs
+
+      - name: Validate PHP syntax
+        run: |
+          find self-hosted-browser-runtime/api -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Validate JSON configuration
+        run: |
+          python3 -m json.tool self-hosted-browser-runtime/api/composer.json >/dev/null
+          python3 -m json.tool self-hosted-browser-runtime/browser-worker/package.json >/dev/null
+
+      - name: Build isolated runtime containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose build
+
+      - name: Boot isolated runtime
+        working-directory: self-hosted-browser-runtime
+        run: docker compose up -d
+
+      - name: Wait for health endpoints
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/api/health >/tmp/api-health.json \
+              && curl --fail --silent http://127.0.0.1:18081/health >/tmp/worker-health.json; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/api-health.json
+          cat /tmp/worker-health.json
+          python3 - <<'PY'
+          import json
+          api=json.load(open('/tmp/api-health.json'))
+          worker=json.load(open('/tmp/worker-health.json'))
+          assert api['status']=='ok'
+          assert api['service']=='control-plane'
+          assert api['phase']==1
+          assert api['browser_core']=='generic'
+          assert worker['status']=='ok'
+          assert worker['service']=='browser-worker'
+          assert worker['phase']==1
+          assert worker['browserCore']=='generic'
+          assert worker['chromium']['installed'] is True
+          combined=(json.dumps(api)+json.dumps(worker)).lower()
+          assert 'phrasly' not in combined
+          PY
+
+      - name: Check running containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose ps
+
+      - name: Tear down and verify cleanup
+        if: always()
+        working-directory: self-hosted-browser-runtime
+        run: |
+          docker compose down -v --remove-orphans
+          test -z "$(docker compose ps -q)"

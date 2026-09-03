@@ -1,0 +1,8 @@
+.env
+/vendor/
+/api/vendor/
+/api/storage/logs/*.log
+/node_modules/
+/browser-worker/node_modules/
+.DS_Store
+*.swp
