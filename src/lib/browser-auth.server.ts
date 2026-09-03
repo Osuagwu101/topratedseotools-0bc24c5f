@@ -150,6 +150,59 @@ export async function testBrowserProvider(
   }
 }
 
+export async function resolveCdpWebSocketUrl(
+  rawUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("Browser provider returned an invalid CDP endpoint.");
+  }
+
+  if (parsed.protocol === "ws:" || parsed.protocol === "wss:") {
+    return parsed.toString();
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Browser provider returned an unsupported CDP endpoint.");
+  }
+
+  const versionUrl = new URL("/json/version", parsed);
+  const response = await fetchImpl(versionUrl.toString(), { method: "GET" });
+  if (!response.ok) {
+    throw new Error(
+      `Could not resolve the browser CDP WebSocket endpoint (${response.status}).`,
+    );
+  }
+
+  let body: any;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("Browser provider returned an invalid CDP discovery response.");
+  }
+
+  const wsUrl = String(body?.webSocketDebuggerUrl ?? "").trim();
+  if (!wsUrl) {
+    throw new Error("Browser provider did not return a CDP WebSocket endpoint.");
+  }
+
+  let wsParsed: URL;
+  try {
+    wsParsed = new URL(wsUrl);
+  } catch {
+    throw new Error("Browser provider returned an invalid CDP WebSocket endpoint.");
+  }
+
+  if (wsParsed.protocol !== "ws:" && wsParsed.protocol !== "wss:") {
+    throw new Error("Browser provider returned a non-WebSocket CDP endpoint.");
+  }
+
+  return wsParsed.toString();
+}
+
 export class CdpClient {
   private ws: WebSocket;
   private nextId = 1;
@@ -189,7 +242,9 @@ export class CdpClient {
     if (typeof globalThis.WebSocket === "undefined") {
       throw new Error("Remote browser WebSocket support is unavailable on this server runtime.");
     }
-    const ws = new globalThis.WebSocket(url);
+
+    const websocketUrl = await resolveCdpWebSocketUrl(url);
+    const ws = new globalThis.WebSocket(websocketUrl);
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Remote browser connection timed out.")), 10_000);
       ws.addEventListener("open", () => {

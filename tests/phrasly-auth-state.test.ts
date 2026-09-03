@@ -6,7 +6,7 @@ import {
   waitForAuthenticatedPage,
   waitForAuthOrOtp,
 } from "../src/lib/browser-auth-session.server";
-import type { CdpClient } from "../src/lib/browser-auth.server";
+import { resolveCdpWebSocketUrl, type CdpClient } from "../src/lib/browser-auth.server";
 import { cookieBelongsToPageHost } from "../src/lib/browser-auth-otp.server";
 import {
   requiresAdminManagedSharedAuth,
@@ -40,6 +40,46 @@ class MockCdp {
 }
 
 console.log("phrasly-auth-state");
+
+// Browser Use v3 currently returns an HTTPS CDP discovery URL. Raw WebSocket
+// clients must resolve /json/version and then connect to webSocketDebuggerUrl.
+{
+  let requestedUrl = "";
+  const resolved = await resolveCdpWebSocketUrl(
+    "https://session.cdp.browser-use.com",
+    (async (input: RequestInfo | URL) => {
+      requestedUrl = String(input);
+      return new Response(
+        JSON.stringify({
+          webSocketDebuggerUrl:
+            "wss://session.cdp.browser-use.com/devtools/browser/abc123",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch,
+  );
+  assert(
+    requestedUrl === "https://session.cdp.browser-use.com/json/version",
+    "HTTP CDP endpoints are resolved through /json/version",
+  );
+  assert(
+    resolved === "wss://session.cdp.browser-use.com/devtools/browser/abc123",
+    "HTTP CDP discovery returns the actual WebSocket debugger URL",
+  );
+}
+
+{
+  const resolved = await resolveCdpWebSocketUrl(
+    "wss://session.cdp.browser-use.com/devtools/browser/abc123",
+    (async () => {
+      throw new Error("fetch should not be called for direct WebSocket URLs");
+    }) as typeof fetch,
+  );
+  assert(
+    resolved === "wss://session.cdp.browser-use.com/devtools/browser/abc123",
+    "direct ws/wss CDP endpoints remain unchanged",
+  );
+}
 
 // 0. Phrasly must never use the legacy writer credential-login path.
 assert(
