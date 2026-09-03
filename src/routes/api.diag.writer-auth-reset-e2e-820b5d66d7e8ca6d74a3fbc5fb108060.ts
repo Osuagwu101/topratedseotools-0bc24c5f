@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash } from "crypto";
+import { createDecipheriv, createHash } from "crypto";
 
 /**
  * TEMPORARY one-time operational diagnostic — preview-runtime testing only.
@@ -9,7 +9,7 @@ import { createHash } from "crypto";
  *
  * Authorisation is a single-use token stored ONLY as a SHA-256 hash in
  * `public.one_time_diagnostic_tokens` (purpose `writer-auth-reset-e2e`). No token and no
- * password value exists in this source file, and neither is logged, echoed or persisted.
+ * plaintext password value exists in this source file, and neither is logged, echoed or persisted.
  *
  * This file is self-contained and will be tombstoned immediately after the one-time test.
  */
@@ -58,18 +58,161 @@ function safeErrorMessage(error: unknown): string {
   return cleaned.slice(0, 160);
 }
 
+function decryptOneTimePassword(
+  encryptedPayload: string,
+  payloadNonce: string,
+  keyBase64Url: string,
+): string | null {
+  try {
+    const key = Buffer.from(keyBase64Url, "base64url");
+    const nonce = Buffer.from(payloadNonce, "base64url");
+    const combined = Buffer.from(encryptedPayload, "base64url");
+    if (key.length !== 32 || nonce.length !== 12 || combined.length <= 16) return null;
+
+    const ciphertext = combined.subarray(0, combined.length - 16);
+    const authTag = combined.subarray(combined.length - 16);
+    const decipher = createDecipheriv("aes-256-gcm", key, nonce);
+    decipher.setAAD(Buffer.from(DIAGNOSTIC_PURPOSE, "utf8"));
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
 type ResetResult = { userId: string; ok: boolean; error?: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function runReset(supabaseAdmin: any, tokenRowId: string, newPassword: string): Promise<Response> {
+  const { data: adminRows, error: adminLookupError } = await supabaseAdmin
+    .from("admin_accounts")
+    .select("user_id")
+    .in("user_id", TARGET_USER_IDS as unknown as string[]);
+
+  if (adminLookupError) {
+    return jsonResponse(
+      {
+        ok: false,
+        results: TARGET_USER_IDS.map((userId) => ({
+          userId,
+          ok: false,
+          error: "precheck_failed",
+        })),
+      },
+      500,
+    );
+  }
+
+  if (adminRows && adminRows.length > 0) {
+    return jsonResponse(
+      {
+        ok: false,
+        results: TARGET_USER_IDS.map((userId) => ({
+          userId,
+          ok: false,
+          error: "admin_account_protected",
+        })),
+      },
+      403,
+    );
+  }
+
+  const results: ResetResult[] = [];
+
+  for (const userId of TARGET_USER_IDS) {
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: newPassword,
+      email_confirm: true,
+      user_metadata: { must_change_password: false },
+    });
+
+    if (updateError) {
+      results.push({ userId, ok: false, error: safeErrorMessage(updateError) });
+      continue;
+    }
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", userId);
+
+    if (profileError) {
+      results.push({ userId, ok: false, error: safeErrorMessage(profileError) });
+      continue;
+    }
+
+    results.push({ userId, ok: true });
+  }
+
+  const allSucceeded = results.length === TARGET_USER_IDS.length && results.every((r) => r.ok);
+
+  if (allSucceeded) {
+    await supabaseAdmin
+      .from("one_time_diagnostic_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", tokenRowId)
+      .is("used_at", null);
+  }
+
+  return jsonResponse({ ok: allSucceeded, results }, allSucceeded ? 200 : 500);
+}
 
 export const Route = createFileRoute(
   "/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060",
 )({
   server: {
     handlers: {
-      // No GET behaviour whatsoever.
-      GET: async () => notFound(),
+      /**
+       * Encrypted one-time execution mode for test harnesses that can issue GET only.
+       * The key is ephemeral; the encrypted payload is stored separately and the resulting
+       * plaintext exists only in server memory for the duration of this request.
+       */
+      GET: async ({ request }) => {
+        const url = new URL(request.url);
+        const entries = [...url.searchParams.entries()];
+        if (
+          entries.length !== 2 ||
+          url.searchParams.getAll("token").length !== 1 ||
+          url.searchParams.getAll("key").length !== 1
+        ) {
+          return notFound();
+        }
+
+        const token = url.searchParams.get("token")?.trim() ?? "";
+        const key = url.searchParams.get("key")?.trim() ?? "";
+        if (!token || !key) return notFound();
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const tokenHash = sha256Hex(token);
+        const { data: tokenRow, error: tokenError } = await supabaseAdmin
+          .from("one_time_diagnostic_tokens")
+          .select("id, encrypted_payload, payload_nonce")
+          .eq("purpose", DIAGNOSTIC_PURPOSE)
+          .eq("token_hash", tokenHash)
+          .is("used_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+
+        if (
+          tokenError ||
+          !tokenRow ||
+          typeof tokenRow.encrypted_payload !== "string" ||
+          typeof tokenRow.payload_nonce !== "string"
+        ) {
+          return notFound();
+        }
+
+        const newPassword = decryptOneTimePassword(
+          tokenRow.encrypted_payload,
+          tokenRow.payload_nonce,
+          key,
+        );
+        if (!newPassword || newPassword.length < 8 || newPassword.length > 200) return notFound();
+
+        return runReset(supabaseAdmin, tokenRow.id, newPassword);
+      },
 
       POST: async ({ request }) => {
-        // ---- 1. Body: strictly { token, newPassword } ----------------------------------
         let parsed: unknown;
         try {
           parsed = await request.json();
@@ -89,15 +232,11 @@ export const Route = createFileRoute(
 
         const trimmedToken = token.trim();
         if (!trimmedToken) return notFound();
-
-        // ---- 3. Password length bounds (never logged, echoed or persisted) -------------
         if (newPassword.length < 8 || newPassword.length > 200) {
           return jsonResponse({ ok: false, results: [] }, 403);
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-        // ---- 4. Validate the single-use token by SHA-256 hash, server-side ------------
         const tokenHash = sha256Hex(trimmedToken);
         const { data: tokenRow, error: tokenError } = await supabaseAdmin
           .from("one_time_diagnostic_tokens")
@@ -108,84 +247,8 @@ export const Route = createFileRoute(
           .gt("expires_at", new Date().toISOString())
           .maybeSingle();
 
-        // ---- 5. Failure is indistinguishable from "route does not exist" --------------
         if (tokenError || !tokenRow) return notFound();
-
-        // ---- 12. Hard guard: never touch an admin account ----------------------------
-        const { data: adminRows, error: adminLookupError } = await supabaseAdmin
-          .from("admin_accounts")
-          .select("user_id")
-          .in("user_id", TARGET_USER_IDS as unknown as string[]);
-
-        if (adminLookupError) {
-          return jsonResponse(
-            {
-              ok: false,
-              results: TARGET_USER_IDS.map((userId) => ({
-                userId,
-                ok: false,
-                error: "precheck_failed",
-              })),
-            },
-            500,
-          );
-        }
-
-        if (adminRows && adminRows.length > 0) {
-          return jsonResponse(
-            {
-              ok: false,
-              results: TARGET_USER_IDS.map((userId) => ({
-                userId,
-                ok: false,
-                error: "admin_account_protected",
-              })),
-            },
-            403,
-          );
-        }
-
-        // ---- 6/7. Reset each password, then clear the profile flag -------------------
-        const results: ResetResult[] = [];
-
-        for (const userId of TARGET_USER_IDS) {
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-            password: newPassword,
-            email_confirm: true,
-            user_metadata: { must_change_password: false },
-          });
-
-          if (updateError) {
-            results.push({ userId, ok: false, error: safeErrorMessage(updateError) });
-            continue;
-          }
-
-          const { error: profileError } = await supabaseAdmin
-            .from("profiles")
-            .update({ must_change_password: false })
-            .eq("id", userId);
-
-          if (profileError) {
-            results.push({ userId, ok: false, error: safeErrorMessage(profileError) });
-            continue;
-          }
-
-          results.push({ userId, ok: true });
-        }
-
-        const allSucceeded = results.length === TARGET_USER_IDS.length && results.every((r) => r.ok);
-
-        // ---- 8. Burn the token only on a fully successful run ------------------------
-        if (allSucceeded) {
-          await supabaseAdmin
-            .from("one_time_diagnostic_tokens")
-            .update({ used_at: new Date().toISOString() })
-            .eq("id", tokenRow.id)
-            .is("used_at", null);
-        }
-
-        // ---- 9. Response carries no password and no token ---------------------------
-        return jsonResponse({ ok: allSucceeded, results }, allSucceeded ? 200 : 500);
+        return runReset(supabaseAdmin, tokenRow.id, newPassword);
       },
     },
   },
