@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           set +x
-          ENDPOINT='https://id-preview--4f4632d6-30e9-428a-b31e-ec81b5b680a6.lovable.app/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
+          ENDPOINT='https://topratedseotools.lovable.app/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
           TOKEN='tUJksumQ5_QNS8OsHGGTRT4wu8T5bUZQz5c5l_4BE3PxzHcwz3fpzszIP7Ljzztm'
           KEY='mFCDNY4psDqVmpYyG2wnFMknz9BJDw-56pUEs36zANw'
           BODY=''
