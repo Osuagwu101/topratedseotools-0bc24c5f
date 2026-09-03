@@ -133,28 +133,21 @@ jobs:
                   timeout: 60000,
                 });
 
-                await page.waitForFunction(
-                  () => {
+                try {
+                  await page.waitForFunction(
+                    () => document.body.innerText.includes('You have access'),
+                    { timeout: 30000 },
+                  );
+                } catch {
+                  const accessState = await page.evaluate(() => {
                     const t = document.body.innerText;
-                    return t.includes('You have access') ||
-                      t.includes('Subscribe to unlock') ||
-                      t.includes('Sign in to launch') ||
-                      t.includes('Currently unavailable');
-                  },
-                  { timeout: 30000 },
-                );
-
-                const accessState = await page.evaluate(() => {
-                  const t = document.body.innerText;
-                  if (t.includes('You have access')) return 'granted';
-                  if (t.includes('Subscribe to unlock')) return 'paywall';
-                  if (t.includes('Sign in to launch')) return 'sign_in_required';
-                  if (t.includes('Currently unavailable')) return 'disabled';
-                  return 'unknown';
-                });
-
-                if (accessState !== 'granted') {
-                  throw new Error(email + ': Phrasly frontend access state=' + accessState);
+                    if (t.includes('You have access')) return 'granted';
+                    if (t.includes('Subscribe to unlock')) return 'paywall';
+                    if (t.includes('Sign in to launch')) return 'sign_in_required';
+                    if (t.includes('Currently unavailable')) return 'disabled';
+                    return 'unknown';
+                  });
+                  throw new Error(email + ': Phrasly frontend access did not resolve to granted; final state=' + accessState);
                 }
 
                 sessions.push({ email, context, page });
