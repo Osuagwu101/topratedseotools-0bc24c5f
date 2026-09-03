@@ -499,6 +499,132 @@ export interface RemoteBrowserLaunchWithOtp extends RemoteBrowserLaunch {
   };
 }
 
+export interface InteractiveBrowserLaunch {
+  provider: BrowserAuthProvider;
+  providerSessionId: string;
+  liveUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * Open a privileged remote browser for an administrator to complete login
+ * themselves. No account password or OTP is accepted by this function.
+ */
+export async function launchBrowserUseInteractive(
+  admin: any,
+  input: { loginUrl: string; timeoutMinutes: number },
+): Promise<InteractiveBrowserLaunch> {
+  const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
+  if (!key) throw new Error("Browser Use is not configured. Contact Admin.");
+
+  const browser = await fetchJson(`${BROWSER_USE_BASE}/browsers`, {
+    method: "POST",
+    headers: {
+      "X-Browser-Use-API-Key": key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      timeout: input.timeoutMinutes,
+      browserScreenWidth: 1440,
+      browserScreenHeight: 900,
+      allowResizing: true,
+      enableRecording: false,
+    }),
+  });
+
+  if (!browser?.id || !browser?.liveUrl || !browser?.cdpUrl) {
+    throw new Error("Browser Use did not return a usable browser session.");
+  }
+
+  let cdp: CdpClient | null = null;
+  try {
+    cdp = await CdpClient.connect(String(browser.cdpUrl));
+    const page = await attachBrowserPage(cdp);
+    await cdp.send("Page.enable", {}, page.sessionId);
+    await cdp.send("Runtime.enable", {}, page.sessionId);
+    await cdp.send("Page.navigate", { url: input.loginUrl }, page.sessionId);
+    await waitForDocument(cdp, page.sessionId);
+
+    return {
+      provider: "browser_use",
+      providerSessionId: String(browser.id),
+      liveUrl: String(browser.liveUrl),
+      expiresAt: String(
+        browser.timeoutAt ??
+          new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
+      ),
+    };
+  } catch (error) {
+    await stopBrowserUseSession(key, String(browser.id));
+    throw error;
+  } finally {
+    cdp?.close();
+  }
+}
+
+export async function launchCloudflareInteractive(
+  admin: any,
+  input: { loginUrl: string; timeoutMinutes: number },
+): Promise<InteractiveBrowserLaunch> {
+  const accountId = await loadBrowserSecret(admin, "CLOUDFLARE_ACCOUNT_ID");
+  const token = await loadBrowserSecret(admin, "CLOUDFLARE_BROWSER_RUN_API_TOKEN");
+  if (!accountId || !token) {
+    throw new Error("Cloudflare Browser Run is not configured. Contact Admin.");
+  }
+
+  const keepAliveMs = Math.min(input.timeoutMinutes * 60_000, 3_600_000);
+  const json = await fetchJson(
+    `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/browser-rendering/devtools/browser?keep_alive=${keepAliveMs}&targets=true`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (json?.success === false) {
+    throw new Error("Cloudflare Browser Run could not create a session.");
+  }
+
+  const browser = json?.result ?? json;
+  const target =
+    (browser?.targets ?? []).find((t: any) => t.type === "page") ??
+    browser?.targets?.[0];
+  if (!browser?.sessionId || !target?.webSocketDebuggerUrl) {
+    throw new Error("Cloudflare Browser Run did not return a usable page session.");
+  }
+
+  let cdp: CdpClient | null = null;
+  try {
+    cdp = await CdpClient.connect(String(target.webSocketDebuggerUrl));
+    await cdp.send("Page.enable");
+    await cdp.send("Runtime.enable");
+    await cdp.send("Page.navigate", { url: input.loginUrl });
+    await waitForDocument(cdp);
+
+    let liveUrl = String(target.devtoolsFrontendUrl ?? "");
+    try {
+      const view = await cdp.send("Cloudflare.getLiveView", {
+        mode: "tab",
+        expiresInMs: keepAliveMs,
+      });
+      if (view?.devtoolsFrontendUrl) liveUrl = String(view.devtoolsFrontendUrl);
+    } catch {
+      // Existing hosted Live View URL is still usable when present.
+    }
+    if (!liveUrl) throw new Error("Cloudflare did not return a Live View URL.");
+
+    return {
+      provider: "cloudflare",
+      providerSessionId: String(browser.sessionId),
+      liveUrl,
+      expiresAt: new Date(
+        Date.now() + input.timeoutMinutes * 60_000,
+      ).toISOString(),
+    };
+  } catch (error) {
+    await closeCloudflareSession(accountId, token, String(browser.sessionId));
+    throw error;
+  } finally {
+    cdp?.close();
+  }
+}
+
 export async function launchBrowserUse(
   admin: any,
   input: { loginUrl: string; username: string; password: string; timeoutMinutes: number; capturedCookies?: Array<{ name: string; value: string }> },
