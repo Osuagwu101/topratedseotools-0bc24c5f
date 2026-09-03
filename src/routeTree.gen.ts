@@ -400,11 +400,13 @@ const ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route =
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route =
-  ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521RouteImport.update({
-    id: '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521',
-    path: '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+  ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521RouteImport.update(
+    {
+      id: '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521',
+      path: '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 const ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute =
   ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRouteImport.update({
     id: '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a',
@@ -735,8 +737,8 @@ export interface FileRoutesByFullPath {
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
   '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
-  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
@@ -832,8 +834,8 @@ export interface FileRoutesByTo {
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
   '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
-  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
@@ -938,8 +940,8 @@ export interface FileRoutesById {
   '/admin/tools/$slug': typeof AdminToolsSlugRoute
   '/admin/tools/new': typeof AdminToolsNewRoute
   '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a': typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
-  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
+  '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
@@ -1044,8 +1046,8 @@ export interface FileRouteTypes {
     | '/admin/tools/$slug'
     | '/admin/tools/new'
     | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
-    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
@@ -1141,8 +1143,8 @@ export interface FileRouteTypes {
     | '/admin/tools/$slug'
     | '/admin/tools/new'
     | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
-    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
@@ -1246,8 +1248,8 @@ export interface FileRouteTypes {
     | '/admin/tools/$slug'
     | '/admin/tools/new'
     | '/api/diag/one-click-e2e-8c54e3bf2a704b8cb468db34d36a1c7a'
-    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
+    | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
@@ -1301,8 +1303,8 @@ export interface RootRouteChildren {
   PayTokenRoute: typeof PayTokenRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute: typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
-  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route: typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route: typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
+  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route: typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route: typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
   ApiPublicBrandLogoRoute: typeof ApiPublicBrandLogoRoute
   ApiSsoSneakwriteConsumeRoute: typeof ApiSsoSneakwriteConsumeRoute
@@ -2271,10 +2273,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute:
     ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute,
-  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route:
-    ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route,
   ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route:
     ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route,
+  ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route:
+    ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route,
   ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route:
     ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route,
   ApiPublicBrandLogoRoute: ApiPublicBrandLogoRoute,

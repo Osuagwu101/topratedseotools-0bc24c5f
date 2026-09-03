@@ -1628,6 +1628,33 @@ export type Database = {
         }
         Relationships: []
       }
+      one_time_diagnostic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       payment_providers: {
         Row: {
           config: Json
