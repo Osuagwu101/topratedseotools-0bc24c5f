@@ -38,7 +38,7 @@ function validProvider(v: unknown): BrowserAuthProvider | null {
   return v === "browser_use" || v === "cloudflare" ? v : null;
 }
 
-async function runDiagnostic(request: Request) {
+async function runDiagnostic({ request }: { request: Request }) {
   const { supabaseAdmin: admin } = await import(
     "@/integrations/supabase/client.server"
   );
