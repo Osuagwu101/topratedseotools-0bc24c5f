@@ -99,10 +99,20 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
       return { status: "awaiting_otp" as const, session_id: row.id, expires_at: expiresAt };
     };
 
+    let launched: any = null;
     try {
-      const launched = provider === "cloudflare"
+      launched = provider === "cloudflare"
         ? await launchCloudflare(admin, { loginUrl, username, password, timeoutMinutes })
         : await launchBrowserUse(admin, { loginUrl, username, password, timeoutMinutes });
+
+      await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          provider_session_id: launched.providerSessionId,
+          expires_at: launched.expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
 
       if (launched.otp_status?.detected) {
         return await markAwaitingOtp(
@@ -118,7 +128,10 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
         : await reconnectBrowserUseSession(admin, launched.providerSessionId);
       if (!cdp) throw new Error("Login completed but the authenticated browser could not be reconnected for capture.");
       try {
-        const pageSessionId = provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;
+        const pageSessionId =
+          provider === "browser_use"
+            ? await attachBrowserUsePage(cdp, loginUrl)
+            : undefined;
         const outcome = await waitForAuthOrOtp(cdp, pageSessionId, 15_000);
         if (outcome.status === "otp") {
           return await markAwaitingOtp(
@@ -129,6 +142,25 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
           );
         }
         if (outcome.status !== "authenticated") {
+          if (outcome.status === "timeout" && outcome.humanVerification) {
+            throw new Error(
+              "Phrasly requires an interactive human-verification step before login can continue.",
+            );
+          }
+          if (
+            outcome.status === "timeout" &&
+            outcome.onLoginPage &&
+            outcome.hasError
+          ) {
+            throw new Error(
+              "Phrasly rejected the account login. Check the saved email and password.",
+            );
+          }
+          if (outcome.status === "timeout" && outcome.onLoginPage) {
+            throw new Error(
+              "Phrasly remained on the login page. Check the saved credentials and try again.",
+            );
+          }
           throw new Error("Phrasly login was not confirmed. Authentication state was not saved.");
         }
 
@@ -185,7 +217,18 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
 
       return { status: "ready" as const, session_id: row.id, expires_at: launched.expiresAt };
     } catch (e) {
-      await (admin as any).from("browser_auth_sessions").update({ status: "failed", error_code: e instanceof Error ? e.message.slice(0, 120) : "admin_refresh_failed", updated_at: new Date().toISOString() }).eq("id", row.id);
+      if (launched?.providerSessionId) {
+        await closeRemoteBrowserSession(admin, provider, launched.providerSessionId);
+      }
+      await (admin as any)
+        .from("browser_auth_sessions")
+        .update({
+          status: "failed",
+          error_code:
+            e instanceof Error ? e.message.slice(0, 120) : "admin_refresh_failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
       throw e;
     }
   });

@@ -96,9 +96,36 @@ export const submitOtpForBrowserSession = createServerFn({ method: "POST" })
         );
       }
 
-      // Browser Use reconnects at browser scope; attach to the page target first.
+      // Browser Use reconnects at browser scope; attach to the Phrasly page,
+      // not merely the first page target returned by the provider.
+      let expectedUrl: string | undefined;
+      if (typeof otpCtx.account_id === "string") {
+        const { data: otpAccount } = await (admin as any)
+          .from("tool_accounts")
+          .select("login_url")
+          .eq("id", otpCtx.account_id)
+          .maybeSingle();
+        expectedUrl =
+          typeof otpAccount?.login_url === "string"
+            ? otpAccount.login_url
+            : undefined;
+      }
+      if (!expectedUrl) {
+        const { data: otpToolSetting } = await (admin as any)
+          .from("tool_settings")
+          .select("official_login_url")
+          .eq("tool_slug", sess.tool_slug)
+          .maybeSingle();
+        expectedUrl =
+          typeof otpToolSetting?.official_login_url === "string"
+            ? otpToolSetting.official_login_url
+            : undefined;
+      }
+
       const pageSessionId =
-        sess.provider === "browser_use" ? await attachBrowserUsePage(cdp) : undefined;
+        sess.provider === "browser_use"
+          ? await attachBrowserUsePage(cdp, expectedUrl)
+          : undefined;
 
       await (admin as any).from("browser_auth_otp_audit").insert({
         session_id: data.session_id,

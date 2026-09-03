@@ -192,8 +192,17 @@ export function checkAuthenticationStatusExpression(): string {
     const loginForm=visiblePassword&&(visibleEmail||Array.from(document.querySelectorAll('button,input[type="submit"]')).some(el=>/sign in|log in|login/i.test(String(el.innerText||el.value||''))));
     const protectedPath=/(^|\\/)(dashboard|workspace|account|settings|profile|humanizer|documents|editor)(\\/|$)/.test(path);
     const accountUi=!!document.querySelector('[href*="/account"], [href*="/settings"], [href*="/profile"], [data-testid*="account" i], [aria-label*="account" i]');
-    const authError=Array.from(document.querySelectorAll('[role="alert"], .error, .alert-danger')).some(el=>visible(el)&&/invalid|incorrect|failed|expired|unauthorized/i.test(String(el.textContent||'')));
-    const authenticated=!loginPath&&!loginForm&&!authError&&(protectedPath||accountUi);
-    return {authenticated,onLoginPage:loginPath||loginForm,onProtectedPage:protectedPath||accountUi,hasError:authError,url,title:document.title};
+    const authError=Array.from(document.querySelectorAll('[role="alert"], .error, .alert-danger')).some(el=>visible(el)&&/invalid|incorrect|failed|expired|unauthorized|wrong password|not match/i.test(String(el.textContent||'')));
+    const humanVerification=/verify you are human|human verification|captcha|security check|checking your browser|challenge/i.test(text);
+    const authenticated=!loginPath&&!loginForm&&!authError&&!humanVerification&&(protectedPath||accountUi);
+    return {
+      authenticated,
+      onLoginPage:loginPath||loginForm,
+      onProtectedPage:protectedPath||accountUi,
+      hasError:authError,
+      humanVerification,
+      url,
+      title:document.title
+    };
   })()`;
 }

@@ -3,6 +3,7 @@
  * Run: bun tests/phrasly-auth-state.test.ts
  */
 import {
+  attachBrowserUsePage,
   waitForAuthenticatedPage,
   waitForAuthOrOtp,
 } from "../src/lib/browser-auth-session.server";
@@ -28,11 +29,14 @@ function assert(condition: unknown, message: string) {
 }
 
 class MockCdp {
-  readonly calls: string[] = [];
+  readonly calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
   constructor(private readonly responses: Array<unknown | Error>) {}
 
-  async send(method: string): Promise<unknown> {
-    this.calls.push(method);
+  async send(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<unknown> {
+    this.calls.push({ method, params });
     const next = this.responses.shift();
     if (next instanceof Error) throw next;
     return next ?? {};
@@ -78,6 +82,37 @@ console.log("phrasly-auth-state");
   assert(
     resolved === "wss://session.cdp.browser-use.com/devtools/browser/abc123",
     "direct ws/wss CDP endpoints remain unchanged",
+  );
+}
+
+// Browser Use reconnects can expose multiple page targets. Prefer the page
+// whose hostname matches the configured Phrasly login URL.
+{
+  const mock = new MockCdp([
+    {
+      targetInfos: [
+        {
+          type: "page",
+          targetId: "provider-page",
+          url: "https://example.com/internal",
+        },
+        {
+          type: "page",
+          targetId: "phrasly-page",
+          url: "https://phrasly.ai/dashboard",
+        },
+      ],
+    },
+    { sessionId: "page-session" },
+  ]);
+  const sessionId = await attachBrowserUsePage(
+    mock as unknown as CdpClient,
+    "https://phrasly.ai/login",
+  );
+  assert(sessionId === "page-session", "Phrasly target attach returns a session id");
+  assert(
+    mock.calls[1]?.params?.targetId === "phrasly-page",
+    "Browser Use reconnect prefers the Phrasly page target",
   );
 }
 
@@ -186,6 +221,37 @@ assert(
   assert(
     result.status === "timeout" && result.observedPage,
     "responsive unauthenticated page is classified as observed auth rejection",
+  );
+}
+
+// A responsive human-verification screen must remain distinguishable from
+// a normal login page so the admin receives the correct next action.
+{
+  const mock = new MockCdp([
+    { result: { value: { detected: false } } },
+    {
+      result: {
+        value: {
+          authenticated: false,
+          url: "https://phrasly.ai/login",
+          title: "Phrasly",
+          onLoginPage: true,
+          hasError: false,
+          humanVerification: true,
+        },
+      },
+    },
+  ]);
+  const result = await waitForAuthOrOtp(
+    mock as unknown as CdpClient,
+    undefined,
+    1,
+  );
+  assert(
+    result.status === "timeout" &&
+      result.onLoginPage &&
+      result.humanVerification,
+    "human-verification login state is preserved for admin diagnostics",
   );
 }
 

@@ -5,17 +5,39 @@ import {
   detectOtpExpression,
 } from "@/lib/browser-auth-otp.server";
 
-export async function attachBrowserUsePage(client: CdpClient): Promise<string> {
+export async function attachBrowserUsePage(
+  client: CdpClient,
+  expectedUrl?: string,
+): Promise<string> {
   const targets = await client.send("Target.getTargets");
-  let targetId = (targets?.targetInfos ?? []).find(
-    (target: { type?: string; url?: string }) =>
-      target.type === "page" && target.url !== "about:blank",
-  )?.targetId as string | undefined;
+  const pageTargets = (targets?.targetInfos ?? []).filter(
+    (target: { type?: string }) => target.type === "page",
+  ) as Array<{ targetId?: string; url?: string }>;
+
+  let expectedHost = "";
+  try {
+    expectedHost = expectedUrl ? new URL(expectedUrl).hostname.toLowerCase() : "";
+  } catch {
+    expectedHost = "";
+  }
+
+  let targetId = pageTargets.find((target) => {
+    if (!expectedHost || !target.url) return false;
+    try {
+      return new URL(target.url).hostname.toLowerCase() === expectedHost;
+    } catch {
+      return false;
+    }
+  })?.targetId;
 
   if (!targetId) {
-    targetId = (targets?.targetInfos ?? []).find(
-      (target: { type?: string }) => target.type === "page",
-    )?.targetId as string | undefined;
+    targetId = pageTargets.find(
+      (target) => target.url && target.url !== "about:blank",
+    )?.targetId;
+  }
+
+  if (!targetId) {
+    targetId = pageTargets[0]?.targetId;
   }
 
   if (!targetId) {
@@ -34,7 +56,15 @@ export async function attachBrowserUsePage(client: CdpClient): Promise<string> {
 export type AuthOrOtpOutcome =
   | { status: "authenticated"; url?: string; title?: string }
   | { status: "otp"; type?: string; fieldSelector?: string }
-  | { status: "timeout"; url?: string; title?: string; observedPage: boolean };
+  | {
+      status: "timeout";
+      url?: string;
+      title?: string;
+      observedPage: boolean;
+      onLoginPage?: boolean;
+      hasError?: boolean;
+      humanVerification?: boolean;
+    };
 
 /**
  * Detect an OTP challenge before considering the page authenticated.
@@ -50,6 +80,9 @@ export async function waitForAuthOrOtp(
   let lastUrl: string | undefined;
   let lastTitle: string | undefined;
   let observedPage = false;
+  let onLoginPage = false;
+  let hasError = false;
+  let humanVerification = false;
 
   while (Date.now() < deadline) {
     try {
@@ -83,6 +116,9 @@ export async function waitForAuthOrOtp(
       if (auth && typeof auth === "object") {
         lastUrl = typeof auth.url === "string" ? auth.url : lastUrl;
         lastTitle = typeof auth.title === "string" ? auth.title : lastTitle;
+        onLoginPage = !!auth.onLoginPage;
+        hasError = !!auth.hasError;
+        humanVerification = !!auth.humanVerification;
         if (auth.authenticated) {
           return { status: "authenticated", url: lastUrl, title: lastTitle };
         }
@@ -93,7 +129,15 @@ export async function waitForAuthOrOtp(
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  return { status: "timeout", url: lastUrl, title: lastTitle, observedPage };
+  return {
+    status: "timeout",
+    url: lastUrl,
+    title: lastTitle,
+    observedPage,
+    onLoginPage,
+    hasError,
+    humanVerification,
+  };
 }
 
 /**
