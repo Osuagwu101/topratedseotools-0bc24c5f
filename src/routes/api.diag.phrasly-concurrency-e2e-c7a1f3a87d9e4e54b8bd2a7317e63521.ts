@@ -43,15 +43,14 @@ async function runDiagnostic({ request }: { request: Request }) {
     "@/integrations/supabase/client.server"
   );
 
-  const url = new URL(request.url);
-  const suppliedToken = url.searchParams.get("token")?.trim() ?? "";
-  const { data: secret } = await (admin as any)
+  const { data: gate } = await (admin as any)
     .from("internal_secrets")
-    .select("value")
-    .eq("name", "PHRASLY_CONCURRENCY_DIAG_TOKEN")
+    .update({ value: "running" })
+    .eq("name", "PHRASLY_CONCURRENCY_DIAG_GATE")
+    .eq("value", "armed")
+    .select("name")
     .maybeSingle();
-  const expectedToken = String(secret?.value ?? "").trim();
-  if (!expectedToken || suppliedToken !== expectedToken) return notFound();
+  if (!gate) return notFound();
 
   const toolSlug = "phrasly";
 
