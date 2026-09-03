@@ -156,46 +156,61 @@ jobs:
 
               async function launchOne(session) {
                 const { email, context, page } = session;
-                const clicked = await page.evaluate(() => {
-                  const button = [...document.querySelectorAll('button')]
-                    .find((b) => (b.textContent || '').includes('Launch Phrasly'));
-                  if (!button) return false;
-                  button.click();
-                  return true;
+                const button = await page.evaluateHandle(() => {
+                  return [...document.querySelectorAll('button')]
+                    .find((b) => (b.textContent || '').includes('Launch Phrasly')) || null;
                 });
-                if (!clicked) throw new Error(email + ': Launch Phrasly button not found');
+                const element = button.asElement();
+                if (!element) throw new Error(email + ': Launch Phrasly button not found');
 
-                await page.waitForFunction(
-                  () => {
+                const beforePages = new Set(await context.pages());
+                await element.click();
+
+                const deadline = Date.now() + 120000;
+                let handoff = false;
+                let externalHost = '';
+
+                while (Date.now() < deadline) {
+                  const pages = await context.pages();
+
+                  for (const candidate of pages) {
+                    const url = candidate.url();
+                    if (!/^https:\/\//.test(url)) continue;
+
+                    let host = '';
+                    try { host = new URL(url).host; } catch {}
+                    if (!host || host === new URL(base).host) continue;
+
+                    if (candidate !== page || !beforePages.has(candidate) || page.url() === url) {
+                      handoff = candidate !== page;
+                      externalHost = host;
+                      break;
+                    }
+                  }
+
+                  if (externalHost) break;
+
+                  const state = await page.evaluate(() => {
                     const t = document.body.innerText;
-                    return t.includes('Phrasly is ready') ||
-                      t.includes('temporarily unavailable') ||
-                      t.includes('One-Click Login failed') ||
-                      t.includes('secure login service returned an invalid');
-                  },
-                  { timeout: 120000 },
-                );
+                    if (t.includes('temporarily unavailable')) return 'reauth_required';
+                    if (t.includes('One-Click Login failed')) return 'failed';
+                    if (t.includes('secure login service returned an invalid')) return 'invalid_url';
+                    return 'waiting';
+                  }).catch(() => 'waiting');
 
-                const result = await page.evaluate(() => {
-                  const t = document.body.innerText;
-                  if (t.includes('Phrasly is ready')) return 'launched';
-                  if (t.includes('temporarily unavailable')) return 'reauth_required';
-                  if (t.includes('One-Click Login failed')) return 'failed';
-                  if (t.includes('secure login service returned an invalid')) return 'invalid_url';
-                  return 'unknown';
-                });
+                  if (state !== 'waiting') {
+                    throw new Error(email + ': Phrasly launch result=' + state);
+                  }
 
-                if (result !== 'launched') {
-                  throw new Error(email + ': Phrasly launch result=' + result);
+                  await sleep(500);
                 }
 
-                await sleep(1500);
-                const pages = await context.pages();
-                const handoff = pages.some(
-                  (p) => p !== page && /^https:\/\//.test(p.url()) && p.url() !== base + '/',
-                );
-                console.log(email + ' phrasly_launch=true handoff=' + handoff);
-                return { email, result, handoff };
+                if (!externalHost) {
+                  throw new Error(email + ': no durable Phrasly browser handoff observed within 120s');
+                }
+
+                console.log(email + ' phrasly_launch=true handoff=' + handoff + ' external_host=' + externalHost);
+                return { email, result: 'launched', handoff };
               }
 
               const results = await Promise.all(sessions.map(launchOne));
