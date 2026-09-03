@@ -561,13 +561,6 @@ export async function launchBrowserUse(
       throw new Error("Phrasly requires an interactive human-verification step before login can continue.");
     }
 
-    if ((automation as any).stage === "login_rejected") {
-      throw new Error("Phrasly rejected the account login. Check the saved email and password.");
-    }
-    if ((automation as any).stage === "human_verification") {
-      throw new Error("Phrasly requires an interactive human-verification step before login can continue.");
-    }
-
     // Check if OTP was detected
     const otpDetected = (automation as any).stage === "otp_detected";
     if (otpDetected) {
@@ -640,6 +633,13 @@ export async function launchCloudflare(
         expiresAt: new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString(),
         automationSubmitted: true,
       };
+    }
+
+    if ((automation as any).stage === "login_rejected") {
+      throw new Error("Phrasly rejected the account login. Check the saved email and password.");
+    }
+    if ((automation as any).stage === "human_verification") {
+      throw new Error("Phrasly requires an interactive human-verification step before login can continue.");
     }
 
     // Check if OTP was detected
