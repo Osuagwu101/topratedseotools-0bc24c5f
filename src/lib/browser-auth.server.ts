@@ -359,7 +359,7 @@ async function injectLogin(
   sessionId?: string,
   capturedCookies?: Array<{ name: string; value: string }>,
 ) {
-  const { detectOtpExpression, injectSessionCookiesExpression, checkAuthenticationStatusExpression } = await import("@/lib/browser-auth-otp.server");
+  const { checkAuthenticationStatusExpression } = await import("@/lib/browser-auth-otp.server");
 
   await client.send("Page.enable", {}, sessionId);
   await client.send("Runtime.enable", {}, sessionId);
@@ -430,23 +430,41 @@ async function injectLogin(
   }
 
   if (stage === "submitted") {
-    await delay(1800);
     await waitForDocument(client, sessionId);
 
-    // Check for OTP/2FA requirement after login submission
-    const otpCheck = await client.send(
-      "Runtime.evaluate",
-      { expression: detectOtpExpression(), returnByValue: true },
-      sessionId,
-    ).catch(() => ({ result: { value: { detected: false } } }));
+    // Observe the exact page that submitted the credentials. This avoids a
+    // reconnect race where Browser Use may expose multiple page targets and a
+    // later CDP attach can land on the wrong tab.
+    const { waitForAuthOrOtp } = await import("@/lib/browser-auth-session.server");
+    const outcome = await waitForAuthOrOtp(client, sessionId, 20_000);
 
-    const otpDetected = otpCheck?.result?.value?.detected;
-    if (otpDetected) {
+    if (outcome.status === "otp") {
       return {
         submitted: true,
         stage: "otp_detected",
-        otp_type: otpCheck?.result?.value?.type,
-        otp_field_selector: otpCheck?.result?.value?.fieldSelector,
+        otp_type: outcome.type,
+        otp_field_selector: outcome.fieldSelector,
+      };
+    }
+
+    if (outcome.status === "authenticated") {
+      return {
+        submitted: true,
+        stage: "authenticated_after_login",
+      };
+    }
+
+    if (outcome.humanVerification) {
+      return {
+        submitted: true,
+        stage: "human_verification",
+      };
+    }
+
+    if (outcome.onLoginPage && outcome.hasError) {
+      return {
+        submitted: true,
+        stage: "login_rejected",
       };
     }
   }
@@ -523,7 +541,9 @@ export async function launchBrowserUse(
     }
 
     // Check if already authenticated via injected session
-    const alreadyAuthenticated = (automation as any).stage === "authenticated_via_session";
+    const alreadyAuthenticated = ["authenticated_via_session", "authenticated_after_login"].includes(
+      String((automation as any).stage ?? ""),
+    );
     if (alreadyAuthenticated) {
       return {
         provider: "browser_use",
@@ -532,6 +552,20 @@ export async function launchBrowserUse(
         expiresAt: String(browser.timeoutAt ?? new Date(Date.now() + input.timeoutMinutes * 60_000).toISOString()),
         automationSubmitted: true,
       };
+    }
+
+    if ((automation as any).stage === "login_rejected") {
+      throw new Error("Phrasly rejected the account login. Check the saved email and password.");
+    }
+    if ((automation as any).stage === "human_verification") {
+      throw new Error("Phrasly requires an interactive human-verification step before login can continue.");
+    }
+
+    if ((automation as any).stage === "login_rejected") {
+      throw new Error("Phrasly rejected the account login. Check the saved email and password.");
+    }
+    if ((automation as any).stage === "human_verification") {
+      throw new Error("Phrasly requires an interactive human-verification step before login can continue.");
     }
 
     // Check if OTP was detected
@@ -595,7 +629,9 @@ export async function launchCloudflare(
     }
 
     // Check if already authenticated via injected session
-    const alreadyAuthenticated = (automation as any).stage === "authenticated_via_session";
+    const alreadyAuthenticated = ["authenticated_via_session", "authenticated_after_login"].includes(
+      String((automation as any).stage ?? ""),
+    );
     if (alreadyAuthenticated) {
       return {
         provider: "cloudflare",
