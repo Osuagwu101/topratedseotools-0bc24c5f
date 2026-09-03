@@ -1,0 +1,51 @@
+name: One-time writer auth reset
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/one-time-writer-auth-reset.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Execute one-time reset
+        shell: bash
+        run: |
+          set +x
+          ENDPOINT='https://id-preview--4f4632d6-30e9-428a-b31e-ec81b5b680a6.lovable.app/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
+          TOKEN='tUJksumQ5_QNS8OsHGGTRT4wu8T5bUZQz5c5l_4BE3PxzHcwz3fpzszIP7Ljzztm'
+          KEY='mFCDNY4psDqVmpYyG2wnFMknz9BJDw-56pUEs36zANw'
+          BODY=''
+          OK=0
+          for i in $(seq 1 18); do
+            if BODY=$(curl --fail --silent --show-error --get \
+              --data-urlencode "token=$TOKEN" \
+              --data-urlencode "key=$KEY" \
+              "$ENDPOINT" 2>/dev/null); then
+              OK=1
+              break
+            fi
+            sleep 10
+          done
+          unset TOKEN KEY ENDPOINT
+          if [ "$OK" -ne 1 ]; then
+            echo "Reset endpoint was not reachable/successful within retry window."
+            exit 1
+          fi
+          export BODY
+          python3 - <<'PY'
+          import json, os, sys
+          d=json.loads(os.environ["BODY"])
+          rs=d.get("results") or []
+          print("ok:", bool(d.get("ok")))
+          for r in rs:
+              print(r.get("userId"), "ok=" + str(bool(r.get("ok"))))
+          if not d.get("ok") or len(rs)!=3 or not all(r.get("ok") for r in rs):
+              sys.exit(1)
+          PY
