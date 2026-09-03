@@ -63,6 +63,7 @@ import { Route as BlogCategorySlugRouteImport } from './routes/blog.category.$sl
 import { Route as BlogAuthorIdRouteImport } from './routes/blog.author.$id'
 import { Route as ApiSsoSneakwriteConsumeRouteImport } from './routes/api.sso.sneakwrite-consume'
 import { Route as ApiPublicBrandLogoRouteImport } from './routes/api.public.brand-logo'
+import { Route as ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060RouteImport } from './routes/api.diag.writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
 import { Route as ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554RouteImport } from './routes/api.diag.phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
 import { Route as ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71RouteImport } from './routes/api.diag.phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
 import { Route as ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521RouteImport } from './routes/api.diag.phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
@@ -387,6 +388,12 @@ const ApiPublicBrandLogoRoute = ApiPublicBrandLogoRouteImport.update({
   path: '/api/public/brand-logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route =
+  ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060RouteImport.update({
+    id: '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060',
+    path: '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route =
   ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554RouteImport.update({
     id: '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554',
@@ -740,6 +747,7 @@ export interface FileRoutesByFullPath {
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
   '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
+  '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060': typeof ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -837,6 +845,7 @@ export interface FileRoutesByTo {
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
   '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
+  '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060': typeof ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -943,6 +952,7 @@ export interface FileRoutesById {
   '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521': typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
   '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71': typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
+  '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060': typeof ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route
   '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/sso/sneakwrite-consume': typeof ApiSsoSneakwriteConsumeRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -1049,6 +1059,7 @@ export interface FileRouteTypes {
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
     | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+    | '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
@@ -1146,6 +1157,7 @@ export interface FileRouteTypes {
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
     | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+    | '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
@@ -1251,6 +1263,7 @@ export interface FileRouteTypes {
     | '/api/diag/phrasly-concurrency-e2e-c7a1f3a87d9e4e54b8bd2a7317e63521'
     | '/api/diag/phrasly-otp-e2e-5d90d80acb9f4e5d9fd0d0a4e02b9e71'
     | '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554'
+    | '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
     | '/api/public/brand-logo'
     | '/api/sso/sneakwrite-consume'
     | '/blog/author/$id'
@@ -1306,6 +1319,7 @@ export interface RootRouteChildren {
   ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route: typeof ApiDiagPhraslyConcurrencyE2eC7a1f3a87d9e4e54b8bd2a7317e63521Route
   ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route: typeof ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route
   ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route: typeof ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route
+  ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route: typeof ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route
   ApiPublicBrandLogoRoute: typeof ApiPublicBrandLogoRoute
   ApiSsoSneakwriteConsumeRoute: typeof ApiSsoSneakwriteConsumeRoute
   ApiPublicHooksAutoFulfilPrivateRoute: typeof ApiPublicHooksAutoFulfilPrivateRoute
@@ -1693,6 +1707,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/brand-logo'
       fullPath: '/api/public/brand-logo'
       preLoaderRoute: typeof ApiPublicBrandLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060': {
+      id: '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
+      path: '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
+      fullPath: '/api/diag/writer-auth-reset-e2e-820b5d66d7e8ca6d74a3fbc5fb108060'
+      preLoaderRoute: typeof ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/diag/phrasly-otp-test-4d4dc2a5e7f64203a34e33f071a94554': {
@@ -2279,6 +2300,8 @@ const rootRouteChildren: RootRouteChildren = {
     ApiDiagPhraslyOtpE2e5d90d80acb9f4e5d9fd0d0a4e02b9e71Route,
   ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route:
     ApiDiagPhraslyOtpTest4d4dc2a5e7f64203a34e33f071a94554Route,
+  ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route:
+    ApiDiagWriterAuthResetE2e820b5d66d7e8ca6d74a3fbc5fb108060Route,
   ApiPublicBrandLogoRoute: ApiPublicBrandLogoRoute,
   ApiSsoSneakwriteConsumeRoute: ApiSsoSneakwriteConsumeRoute,
   ApiPublicHooksAutoFulfilPrivateRoute: ApiPublicHooksAutoFulfilPrivateRoute,
