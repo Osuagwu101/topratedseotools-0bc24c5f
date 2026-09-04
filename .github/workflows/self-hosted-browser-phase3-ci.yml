@@ -1,0 +1,398 @@
+name: Self-Hosted Browser Phase 3 CI
+
+on:
+  push:
+    branches:
+      - self-hosted-browser-phase3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VIEWER_SIGNING_SECRET: phase3-ci-only-signing-secret-not-for-production-0123456789abcdef
+  VIEWER_TOKEN_TTL_SECONDS: 300
+
+jobs:
+  phase3-secure-viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate worker unit tests
+        working-directory: self-hosted-browser-runtime/browser-worker
+        run: node --test test/*.test.mjs
+
+      - name: Validate PHP syntax
+        run: |
+          find self-hosted-browser-runtime/api -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Validate JSON configuration
+        run: |
+          python3 -m json.tool self-hosted-browser-runtime/api/composer.json >/dev/null
+          python3 -m json.tool self-hosted-browser-runtime/browser-worker/package.json >/dev/null
+
+      - name: Static viewer security checks
+        run: |
+          set -euo pipefail
+          grep -F -- "--remote-debugging-address=127.0.0.1" self-hosted-browser-runtime/browser-worker/src/browser-session.mjs
+          grep -F -- "rawCdpExposed: false" self-hosted-browser-runtime/browser-worker/src/health.mjs
+          grep -F -- "url-fragment-to-bearer" self-hosted-browser-runtime/browser-worker/src/server.mjs
+          grep -F -- "frame-ancestors 'none'" self-hosted-browser-runtime/browser-worker/src/server.mjs
+          if grep -R --line-number -E '0\.0\.0\.0:9222|:9222:|remote-debugging-address=0\.0\.0\.0' self-hosted-browser-runtime; then
+            echo 'Unsafe raw CDP exposure pattern found.' >&2
+            exit 1
+          fi
+          if grep -R --line-number -i 'phrasly' self-hosted-browser-runtime/browser-worker self-hosted-browser-runtime/api; then
+            echo 'Phase 3 generic runtime contains tool-specific Phrasly logic.' >&2
+            exit 1
+          fi
+
+      - name: Build isolated runtime containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose build
+
+      - name: Boot isolated runtime
+        working-directory: self-hosted-browser-runtime
+        run: docker compose up -d
+
+      - name: Wait for Phase 3 health endpoints
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/api/health >/tmp/api-health.json \
+              && curl --fail --silent http://127.0.0.1:18081/health >/tmp/worker-health.json; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/api-health.json
+          cat /tmp/worker-health.json
+          python3 - <<'PY'
+          import json
+          api=json.load(open('/tmp/api-health.json'))
+          worker=json.load(open('/tmp/worker-health.json'))
+          assert api['status']=='ok'
+          assert api['service']=='control-plane'
+          assert api['phase']==3
+          assert api['browser_core']=='generic'
+          assert api['viewer_layer']=='isolated'
+          assert worker['status']=='ok'
+          assert worker['service']=='browser-worker'
+          assert worker['phase']==3
+          assert worker['browserCore']=='generic'
+          assert worker['control']=='cdp'
+          assert worker['viewer']['mode']=='restricted-frame-input'
+          assert worker['viewer']['auth']=='signed-bearer'
+          assert worker['viewer']['rawCdpExposed'] is False
+          assert worker['chromium']['installed'] is True
+          combined=(json.dumps(api)+json.dumps(worker)).lower()
+          assert 'phrasly' not in combined
+          PY
+
+      - name: Verify worker publication is localhost-only and raw CDP is not published
+        working-directory: self-hosted-browser-runtime
+        run: |
+          set -euo pipefail
+          PUBLISHED="$(docker compose port browser-worker 8081)"
+          echo "worker_publication=${PUBLISHED}"
+          case "$PUBLISHED" in
+            127.0.0.1:*) ;;
+            *) echo "browser worker is not localhost-only" >&2; exit 1 ;;
+          esac
+          if docker compose port browser-worker 9222 >/tmp/cdp-published.txt 2>/dev/null; then
+            if test -s /tmp/cdp-published.txt; then
+              echo "raw CDP port unexpectedly published: $(cat /tmp/cdp-published.txt)" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Start deterministic interactive browser page
+        run: |
+          set -euo pipefail
+          START_URL="$(python3 - <<'PY'
+          from urllib.parse import quote
+          html='''<!doctype html><html><head><title>Viewer Ready</title><style>html,body{margin:0;padding:0;font-family:sans-serif}#name{position:absolute;left:40px;top:40px;width:300px;height:50px;font-size:22px}#go{position:absolute;left:40px;top:120px;width:180px;height:50px;font-size:20px}.spacer{height:2400px;padding-top:220px}</style></head><body><input id="name" aria-label="name" onkeydown="if(event.key==='Enter'){document.title='Typed:'+this.value}"><button id="go" onclick="document.title='Clicked'">Click me</button><div class="spacer">scroll target</div><script>addEventListener('scroll',()=>{if(scrollY>100)document.title='Scrolled:'+Math.round(scrollY)})</script></body></html>'''
+          print('data:text/html,'+quote(html, safe=''))
+          PY
+          )"
+          curl --fail --silent --show-error \
+            -X POST -H 'content-type: application/json' \
+            --data "$(python3 -c 'import json,sys; print(json.dumps({"url":sys.argv[1]}))' "$START_URL")" \
+            http://127.0.0.1:18081/browser/start >/tmp/phase3-start.json
+          cat /tmp/phase3-start.json
+          python3 - <<'PY'
+          import json
+          start=json.load(open('/tmp/phase3-start.json'))
+          assert start['active'] is True
+          assert start['phase']==3
+          assert start['title']=='Viewer Ready'
+          assert start['viewer']=='restricted'
+          assert start['viewerGrant']['rawCdpExposed'] is False
+          assert start['viewerGrant']['tokenTransport']=='url-fragment-to-bearer'
+          assert '#' in start['viewerGrant']['url']
+          assert start['viewerGrant']['url'].startswith('/viewer/'+start['sessionId']+'#')
+          assert 'webSocketDebuggerUrl' not in json.dumps(start)
+          assert 'DevToolsActivePort' not in json.dumps(start)
+          PY
+
+      - name: Extract session-bound viewer grant
+        run: |
+          python3 - <<'PY'
+          import json, urllib.parse
+          start=json.load(open('/tmp/phase3-start.json'))
+          url=start['viewerGrant']['url']
+          path, token=url.split('#',1)
+          token=urllib.parse.unquote(token)
+          open('/tmp/viewer-session-id','w').write(start['sessionId'])
+          open('/tmp/viewer-token','w').write(token)
+          open('/tmp/viewer-path','w').write(path)
+          open('/tmp/browser-pid','w').write(str(start['pid']))
+          PY
+          test -s /tmp/viewer-session-id
+          test -s /tmp/viewer-token
+          test -s /tmp/viewer-path
+
+      - name: Validate secure viewer shell headers and token non-disclosure
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          curl --fail --silent --show-error -D /tmp/viewer-shell.headers \
+            "http://127.0.0.1:18081/viewer/${SID}" -o /tmp/viewer-shell.html
+          cat /tmp/viewer-shell.headers
+          python3 - <<'PY'
+          from pathlib import Path
+          headers=Path('/tmp/viewer-shell.headers').read_text().lower()
+          html=Path('/tmp/viewer-shell.html').read_text()
+          token=Path('/tmp/viewer-token').read_text()
+          assert "content-security-policy:" in headers
+          assert "frame-ancestors 'none'" in headers
+          assert 'referrer-policy: no-referrer' in headers
+          assert 'x-frame-options: deny' in headers
+          assert 'cache-control: no-store' in headers
+          assert 'access-control-allow-origin' not in headers
+          assert token not in html
+          lowered=html.lower()
+          assert 'websocketdebuggerurl' not in lowered
+          assert 'devtools' not in lowered
+          assert 'remote-debugging' not in lowered
+          assert 'location.hash' in html
+          assert 'sessionStorage' in html
+          PY
+
+      - name: Reject unauthorized, forged, and cross-session viewer access
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+
+          CODE="$(curl --silent --output /tmp/unauth.json --write-out '%{http_code}' \
+            "http://127.0.0.1:18081/viewer/${SID}/frame")"
+          test "$CODE" = "401"
+
+          CODE="$(curl --silent --output /tmp/forged.json --write-out '%{http_code}' \
+            -H 'authorization: Bearer forged.invalid' \
+            "http://127.0.0.1:18081/viewer/${SID}/frame")"
+          test "$CODE" = "401"
+
+          OTHER='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+          CODE="$(curl --silent --output /tmp/cross-session.json --write-out '%{http_code}' \
+            -H "authorization: Bearer ${TOKEN}" \
+            "http://127.0.0.1:18081/viewer/${OTHER}/frame")"
+          test "$CODE" = "403"
+
+      - name: Capture authenticated viewer frame
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          curl --fail --silent --show-error \
+            -H "authorization: Bearer ${TOKEN}" \
+            "http://127.0.0.1:18081/viewer/${SID}/frame" -o /tmp/viewer-frame.jpg
+          python3 - <<'PY'
+          data=open('/tmp/viewer-frame.jpg','rb').read()
+          assert len(data) > 2000, len(data)
+          assert data[:3] == b'\xff\xd8\xff', data[:8]
+          print('viewer_frame_bytes='+str(len(data)))
+          PY
+
+      - name: Validate mouse interaction through restricted viewer endpoint
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          for EVENT in pressed released; do
+            curl --fail --silent --show-error \
+              -X POST -H 'content-type: application/json' \
+              -H "authorization: Bearer ${TOKEN}" \
+              --data "{\"type\":\"mouse\",\"event\":\"${EVENT}\",\"button\":\"left\",\"x\":130,\"y\":145}" \
+              "http://127.0.0.1:18081/viewer/${SID}/input" >/tmp/mouse-${EVENT}.json
+          done
+          cat /tmp/mouse-released.json
+          python3 - <<'PY'
+          import json
+          result=json.load(open('/tmp/mouse-released.json'))
+          assert result['inputAccepted'] is True
+          assert result['title']=='Clicked', result
+          PY
+
+      - name: Validate keyboard interaction through restricted viewer endpoint
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          for EVENT in pressed released; do
+            curl --fail --silent --show-error \
+              -X POST -H 'content-type: application/json' \
+              -H "authorization: Bearer ${TOKEN}" \
+              --data "{\"type\":\"mouse\",\"event\":\"${EVENT}\",\"button\":\"left\",\"x\":180,\"y\":65}" \
+              "http://127.0.0.1:18081/viewer/${SID}/input" >/dev/null
+          done
+          curl --fail --silent --show-error \
+            -X POST -H 'content-type: application/json' \
+            -H "authorization: Bearer ${TOKEN}" \
+            --data '{"type":"text","text":"hello-phase3"}' \
+            "http://127.0.0.1:18081/viewer/${SID}/input" >/tmp/text-input.json
+          curl --fail --silent --show-error \
+            -X POST -H 'content-type: application/json' \
+            -H "authorization: Bearer ${TOKEN}" \
+            --data '{"type":"key","key":"Enter","code":"Enter","modifiers":0}' \
+            "http://127.0.0.1:18081/viewer/${SID}/input" >/tmp/key-input.json
+          cat /tmp/key-input.json
+          python3 - <<'PY'
+          import json
+          result=json.load(open('/tmp/key-input.json'))
+          assert result['inputAccepted'] is True
+          assert result['title']=='Typed:hello-phase3', result
+          PY
+
+      - name: Validate scroll interaction through restricted viewer endpoint
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          curl --fail --silent --show-error \
+            -X POST -H 'content-type: application/json' \
+            -H "authorization: Bearer ${TOKEN}" \
+            --data '{"type":"scroll","x":700,"y":450,"deltaX":0,"deltaY":800}' \
+            "http://127.0.0.1:18081/viewer/${SID}/input" >/tmp/scroll-input.json
+          cat /tmp/scroll-input.json
+          python3 - <<'PY'
+          import json
+          result=json.load(open('/tmp/scroll-input.json'))
+          assert result['inputAccepted'] is True
+          assert result['title'].startswith('Scrolled:'), result
+          amount=int(result['title'].split(':',1)[1])
+          assert amount > 100, amount
+          PY
+
+      - name: Validate viewer reconnect without browser restart
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          PID="$(cat /tmp/browser-pid)"
+          for reconnect in 1 2 3; do
+            curl --fail --silent --show-error \
+              "http://127.0.0.1:18081/viewer/${SID}" -o "/tmp/reconnect-shell-${reconnect}.html"
+            curl --fail --silent --show-error \
+              -H "authorization: Bearer ${TOKEN}" \
+              "http://127.0.0.1:18081/viewer/${SID}/status" >"/tmp/reconnect-status-${reconnect}.json"
+            curl --fail --silent --show-error \
+              -H "authorization: Bearer ${TOKEN}" \
+              "http://127.0.0.1:18081/viewer/${SID}/frame" -o "/tmp/reconnect-frame-${reconnect}.jpg"
+            python3 - "$reconnect" "$SID" "$PID" <<'PY'
+          import json, sys
+          n,sid,pid=sys.argv[1:]
+          status=json.load(open(f'/tmp/reconnect-status-{n}.json'))
+          frame=open(f'/tmp/reconnect-frame-{n}.jpg','rb').read()
+          assert status['active'] is True
+          assert status['sessionId']==sid
+          assert str(status['pid'])==pid
+          assert frame[:3]==b'\xff\xd8\xff'
+          print(f'reconnect={n} same_session=true same_pid=true')
+          PY
+          done
+
+      - name: Reject viewer input outside the restricted input contract
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          CODE="$(curl --silent --output /tmp/shell-input.json --write-out '%{http_code}' \
+            -X POST -H 'content-type: application/json' \
+            -H "authorization: Bearer ${TOKEN}" \
+            --data '{"type":"shell","command":"id"}' \
+            "http://127.0.0.1:18081/viewer/${SID}/input")"
+          test "$CODE" = "400"
+          grep -F 'mouse, scroll, text, or key' /tmp/shell-input.json
+
+      - name: Stop browser and invalidate viewer session
+        working-directory: self-hosted-browser-runtime
+        run: |
+          set -euo pipefail
+          SID="$(cat /tmp/viewer-session-id)"
+          TOKEN="$(cat /tmp/viewer-token)"
+          curl --fail --silent --show-error -X POST http://127.0.0.1:18081/browser/stop >/tmp/phase3-stop.json
+          cat /tmp/phase3-stop.json
+          python3 - <<'PY'
+          import json
+          stop=json.load(open('/tmp/phase3-stop.json'))
+          assert stop['active'] is False
+          assert stop['phase']==3
+          assert stop['cleanup']['rootExited'] is True
+          assert stop['cleanup']['orphanPids']==[]
+          assert stop['cleanup']['zombiePids']==[]
+          PY
+
+          CODE="$(curl --silent --output /tmp/closed-viewer.json --write-out '%{http_code}' \
+            -H "authorization: Bearer ${TOKEN}" \
+            "http://127.0.0.1:18081/viewer/${SID}/frame")"
+          test "$CODE" = "410"
+
+          docker compose exec -T browser-worker node - <<'NODE'
+          const fs = require('node:fs');
+          const chromium = [];
+          for (const entry of fs.readdirSync('/proc')) {
+            if (!/^\d+$/.test(entry)) continue;
+            try {
+              const comm = fs.readFileSync(`/proc/${entry}/comm`, 'utf8').trim();
+              if (comm === 'chromium') chromium.push(Number(entry));
+            } catch {}
+          }
+          if (chromium.length) {
+            console.error(`orphan chromium processes: ${chromium.join(',')}`);
+            process.exit(1);
+          }
+          console.log('chromium_process_scan=clean');
+          NODE
+
+      - name: Verify worker remains healthy after viewer tests
+        run: |
+          curl --fail --silent http://127.0.0.1:18081/health >/tmp/worker-final.json
+          curl --fail --silent http://127.0.0.1:18081/browser/status >/tmp/browser-final.json
+          cat /tmp/browser-final.json
+          python3 - <<'PY'
+          import json
+          worker=json.load(open('/tmp/worker-final.json'))
+          browser=json.load(open('/tmp/browser-final.json'))
+          assert worker['status']=='ok'
+          assert worker['phase']==3
+          assert worker['viewer']['rawCdpExposed'] is False
+          assert browser['active'] is False
+          assert browser['phase']==3
+          PY
+
+      - name: Check running containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose ps
+
+      - name: Tear down and verify cleanup
+        if: always()
+        working-directory: self-hosted-browser-runtime
+        run: |
+          docker compose down -v --remove-orphans
+          test -z "$(docker compose ps -q)"
