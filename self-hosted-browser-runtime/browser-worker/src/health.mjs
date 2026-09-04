@@ -5,9 +5,14 @@ export function buildHealthPayload(env = process.env) {
   return {
     status: 'ok',
     service: 'browser-worker',
-    phase: 2,
+    phase: 3,
     browserCore: 'generic',
     control: 'cdp',
+    viewer: {
+      mode: 'restricted-frame-input',
+      auth: 'signed-bearer',
+      rawCdpExposed: false,
+    },
     chromium: {
       executable: browserExecutable,
       installed: existsSync(browserExecutable),
