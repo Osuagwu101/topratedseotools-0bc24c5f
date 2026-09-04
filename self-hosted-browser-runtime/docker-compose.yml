@@ -30,6 +30,7 @@ services:
     build:
       context: .
       dockerfile: browser-worker/Dockerfile
+    init: true
     environment:
       PORT: 8081
       CHROMIUM_EXECUTABLE: ${CHROMIUM_EXECUTABLE:-/usr/bin/chromium}
