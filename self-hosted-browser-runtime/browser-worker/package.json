@@ -1,9 +1,9 @@
 {
   "name": "@toprated/browser-worker",
-  "version": "0.2.0-phase2",
+  "version": "0.3.0-phase3",
   "private": true,
   "type": "module",
-  "description": "Generic Chromium worker with deterministic CDP lifecycle control for the Top Rated self-hosted browser runtime.",
+  "description": "Generic Chromium worker with restricted signed-token viewer access for the Top Rated self-hosted browser runtime.",
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs"
