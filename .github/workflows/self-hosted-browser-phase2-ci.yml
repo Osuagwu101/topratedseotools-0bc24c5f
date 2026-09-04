@@ -1,0 +1,159 @@
+name: Self-Hosted Browser Phase 2 CI
+
+on:
+  push:
+    branches:
+      - self-hosted-browser-phase2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase2-browser-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate worker unit tests
+        working-directory: self-hosted-browser-runtime/browser-worker
+        run: node --test test/*.test.mjs
+
+      - name: Validate PHP syntax
+        run: |
+          find self-hosted-browser-runtime/api -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Validate JSON configuration
+        run: |
+          python3 -m json.tool self-hosted-browser-runtime/api/composer.json >/dev/null
+          python3 -m json.tool self-hosted-browser-runtime/browser-worker/package.json >/dev/null
+
+      - name: Build isolated runtime containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose build
+
+      - name: Boot isolated runtime
+        working-directory: self-hosted-browser-runtime
+        run: docker compose up -d
+
+      - name: Wait for Phase 2 health endpoints
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/api/health >/tmp/api-health.json \
+              && curl --fail --silent http://127.0.0.1:18081/health >/tmp/worker-health.json; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/api-health.json
+          cat /tmp/worker-health.json
+          python3 - <<'PY'
+          import json
+          api=json.load(open('/tmp/api-health.json'))
+          worker=json.load(open('/tmp/worker-health.json'))
+          assert api['status']=='ok'
+          assert api['service']=='control-plane'
+          assert api['phase']==2
+          assert api['browser_core']=='generic'
+          assert worker['status']=='ok'
+          assert worker['service']=='browser-worker'
+          assert worker['phase']==2
+          assert worker['browserCore']=='generic'
+          assert worker['control']=='cdp'
+          assert worker['chromium']['installed'] is True
+          combined=(json.dumps(api)+json.dumps(worker)).lower()
+          assert 'phrasly' not in combined
+          PY
+
+      - name: Repeat Chromium start navigate stop cycles
+        working-directory: self-hosted-browser-runtime
+        run: |
+          set -euo pipefail
+          START_URL='data:text/html,%3Ctitle%3EPhase%202%20Start%3C/title%3E%3Ch1%3ESafe%20start%20page%3C/h1%3E'
+          NAV_URL='data:text/html,%3Ctitle%3EPhase%202%20Navigate%3C/title%3E%3Ch1%3ESafe%20navigation%20page%3C/h1%3E'
+
+          for cycle in $(seq 1 5); do
+            echo "Lifecycle cycle ${cycle}/5"
+
+            curl --fail --silent --show-error \
+              -X POST -H 'content-type: application/json' \
+              --data "{\"url\":\"${START_URL}\"}" \
+              http://127.0.0.1:18081/browser/start >"/tmp/start-${cycle}.json"
+
+            curl --fail --silent --show-error \
+              -X POST -H 'content-type: application/json' \
+              --data "{\"url\":\"${NAV_URL}\"}" \
+              http://127.0.0.1:18081/browser/navigate >"/tmp/nav-${cycle}.json"
+
+            curl --fail --silent --show-error \
+              -X POST http://127.0.0.1:18081/browser/stop >"/tmp/stop-${cycle}.json"
+
+            python3 - "$cycle" <<'PY'
+          import json, sys
+          cycle=sys.argv[1]
+          start=json.load(open(f'/tmp/start-{cycle}.json'))
+          nav=json.load(open(f'/tmp/nav-{cycle}.json'))
+          stop=json.load(open(f'/tmp/stop-{cycle}.json'))
+          assert start['active'] is True
+          assert start['phase']==2
+          assert start['title']=='Phase 2 Start'
+          assert isinstance(start['pid'], int) and start['pid'] > 1
+          assert nav['active'] is True
+          assert nav['control']=='cdp'
+          assert nav['title']=='Phase 2 Navigate'
+          assert nav['readyState']=='complete'
+          assert stop['active'] is False
+          assert stop['phase']==2
+          assert stop['cleanup']['rootExited'] is True
+          assert stop['cleanup']['orphanPids']==[]
+          assert stop['cleanup']['zombiePids']==[]
+          print(f"cycle={cycle} pid={start['pid']} cleanup=clean")
+          PY
+
+            docker compose exec -T browser-worker node - <<'NODE'
+          const fs = require('node:fs');
+          const chromium = [];
+          for (const entry of fs.readdirSync('/proc')) {
+            if (!/^\d+$/.test(entry)) continue;
+            try {
+              const comm = fs.readFileSync(`/proc/${entry}/comm`, 'utf8').trim();
+              if (comm === 'chromium') chromium.push(Number(entry));
+            } catch {}
+          }
+          if (chromium.length) {
+            console.error(`orphan chromium processes: ${chromium.join(',')}`);
+            process.exit(1);
+          }
+          console.log('chromium_process_scan=clean');
+          NODE
+          done
+
+      - name: Verify worker remains healthy after lifecycle test
+        run: |
+          curl --fail --silent http://127.0.0.1:18081/health >/tmp/worker-final.json
+          curl --fail --silent http://127.0.0.1:18081/browser/status >/tmp/browser-final.json
+          cat /tmp/browser-final.json
+          python3 - <<'PY'
+          import json
+          worker=json.load(open('/tmp/worker-final.json'))
+          browser=json.load(open('/tmp/browser-final.json'))
+          assert worker['status']=='ok'
+          assert worker['phase']==2
+          assert browser['active'] is False
+          assert browser['phase']==2
+          PY
+
+      - name: Check running containers
+        working-directory: self-hosted-browser-runtime
+        run: docker compose ps
+
+      - name: Tear down and verify cleanup
+        if: always()
+        working-directory: self-hosted-browser-runtime
+        run: |
+          docker compose down -v --remove-orphans
+          test -z "$(docker compose ps -q)"
