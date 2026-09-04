@@ -1,9 +1,9 @@
 {
   "name": "@toprated/browser-worker",
-  "version": "0.1.0-phase1",
+  "version": "0.2.0-phase2",
   "private": true,
   "type": "module",
-  "description": "Generic Chromium worker skeleton for the Top Rated self-hosted browser runtime.",
+  "description": "Generic Chromium worker with deterministic CDP lifecycle control for the Top Rated self-hosted browser runtime.",
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs"
