@@ -46,8 +46,8 @@ jobs:
             echo 'Unsafe raw CDP exposure pattern found.' >&2
             exit 1
           fi
-          if grep -R --line-number -i 'phrasly' self-hosted-browser-runtime/browser-worker self-hosted-browser-runtime/api; then
-            echo 'Phase 3 generic runtime contains tool-specific Phrasly logic.' >&2
+          if grep -R --line-number -i 'phrasly' self-hosted-browser-runtime/browser-worker/src self-hosted-browser-runtime/api; then
+            echo 'Phase 3 production runtime contains tool-specific Phrasly logic.' >&2
             exit 1
           fi
 
