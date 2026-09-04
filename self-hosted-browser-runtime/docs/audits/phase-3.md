@@ -1,6 +1,6 @@
 # Phase 3 Audit — Secure Restricted Browser Viewer
 
-Status: TECHNICAL EXIT GATE GREEN, subject to final branch-head CI rerun after this audit commit. Overall Blueprint conformance still carries the inherited Phase 1 separate-repository issue `SB-001-001`.
+Status: TECHNICAL EXIT GATE GREEN, subject to a final branch-head CI run after Phase 3 documentation is committed. Overall Blueprint conformance still carries the inherited Phase 1 separate-repository issue `SB-001-001`.
 
 ## Scope
 
@@ -90,7 +90,9 @@ Verified evidence from the corrected run includes:
 15. worker remained healthy and browser status became inactive after stop: PASS; and
 16. Docker Compose teardown completed successfully.
 
-Because this audit/README/issue-register documentation changes the branch head, Phase 3 is not declared finally complete until the CI workflow also passes on the final documentation commit. That final run must be added below before closure.
+### Final branch-head closure rule
+
+The audit, README, and issue register are part of the Phase 3 deliverable, so CI must pass again after those files are committed. Phase 3 is closed only if the workflow associated with the final branch-head commit is green. The final run ID is intentionally verified from GitHub branch/workflow state rather than embedded by a new documentation-only commit, because adding that ID would itself create a new branch head and recursively require another run.
 
 ## Security notes and limits
 
@@ -154,4 +156,4 @@ The Phase 1 audit requires the self-hosted runtime to live in its own repository
 
 The Phase 3 **technical** exit criterion is GREEN on corrected run `33849349374`: the restricted viewer supports mouse, keyboard, scroll, and reconnect while the tested writer-facing surface exposes no raw CDP/DevTools access.
 
-Final closure requires one additional green CI run at the final Phase 3 branch head after this audit documentation is committed. Full Master Blueprint repository-topology conformance remains separately blocked by inherited issue `SB-001-001`; this does not change the technical Phase 3 viewer result and is not being hidden.
+Final Phase 3 closure additionally requires the GitHub Actions workflow for the final `self-hosted-browser-phase3` branch-head commit to complete successfully. Full Master Blueprint repository-topology conformance remains separately blocked by inherited issue `SB-001-001`; this does not change the technical Phase 3 viewer result and is not being hidden.
