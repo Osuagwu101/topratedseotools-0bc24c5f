@@ -9,7 +9,17 @@ import { baseMonthlyLines } from "@/lib/base-pricing";
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
 
-const pricingQuery = queryOptions({ queryKey: ["tool-pricing"], queryFn: () => listToolPricing() });
+const pricingQuery = queryOptions({
+  queryKey: ["tool-pricing"],
+  // The landing page must still render if the database is unreachable.
+  queryFn: async () => {
+    try {
+      return await listToolPricing();
+    } catch {
+      return { options: [] } as Awaited<ReturnType<typeof listToolPricing>>;
+    }
+  },
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
