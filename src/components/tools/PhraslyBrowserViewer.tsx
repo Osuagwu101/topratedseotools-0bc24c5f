@@ -1,6 +1,12 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Expand, RefreshCw, ShieldCheck, X } from "lucide-react";
 import type { BrowserViewerLaunch } from "@/lib/browser-viewer";
+import {
+  closeSelfHostedBrowser,
+  heartbeatSelfHostedBrowser,
+  recordSelfHostedBrowserActivity,
+} from "@/lib/self-hosted-lifecycle.functions";
 
 interface Props {
   launch: BrowserViewerLaunch;
@@ -10,6 +16,10 @@ interface Props {
 export function PhraslyBrowserViewer({ launch, onClose }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [frameVersion, setFrameVersion] = useState(0);
+  const heartbeat = useServerFn(heartbeatSelfHostedBrowser);
+  const activity = useServerFn(recordSelfHostedBrowserActivity);
+  const close = useServerFn(closeSelfHostedBrowser);
+  const lastActivityAt = useRef(0);
   const expiryLabel = useMemo(
     () => new Date(launch.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     [launch.expiresAt],
@@ -23,6 +33,29 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
     }
   };
 
+  useEffect(() => {
+    if (launch.provider !== "self_hosted" || !launch.auditSessionId) return;
+    const data = { audit_session_id: launch.auditSessionId };
+    const beat = () => void heartbeat({ data }).catch(() => undefined);
+    beat();
+    const timer = window.setInterval(beat, 60_000);
+    return () => window.clearInterval(timer);
+  }, [heartbeat, launch.auditSessionId, launch.provider]);
+
+  const recordActivity = () => {
+    if (launch.provider !== "self_hosted" || !launch.auditSessionId) return;
+    if (Date.now() - lastActivityAt.current < 30_000) return;
+    lastActivityAt.current = Date.now();
+    void activity({ data: { audit_session_id: launch.auditSessionId } }).catch(() => undefined);
+  };
+
+  const closeViewer = () => {
+    if (launch.provider === "self_hosted" && launch.auditSessionId) {
+      void close({ data: { audit_session_id: launch.auditSessionId } }).catch(() => undefined);
+    }
+    onClose();
+  };
+
   return (
     <div
       ref={containerRef}
@@ -31,7 +64,7 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
       <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-white/10 bg-slate-900 px-2.5 shadow-lg sm:px-4">
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeViewer}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white sm:px-3"
           aria-label="Close Phrasly session"
         >
@@ -66,7 +99,7 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
         </button>
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeViewer}
           className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex"
           aria-label="Close Phrasly session"
           title="Close"
@@ -75,7 +108,11 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
         </button>
       </header>
 
-      <main className="relative min-h-0 flex-1 bg-slate-950">
+      <main
+        className="relative min-h-0 flex-1 bg-slate-950"
+        onPointerDown={recordActivity}
+        onKeyDown={recordActivity}
+      >
         <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
           Connecting securely to Phrasly…
         </div>

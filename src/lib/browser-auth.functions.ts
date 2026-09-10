@@ -44,7 +44,7 @@ async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
   return admin;
 }
 
-const providerSchema = z.enum(["browser_use", "cloudflare"]);
+const providerSchema = z.enum(["browser_use", "cloudflare", "self_hosted"]);
 
 export const adminGetBrowserAuthSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -57,12 +57,17 @@ export const adminGetBrowserAuthSettings = createServerFn({ method: "GET" })
       .maybeSingle();
 
     const providers = await Promise.all(
-      (["browser_use", "cloudflare"] as BrowserAuthProvider[]).map(async (provider) => {
+      (["browser_use", "cloudflare", "self_hosted"] as BrowserAuthProvider[]).map(async (provider) => {
         const configured = await configuredBrowserSecrets(admin, provider);
         const required = browserAuthSecretNames(provider);
         return {
           provider,
-          display_name: provider === "browser_use" ? "Browser Use" : "Cloudflare Browser Run",
+          display_name:
+            provider === "browser_use"
+              ? "Browser Use"
+              : provider === "cloudflare"
+                ? "Cloudflare Browser Run"
+                : "Self Hosted",
           configured_secrets: configured,
           missing_secrets: required.filter((n) => !configured.includes(n)),
           configured: required.every((n) => configured.includes(n)),
@@ -172,7 +177,7 @@ export const adminTestBrowserAuthProvider = createServerFn({ method: "POST" })
   });
 
 function validProvider(raw: unknown): BrowserAuthProvider | null {
-  return raw === "browser_use" || raw === "cloudflare" ? raw : null;
+  return raw === "browser_use" || raw === "cloudflare" || raw === "self_hosted" ? raw : null;
 }
 
 function isUnexpired(expiresAt: string | null | undefined) {
