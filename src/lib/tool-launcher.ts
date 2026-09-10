@@ -106,7 +106,7 @@ export async function launchTool(
             : new Date(Date.now() + 30 * 60_000).toISOString();
         const viewerLaunch: BrowserViewerLaunch = {
           toolSlug: "phrasly",
-          provider: result.provider,
+          provider: result.provider === "self_hosted" ? "self_hosted" : "browser_use",
           liveUrl: launchUrl.toString(),
           expiresAt,
           auditSessionId:
