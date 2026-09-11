@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+
 import { APP_NAME } from "@/lib/site-config";
 import { getIsAdmin } from "@/lib/site-settings.functions";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -48,8 +48,11 @@ function LoginPage() {
   }
 
   async function onGoogle() {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) toast.error(result.error.message ?? "Google sign-in failed");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) toast.error(error.message ?? "Google sign-in failed");
   }
 
   return (
