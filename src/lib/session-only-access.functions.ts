@@ -11,10 +11,14 @@ import {
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
 import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
+import {
+  launchSelfHostedSession,
+  SelfHostedRuntimeError,
+} from "@/lib/self-hosted-runtime.server";
 import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
 function validProvider(v: unknown): BrowserAuthProvider | null {
-  return v === "browser_use" || v === "cloudflare" ? v : null;
+  return v === "browser_use" || v === "cloudflare" || v === "self_hosted" ? v : null;
 }
 function unexpired(v: string | null | undefined) {
   return !v || new Date(v).getTime() > Date.now();
@@ -114,27 +118,31 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       validProvider(global.default_provider) ??
       "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
-    const { data: saved } = await (admin as any)
-      .from("tool_account_sessions")
-      .select("authenticated_cookies, session_tokens, verification_status, expires_at, created_by")
-      .eq("account_id", accountId)
-      .eq("provider", provider)
-      .maybeSingle();
-    if (
-      !saved ||
-      saved.verification_status !== "active" ||
-      !Array.isArray(saved.authenticated_cookies) ||
-      !saved.authenticated_cookies.length
-    )
-      throw new Error(WRITER_REAUTH_MESSAGE);
-    const savedExpiryMs = saved.expires_at ? new Date(saved.expires_at).getTime() : 0;
-    if (!Number.isFinite(savedExpiryMs) || savedExpiryMs <= Date.now()) {
-      await (admin as any)
+    let saved: any = null;
+    if (provider !== "self_hosted") {
+      const result = await (admin as any)
         .from("tool_account_sessions")
-        .update({ verification_status: "expired" })
+        .select("authenticated_cookies, session_tokens, verification_status, expires_at, created_by")
         .eq("account_id", accountId)
-        .eq("provider", provider);
-      throw new Error(WRITER_REAUTH_MESSAGE);
+        .eq("provider", provider)
+        .maybeSingle();
+      saved = result.data;
+      if (
+        !saved ||
+        saved.verification_status !== "active" ||
+        !Array.isArray(saved.authenticated_cookies) ||
+        !saved.authenticated_cookies.length
+      )
+        throw new Error(WRITER_REAUTH_MESSAGE);
+      const savedExpiryMs = saved.expires_at ? new Date(saved.expires_at).getTime() : 0;
+      if (!Number.isFinite(savedExpiryMs) || savedExpiryMs <= Date.now()) {
+        await (admin as any)
+          .from("tool_account_sessions")
+          .update({ verification_status: "expired" })
+          .eq("account_id", accountId)
+          .eq("provider", provider);
+        throw new Error(WRITER_REAUTH_MESSAGE);
+      }
     }
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
@@ -164,11 +172,16 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
 
     try {
       const state = {
-        authenticated_cookies: saved.authenticated_cookies,
-        session_tokens: saved.session_tokens,
+        authenticated_cookies: saved?.authenticated_cookies ?? [],
+        session_tokens: saved?.session_tokens ?? null,
       };
       const launched =
-        provider === "cloudflare"
+        provider === "self_hosted"
+          ? await launchSelfHostedSession(admin, {
+              writerId: context.userId,
+              toolSlug: data.tool_slug,
+            })
+          : provider === "cloudflare"
           ? await launchCloudflareSessionOnly(admin, {
               loginUrl: sessionLandingUrl,
               timeoutMinutes,
@@ -194,7 +207,12 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
         .eq("id", auditRow.id);
       if (readyError) {
         const { closeRemoteBrowserSession } = await import("@/lib/browser-auth.server");
-        await closeRemoteBrowserSession(admin, provider, launched.providerSessionId);
+        await closeRemoteBrowserSession(
+          admin,
+          provider,
+          launched.providerSessionId,
+          context.userId,
+        );
         throw new Error(WRITER_TEMPORARY_MESSAGE);
       }
 
@@ -207,14 +225,20 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
         provider: launched.provider,
         launch_url: launched.liveUrl,
         expires_at: launched.expiresAt,
+        audit_session_id: auditRow.id,
       };
     } catch (e) {
-      if (e instanceof SharedAuthStateRejectedError) {
-        await (admin as any)
-          .from("tool_account_sessions")
-          .update({ verification_status: "invalid" })
-          .eq("account_id", accountId)
-          .eq("provider", provider);
+      if (
+        e instanceof SharedAuthStateRejectedError ||
+        (e instanceof SelfHostedRuntimeError && e.requiresAdminReauthentication)
+      ) {
+        if (provider !== "self_hosted") {
+          await (admin as any)
+            .from("tool_account_sessions")
+            .update({ verification_status: "invalid" })
+            .eq("account_id", accountId)
+            .eq("provider", provider);
+        }
         await (admin as any)
           .from("browser_auth_sessions")
           .update({
@@ -229,7 +253,7 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
           event: "shared_session_rejected",
           otp_type: "session_reuse",
           error_message: "Saved authentication rejected by upstream",
-          submitted_by: saved.created_by,
+          submitted_by: saved?.created_by ?? null,
         });
         throw new Error(WRITER_REAUTH_MESSAGE);
       }

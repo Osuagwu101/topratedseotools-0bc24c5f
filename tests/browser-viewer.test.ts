@@ -1,5 +1,6 @@
 import {
   isAllowedBrowserUseLiveUrl,
+  isAllowedSelfHostedViewerUrl,
   parsePhraslyViewerLaunch,
   resolveBrowserViewport,
 } from "../src/lib/browser-viewer.ts";
@@ -21,6 +22,17 @@ const phone = resolveBrowserViewport(393, 873);
 assert(
   phone.width === 393 && phone.height === 809,
   "phone viewport stays readable and uses available height",
+);
+assert(
+  isAllowedSelfHostedViewerUrl(
+    "https://runtime.example.com/viewer/session-1#signed-viewer-token",
+  ),
+  "Self Hosted signed viewer URL is accepted",
+);
+assert(
+  !isAllowedSelfHostedViewerUrl("https://runtime.example.com/not-viewer#token") &&
+    !isAllowedSelfHostedViewerUrl("http://runtime.example.com/viewer/session#token"),
+  "Self Hosted viewer requires HTTPS, viewer path, and fragment grant",
 );
 
 const smallPhone = resolveBrowserViewport(280, 500);
@@ -66,6 +78,18 @@ assert(
   "expired Phrasly launch is rejected",
 );
 assert(parsePhraslyViewerLaunch("not-json", now) === null, "malformed viewer state is rejected");
+
+const selfHosted = JSON.stringify({
+  toolSlug: "phrasly",
+  provider: "self_hosted",
+  liveUrl: "https://runtime.example.com/viewer/session-1#signed-viewer-token",
+  expiresAt: new Date(now + 60_000).toISOString(),
+  auditSessionId: "00000000-0000-4000-8000-000000000015",
+});
+assert(
+  parsePhraslyViewerLaunch(selfHosted, now)?.provider === "self_hosted",
+  "valid Self Hosted launch is restored without changing Browser Use parsing",
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

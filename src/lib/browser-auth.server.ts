@@ -7,7 +7,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type BrowserAuthProvider = "browser_use" | "cloudflare";
+export type BrowserAuthProvider = "browser_use" | "cloudflare" | "self_hosted";
 
 const BROWSER_USE_BASE = "https://api.browser-use.com/api/v3";
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
@@ -15,6 +15,10 @@ const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 const PROVIDER_SECRET_NAMES: Record<BrowserAuthProvider, string[]> = {
   browser_use: ["BROWSER_USE_API_KEY"],
   cloudflare: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_BROWSER_RUN_API_TOKEN"],
+  self_hosted: [
+    "SELF_HOSTED_RUNTIME_BASE_URL",
+    "SELF_HOSTED_RUNTIME_SERVICE_AUTH_SECRET",
+  ],
 };
 
 export function browserAuthSecretNames(provider: BrowserAuthProvider): string[] {
@@ -99,6 +103,7 @@ export async function closeRemoteBrowserSession(
   admin: any,
   provider: BrowserAuthProvider,
   sessionId: string | null | undefined,
+  writerId?: string,
 ): Promise<void> {
   if (!sessionId) return;
 
@@ -106,6 +111,14 @@ export async function closeRemoteBrowserSession(
     if (provider === "browser_use") {
       const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
       if (key) await stopBrowserUseSession(key, sessionId);
+      return;
+    }
+
+    if (provider === "self_hosted") {
+      if (writerId) {
+        const { closeSelfHostedSession } = await import("@/lib/self-hosted-runtime.server");
+        await closeSelfHostedSession(admin, writerId, sessionId);
+      }
       return;
     }
 
@@ -124,6 +137,10 @@ export async function testBrowserProvider(
   provider: BrowserAuthProvider,
 ): Promise<{ ok: boolean; message: string }> {
   try {
+    if (provider === "self_hosted") {
+      const { testSelfHostedRuntime } = await import("@/lib/self-hosted-runtime.server");
+      return testSelfHostedRuntime(admin);
+    }
     if (provider === "browser_use") {
       const key = await loadBrowserSecret(admin, "BROWSER_USE_API_KEY");
       if (!key) return { ok: false, message: "Browser Use API key is not configured." };

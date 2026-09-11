@@ -8,9 +8,10 @@ export type BrowserViewport = {
 
 export type BrowserViewerLaunch = {
   toolSlug: "phrasly";
-  provider: "browser_use";
+  provider: "browser_use" | "self_hosted";
   liveUrl: string;
   expiresAt: string;
+  auditSessionId?: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -54,6 +55,21 @@ export function isAllowedBrowserUseLiveUrl(rawUrl: string) {
   }
 }
 
+export function isAllowedSelfHostedViewerUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      url.pathname.startsWith("/viewer/") &&
+      url.hash.length > 1
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function parsePhraslyViewerLaunch(
   raw: string | null,
   now = Date.now(),
@@ -64,8 +80,11 @@ export function parsePhraslyViewerLaunch(
     const expiry = new Date(String(value.expiresAt ?? "")).getTime();
     if (
       value.toolSlug !== "phrasly" ||
-      value.provider !== "browser_use" ||
-      !isAllowedBrowserUseLiveUrl(String(value.liveUrl ?? "")) ||
+      (value.provider !== "browser_use" && value.provider !== "self_hosted") ||
+      (value.provider === "browser_use"
+        ? !isAllowedBrowserUseLiveUrl(String(value.liveUrl ?? ""))
+        : !isAllowedSelfHostedViewerUrl(String(value.liveUrl ?? "")) ||
+          typeof value.auditSessionId !== "string") ||
       !Number.isFinite(expiry) ||
       expiry <= now
     ) {

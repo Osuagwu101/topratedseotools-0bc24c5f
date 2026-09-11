@@ -65,7 +65,9 @@ function BrowserAuthAdminPage() {
   async function saveProviderSecrets(p: BrowserAuthProvider) {
     const fields = p === "browser_use"
       ? ["BROWSER_USE_API_KEY"]
-      : ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_BROWSER_RUN_API_TOKEN"];
+      : p === "cloudflare"
+        ? ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_BROWSER_RUN_API_TOKEN"]
+        : ["SELF_HOSTED_RUNTIME_BASE_URL", "SELF_HOSTED_RUNTIME_SERVICE_AUTH_SECRET"];
     const secrets = Object.fromEntries(fields.filter((f) => draft[f]?.trim()).map((f) => [f, draft[f].trim()]));
     if (!Object.keys(secrets).length) return toast.error("Enter at least one credential first.");
     setBusy(`save:${p}`);
@@ -97,7 +99,7 @@ function BrowserAuthAdminPage() {
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow"><Zap className="h-5 w-5" /></div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">One-Click Browser Login</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Configure Browser Use and Cloudflare Browser Run. API credentials are write-only and never sent to customers.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Configure Browser Use, Cloudflare Browser Run, and Self Hosted. Credentials are write-only and never sent to customers.</p>
           </div>
         </header>
 
@@ -113,6 +115,7 @@ function BrowserAuthAdminPage() {
               <select value={provider} onChange={(e) => setProvider(e.target.value as BrowserAuthProvider)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="browser_use">Browser Use</option>
                 <option value="cloudflare">Cloudflare Browser Run</option>
+                <option value="self_hosted">Self Hosted</option>
               </select>
               <p className="mt-1 text-xs text-muted-foreground">Leave a tool's provider blank to use this default.</p>
             </label>
@@ -134,6 +137,11 @@ function BrowserAuthAdminPage() {
           <ProviderCard title="Cloudflare Browser Run" description="Cloudflare remote browser with interactive tab-mode Live View." configured={info("cloudflare").configured} missing={info("cloudflare").missing_secrets} busy={busy} provider="cloudflare" isSuper={data.is_super_admin} onTest={runTest} onSave={saveProviderSecrets}>
             <SecretField label="Cloudflare Account ID" saved={info("cloudflare").configured_secrets.includes("CLOUDFLARE_ACCOUNT_ID")} value={draft.CLOUDFLARE_ACCOUNT_ID ?? ""} onChange={(v) => setDraft((d) => ({ ...d, CLOUDFLARE_ACCOUNT_ID: v }))} placeholder="Account ID" />
             <SecretField label="Browser Run API token" saved={info("cloudflare").configured_secrets.includes("CLOUDFLARE_BROWSER_RUN_API_TOKEN")} value={draft.CLOUDFLARE_BROWSER_RUN_API_TOKEN ?? ""} onChange={(v) => setDraft((d) => ({ ...d, CLOUDFLARE_BROWSER_RUN_API_TOKEN: v }))} placeholder="Browser Rendering Edit token" />
+          </ProviderCard>
+
+          <ProviderCard title="Self Hosted" description="Fixed-cost browser runtime hosted on your own server. Browser state remains inside the runtime." configured={info("self_hosted").configured} missing={info("self_hosted").missing_secrets} busy={busy} provider="self_hosted" isSuper={data.is_super_admin} onTest={runTest} onSave={saveProviderSecrets}>
+            <SecretField label="Runtime HTTPS URL" saved={info("self_hosted").configured_secrets.includes("SELF_HOSTED_RUNTIME_BASE_URL")} value={draft.SELF_HOSTED_RUNTIME_BASE_URL ?? ""} onChange={(v) => setDraft((d) => ({ ...d, SELF_HOSTED_RUNTIME_BASE_URL: v }))} placeholder="https://runtime.example.com" />
+            <SecretField label="Runtime service signing secret" saved={info("self_hosted").configured_secrets.includes("SELF_HOSTED_RUNTIME_SERVICE_AUTH_SECRET")} value={draft.SELF_HOSTED_RUNTIME_SERVICE_AUTH_SECRET ?? ""} onChange={(v) => setDraft((d) => ({ ...d, SELF_HOSTED_RUNTIME_SERVICE_AUTH_SECRET: v }))} placeholder="At least 32 characters" />
           </ProviderCard>
         </div>
 

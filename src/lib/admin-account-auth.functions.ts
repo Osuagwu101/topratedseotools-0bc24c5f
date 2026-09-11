@@ -18,6 +18,14 @@ import { attachBrowserUsePage, waitForAuthOrOtp } from "@/lib/browser-auth-sessi
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 
+function assertMainAppManagedProvider(...values: unknown[]) {
+  if (values.includes("self_hosted")) {
+    throw new Error(
+      "Self Hosted authentication is managed inside the standalone runtime; use its administrator authentication flow.",
+    );
+  }
+}
+
 export const adminRefreshAccountAuthentication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ account_id: z.string().uuid() }).parse(input))
@@ -45,6 +53,7 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
     if (!global?.enabled) throw new Error("One-Click Login is disabled in Browser Auth settings.");
     const { data: toolSetting } = await (admin as any).from("tool_settings")
       .select("official_login_url, auth_provider").eq("tool_slug", account.tool_slug).maybeSingle();
+    assertMainAppManagedProvider(toolSetting?.auth_provider, global.default_provider);
     const provider = validProvider(toolSetting?.auth_provider) ?? validProvider(global.default_provider) ?? "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
     const loginUrl = String(account.login_url ?? toolSetting?.official_login_url ?? "").trim();
@@ -276,6 +285,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
       .eq("tool_slug", account.tool_slug)
       .maybeSingle();
 
+    assertMainAppManagedProvider(toolSetting?.auth_provider, global.default_provider);
     const provider =
       validProvider(toolSetting?.auth_provider) ??
       validProvider(global.default_provider) ??
