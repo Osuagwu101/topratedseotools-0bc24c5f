@@ -9,7 +9,8 @@ import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import {
   PHRASLY_VIEWER_PATH,
   PHRASLY_VIEWER_STORAGE_KEY,
-  isAllowedBrowserUseLiveUrl,
+  isAllowedToolViewerUrl,
+  viewerStorageKey,
   resolveBrowserViewport,
   type BrowserViewerLaunch,
 } from "@/lib/browser-viewer";
@@ -80,31 +81,33 @@ export async function launchTool(
       const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
 
-      const isPhraslyBrowserUse = tool.slug === "phrasly" && result.provider === "browser_use";
-      if (isPhraslyBrowserUse && !isAllowedBrowserUseLiveUrl(launchUrl.toString())) {
+      const viewerTool = ["phrasly", "stealthwriter", "chatgpt"].includes(tool.slug);
+      const isEmbeddedViewer = viewerTool &&
+        (result.provider === "browser_use" || result.provider === "self_hosted");
+      if (isEmbeddedViewer && !isAllowedToolViewerUrl(result.provider, launchUrl.toString())) {
         throw new Error("The secure login service returned an invalid Phrasly viewer URL.");
       }
 
       const targetWindow =
         mode === "same_tab" || !handoffWindow || handoffWindow.closed ? window : handoffWindow;
 
-      if (isPhraslyBrowserUse) {
+      if (isEmbeddedViewer) {
         const expiresAt =
           "expires_at" in result && typeof result.expires_at === "string"
             ? result.expires_at
             : new Date(Date.now() + 30 * 60_000).toISOString();
         const viewerLaunch: BrowserViewerLaunch = {
-          toolSlug: "phrasly",
-          provider: "browser_use",
+          toolSlug: tool.slug as BrowserViewerLaunch["toolSlug"],
+          provider: result.provider,
           liveUrl: launchUrl.toString(),
           expiresAt,
         };
         targetWindow.sessionStorage.setItem(
-          PHRASLY_VIEWER_STORAGE_KEY,
+          viewerStorageKey(viewerLaunch.toolSlug),
           JSON.stringify(viewerLaunch),
         );
-        targetWindow.location.href = PHRASLY_VIEWER_PATH;
-        return { status: "launched", launchUrl: PHRASLY_VIEWER_PATH, expiresAt };
+        targetWindow.location.href = `/tools/${viewerLaunch.toolSlug}`;
+        return { status: "launched", launchUrl: `/tools/${viewerLaunch.toolSlug}`, expiresAt };
       }
 
       if (mode === "same_tab") window.location.href = launchUrl.toString();

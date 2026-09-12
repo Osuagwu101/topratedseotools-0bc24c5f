@@ -7,8 +7,8 @@ export type BrowserViewport = {
 };
 
 export type BrowserViewerLaunch = {
-  toolSlug: "phrasly";
-  provider: "browser_use";
+  toolSlug: "phrasly" | "stealthwriter" | "chatgpt";
+  provider: "browser_use" | "self_hosted";
   liveUrl: string;
   expiresAt: string;
 };
@@ -54,6 +54,26 @@ export function isAllowedBrowserUseLiveUrl(rawUrl: string) {
   }
 }
 
+export function isAllowedSelfHostedViewerUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    return url.protocol === "https:" &&
+      url.hostname === "runtime.topratedseotools.com" &&
+      url.pathname.startsWith("/viewer/") &&
+      !!url.hash && !url.username && !url.password;
+  } catch { return false; }
+}
+
+export function isAllowedToolViewerUrl(provider: BrowserViewerLaunch["provider"], rawUrl: string) {
+  return provider === "browser_use"
+    ? isAllowedBrowserUseLiveUrl(rawUrl)
+    : isAllowedSelfHostedViewerUrl(rawUrl);
+}
+
+export function viewerStorageKey(toolSlug: BrowserViewerLaunch["toolSlug"]) {
+  return `toprated:browser-viewer:${toolSlug}`;
+}
+
 export function parsePhraslyViewerLaunch(
   raw: string | null,
   now = Date.now(),
@@ -63,9 +83,9 @@ export function parsePhraslyViewerLaunch(
     const value = JSON.parse(raw) as Partial<BrowserViewerLaunch>;
     const expiry = new Date(String(value.expiresAt ?? "")).getTime();
     if (
-      value.toolSlug !== "phrasly" ||
-      value.provider !== "browser_use" ||
-      !isAllowedBrowserUseLiveUrl(String(value.liveUrl ?? "")) ||
+      !["phrasly", "stealthwriter", "chatgpt"].includes(String(value.toolSlug)) ||
+      (value.provider !== "browser_use" && value.provider !== "self_hosted") ||
+      !isAllowedToolViewerUrl(value.provider, String(value.liveUrl ?? "")) ||
       !Number.isFinite(expiry) ||
       expiry <= now
     ) {
