@@ -10,15 +10,10 @@ import {
   WRITER_REAUTH_MESSAGE,
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
-import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
 import { launchSelfHostedBrowser } from "@/lib/self-hosted-runtime.server";
-
-type SessionBrowserProvider = BrowserAuthProvider | "self_hosted";
+import { resolveSessionBrowserProvider } from "@/lib/browser-provider-policy";
 import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
-function validProvider(v: unknown): SessionBrowserProvider | null {
-  return v === "browser_use" || v === "cloudflare" || v === "self_hosted" ? v : null;
-}
 function unexpired(v: string | null | undefined) {
   return !v || new Date(v).getTime() > Date.now();
 }
@@ -112,10 +107,10 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
     }
     const sessionLandingUrl = resolveSharedAuthLandingUrl(data.tool_slug, loginUrl);
 
-    const provider =
-      validProvider(toolSetting.auth_provider) ??
-      validProvider(global.default_provider) ??
-      "browser_use";
+    const provider = resolveSessionBrowserProvider(
+      toolSetting.auth_provider,
+      global.default_provider,
+    );
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
 
     if (provider === "self_hosted") {
