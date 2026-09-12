@@ -11,7 +11,10 @@ import {
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
 import { launchSelfHostedBrowser } from "@/lib/self-hosted-runtime.server";
-import { resolveSessionBrowserProvider } from "@/lib/browser-provider-policy";
+import {
+  resolveSessionBrowserProvider,
+  usesWebsiteSavedBrowserState,
+} from "@/lib/browser-provider-policy";
 import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
 function unexpired(v: string | null | undefined) {
@@ -113,7 +116,7 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
     );
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
 
-    if (provider === "self_hosted") {
+    if (!usesWebsiteSavedBrowserState(provider)) {
       const recent = await (admin as any).from("browser_auth_sessions")
         .select("id", { count: "exact", head: true }).eq("user_id", context.userId)
         .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString());
