@@ -39,8 +39,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 import { PhraslyBrowserViewer } from "@/components/tools/PhraslyBrowserViewer";
 import {
-  PHRASLY_VIEWER_STORAGE_KEY,
   parsePhraslyViewerLaunch,
+  viewerStorageKey,
   type BrowserViewerLaunch,
 } from "@/lib/browser-viewer";
 
@@ -143,29 +143,31 @@ function ToolPage() {
     .slice(0, 3);
 
   useEffect(() => {
-    if (data.slug !== "phrasly") {
+    if (!["phrasly", "stealthwriter", "chatgpt"].includes(data.slug)) {
       setViewerLaunch(null);
       return;
     }
-    const launch = parsePhraslyViewerLaunch(sessionStorage.getItem(PHRASLY_VIEWER_STORAGE_KEY));
-    if (!launch) sessionStorage.removeItem(PHRASLY_VIEWER_STORAGE_KEY);
+    const key = viewerStorageKey(data.slug as BrowserViewerLaunch["toolSlug"]);
+    const launch = parsePhraslyViewerLaunch(sessionStorage.getItem(key));
+    if (!launch || launch.toolSlug !== data.slug) sessionStorage.removeItem(key);
     setViewerLaunch(launch);
   }, [data.slug]);
 
-  if (data.slug === "phrasly" && viewerLaunch && session?.isAuthenticated) {
+  if (viewerLaunch && viewerLaunch.toolSlug === data.slug && session?.isAuthenticated) {
     return (
       <PhraslyBrowserViewer
         launch={viewerLaunch}
+        toolName={tool.name}
         onClose={() => {
-          sessionStorage.removeItem(PHRASLY_VIEWER_STORAGE_KEY);
+          sessionStorage.removeItem(viewerStorageKey(viewerLaunch.toolSlug));
           setViewerLaunch(null);
         }}
       />
     );
   }
 
-  if (data.slug === "phrasly" && viewerLaunch && session === undefined) {
-    return <div className="h-dvh bg-slate-950" aria-label="Loading secure Phrasly session" />;
+  if (viewerLaunch && viewerLaunch.toolSlug === data.slug && session === undefined) {
+    return <div className="h-dvh bg-slate-950" aria-label={`Loading secure ${tool.name} session`} />;
   }
 
   if (!tool.is_visible) {

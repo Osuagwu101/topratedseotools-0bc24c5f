@@ -7,8 +7,6 @@ import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.function
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import {
-  PHRASLY_VIEWER_PATH,
-  PHRASLY_VIEWER_STORAGE_KEY,
   isAllowedToolViewerUrl,
   viewerStorageKey,
   resolveBrowserViewport,
@@ -85,7 +83,7 @@ export async function launchTool(
       const isEmbeddedViewer = viewerTool &&
         (result.provider === "browser_use" || result.provider === "self_hosted");
       if (isEmbeddedViewer && !isAllowedToolViewerUrl(result.provider, launchUrl.toString())) {
-        throw new Error("The secure login service returned an invalid Phrasly viewer URL.");
+        throw new Error("The secure login service returned an invalid secure viewer URL.");
       }
 
       const targetWindow =

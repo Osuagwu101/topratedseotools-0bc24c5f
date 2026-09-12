@@ -4,10 +4,11 @@ import type { BrowserViewerLaunch } from "@/lib/browser-viewer";
 
 interface Props {
   launch: BrowserViewerLaunch;
+  toolName: string;
   onClose: () => void;
 }
 
-export function PhraslyBrowserViewer({ launch, onClose }: Props) {
+export function PhraslyBrowserViewer({ launch, toolName, onClose }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [frameVersion, setFrameVersion] = useState(0);
   const expiryLabel = useMemo(
@@ -33,14 +34,14 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
           type="button"
           onClick={onClose}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white sm:px-3"
-          aria-label="Close Phrasly session"
+          aria-label={`Close ${toolName} session`}
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Back to tools</span>
         </button>
 
         <div className="min-w-0 flex-1 text-center">
-          <div className="truncate text-sm font-semibold sm:text-base">Phrasly Workspace</div>
+          <div className="truncate text-sm font-semibold sm:text-base">{toolName} Workspace</div>
           <div className="flex items-center justify-center gap-1 text-[10px] text-emerald-300 sm:text-xs">
             <ShieldCheck className="h-3 w-3" /> Secure session · ends {expiryLabel}
           </div>
@@ -68,7 +69,7 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
           type="button"
           onClick={onClose}
           className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex"
-          aria-label="Close Phrasly session"
+          aria-label={`Close ${toolName} session`}
           title="Close"
         >
           <X className="h-4 w-4" />
@@ -77,12 +78,12 @@ export function PhraslyBrowserViewer({ launch, onClose }: Props) {
 
       <main className="relative min-h-0 flex-1 bg-slate-950">
         <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-          Connecting securely to Phrasly…
+          Connecting securely to {toolName}…
         </div>
         <iframe
           key={frameVersion}
           src={launch.liveUrl}
-          title="Phrasly secure browser session"
+          title={`${toolName} secure browser session`}
           className="absolute inset-0 h-full w-full border-0 bg-slate-950"
           allow="autoplay; clipboard-read; clipboard-write; fullscreen"
           referrerPolicy="no-referrer"
