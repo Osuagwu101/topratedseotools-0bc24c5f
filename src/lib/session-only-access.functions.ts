@@ -11,10 +11,13 @@ import {
   WRITER_TEMPORARY_MESSAGE,
 } from "@/lib/shared-session-launch.server";
 import type { BrowserAuthProvider } from "@/lib/browser-auth.server";
+import { launchSelfHostedBrowser } from "@/lib/self-hosted-runtime.server";
+
+type SessionBrowserProvider = BrowserAuthProvider | "self_hosted";
 import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
 
-function validProvider(v: unknown): BrowserAuthProvider | null {
-  return v === "browser_use" || v === "cloudflare" ? v : null;
+function validProvider(v: unknown): SessionBrowserProvider | null {
+  return v === "browser_use" || v === "cloudflare" || v === "self_hosted" ? v : null;
 }
 function unexpired(v: string | null | undefined) {
   return !v || new Date(v).getTime() > Date.now();
@@ -114,6 +117,36 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       validProvider(global.default_provider) ??
       "browser_use";
     const timeoutMinutes = Math.max(5, Math.min(60, Number(global.session_timeout_minutes ?? 30)));
+
+    if (provider === "self_hosted") {
+      const recent = await (admin as any).from("browser_auth_sessions")
+        .select("id", { count: "exact", head: true }).eq("user_id", context.userId)
+        .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString());
+      if ((recent.count ?? 0) >= 3) throw new Error("Too many One-Click Login attempts. Please wait a few minutes and try again.");
+      const { data: auditRow, error: insertError } = await (admin as any)
+        .from("browser_auth_sessions").insert({
+          user_id: context.userId, order_id: orderId, grant_id: grantId,
+          tool_slug: data.tool_slug, provider, status: "starting",
+          expires_at: new Date(Date.now() + timeoutMinutes * 60000).toISOString(),
+        }).select("id").single();
+      if (insertError) throw new Error("Could not start One-Click Login. Please try again.");
+      try {
+        const launched = await launchSelfHostedBrowser(context.userId, data.tool_slug);
+        const { error: readyError } = await (admin as any).from("browser_auth_sessions").update({
+          status: "ready", provider_session_id: launched.providerSessionId,
+          expires_at: launched.expiresAt, updated_at: new Date().toISOString(),
+        }).eq("id", auditRow.id);
+        if (readyError) throw new Error(WRITER_TEMPORARY_MESSAGE);
+        await (admin as any).from("tool_usage").insert({ tool_slug: data.tool_slug, user_id: context.userId });
+        return { ok: true, status: "ready" as const, provider: launched.provider, launch_url: launched.liveUrl, expires_at: launched.expiresAt };
+      } catch {
+        await (admin as any).from("browser_auth_sessions").update({
+          status: "failed", error_code: "self_hosted_runtime_unavailable", updated_at: new Date().toISOString(),
+        }).eq("id", auditRow.id);
+        throw new Error(WRITER_TEMPORARY_MESSAGE);
+      }
+    }
+
     const { data: saved } = await (admin as any)
       .from("tool_account_sessions")
       .select("authenticated_cookies, session_tokens, verification_status, expires_at, created_by")
