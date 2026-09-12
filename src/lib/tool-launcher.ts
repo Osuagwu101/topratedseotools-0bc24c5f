@@ -80,24 +80,28 @@ export async function launchTool(
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
 
       const viewerTool = ["phrasly", "stealthwriter", "chatgpt"].includes(tool.slug);
+      const viewerProvider =
+        result.provider === "browser_use" || result.provider === "self_hosted"
+          ? result.provider
+          : null;
       const isEmbeddedViewer =
-        (tool.slug === "phrasly" && result.provider === "browser_use") ||
-        (viewerTool && result.provider === "self_hosted");
-      if (isEmbeddedViewer && !isAllowedToolViewerUrl(result.provider, launchUrl.toString())) {
+        (tool.slug === "phrasly" && viewerProvider === "browser_use") ||
+        (viewerTool && viewerProvider === "self_hosted");
+      if (isEmbeddedViewer && viewerProvider && !isAllowedToolViewerUrl(viewerProvider, launchUrl.toString())) {
         throw new Error("The secure login service returned an invalid secure viewer URL.");
       }
 
       const targetWindow =
         mode === "same_tab" || !handoffWindow || handoffWindow.closed ? window : handoffWindow;
 
-      if (isEmbeddedViewer) {
+      if (isEmbeddedViewer && viewerProvider) {
         const expiresAt =
           "expires_at" in result && typeof result.expires_at === "string"
             ? result.expires_at
             : new Date(Date.now() + 30 * 60_000).toISOString();
         const viewerLaunch: BrowserViewerLaunch = {
           toolSlug: tool.slug as BrowserViewerLaunch["toolSlug"],
-          provider: result.provider,
+          provider: viewerProvider,
           liveUrl: launchUrl.toString(),
           expiresAt,
         };
