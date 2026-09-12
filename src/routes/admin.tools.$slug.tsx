@@ -644,12 +644,22 @@ function AccessTab({ slug }: { slug: string }) {
             placeholder="https://example.com/login"
             full
           />
-          <Input
-            label="Authentication Provider (optional)"
-            value={ocProvider}
-            onChange={setOcProvider}
-            placeholder="OAuth, SAML, Magic link…"
-          />
+          <label className="text-xs font-medium">
+            <span className="text-muted-foreground">Browser provider</span>
+            <select
+              value={ocProvider}
+              onChange={(e) => setOcProvider(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Default — Browser Use</option>
+              <option value="browser_use">Browser Use</option>
+              <option value="cloudflare">Cloudflare Browser Run</option>
+              <option value="self_hosted">Self Hosted</option>
+            </select>
+            <span className="mt-1 block text-muted-foreground">
+              Clear the override to roll back to Browser Use.
+            </span>
+          </label>
           <label className="text-xs font-medium">
             <span className="text-muted-foreground">Launch mode</span>
             <select
