@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supportsSelfHostedBrowser } from "@/lib/browser-provider-policy";
 
 export type ToolAccessLevel = "public" | "logged_in" | "purchased";
 export type ToolOrderStatus =
@@ -460,6 +461,10 @@ export const adminUpsertToolSetting = createServerFn({ method: "POST" })
         );
       }
     }
+    if (data.auth_provider === "self_hosted" && !supportsSelfHostedBrowser(data.tool_slug)) {
+      throw new Error("Self Hosted browser access is currently supported only for Phrasly, StealthWriter, and ChatGPT.");
+    }
+
     const patch: Record<string, unknown> = { tool_slug: data.tool_slug };
     for (const k of [
       "enabled",
