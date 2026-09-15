@@ -50,7 +50,7 @@ const summaryQuery = (slug: string) =>
     queryFn: () => getToolAccountSummary({ data: { tool_slug: slug } }),
   });
 
-export function AccountsCapacityTab({ slug }: { slug: string }) {
+export function AccountsCapacityTab({ slug, authProvider }: { slug: string; authProvider?: string | null }) {
   const qc = useQueryClient();
   const { data } = useSuspenseQuery(accountsQuery(slug));
   const { data: summaryData } = useSuspenseQuery(summaryQuery(slug));
@@ -67,7 +67,7 @@ export function AccountsCapacityTab({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-6">
-      <AdminOtpQueue toolSlug={slug} />
+      <AdminOtpQueue toolSlug={slug} authProvider={authProvider} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Accounts & Capacity</h2>

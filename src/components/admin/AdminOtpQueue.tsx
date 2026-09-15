@@ -11,7 +11,7 @@ import {
 import { adminListAccountsForTool } from "@/lib/account-pool.functions";
 import { OtpVerificationModal } from "@/components/admin/OtpVerificationModal";
 
-export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
+export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; authProvider?: string | null }) {
   type QueueSession = { id: string; tool_slug: string; expires_at: string; otp_context?: { detected_type?: string } | null };
   type ManualSession = {
     sessionId: string;
@@ -32,13 +32,14 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
   });
   const sessions = queue.data?.sessions ?? [];
   const accounts = accountsQuery.data?.accounts ?? [];
+  const usesManualLogin = toolSlug === "phrasly" || authProvider === "self_hosted";
 
   const refreshAccount = async (account: any) => {
     setRefreshing(account.id);
     try {
       const result = await adminRefreshAccountAuthentication({ data: { account_id: account.id } });
       if (result.status === "awaiting_otp") {
-        toast.info("Phrasly needs an OTP. Use the verification queue below.");
+        toast.info("This tool needs an OTP. Use the verification queue below.");
         await queue.refetch();
       } else {
         toast.success("Authenticated session refreshed. Writers can launch independently now.");
@@ -53,9 +54,9 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
     if (handoffWindow) {
       try {
         handoffWindow.opener = null;
-        handoffWindow.document.title = "Opening secure Phrasly login…";
+        handoffWindow.document.title = "Opening secure tool login…";
         handoffWindow.document.body.innerHTML =
-          '<div style="font-family:system-ui;padding:28px;color:#334155">Preparing secure Phrasly login…</div>';
+          '<div style="font-family:system-ui;padding:28px;color:#334155">Preparing secure tool login…</div>';
       } catch {
         // Browser controlled.
       }
@@ -81,12 +82,12 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
       }
 
       toast.info(
-        "Secure Phrasly browser opened. Log in there and complete any OTP, then return here and save the authenticated session.",
+        "Secure browser opened. Log in there and complete any OTP, then return here and save the authenticated session.",
         { duration: 8000 },
       );
     } catch (e: any) {
       if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
-      toast.error(e?.message ?? "Could not open the secure Phrasly login.");
+      toast.error(e?.message ?? "Could not open the secure tool login.");
     } finally {
       setRefreshing(null);
     }
@@ -113,7 +114,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
         toast.info(result.message, { duration: 8000 });
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not save the authenticated Phrasly session.");
+      toast.error(e?.message ?? "Could not save the authenticated tool session.");
     } finally {
       setSavingManual(null);
     }
@@ -126,9 +127,9 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
         <p className="mt-1 text-sm text-muted-foreground">
           Authenticate each account here. Writers only receive isolated browsers copied from this saved admin session; they never enter credentials or OTP.
         </p>
-        {toolSlug === "phrasly" && (
+        {usesManualLogin && (
           <p className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-950">
-            Phrasly uses a secure admin handoff: open the remote browser, enter the Phrasly login and any OTP there, then return here and click <strong>Save authenticated session</strong>. The password and OTP are not entered into this dashboard.
+            This tool uses a secure admin handoff: open the remote browser, enter the tool login and any OTP there, then return here and click <strong>Save authenticated session</strong>. The password and OTP are not entered into this dashboard.
           </p>
         )}
         <div className="mt-3 space-y-2">
@@ -138,7 +139,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
                 <div className="truncate text-sm font-medium">{account.label ?? account.login_email ?? "Tool account"}</div>
                 <div className="text-xs text-muted-foreground">{account.login_email ?? "No login email"}</div>
               </div>
-              {toolSlug === "phrasly" ? (
+              {usesManualLogin ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"

@@ -32,6 +32,8 @@ jobs:
         run: bun tests/runtime-signing.test.ts
       - name: Browser provider coexistence policy tests
         run: bun tests/browser-provider-policy.test.ts
+      - name: Admin Secure Login provider-routing tests
+        run: bun tests/admin-secure-login-provider-routing.test.ts
       - name: Phase 15 grant and saved-auth invariants
         run: bun tests/phase15-invariants.test.ts
       - name: Custom Payment gateway regression tests
