@@ -57,3 +57,11 @@ const accessFunctions = readFileSync("src/lib/access.functions.ts", "utf8");
 if (!accessFunctions.includes('data.auth_provider === "self_hosted"') || !accessFunctions.includes("supportsSelfHostedBrowser(data.tool_slug)")) {
   throw new Error("Admin settings must reject unsupported Self Hosted tools");
 }
+
+const cleanupMigration = readFileSync(
+  "supabase/migrations/202609150001_phase15_audit_provider_cleanup.sql",
+  "utf8",
+);
+if (!cleanupMigration.includes("auth_provider = 'self_hosted'") || !cleanupMigration.includes("auth_provider = 'browser_use'")) {
+  throw new Error("Unsupported persisted Self Hosted overrides must roll back to Browser Use");
+}
