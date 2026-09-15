@@ -1,8 +1,8 @@
 /* Server-only client for the standalone self-hosted browser runtime. */
 import { createHash, createHmac, randomBytes } from "node:crypto";
+import { supportsSelfHostedBrowser } from "@/lib/browser-provider-policy";
 
 const DEFAULT_RUNTIME_BASE_URL = "https://runtime.topratedseotools.com";
-import { supportsSelfHostedBrowser } from "@/lib/browser-provider-policy";
 
 export type SelfHostedLaunch = { provider: "self_hosted"; providerSessionId: string; liveUrl: string; expiresAt: string };
 
