@@ -2,7 +2,7 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 
 const DEFAULT_RUNTIME_BASE_URL = "https://runtime.topratedseotools.com";
-const SUPPORTED_RUNTIME_TOOLS = new Set(["phrasly", "stealthwriter", "chatgpt"]);
+import { supportsSelfHostedBrowser } from "@/lib/browser-provider-policy";
 
 export type SelfHostedLaunch = { provider: "self_hosted"; providerSessionId: string; liveUrl: string; expiresAt: string };
 
@@ -53,12 +53,13 @@ async function runtimeRequest(
   return { response, json };
 }
 
-export async function launchSelfHostedBrowser(writerId: string, toolSlug: string): Promise<SelfHostedLaunch> {
-  if (!SUPPORTED_RUNTIME_TOOLS.has(toolSlug)) throw new Error("This tool is not enabled for Self Hosted browser access.");
+export async function launchSelfHostedBrowser(writerId: string, toolSlug: string, accountId: string): Promise<SelfHostedLaunch> {
+  if (!supportsSelfHostedBrowser(toolSlug)) throw new Error("This tool is not enabled for Self Hosted browser access.");
   const path = "/api/sessions";
   const { response, json } = await runtimeRequest("POST", path, writerId, {
     writer_id: writerId,
     tool_slug: toolSlug,
+    account_id: accountId,
   });
   if (!response.ok) {
     const code = typeof json?.code === "string" ? json.code : "";
@@ -75,7 +76,7 @@ export async function launchSelfHostedBrowser(writerId: string, toolSlug: string
 }
 
 function assertSupportedRuntimeTool(toolSlug: string) {
-  if (!SUPPORTED_RUNTIME_TOOLS.has(toolSlug)) {
+  if (!supportsSelfHostedBrowser(toolSlug)) {
     throw new Error("This tool is not enabled for Self Hosted browser access.");
   }
 }
@@ -83,10 +84,11 @@ function assertSupportedRuntimeTool(toolSlug: string) {
 export async function launchSelfHostedAdminAuthentication(
   adminId: string,
   toolSlug: string,
+  accountId: string,
 ): Promise<SelfHostedLaunch> {
   assertSupportedRuntimeTool(toolSlug);
   const path = `/api/tool-auth/${encodeURIComponent(toolSlug)}/sessions`;
-  const { response, json } = await runtimeRequest("POST", path, adminId);
+  const { response, json } = await runtimeRequest("POST", path, adminId, { account_id: accountId });
   if (!response.ok) {
     throw new Error("Self Hosted secure login is temporarily unavailable. Please try again shortly.");
   }
@@ -104,10 +106,11 @@ export async function approveSelfHostedAdminAuthentication(
   adminId: string,
   toolSlug: string,
   providerSessionId: string,
+  accountId: string,
 ) {
   assertSupportedRuntimeTool(toolSlug);
   const path = `/api/tool-auth/${encodeURIComponent(toolSlug)}/sessions/${encodeURIComponent(providerSessionId)}/approve`;
-  const { response, json } = await runtimeRequest("POST", path, adminId);
+  const { response, json } = await runtimeRequest("POST", path, adminId, { account_id: accountId });
   if (!response.ok) {
     if (json?.code === "TOOL_AUTH_NOT_VERIFIED") {
       throw new SelfHostedAuthenticationNotReadyError(
@@ -125,10 +128,11 @@ export async function closeSelfHostedAdminAuthentication(
   adminId: string,
   toolSlug: string,
   providerSessionId: string,
+  accountId: string,
 ) {
   assertSupportedRuntimeTool(toolSlug);
   const path = `/api/tool-auth/${encodeURIComponent(toolSlug)}/sessions/${encodeURIComponent(providerSessionId)}`;
-  const { response } = await runtimeRequest("DELETE", path, adminId);
+  const { response } = await runtimeRequest("DELETE", path, adminId, { account_id: accountId });
   if (!response.ok && response.status !== 404) {
     throw new Error("Self Hosted secure login browser could not be closed.");
   }
