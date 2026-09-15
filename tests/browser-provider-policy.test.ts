@@ -1,6 +1,7 @@
 import {
   resolveSessionBrowserProvider,
   usesWebsiteSavedBrowserState,
+  supportsSelfHostedBrowser,
 } from "../src/lib/browser-provider-policy.ts";
 
 let passed = 0;
@@ -31,3 +32,8 @@ assert(
 );
 
 console.log(`browser-provider-policy: ${passed} passed`);
+
+assert(supportsSelfHostedBrowser("phrasly"), "Phrasly supports Self Hosted");
+assert(supportsSelfHostedBrowser("stealthwriter"), "StealthWriter supports Self Hosted");
+assert(supportsSelfHostedBrowser("chatgpt"), "ChatGPT supports Self Hosted");
+assert(!supportsSelfHostedBrowser("canva"), "unsupported tools reject Self Hosted");
