@@ -346,6 +346,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
             ? await launchSelfHostedAdminAuthentication(
                 context.userId,
                 account.tool_slug,
+                account.id,
               )
             : await launchBrowserUseInteractive(admin, {
                 loginUrl,
@@ -366,6 +367,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
             context.userId,
             account.tool_slug,
             launched.providerSessionId,
+            account.id,
           );
         } else {
           await closeRemoteBrowserSession(
@@ -389,6 +391,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
           context.userId,
           account.tool_slug,
           launched.providerSessionId,
+          account.id,
         ).catch(() => undefined);
       }
       await (admin as any)
@@ -442,6 +445,13 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
       throw new Error("This secure-login browser provider is not supported.");
     }
 
+    const otpContext = (session.otp_context ?? {}) as any;
+    const accountId =
+      typeof otpContext.account_id === "string" ? otpContext.account_id : "";
+    if (!accountId) {
+      throw new Error("This authentication session is not linked to a tool account.");
+    }
+
     const expiresAtMs = session.expires_at
       ? new Date(session.expires_at).getTime()
       : 0;
@@ -460,6 +470,7 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
             context.userId,
             session.tool_slug,
             session.provider_session_id,
+            accountId,
           ).catch(() => undefined);
         }
       } else {
@@ -470,13 +481,6 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
         );
       }
       throw new Error("The secure login browser expired. Open a new one and try again.");
-    }
-
-    const otpContext = (session.otp_context ?? {}) as any;
-    const accountId =
-      typeof otpContext.account_id === "string" ? otpContext.account_id : "";
-    if (!accountId) {
-      throw new Error("This authentication session is not linked to a tool account.");
     }
 
     const { data: account } = await (admin as any)
@@ -508,6 +512,7 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
           context.userId,
           session.tool_slug,
           session.provider_session_id,
+          accountId,
         );
       } catch (error) {
         if (error instanceof SelfHostedAuthenticationNotReadyError) {

@@ -54,6 +54,7 @@ import {
 } from "@/lib/tool-overrides.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 import { launchTool } from "@/lib/tool-launcher";
+import { supportsSelfHostedBrowser } from "@/lib/browser-provider-policy";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
@@ -659,7 +660,7 @@ function AccessTab({ slug }: { slug: string }) {
               <option value="">Default — Browser Use</option>
               <option value="browser_use">Browser Use</option>
               <option value="cloudflare">Cloudflare Browser Run</option>
-              <option value="self_hosted">Self Hosted</option>
+{supportsSelfHostedBrowser(slug) && <option value="self_hosted">Self Hosted</option>}
             </select>
             <span className="mt-1 block text-muted-foreground">
               Clear the override to roll back to Browser Use.

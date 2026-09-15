@@ -33,3 +33,9 @@ export function resolveAdminSecureLoginProvider(
 export function usesWebsiteSavedBrowserState(provider: SessionBrowserProvider) {
   return provider !== "self_hosted";
 }
+
+export const SELF_HOSTED_BROWSER_TOOLS = ["phrasly", "stealthwriter", "chatgpt"] as const;
+
+export function supportsSelfHostedBrowser(toolSlug: unknown): boolean {
+  return typeof toolSlug === "string" && (SELF_HOSTED_BROWSER_TOOLS as readonly string[]).includes(toolSlug);
+}

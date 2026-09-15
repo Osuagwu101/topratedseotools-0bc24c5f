@@ -129,7 +129,7 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
         }).select("id").single();
       if (insertError) throw new Error("Could not start One-Click Login. Please try again.");
       try {
-        const launched = await launchSelfHostedBrowser(context.userId, data.tool_slug);
+        const launched = await launchSelfHostedBrowser(context.userId, data.tool_slug, accountId);
         const { error: readyError } = await (admin as any).from("browser_auth_sessions").update({
           status: "ready", provider_session_id: launched.providerSessionId,
           expires_at: launched.expiresAt, updated_at: new Date().toISOString(),

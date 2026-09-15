@@ -12,8 +12,8 @@ if (selfHostedPath.includes('from("tool_account_sessions")')) {
 if (/from\("tool_access_grants"\)[\s\S]*\.(update|delete)\(/.test(selfHostedPath)) {
   throw new Error("Self Hosted path must not mutate customer grants");
 }
-if (!selfHostedPath.includes("launchSelfHostedBrowser(context.userId, data.tool_slug)")) {
-  throw new Error("Self Hosted launch must remain bound to authenticated user and configured tool");
+if (!selfHostedPath.includes("launchSelfHostedBrowser(context.userId, data.tool_slug, accountId)")) {
+  throw new Error("Self Hosted launch must remain bound to authenticated user, configured tool, and assigned account");
 }
 
 const migration = readFileSync(
@@ -47,4 +47,21 @@ if (selfHostedCompletion.includes('from("tool_account_sessions")')) {
 }
 if (selfHostedCompletion.includes('from("tool_access_grants")')) {
   throw new Error("Self Hosted admin handoff must not modify grants");
+}
+
+const runtimeClient = readFileSync("src/lib/self-hosted-runtime.server.ts", "utf8");
+if (!runtimeClient.includes("account_id: accountId")) {
+  throw new Error("Self Hosted runtime requests must carry the resolved account identity");
+}
+const accessFunctions = readFileSync("src/lib/access.functions.ts", "utf8");
+if (!accessFunctions.includes('data.auth_provider === "self_hosted"') || !accessFunctions.includes("supportsSelfHostedBrowser(data.tool_slug)")) {
+  throw new Error("Admin settings must reject unsupported Self Hosted tools");
+}
+
+const cleanupMigration = readFileSync(
+  "supabase/migrations/202609150001_phase15_audit_provider_cleanup.sql",
+  "utf8",
+);
+if (!cleanupMigration.includes("auth_provider = 'self_hosted'") || !cleanupMigration.includes("auth_provider = 'browser_use'")) {
+  throw new Error("Unsupported persisted Self Hosted overrides must roll back to Browser Use");
 }
