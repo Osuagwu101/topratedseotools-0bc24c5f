@@ -184,7 +184,12 @@ function AdminToolPage() {
           {tab === "overview" && <OverviewTab tool={tool} />}
           {tab === "access" && <AccessTab slug={tool.slug} />}
           {tab === "pricing" && <PricingTab slug={tool.slug} />}
-          {tab === "accounts" && <AccountsCapacityTab slug={tool.slug} />}
+          {tab === "accounts" && (
+            <AccountsCapacityTab
+              slug={tool.slug}
+              authProvider={setting?.auth_provider}
+            />
+          )}
           {tab === "credentials" && <CredentialsTab tool={tool} />}
           {tab === "orders" && <OrdersTab slug={tool.slug} />}
         </div>

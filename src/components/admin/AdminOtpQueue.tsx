@@ -11,7 +11,7 @@ import {
 import { adminListAccountsForTool } from "@/lib/account-pool.functions";
 import { OtpVerificationModal } from "@/components/admin/OtpVerificationModal";
 
-export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
+export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; authProvider?: string | null }) {
   type QueueSession = { id: string; tool_slug: string; expires_at: string; otp_context?: { detected_type?: string } | null };
   type ManualSession = {
     sessionId: string;
@@ -32,6 +32,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
   });
   const sessions = queue.data?.sessions ?? [];
   const accounts = accountsQuery.data?.accounts ?? [];
+  const usesManualLogin = toolSlug === "phrasly" || authProvider === "self_hosted";
 
   const refreshAccount = async (account: any) => {
     setRefreshing(account.id);
@@ -126,9 +127,9 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
         <p className="mt-1 text-sm text-muted-foreground">
           Authenticate each account here. Writers only receive isolated browsers copied from this saved admin session; they never enter credentials or OTP.
         </p>
-        {toolSlug === "phrasly" && (
+        {usesManualLogin && (
           <p className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-950">
-            Phrasly uses a secure admin handoff: open the remote browser, enter the Phrasly login and any OTP there, then return here and click <strong>Save authenticated session</strong>. The password and OTP are not entered into this dashboard.
+            This tool uses a secure admin handoff: open the remote browser, enter the tool login and any OTP there, then return here and click <strong>Save authenticated session</strong>. The password and OTP are not entered into this dashboard.
           </p>
         )}
         <div className="mt-3 space-y-2">
@@ -138,7 +139,7 @@ export function AdminOtpQueue({ toolSlug }: { toolSlug: string }) {
                 <div className="truncate text-sm font-medium">{account.label ?? account.login_email ?? "Tool account"}</div>
                 <div className="text-xs text-muted-foreground">{account.login_email ?? "No login email"}</div>
               </div>
-              {toolSlug === "phrasly" ? (
+              {usesManualLogin ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"

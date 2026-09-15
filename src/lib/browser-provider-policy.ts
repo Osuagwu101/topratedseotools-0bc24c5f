@@ -17,6 +17,19 @@ export function resolveSessionBrowserProvider(
   );
 }
 
+export function resolveAdminSecureLoginProvider(
+  toolOverride: unknown,
+  globalDefault: unknown,
+): SessionBrowserProvider {
+  if (toolOverride !== null && toolOverride !== undefined && toolOverride !== "") {
+    const provider = validSessionBrowserProvider(toolOverride);
+    if (!provider) throw new Error("The configured secure-login browser provider is not supported.");
+    return provider;
+  }
+
+  return validSessionBrowserProvider(globalDefault) ?? "browser_use";
+}
+
 export function usesWebsiteSavedBrowserState(provider: SessionBrowserProvider) {
   return provider !== "self_hosted";
 }

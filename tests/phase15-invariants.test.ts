@@ -25,3 +25,26 @@ if (/default_provider[\s\S]*self_hosted/i.test(migration)) {
 }
 
 console.log("phase15-invariants: grants, saved auth, writer binding, and rollback preserved");
+
+const adminAuth = readFileSync("src/lib/admin-account-auth.functions.ts", "utf8");
+const selfHostedStart = adminAuth.indexOf("launchSelfHostedAdminAuthentication(");
+const browserUseStart = adminAuth.indexOf("launchBrowserUseInteractive(admin");
+if (selfHostedStart < 0) {
+  throw new Error("admin Secure Login does not launch the Self Hosted runtime");
+}
+if (browserUseStart < 0) {
+  throw new Error("admin Secure Login no longer preserves the Browser Use launch path");
+}
+
+const selfHostedCompletionStart = adminAuth.indexOf('if (provider === "self_hosted")', selfHostedStart);
+const browserCompletionStart = adminAuth.indexOf("const cdp =", selfHostedCompletionStart);
+const selfHostedCompletion = adminAuth.slice(selfHostedCompletionStart, browserCompletionStart);
+if (!selfHostedCompletion.includes("approveSelfHostedAdminAuthentication(")) {
+  throw new Error("Self Hosted admin authentication is not approved through the runtime");
+}
+if (selfHostedCompletion.includes('from("tool_account_sessions")')) {
+  throw new Error("Self Hosted admin handoff must not overwrite website-saved Browser Use state");
+}
+if (selfHostedCompletion.includes('from("tool_access_grants")')) {
+  throw new Error("Self Hosted admin handoff must not modify grants");
+}
