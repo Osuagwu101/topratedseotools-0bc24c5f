@@ -39,7 +39,7 @@ export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; au
     try {
       const result = await adminRefreshAccountAuthentication({ data: { account_id: account.id } });
       if (result.status === "awaiting_otp") {
-        toast.info("Phrasly needs an OTP. Use the verification queue below.");
+        toast.info("This tool needs an OTP. Use the verification queue below.");
         await queue.refetch();
       } else {
         toast.success("Authenticated session refreshed. Writers can launch independently now.");
@@ -54,9 +54,9 @@ export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; au
     if (handoffWindow) {
       try {
         handoffWindow.opener = null;
-        handoffWindow.document.title = "Opening secure Phrasly login…";
+        handoffWindow.document.title = "Opening secure tool login…";
         handoffWindow.document.body.innerHTML =
-          '<div style="font-family:system-ui;padding:28px;color:#334155">Preparing secure Phrasly login…</div>';
+          '<div style="font-family:system-ui;padding:28px;color:#334155">Preparing secure tool login…</div>';
       } catch {
         // Browser controlled.
       }
@@ -82,12 +82,12 @@ export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; au
       }
 
       toast.info(
-        "Secure Phrasly browser opened. Log in there and complete any OTP, then return here and save the authenticated session.",
+        "Secure browser opened. Log in there and complete any OTP, then return here and save the authenticated session.",
         { duration: 8000 },
       );
     } catch (e: any) {
       if (handoffWindow && !handoffWindow.closed) handoffWindow.close();
-      toast.error(e?.message ?? "Could not open the secure Phrasly login.");
+      toast.error(e?.message ?? "Could not open the secure tool login.");
     } finally {
       setRefreshing(null);
     }
@@ -114,7 +114,7 @@ export function AdminOtpQueue({ toolSlug, authProvider }: { toolSlug: string; au
         toast.info(result.message, { duration: 8000 });
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not save the authenticated Phrasly session.");
+      toast.error(e?.message ?? "Could not save the authenticated tool session.");
     } finally {
       setSavingManual(null);
     }
