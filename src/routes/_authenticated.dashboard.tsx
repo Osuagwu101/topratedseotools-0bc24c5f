@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
+import { CreditCard, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare, KeyRound } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
+  const usesAdminIssuedPassword =
+    (user.user_metadata as { admin_issued_password?: boolean } | null)
+      ?.admin_issued_password === true;
 
   const { data: ordersData } = useQuery({
     queryKey: ["my-orders"],
@@ -151,6 +154,20 @@ function Dashboard() {
   return (
     <SiteLayout>
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        {usesAdminIssuedPassword ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+            <div className="flex items-start gap-2">
+              <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <p className="font-medium">You are using a temporary password issued by Admin.</p>
+                <p className="text-muted-foreground">You can continue using it, or change it whenever you want.</p>
+              </div>
+            </div>
+            <Link to="/profile" className="font-medium text-primary hover:underline">
+              Change password
+            </Link>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h1 className="truncate text-3xl font-bold tracking-tight">{greeting}</h1>

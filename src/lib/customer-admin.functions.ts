@@ -128,7 +128,11 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: {
           full_name: data.fullName,
-          must_change_password: true,
+          // Admin-issued credentials may continue to be used. We flag the
+          // account for a visible reminder, but never retain the plaintext
+          // password and never force a password change.
+          must_change_password: false,
+          admin_issued_password: true,
           created_by_admin: true,
         },
       });
@@ -142,7 +146,7 @@ export const adminCreateCustomer = createServerFn({ method: "POST" })
         .update({
           full_name: data.fullName,
           email: data.email,
-          must_change_password: true,
+          must_change_password: false,
         })
         .eq("id", userId);
     }

@@ -1,8 +1,8 @@
 /**
  * Admin action — create a customer account with a temporary password.
  * The account is ready for login immediately (no invitation, no email
- * confirmation). On first sign-in the customer is required to change the
- * password. Credentials are shown to the Admin exactly once — never stored
+ * confirmation). The customer may keep or voluntarily change the password.
+ * Credentials are shown to the Admin exactly once — never stored
  * client-side, never written to audit logs.
  */
 import { useState } from "react";
@@ -137,7 +137,7 @@ export function AddCustomerDialog() {
                   </Button>
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  The customer will be required to set a new password on first sign-in.
+                  The customer may keep this password or change it later from Profile.
                 </p>
               </div>
             </div>
@@ -196,7 +196,7 @@ export function AddCustomerDialog() {
                 </Button>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Minimum 8 characters. Customer must change it on first sign-in.
+                Minimum 8 characters. The customer may change it later from Profile.
               </p>
             </div>
             <div>
