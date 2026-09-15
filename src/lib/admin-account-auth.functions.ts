@@ -391,6 +391,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
           context.userId,
           account.tool_slug,
           launched.providerSessionId,
+          account.id,
         ).catch(() => undefined);
       }
       await (admin as any)
