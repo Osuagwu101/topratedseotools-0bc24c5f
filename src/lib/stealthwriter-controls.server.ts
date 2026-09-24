@@ -226,11 +226,13 @@ export async function getStealthWriterUsageSnapshot(userId: string) {
     },
   };
 
+  const granted = grantedStealthWriterFeatures(controls);
   return {
     status: controls.status,
     features,
+    granted_features: granted,
     allowed_document_paths: stealthWriterFeatureDocumentPaths(),
-    landing_path: pickStealthWriterLandingPath(grantedStealthWriterFeatures(controls)),
+    landing_path: pickStealthWriterLandingPath(granted),
     resets_in: secondsUntilNextLagosMidnight(),
   };
 }
