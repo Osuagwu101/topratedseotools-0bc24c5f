@@ -214,6 +214,18 @@ const adminFns = readFileSync(
   "src/lib/stealthwriter-controls.functions.ts",
   "utf8",
 );
+const authMiddleware = readFileSync(
+  "src/integrations/supabase/auth-middleware.ts",
+  "utf8",
+);
+const authenticatedRoute = readFileSync(
+  "src/routes/_authenticated.tsx",
+  "utf8",
+);
+const loginRoute = readFileSync(
+  "src/routes/login.tsx",
+  "utf8",
+);
 const customerAdmin = readFileSync(
   "src/routes/admin.customers.$userId.tsx",
   "utf8",
@@ -243,6 +255,12 @@ assert(
   migration.includes("device_limit integer not null default 2") &&
     migration.includes("device_fingerprint"),
   "database stores device policy and binds proxy sessions to a device",
+);
+assert(
+  migration.includes("alter table public.profiles") &&
+    migration.includes("account_status text not null default 'active'") &&
+    migration.includes("suspension_reason"),
+  "migration adds platform-wide customer account suspension state",
 );
 assert(
   migration.includes("revoke all on table public.stealthwriter_user_controls from anon, authenticated") &&
@@ -297,6 +315,35 @@ assert(
   adminFns.includes("adminUpdateStealthWriterControls") &&
     adminFns.includes("adminResetStealthWriterDevices"),
   "admin can change feature limits/access and reset devices",
+);
+assert(
+  adminFns.includes("reactivateTopRatedAccount") &&
+    adminFns.includes("full TopRatedSEOTools account reactivated"),
+  "device reset reactivates the full customer account",
+);
+assert(
+  authMiddleware.includes("account_status") &&
+    authMiddleware.includes("Unauthorized: Account suspended"),
+  "shared authenticated middleware blocks suspended customers site-wide",
+);
+assert(
+  authenticatedRoute.includes('account_status === "suspended"') &&
+    authenticatedRoute.includes("supabase.auth.signOut()"),
+  "already signed-in suspended customers are removed from authenticated routes",
+);
+assert(
+  loginRoute.includes('account_status === "suspended"') &&
+    loginRoute.includes("allowed device limit was exceeded"),
+  "password login immediately rejects and signs out a suspended customer",
+);
+assert(
+  readFileSync("src/lib/stealthwriter-controls.server.ts", "utf8").includes(
+    "suspendTopRatedAccountForDeviceLimit",
+  ) &&
+    readFileSync("src/lib/stealthwriter-controls.server.ts", "utf8").includes(
+      'ban_duration: "876000h"',
+    ),
+  "device overflow suspends the platform account and bans future auth sessions",
 );
 assert(
   customerAdmin.includes("StealthWriter AWS controls") &&
