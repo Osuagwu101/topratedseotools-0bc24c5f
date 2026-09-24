@@ -120,22 +120,17 @@ export const adminResetStealthWriterDevices = createServerFn({ method: "POST" })
       .eq("user_id", data.userId)
       .in("status", ["issued", "active"]);
 
-    await admin
-      .from("stealthwriter_user_controls")
-      .update({
-        status: "active",
-        suspended_reason: null,
-        suspended_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", data.userId);
+    const { reactivateTopRatedAccount } = await import(
+      "@/lib/stealthwriter-controls.server"
+    );
+    await reactivateTopRatedAccount(data.userId);
 
     await logAdminActivity(context, {
       action: "stealthwriter.customer_devices_reset",
       area: "customers",
       target_type: "user",
       target_id: data.userId,
-      details: "Registered StealthWriter devices cleared and access reactivated.",
+      details: "Registered StealthWriter devices cleared and the full TopRatedSEOTools account reactivated.",
     });
 
     return { ok: true };
