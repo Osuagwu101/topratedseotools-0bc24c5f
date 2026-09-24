@@ -16,6 +16,21 @@ import {
   normaliseStealthWriterSession,
   STEALTHWRITER_SESSION_KEYS,
 } from "@/lib/stealthwriter-session.server";
+import {
+  consumeStealthWriterUsage,
+  ensureStealthWriterUserControls,
+  featureForStealthWriterUsagePath,
+  getStealthWriterUsageSnapshot,
+  getStealthWriterUserLabel,
+  grantedStealthWriterFeatures,
+  isAllowedStealthWriterDocumentPath,
+  isFreeStealthWriterRehumanize,
+  isValidStealthWriterDeviceFingerprint,
+  pickStealthWriterLandingPath,
+  registerOrTouchStealthWriterDevice,
+  STEALTHWRITER_DEVICE_COOKIE,
+  stealthWriterAllowedAssetHosts,
+} from "@/lib/stealthwriter-controls.server";
 
 export const STEALTHWRITER_PROXY_BASE = "/api/stealthwriter-proxy";
 export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
@@ -271,6 +286,17 @@ function proxyCookie(token: string, expiresAt: string) {
   ].join("; ");
 }
 
+function deviceCookie(fingerprint: string) {
+  return [
+    `${STEALTHWRITER_DEVICE_COOKIE}=${fingerprint}`,
+    "Path=/api/stealthwriter-proxy",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
+  ].join("; ");
+}
+
 async function exchangeLaunchTicket(request: Request, ticket: string) {
   const tokenHash = hashStealthWriterProxyToken(ticket);
   const nowIso = new Date().toISOString();
@@ -286,7 +312,8 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   if (!row) return forbidden("This StealthWriter launch link is no longer valid.");
 
   await requireToolEnabled();
-  const stillActive = await sourceStillActive(String(row.user_id), {
+  const userId = String(row.user_id);
+  const stillActive = await sourceStillActive(userId, {
     kind: row.source_kind as "order" | "grant",
     id: String(row.source_id),
   });
@@ -296,6 +323,35 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       .update({ status: "revoked" })
       .eq("id", row.id);
     return forbidden("Your StealthWriter access is no longer active.");
+  }
+
+  // AWS parity: stable per-browser device identity. A new device above the
+  // customer's limit suspends StealthWriter access until Admin reviews it.
+  const cookieDevice = parseCookieHeader(request).get(STEALTHWRITER_DEVICE_COOKIE);
+  const deviceFingerprint = isValidStealthWriterDeviceFingerprint(cookieDevice)
+    ? String(cookieDevice)
+    : randomBytes(16).toString("hex");
+
+  let deviceGate;
+  try {
+    deviceGate = await registerOrTouchStealthWriterDevice(
+      userId,
+      deviceFingerprint,
+      request.headers.get("user-agent") ?? "Device",
+    );
+  } catch {
+    return unavailable();
+  }
+  if (!deviceGate.ok) {
+    return forbidden(
+      "Your StealthWriter access has been suspended for logging in from too many devices. Please contact Admin.",
+    );
+  }
+
+  const controls = await ensureStealthWriterUserControls(userId);
+  const grantedFeatures = grantedStealthWriterFeatures(controls);
+  if (!grantedFeatures.length) {
+    return forbidden("You do not have an active StealthWriter feature.");
   }
 
   // Exchange the URL ticket for a different HttpOnly cookie token. The
@@ -312,6 +368,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       activated_at: nowIso,
       last_seen_at: nowIso,
       expires_at: sessionExpiresAt,
+      device_fingerprint: deviceFingerprint,
     })
     .eq("id", row.id)
     .eq("status", "issued")
@@ -319,37 +376,36 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     .maybeSingle();
   if (error || !activated) return forbidden("This StealthWriter launch link was already used.");
 
+  const landing = pickStealthWriterLandingPath(grantedFeatures);
   const target = new URL(
-    `${STEALTHWRITER_PROXY_BASE}${STEALTHWRITER_LANDING_PATH}`,
+    `${STEALTHWRITER_PROXY_BASE}${landing}`,
     request.url,
   );
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: target.toString(),
-      "Set-Cookie": proxyCookie(sessionToken, sessionExpiresAt),
-      "Cache-Control": "no-store, max-age=0",
-      "Referrer-Policy": "no-referrer",
-      "X-Robots-Tag": "noindex, nofollow, noarchive",
-    },
-  });
+  const headers = standardHeaders();
+  headers.set("Location", target.toString());
+  headers.append("Set-Cookie", proxyCookie(sessionToken, sessionExpiresAt));
+  headers.append("Set-Cookie", deviceCookie(deviceFingerprint));
+
+  return new Response(null, { status: 302, headers });
 }
 
 async function requireProxySession(request: Request) {
-  const token = parseCookieHeader(request).get(STEALTHWRITER_PROXY_COOKIE);
-  if (!token) return null;
+  const cookies = parseCookieHeader(request);
+  const token = cookies.get(STEALTHWRITER_PROXY_COOKIE);
+  const deviceFingerprint = cookies.get(STEALTHWRITER_DEVICE_COOKIE);
+  if (!token || !isValidStealthWriterDeviceFingerprint(deviceFingerprint)) return null;
 
   const tokenHash = hashStealthWriterProxyToken(token);
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", tokenHash)
     .eq("status", "active")
     .maybeSingle();
 
-  if (!row) return null;
+  if (!row || row.device_fingerprint !== deviceFingerprint) return null;
   if (new Date(String(row.expires_at)).getTime() <= Date.now()) {
     await (supabaseAdmin as any)
       .from("stealthwriter_proxy_sessions")
@@ -359,6 +415,29 @@ async function requireProxySession(request: Request) {
   }
 
   await requireToolEnabled();
+  const controls = await ensureStealthWriterUserControls(String(row.user_id));
+  if (controls.status !== "active") {
+    await (supabaseAdmin as any)
+      .from("stealthwriter_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
+  const { data: registeredDevice } = await (supabaseAdmin as any)
+    .from("stealthwriter_devices")
+    .select("id")
+    .eq("user_id", row.user_id)
+    .eq("device_fingerprint", deviceFingerprint)
+    .maybeSingle();
+  if (!registeredDevice?.id) {
+    await (supabaseAdmin as any)
+      .from("stealthwriter_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
   const stillActive = await sourceStillActive(String(row.user_id), {
     kind: row.source_kind as "order" | "grant",
     id: String(row.source_id),
@@ -371,10 +450,16 @@ async function requireProxySession(request: Request) {
     return null;
   }
 
-  await (supabaseAdmin as any)
-    .from("stealthwriter_proxy_sessions")
-    .update({ last_seen_at: nowIso })
-    .eq("id", row.id);
+  await Promise.all([
+    (supabaseAdmin as any)
+      .from("stealthwriter_proxy_sessions")
+      .update({ last_seen_at: nowIso })
+      .eq("id", row.id),
+    (supabaseAdmin as any)
+      .from("stealthwriter_devices")
+      .update({ last_seen_at: nowIso })
+      .eq("id", registeredDevice.id),
+  ]);
 
   return row;
 }
@@ -390,6 +475,18 @@ export function rewriteStealthWriterBody(
       "https:\\/\\/stealthwriter.ai",
       escapedProxy,
     );
+
+  // AWS asset_domains parity, but kept fixed-host: only first-party
+  // *.stealthwriter.ai hosts from the server allow-list can be routed.
+  for (const host of stealthWriterAllowedAssetHosts()) {
+    const routed = `${STEALTHWRITER_PROXY_BASE}/__host/${host}`;
+    out = out
+      .replaceAll(`https://${host}`, routed)
+      .replaceAll(
+        `https:\\/\\/${host}`,
+        routed.replaceAll("/", "\\/"),
+      );
+  }
 
   if (contentType.includes("text/html")) {
     out = out
@@ -413,18 +510,26 @@ export function rewriteStealthWriterBody(
   return out;
 }
 
-export function rewriteStealthWriterLocation(location: string) {
-  const absolute = new URL(location, STEALTHWRITER_UPSTREAM_ORIGIN);
-  if (
-    absolute.origin !== STEALTHWRITER_UPSTREAM_ORIGIN &&
-    absolute.origin !== "https://www.stealthwriter.ai"
-  ) {
-    return null;
+export function rewriteStealthWriterLocation(
+  location: string,
+  baseOrigin = STEALTHWRITER_UPSTREAM_ORIGIN,
+) {
+  const absolute = new URL(location, baseOrigin);
+  if (absolute.origin === STEALTHWRITER_UPSTREAM_ORIGIN) {
+    return `${STEALTHWRITER_PROXY_BASE}${absolute.pathname}${absolute.search}${absolute.hash}`;
   }
-  return `${STEALTHWRITER_PROXY_BASE}${absolute.pathname}${absolute.search}${absolute.hash}`;
+  if (absolute.protocol === "https:" && stealthWriterAllowedAssetHosts().includes(absolute.hostname)) {
+    return `${STEALTHWRITER_PROXY_BASE}/__host/${absolute.hostname}${absolute.pathname}${absolute.search}${absolute.hash}`;
+  }
+  return null;
 }
 
-function upstreamHeaders(request: Request, cookieHeader: string) {
+function upstreamHeaders(
+  request: Request,
+  cookieHeader: string,
+  targetOrigin = STEALTHWRITER_UPSTREAM_ORIGIN,
+  includeMasterCookie = true,
+) {
   const h = new Headers();
 
   // Mirror the AWS engine: keep normal browser request characteristics while
@@ -459,25 +564,28 @@ function upstreamHeaders(request: Request, cookieHeader: string) {
   if (userAgent) h.set("User-Agent", userAgent);
   if (!h.has("Accept-Language")) h.set("Accept-Language", "en-US,en;q=0.9");
   h.set("Accept-Encoding", "identity");
-  h.set("Origin", STEALTHWRITER_UPSTREAM_ORIGIN);
+  h.set("Origin", targetOrigin);
 
   const incomingReferer = request.headers.get("referer");
-  let referer = `${STEALTHWRITER_UPSTREAM_ORIGIN}/`;
+  let referer = `${targetOrigin}/`;
   if (incomingReferer) {
     try {
       const r = new URL(incomingReferer);
       if (r.pathname.startsWith(STEALTHWRITER_PROXY_BASE)) {
-        referer =
-          STEALTHWRITER_UPSTREAM_ORIGIN +
-          r.pathname.slice(STEALTHWRITER_PROXY_BASE.length) +
-          r.search;
+        const proxiedPath = r.pathname.slice(STEALTHWRITER_PROXY_BASE.length);
+        const hostPrefix = proxiedPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
+        if (hostPrefix && `https://${hostPrefix[1]}` === targetOrigin) {
+          referer = targetOrigin + (hostPrefix[2] || "/") + r.search;
+        } else if (!hostPrefix && targetOrigin === STEALTHWRITER_UPSTREAM_ORIGIN) {
+          referer = targetOrigin + (proxiedPath || "/") + r.search;
+        }
       }
     } catch {
       /* use upstream root */
     }
   }
   h.set("Referer", referer);
-  h.set("Cookie", cookieHeader);
+  if (includeMasterCookie) h.set("Cookie", cookieHeader);
   return h;
 }
 
@@ -597,6 +705,8 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   }
   if (!proxySession) return unauthorized();
 
+  const userId = String(proxySession.user_id);
+
   if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(request.method)) {
     return new Response("Method not allowed", {
       status: 405,
@@ -612,23 +722,113 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   const suffix = url.pathname.startsWith(STEALTHWRITER_PROXY_BASE)
     ? url.pathname.slice(STEALTHWRITER_PROXY_BASE.length)
     : "";
-  const path = suffix || STEALTHWRITER_LANDING_PATH;
-  const target = new URL(path.startsWith("/") ? path : `/${path}`, STEALTHWRITER_UPSTREAM_ORIGIN);
-  target.search = url.search;
 
-  // AWS reference Step 3: customer navigation can never reach master-account
-  // logout, billing, subscription or account-management surfaces.
-  if (isBlockedStealthWriterPath(target.pathname)) {
-    return forbidden("This StealthWriter account action is disabled.");
+  // Internal AWS-parity usage/status endpoint consumed by the injected widget.
+  if (suffix === "/__trst/usage") {
+    if (request.method !== "GET") {
+      return new Response("Method not allowed", { status: 405, headers: standardHeaders() });
+    }
+    try {
+      const [snapshot, userLabel] = await Promise.all([
+        getStealthWriterUsageSnapshot(userId),
+        getStealthWriterUserLabel(userId),
+      ]);
+      return Response.json(
+        { ...snapshot, user_label: userLabel },
+        { headers: standardHeaders("application/json; charset=utf-8") },
+      );
+    } catch {
+      return unavailable();
+    }
   }
 
-  let cookieHeader: string;
+  let targetOrigin = STEALTHWRITER_UPSTREAM_ORIGIN;
+  let targetPath = suffix || STEALTHWRITER_LANDING_PATH;
+  let isSecondaryHost = false;
+
+  const routedHost = targetPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
+  if (routedHost) {
+    const host = routedHost[1].toLowerCase();
+    if (!stealthWriterAllowedAssetHosts().includes(host)) {
+      return forbidden("This StealthWriter asset host is not allowed.");
+    }
+    targetOrigin = `https://${host}`;
+    targetPath = routedHost[2] || "/";
+    isSecondaryHost = true;
+  }
+
+  const target = new URL(
+    targetPath.startsWith("/") ? targetPath : `/${targetPath}`,
+    targetOrigin,
+  );
+  target.search = url.search;
+
+  let controls;
   try {
-    const encrypted = await loadEncryptedStealthWriterSession();
-    const plaintext = decryptStealthWriterSession(encrypted);
-    cookieHeader = buildStealthWriterCookieHeader(plaintext);
+    controls = await ensureStealthWriterUserControls(userId);
   } catch {
     return unavailable();
+  }
+  const grantedFeatures = grantedStealthWriterFeatures(controls);
+  if (!grantedFeatures.length) {
+    return forbidden("You do not have an active StealthWriter feature.");
+  }
+
+  if (!isSecondaryHost) {
+    // AWS Step 3: master-account surfaces remain blocked even if linked.
+    if (isBlockedStealthWriterPath(target.pathname)) {
+      return forbidden("This StealthWriter account action is disabled.");
+    }
+
+    // AWS Step 3.5: real page navigations are default-deny. A user can only
+    // open common paths plus the exact feature pages they were granted.
+    if (
+      request.headers.get("sec-fetch-dest") === "document" &&
+      !isAllowedStealthWriterDocumentPath(target.pathname, grantedFeatures)
+    ) {
+      const landing = pickStealthWriterLandingPath(grantedFeatures);
+      const h = standardHeaders();
+      h.set("Location", `${STEALTHWRITER_PROXY_BASE}${landing}`);
+      return new Response(null, { status: 302, headers: h });
+    }
+
+    // AWS feature API gate + daily counters. Humanizer and AI Detector have
+    // independent limits. Rehumanize is a free repeat exactly like the source.
+    const usageFeature = featureForStealthWriterUsagePath(target.pathname);
+    if (
+      usageFeature &&
+      !["GET", "HEAD", "OPTIONS"].includes(request.method)
+    ) {
+      if (!grantedFeatures.includes(usageFeature)) {
+        return forbidden("You do not have access to this StealthWriter feature.");
+      }
+      try {
+        const usage = await consumeStealthWriterUsage(
+          userId,
+          usageFeature,
+          isFreeStealthWriterRehumanize(usageFeature, request),
+        );
+        if (!usage.allowed) {
+          return new Response(
+            `Daily limit reached (${usage.dailyLimit}/day). Please try again tomorrow.`,
+            { status: 429, headers: standardHeaders("text/plain; charset=utf-8") },
+          );
+        }
+      } catch {
+        return unavailable();
+      }
+    }
+  }
+
+  let cookieHeader = "";
+  if (!isSecondaryHost) {
+    try {
+      const encrypted = await loadEncryptedStealthWriterSession();
+      const plaintext = decryptStealthWriterSession(encrypted);
+      cookieHeader = buildStealthWriterCookieHeader(plaintext);
+    } catch {
+      return unavailable();
+    }
   }
 
   let body: ArrayBuffer | undefined;
@@ -654,7 +854,12 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   try {
     upstream = await fetch(target, {
       method: request.method,
-      headers: upstreamHeaders(request, cookieHeader),
+      headers: upstreamHeaders(
+        request,
+        cookieHeader,
+        targetOrigin,
+        !isSecondaryHost,
+      ),
       body,
       redirect: "manual",
     });
@@ -662,20 +867,20 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     return unavailable();
   }
 
-  // Persist any Better Auth cookie rotation before handling redirects/body.
-  try {
-    await persistRotatedStealthWriterCookies(upstream);
-  } catch {
-    // Do not silently lose a Better Auth rotation. The AWS engine persists
-    // rotations synchronously because the next request may require the new value.
-    return unavailable();
+  // Only the canonical StealthWriter origin is allowed to rotate the master
+  // Better Auth session. Secondary asset hosts never receive or update it.
+  if (!isSecondaryHost) {
+    try {
+      await persistRotatedStealthWriterCookies(upstream);
+    } catch {
+      return unavailable();
+    }
+    if (isStealthWriterUpstreamAuthRejected(upstream.status)) return unavailable();
   }
-
-  if (isStealthWriterUpstreamAuthRejected(upstream.status)) return unavailable();
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
-    const rewritten = rewriteStealthWriterLocation(location);
+    const rewritten = rewriteStealthWriterLocation(location, targetOrigin);
     if (!rewritten) return unavailable();
     const h = standardHeaders();
     h.set("Location", rewritten);
@@ -690,8 +895,8 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     if (value) headers.set(name, value);
   }
 
-  // Never forward Set-Cookie. The customer browser must never receive the
-  // authorised StealthWriter session or any refreshed upstream auth cookie.
+  // Never forward upstream Set-Cookie. The customer browser receives only
+  // Top Rated SEO Tools proxy/device cookies, never StealthWriter master auth.
   const isText =
     contentType.includes("text/html") ||
     contentType.includes("text/css") ||
