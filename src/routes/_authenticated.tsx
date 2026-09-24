@@ -8,6 +8,17 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+
+    const { data: accountState } = await (supabase as any)
+      .from("profiles")
+      .select("account_status")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (accountState?.account_status === "suspended") {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/login", search: { redirect: "/dashboard" } });
+    }
+
     // Force password change for admin-created customers before letting them
     // reach any sensitive account surface.
     const mustChange =
