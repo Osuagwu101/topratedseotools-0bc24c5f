@@ -36,6 +36,8 @@ jobs:
         run: bun tests/stealthwriter-phase4-validation.test.ts
       - name: StealthWriter Phase 4 source conformance
         run: bun tests/stealthwriter-phase4-source-conformance.test.ts
+      - name: StealthWriter Phase 5.1 AWS parity
+        run: bun tests/stealthwriter-phase5-aws-parity.test.ts
 
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
