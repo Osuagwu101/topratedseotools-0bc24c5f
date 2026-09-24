@@ -10,7 +10,7 @@ export const startStealthWriterProxyLaunch = createServerFn({ method: "POST" })
     return {
       ok: true,
       launch_url: launch.launchUrl,
-      expires_at: launch.expiresAt,
+      expires_at: launch.handoffExpiresAt,
       provider: "stealthwriter_proxy" as const,
     };
   });
