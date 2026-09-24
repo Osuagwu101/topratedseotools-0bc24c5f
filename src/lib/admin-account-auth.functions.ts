@@ -16,12 +16,6 @@ import {
 import { captureSessionStateThroughCdp } from "@/lib/browser-auth-otp.server";
 import { attachBrowserUsePage, waitForAuthOrOtp } from "@/lib/browser-auth-session.server";
 import {
-  approveSelfHostedAdminAuthentication,
-  closeSelfHostedAdminAuthentication,
-  launchSelfHostedAdminAuthentication,
-  SelfHostedAuthenticationNotReadyError,
-} from "@/lib/self-hosted-runtime.server";
-import {
   resolveAdminSecureLoginProvider,
   validSessionBrowserProvider,
 } from "@/lib/browser-provider-policy";
@@ -342,13 +336,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
               loginUrl,
               timeoutMinutes,
             })
-          : provider === "self_hosted"
-            ? await launchSelfHostedAdminAuthentication(
-                context.userId,
-                account.tool_slug,
-                account.id,
-              )
-            : await launchBrowserUseInteractive(admin, {
+          : await launchBrowserUseInteractive(admin, {
                 loginUrl,
                 timeoutMinutes,
               });
@@ -362,20 +350,11 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
         })
         .eq("id", row.id);
       if (updateError) {
-        if (provider === "self_hosted") {
-          await closeSelfHostedAdminAuthentication(
-            context.userId,
-            account.tool_slug,
-            launched.providerSessionId,
-            account.id,
-          );
-        } else {
-          await closeRemoteBrowserSession(
-            admin,
-            provider,
-            launched.providerSessionId,
-          );
-        }
+        await closeRemoteBrowserSession(
+          admin,
+          provider,
+          launched.providerSessionId,
+        );
         throw new Error("The manual authentication browser could not be saved.");
       }
 
@@ -386,14 +365,6 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
         expires_at: launched.expiresAt,
       };
     } catch (error) {
-      if (provider === "self_hosted" && launched?.providerSessionId) {
-        await closeSelfHostedAdminAuthentication(
-          context.userId,
-          account.tool_slug,
-          launched.providerSessionId,
-          account.id,
-        ).catch(() => undefined);
-      }
       await (admin as any)
         .from("browser_auth_sessions")
         .update({
@@ -464,22 +435,11 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
           updated_at: new Date().toISOString(),
         })
         .eq("id", session.id);
-      if (provider === "self_hosted") {
-        if (session.provider_session_id) {
-          await closeSelfHostedAdminAuthentication(
-            context.userId,
-            session.tool_slug,
-            session.provider_session_id,
-            accountId,
-          ).catch(() => undefined);
-        }
-      } else {
-        await closeRemoteBrowserSession(
-          admin,
-          provider,
-          session.provider_session_id,
-        );
-      }
+      await closeRemoteBrowserSession(
+        admin,
+        provider,
+        session.provider_session_id,
+      );
       throw new Error("The secure login browser expired. Open a new one and try again.");
     }
 
@@ -504,52 +464,6 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
 
     if (!session.provider_session_id) {
       throw new Error("The secure login browser is unavailable. Open a new one.");
-    }
-
-    if (provider === "self_hosted") {
-      try {
-        await approveSelfHostedAdminAuthentication(
-          context.userId,
-          session.tool_slug,
-          session.provider_session_id,
-          accountId,
-        );
-      } catch (error) {
-        if (error instanceof SelfHostedAuthenticationNotReadyError) {
-          return {
-            status: "needs_completion" as const,
-            message: error.message,
-          };
-        }
-        throw error;
-      }
-
-      const { error: readyError } = await (admin as any)
-        .from("browser_auth_sessions")
-        .update({
-          status: "ready",
-          error_code: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.id);
-      if (readyError) {
-        throw new Error(
-          "Self Hosted saved the authenticated identity, but the admin audit session could not transition to READY.",
-        );
-      }
-
-      await (admin as any).from("browser_auth_otp_audit").insert({
-        session_id: session.id,
-        account_id: accountId,
-        event: "admin_refresh_succeeded",
-        otp_type: "manual_handoff",
-        submitted_by: context.userId,
-      });
-
-      return {
-        status: "ready" as const,
-        message: "Authenticated session saved. Writers can launch isolated browsers now.",
-      };
     }
 
     const cdp =

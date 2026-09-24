@@ -1,9 +1,11 @@
-export type SessionBrowserProvider = "browser_use" | "cloudflare" | "self_hosted";
+export type SessionBrowserProvider = "browser_use" | "cloudflare";
 
+/**
+ * The self-hosted browser runtime was retired. Persisted legacy values are
+ * deliberately ignored so the site falls back to its managed browser provider.
+ */
 export function validSessionBrowserProvider(value: unknown): SessionBrowserProvider | null {
-  return value === "browser_use" || value === "cloudflare" || value === "self_hosted"
-    ? value
-    : null;
+  return value === "browser_use" || value === "cloudflare" ? value : null;
 }
 
 export function resolveSessionBrowserProvider(
@@ -23,19 +25,20 @@ export function resolveAdminSecureLoginProvider(
 ): SessionBrowserProvider {
   if (toolOverride !== null && toolOverride !== undefined && toolOverride !== "") {
     const provider = validSessionBrowserProvider(toolOverride);
-    if (!provider) throw new Error("The configured secure-login browser provider is not supported.");
+    if (!provider) {
+      return validSessionBrowserProvider(globalDefault) ?? "browser_use";
+    }
     return provider;
   }
-
   return validSessionBrowserProvider(globalDefault) ?? "browser_use";
 }
 
-export function usesWebsiteSavedBrowserState(provider: SessionBrowserProvider) {
-  return provider !== "self_hosted";
+export function usesWebsiteSavedBrowserState(_provider: SessionBrowserProvider) {
+  return true;
 }
 
-export const SELF_HOSTED_BROWSER_TOOLS = ["phrasly", "stealthwriter", "chatgpt"] as const;
+export const SELF_HOSTED_BROWSER_TOOLS: readonly string[] = [];
 
-export function supportsSelfHostedBrowser(toolSlug: unknown): boolean {
-  return typeof toolSlug === "string" && (SELF_HOSTED_BROWSER_TOOLS as readonly string[]).includes(toolSlug);
+export function supportsSelfHostedBrowser(_toolSlug: unknown): boolean {
+  return false;
 }

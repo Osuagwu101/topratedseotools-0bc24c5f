@@ -79,14 +79,9 @@ export async function launchTool(
       const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
 
-      const viewerTool = ["phrasly", "stealthwriter", "chatgpt"].includes(tool.slug);
-      const viewerProvider =
-        result.provider === "browser_use" || result.provider === "self_hosted"
-          ? result.provider
-          : null;
-      const isEmbeddedViewer =
-        (tool.slug === "phrasly" && viewerProvider === "browser_use") ||
-        (viewerTool && viewerProvider === "self_hosted");
+      const viewerTool = tool.slug === "phrasly";
+      const viewerProvider = result.provider === "browser_use" ? result.provider : null;
+      const isEmbeddedViewer = viewerTool && viewerProvider === "browser_use";
       if (isEmbeddedViewer && viewerProvider && !isAllowedToolViewerUrl(viewerProvider, launchUrl.toString())) {
         throw new Error("The secure login service returned an invalid secure viewer URL.");
       }
