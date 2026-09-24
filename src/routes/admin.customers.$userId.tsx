@@ -323,7 +323,7 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
             StealthWriter AWS controls
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Humanizer and AI Detector are controlled separately. Daily counters reset at midnight Nigeria time.
+            One StealthWriter purchase enables both Humanizer and AI Detector. Their access paths and daily counters are enforced separately; counters reset at midnight Nigeria time.
           </p>
         </div>
         {data?.controls && (
