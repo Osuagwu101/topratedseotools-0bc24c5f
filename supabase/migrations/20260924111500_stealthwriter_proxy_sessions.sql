@@ -1,6 +1,7 @@
 -- Phase 3: StealthWriter one-click proxy launch sessions.
--- These rows authorize a short-lived same-origin proxy session only.
--- Upstream StealthWriter cookies stay in tool_authorized_sessions and are never copied here.
+-- The handoff URL is short-lived (60 seconds); after exchange the proxy
+-- session is long-lived. Upstream StealthWriter cookies remain separately
+-- encrypted in tool_authorized_sessions and are never copied to these rows.
 
 create table if not exists public.stealthwriter_proxy_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -28,5 +29,8 @@ revoke all on table public.stealthwriter_proxy_sessions from anon;
 revoke all on table public.stealthwriter_proxy_sessions from authenticated;
 grant all on table public.stealthwriter_proxy_sessions to service_role;
 
+alter table public.tool_authorized_sessions
+  add column if not exists rotated_at timestamptz null;
+
 comment on table public.stealthwriter_proxy_sessions is
-  'Short-lived server-only launch sessions for the StealthWriter reverse proxy.';
+  'Server-only StealthWriter proxy sessions: 60-second handoff, then long-lived access session.';
