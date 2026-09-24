@@ -56,7 +56,7 @@ export function stealthWriterProxyBootstrapResponse() {
   function pathMatches(pathname, rule) {
     if (!rule) return false;
     if (rule.endsWith("$")) return pathname === rule.slice(0, -1);
-    return pathname === rule || pathname.startsWith(rule.endsWith("/") ? rule : rule + "/");
+    return pathname.startsWith(rule);
   }
 
   function isAllowedNavigation(pathname) {
