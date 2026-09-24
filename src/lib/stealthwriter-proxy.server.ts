@@ -478,7 +478,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     return unavailable();
   }
 
-  let body: Uint8Array | undefined;
+  let body: ArrayBuffer | undefined;
   if (!["GET", "HEAD"].includes(request.method)) {
     const declared = Number(request.headers.get("content-length") ?? 0);
     if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
@@ -487,7 +487,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
         headers: standardHeaders("text/plain; charset=utf-8"),
       });
     }
-    const bytes = new Uint8Array(await request.arrayBuffer());
+    const bytes = await request.arrayBuffer();
     if (bytes.byteLength > MAX_REQUEST_BYTES) {
       return new Response("Request too large", {
         status: 413,
