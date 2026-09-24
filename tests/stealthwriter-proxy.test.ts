@@ -5,6 +5,8 @@
 import {
   buildStealthWriterCookieHeader,
   hashStealthWriterProxyToken,
+  isBlockedStealthWriterPath,
+  proxySessionDays,
   rewriteStealthWriterBody,
   rewriteStealthWriterLocation,
 } from "../src/lib/stealthwriter-proxy.server";
@@ -47,6 +49,25 @@ const h3 = hashStealthWriterProxyToken("ticket-b");
 assert(h1 === h2, "proxy-token hashing is deterministic");
 assert(h1 !== h3, "different proxy tokens hash differently");
 assert(/^[0-9a-f]{64}$/.test(h1), "proxy-token hashes are SHA-256 hex");
+
+
+const previousDays = process.env.STEALTHWRITER_PROXY_SESSION_DAYS;
+delete process.env.STEALTHWRITER_PROXY_SESSION_DAYS;
+assert(proxySessionDays() === 30, "defaults the customer proxy session to 30 days");
+process.env.STEALTHWRITER_PROXY_SESSION_DAYS = "7";
+assert(proxySessionDays() === 7, "supports the observed 7-day minimum window");
+process.env.STEALTHWRITER_PROXY_SESSION_DAYS = "20";
+assert(proxySessionDays() === 20, "supports a 20-day configured proxy session");
+process.env.STEALTHWRITER_PROXY_SESSION_DAYS = "99";
+assert(proxySessionDays() === 30, "caps proxy sessions at 30 days");
+if (previousDays === undefined) delete process.env.STEALTHWRITER_PROXY_SESSION_DAYS;
+else process.env.STEALTHWRITER_PROXY_SESSION_DAYS = previousDays;
+
+assert(isBlockedStealthWriterPath("/logout"), "blocks upstream logout");
+assert(isBlockedStealthWriterPath("/billing/invoices"), "blocks upstream billing");
+assert(isBlockedStealthWriterPath("/settings/account"), "blocks upstream account settings");
+assert(!isBlockedStealthWriterPath("/dashboard/humanizer"), "allows the Humanizer workspace");
+assert(!isBlockedStealthWriterPath("/dashboard/ai-detector"), "allows the AI Detector workspace");
 
 const html = `<html><head><title>x</title></head><body>
 <a href="/dashboard/humanizer">go</a>
