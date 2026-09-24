@@ -68,7 +68,7 @@ export function stealthWriterAllowedAssetHosts() {
 export function pathMatchesStealthWriterRule(pathname: string, rule: string) {
   if (!rule) return false;
   if (rule.endsWith("$")) return pathname === rule.slice(0, -1);
-  return pathname === rule || pathname.startsWith(rule.endsWith("/") ? rule : rule + "/");
+  return pathname.startsWith(rule);
 }
 
 export function grantedStealthWriterFeatures(
