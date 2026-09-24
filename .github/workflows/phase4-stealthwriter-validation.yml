@@ -27,6 +27,8 @@ jobs:
         run: bun tests/stealthwriter-proxy.test.ts
       - name: Phase 4 AWS/video validation matrix
         run: bun tests/stealthwriter-phase4-validation.test.ts
+      - name: Phase 4 source-conformance audit
+        run: bun tests/stealthwriter-phase4-source-conformance.test.ts
 
       - name: SneakWrite regression
         run: bun tests/direct-sso-url.test.ts
