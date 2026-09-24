@@ -61,6 +61,13 @@ Phase 4 validates only the StealthWriter Phase 2 admin-session vault and Phase 3
 - Fix: source audit now scopes the comparison to the server `fetch()` body.
 - Production code change: none.
 
+### P4-004 — paid-access fail-closed hardening
+- Observed: the Phase 3 order predicate treated a missing `payment_status` value as though it were `successful`.
+- Existing site invariant: purchased access is valid only when the order is approved, payment is explicitly successful, and the order is unexpired.
+- Fix: the extracted Phase 4 access predicate now requires `payment_status === "successful"` explicitly.
+- Effect: no valid paid order loses access; malformed/legacy rows with missing payment proof fail closed.
+- Scope: StealthWriter Phase 3 access gate only.
+
 ## Final automated gate
 
 GitHub Actions run: **35994824206**
