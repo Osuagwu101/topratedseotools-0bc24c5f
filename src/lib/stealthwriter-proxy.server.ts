@@ -22,7 +22,7 @@ export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
 export const STEALTHWRITER_UPSTREAM_ORIGIN = "https://stealthwriter.ai";
 export const STEALTHWRITER_PROXY_COOKIE = "trst_sw_proxy";
 
-export const STEALTHWRITER_STEALTHWRITER_HANDOFF_TTL_SECONDS = 60;
+export const STEALTHWRITER_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 
 type AccessSource = {
