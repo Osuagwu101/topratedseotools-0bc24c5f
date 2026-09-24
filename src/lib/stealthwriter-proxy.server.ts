@@ -12,6 +12,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   decryptStealthWriterSession,
+  encryptStealthWriterSession,
   normaliseStealthWriterSession,
   STEALTHWRITER_SESSION_KEYS,
 } from "@/lib/stealthwriter-session.server";
@@ -21,10 +22,7 @@ export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
 export const STEALTHWRITER_UPSTREAM_ORIGIN = "https://stealthwriter.ai";
 export const STEALTHWRITER_PROXY_COOKIE = "trst_sw_proxy";
 
-const FIXED_UPSTREAM_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36";
-
+const HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 
 type AccessSource = {
@@ -36,10 +34,19 @@ function isUnexpired(value: string | null | undefined) {
   return !value || new Date(value).getTime() > Date.now();
 }
 
-export function proxySessionMinutes() {
-  const raw = Number(process.env.STEALTHWRITER_PROXY_SESSION_MINUTES ?? 30);
-  if (!Number.isFinite(raw)) return 30;
-  return Math.max(5, Math.min(60, Math.round(raw)));
+/**
+ * The AWS reference keeps the user-side proxy session long-lived and treats
+ * the 60-second value only as the signed handoff lifetime. The master
+ * StealthWriter login lifetime is NOT imposed here; upstream Better Auth owns
+ * it and can extend it by rotating the saved cookies.
+ *
+ * Default: 7 days (the current captured Better Auth session window).
+ * Deployment may raise this, but never beyond 30 days without a code review.
+ */
+export function proxySessionDays() {
+  const raw = Number(process.env.STEALTHWRITER_PROXY_SESSION_DAYS ?? 7);
+  if (!Number.isFinite(raw)) return 7;
+  return Math.max(1, Math.min(30, Math.round(raw)));
 }
 
 export function hashStealthWriterProxyToken(token: string) {
@@ -178,8 +185,10 @@ export async function createStealthWriterProxyLaunch(userId: string) {
 
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashStealthWriterProxyToken(token);
+  // Exactly like the AWS engine's signed handoff: the URL itself is valid
+  // for only 60 seconds. The long-lived proxy session begins after exchange.
   const expiresAt = new Date(
-    Date.now() + proxySessionMinutes() * 60_000,
+    Date.now() + HANDOFF_TTL_SECONDS * 1000,
   ).toISOString();
 
   const { error } = await (supabaseAdmin as any)
@@ -200,7 +209,8 @@ export async function createStealthWriterProxyLaunch(userId: string) {
 
   return {
     launchUrl: `${STEALTHWRITER_PROXY_BASE}?ticket=${encodeURIComponent(token)}`,
-    expiresAt,
+    // This is the handoff expiry, not the StealthWriter/master-session expiry.
+    handoffExpiresAt: expiresAt,
   };
 }
 
@@ -258,6 +268,9 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   // Exchange the URL ticket for a different HttpOnly cookie token. The
   // original ticket becomes useless immediately after this atomic transition.
   const sessionToken = randomBytes(32).toString("base64url");
+  const sessionExpiresAt = new Date(
+    Date.now() + proxySessionDays() * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const { data: activated, error } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
     .update({
@@ -265,6 +278,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       status: "active",
       activated_at: nowIso,
       last_seen_at: nowIso,
+      expires_at: sessionExpiresAt,
     })
     .eq("id", row.id)
     .eq("status", "issued")
@@ -281,7 +295,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     status: 302,
     headers: {
       Location: target.toString(),
-      "Set-Cookie": proxyCookie(sessionToken, String(row.expires_at)),
+      "Set-Cookie": proxyCookie(sessionToken, sessionExpiresAt),
       "Cache-Control": "no-store, max-age=0",
       "Referrer-Policy": "no-referrer",
       "X-Robots-Tag": "noindex, nofollow, noarchive",
@@ -379,8 +393,12 @@ export function rewriteStealthWriterLocation(location: string) {
 
 function upstreamHeaders(request: Request, cookieHeader: string) {
   const h = new Headers();
+
+  // Mirror the AWS engine: keep normal browser request characteristics while
+  // replacing only the security-sensitive routing/authentication pieces.
   const copy = [
     "accept",
+    "accept-language",
     "content-type",
     "if-none-match",
     "if-modified-since",
@@ -391,18 +409,100 @@ function upstreamHeaders(request: Request, cookieHeader: string) {
     "next-url",
     "purpose",
     "x-nextjs-data",
+    "sec-ch-ua",
+    "sec-ch-ua-mobile",
+    "sec-ch-ua-platform",
+    "sec-fetch-dest",
+    "sec-fetch-mode",
+    "sec-fetch-site",
+    "sec-fetch-user",
+    "upgrade-insecure-requests",
   ];
   for (const name of copy) {
     const value = request.headers.get(name);
     if (value) h.set(name, value);
   }
-  h.set("User-Agent", FIXED_UPSTREAM_UA);
-  h.set("Accept-Language", "en-US,en;q=0.9");
+  const userAgent = request.headers.get("user-agent");
+  if (userAgent) h.set("User-Agent", userAgent);
+  if (!h.has("Accept-Language")) h.set("Accept-Language", "en-US,en;q=0.9");
   h.set("Accept-Encoding", "identity");
   h.set("Origin", STEALTHWRITER_UPSTREAM_ORIGIN);
-  h.set("Referer", `${STEALTHWRITER_UPSTREAM_ORIGIN}/`);
+
+  const incomingReferer = request.headers.get("referer");
+  let referer = `${STEALTHWRITER_UPSTREAM_ORIGIN}/`;
+  if (incomingReferer) {
+    try {
+      const r = new URL(incomingReferer);
+      if (r.pathname.startsWith(STEALTHWRITER_PROXY_BASE)) {
+        referer =
+          STEALTHWRITER_UPSTREAM_ORIGIN +
+          r.pathname.slice(STEALTHWRITER_PROXY_BASE.length) +
+          r.search;
+      }
+    } catch {
+      /* use upstream root */
+    }
+  }
+  h.set("Referer", referer);
   h.set("Cookie", cookieHeader);
   return h;
+}
+
+async function persistRotatedStealthWriterCookies(upstream: Response) {
+  // AWS reference behavior: Better Auth may rotate these cookie values on
+  // ordinary requests. Never forward Set-Cookie to the customer; merge only
+  // the two allowlisted values back into the encrypted server-side vault.
+  const headers = upstream.headers as Headers & { getSetCookie?: () => string[] };
+  const setCookies =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : (() => {
+          const raw = headers.get("set-cookie");
+          return raw ? [raw] : [];
+        })();
+
+  if (!setCookies.length) return;
+
+  const updates: Record<string, string> = {};
+  for (const raw of setCookies) {
+    const first = raw.split(";", 1)[0] ?? "";
+    const eq = first.indexOf("=");
+    if (eq <= 0) continue;
+    const name = first.slice(0, eq).trim();
+    const value = first.slice(eq + 1);
+    if (
+      (STEALTHWRITER_SESSION_KEYS as readonly string[]).includes(name) &&
+      value !== ""
+    ) {
+      updates[name] = value;
+    }
+  }
+  if (!Object.keys(updates).length) return;
+
+  const encrypted = await loadEncryptedStealthWriterSession();
+  const currentPlaintext = decryptStealthWriterSession(encrypted);
+  const current = JSON.parse(
+    normaliseStealthWriterSession(currentPlaintext),
+  ) as Record<string, string>;
+  let changed = false;
+  for (const key of STEALTHWRITER_SESSION_KEYS) {
+    if (updates[key] && updates[key] !== current[key]) {
+      current[key] = updates[key];
+      changed = true;
+    }
+  }
+  if (!changed) return;
+
+  const nextPlaintext = normaliseStealthWriterSession(JSON.stringify(current));
+  const nextEncrypted = encryptStealthWriterSession(nextPlaintext);
+  await (supabaseAdmin as any)
+    .from("tool_authorized_sessions")
+    .update({
+      encrypted_payload: nextEncrypted,
+      rotated_at: new Date().toISOString(),
+    })
+    .eq("tool_slug", "stealthwriter")
+    .eq("status", "stored");
 }
 
 function standardHeaders(contentType?: string) {
@@ -508,6 +608,9 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   } catch {
     return unavailable();
   }
+
+  // Persist any Better Auth cookie rotation before handling redirects/body.
+  await persistRotatedStealthWriterCookies(upstream).catch(() => undefined);
 
   if (upstream.status === 401 || upstream.status === 403) return unavailable();
 
