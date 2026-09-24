@@ -8,6 +8,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  hkdfSync,
   randomBytes,
 } from "node:crypto";
 
@@ -67,22 +68,42 @@ function decodeEncryptionKey(rawInput?: string): Buffer {
   const raw = String(
     rawInput ?? process.env.STEALTHWRITER_SESSION_ENCRYPTION_KEY ?? "",
   ).trim();
-  if (!raw) {
+
+  if (raw) {
+    const key = /^[0-9a-f]{64}$/i.test(raw)
+      ? Buffer.from(raw, "hex")
+      : Buffer.from(raw, "base64");
+
+    if (key.length !== 32) {
+      throw new Error(
+        "StealthWriter session encryption key must decode to exactly 32 bytes.",
+      );
+    }
+    return key;
+  }
+
+  // Lovable Cloud already injects SUPABASE_SERVICE_ROLE_KEY server-side.
+  // When a dedicated StealthWriter key is not configured, derive an isolated
+  // 32-byte encryption key from that existing secret. HKDF domain separation
+  // means the derived key is not the service-role key itself.
+  const serviceRoleKey = String(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  ).trim();
+  if (!serviceRoleKey) {
     throw new Error(
       "StealthWriter session encryption is not configured on the server.",
     );
   }
 
-  const key = /^[0-9a-f]{64}$/i.test(raw)
-    ? Buffer.from(raw, "hex")
-    : Buffer.from(raw, "base64");
-
-  if (key.length !== 32) {
-    throw new Error(
-      "StealthWriter session encryption key must decode to exactly 32 bytes.",
-    );
-  }
-  return key;
+  return Buffer.from(
+    hkdfSync(
+      "sha256",
+      Buffer.from(serviceRoleKey, "utf8"),
+      Buffer.from("topratedseotools", "utf8"),
+      Buffer.from("stealthwriter-session-encryption:v1", "utf8"),
+      32,
+    ),
+  );
 }
 
 export function encryptStealthWriterSession(
