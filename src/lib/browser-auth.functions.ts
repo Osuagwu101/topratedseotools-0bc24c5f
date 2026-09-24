@@ -460,3 +460,99 @@ export const startOneClickAuth = createServerFn({ method: "POST" })
       throw err instanceof Error ? err : new Error("One-Click Login failed. Please try again.");
     }
   });
+
+
+const STEALTHWRITER_SESSION_SECRET = "STEALTHWRITER_SESSION_JSON";
+
+function normaliseStealthWriterSession(raw: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Paste valid JSON session data.");
+  }
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error("Session data must be a JSON object.");
+  }
+  const entries = Object.entries(parsed as Record<string, unknown>);
+  if (!entries.length || entries.length > 100) {
+    throw new Error("Session data must contain between 1 and 100 entries.");
+  }
+  for (const [name, value] of entries) {
+    if (!name.trim() || name.length > 160 || typeof value !== "string" || !value.trim()) {
+      throw new Error("Each session entry needs a non-empty name and value.");
+    }
+  }
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
+/**
+ * Phase 2 only: allows a Super Admin to store or replace the authorised
+ * StealthWriter session JSON without ever returning it to the browser.
+ * Writer launch remains disabled until the later, separately reviewed phase.
+ */
+export const adminGetStealthWriterSessionStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const admin = await assertAdmin(context);
+    const { data, error } = await admin
+      .from("internal_secrets")
+      .select("updated_at")
+      .eq("name", STEALTHWRITER_SESSION_SECRET)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const { data: isSuper } = await context.supabase.rpc("is_super_admin", {
+      _user_id: context.userId,
+    });
+    return {
+      configured: !!data,
+      updated_at: data?.updated_at ?? null,
+      is_super_admin: !!isSuper,
+    };
+  });
+
+export const adminSaveStealthWriterSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ session_json: z.string().min(2).max(50_000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await assertSuperAdmin(context);
+    const value = normaliseStealthWriterSession(data.session_json);
+    const { error } = await admin.from("internal_secrets").upsert(
+      {
+        name: STEALTHWRITER_SESSION_SECRET,
+        value,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "name" },
+    );
+    if (error) throw new Error(error.message);
+    await logAdminActivity(context, {
+      action: "stealthwriter.session_saved",
+      area: "api_keys",
+      target_type: "stealthwriter",
+      target_id: "session",
+      details: "Session data replaced; values are write-only.",
+    });
+    return { ok: true };
+  });
+
+export const adminClearStealthWriterSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const admin = await assertSuperAdmin(context);
+    const { error } = await admin
+      .from("internal_secrets")
+      .delete()
+      .eq("name", STEALTHWRITER_SESSION_SECRET);
+    if (error) throw new Error(error.message);
+    await logAdminActivity(context, {
+      action: "stealthwriter.session_cleared",
+      area: "api_keys",
+      target_type: "stealthwriter",
+      target_id: "session",
+      details: "Stored session data removed.",
+    });
+    return { ok: true };
+  });
