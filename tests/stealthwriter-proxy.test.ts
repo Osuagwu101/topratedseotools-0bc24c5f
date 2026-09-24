@@ -4,6 +4,7 @@
  */
 import {
   buildStealthWriterCookieHeader,
+  extractStealthWriterCookieRotations,
   hashStealthWriterProxyToken,
   isBlockedStealthWriterPath,
   proxySessionDays,
@@ -50,6 +51,26 @@ assert(h1 === h2, "proxy-token hashing is deterministic");
 assert(h1 !== h3, "different proxy tokens hash differently");
 assert(/^[0-9a-f]{64}$/.test(h1), "proxy-token hashes are SHA-256 hex");
 
+
+
+const rotations = extractStealthWriterCookieRotations([
+  "__Secure-better-auth.session_token=rotated-token; Path=/; HttpOnly; Secure",
+  "__Secure-better-auth.session_data=rotated-data; Path=/; HttpOnly; Secure",
+  "analytics_cookie=ignore-me; Path=/",
+  "__Secure-better-auth.session_token=; Max-Age=0; Path=/",
+]);
+assert(
+  rotations["__Secure-better-auth.session_token"] === "rotated-token",
+  "captures a rotated Better Auth session-token value",
+);
+assert(
+  rotations["__Secure-better-auth.session_data"] === "rotated-data",
+  "captures a rotated Better Auth session-data value",
+);
+assert(
+  !("analytics_cookie" in rotations),
+  "ignores unrelated upstream cookies",
+);
 
 const previousDays = process.env.STEALTHWRITER_PROXY_SESSION_DAYS;
 delete process.env.STEALTHWRITER_PROXY_SESSION_DAYS;
