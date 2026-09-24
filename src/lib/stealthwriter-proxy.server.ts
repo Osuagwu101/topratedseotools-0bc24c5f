@@ -22,7 +22,7 @@ export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
 export const STEALTHWRITER_UPSTREAM_ORIGIN = "https://stealthwriter.ai";
 export const STEALTHWRITER_PROXY_COOKIE = "trst_sw_proxy";
 
-const HANDOFF_TTL_SECONDS = 60;
+export const STEALTHWRITER_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 
 type AccessSource = {
@@ -49,8 +49,44 @@ export function isBlockedStealthWriterPath(pathname: string) {
   );
 }
 
-function isUnexpired(value: string | null | undefined) {
-  return !value || new Date(value).getTime() > Date.now();
+export function isUnexpiredStealthWriterAccess(
+  value: string | null | undefined,
+  nowMs = Date.now(),
+) {
+  return !value || new Date(value).getTime() > nowMs;
+}
+
+export function isActiveStealthWriterOrder(
+  order: {
+    expires_at?: string | null;
+    access_type?: string | null;
+    fulfilment_status?: string | null;
+    payment_status?: string | null;
+    status?: string | null;
+  },
+  nowMs = Date.now(),
+) {
+  return (
+    order.status === "approved" &&
+    String(order.payment_status ?? "") === "successful" &&
+    isUnexpiredStealthWriterAccess(order.expires_at, nowMs) &&
+    (String(order.access_type ?? "shared") !== "private" ||
+      String(order.fulfilment_status ?? "") === "active")
+  );
+}
+
+export function isActiveStealthWriterGrant(
+  grant: { expires_at?: string | null; status?: string | null },
+  nowMs = Date.now(),
+) {
+  return (
+    grant.status === "active" &&
+    isUnexpiredStealthWriterAccess(grant.expires_at, nowMs)
+  );
+}
+
+export function isStealthWriterUpstreamAuthRejected(status: number) {
+  return status === 401 || status === 403;
 }
 
 /**
@@ -106,12 +142,8 @@ async function findActiveAccess(userId: string): Promise<AccessSource | null> {
     .limit(20);
   if (orderError) throw new Error(orderError.message);
 
-  const activeOrder = ((orders ?? []) as any[]).find(
-    (order) =>
-      isUnexpired(order.expires_at) &&
-      String(order.payment_status ?? "successful") === "successful" &&
-      (String(order.access_type ?? "shared") !== "private" ||
-        String(order.fulfilment_status ?? "") === "active"),
+  const activeOrder = ((orders ?? []) as any[]).find((order) =>
+    isActiveStealthWriterOrder(order),
   );
   if (activeOrder) return { kind: "order", id: String(activeOrder.id) };
 
@@ -126,7 +158,7 @@ async function findActiveAccess(userId: string): Promise<AccessSource | null> {
   if (grantError) throw new Error(grantError.message);
 
   const activeGrant = ((grants ?? []) as any[]).find((grant) =>
-    isUnexpired(grant.expires_at),
+    isActiveStealthWriterGrant(grant),
   );
   return activeGrant ? { kind: "grant", id: String(activeGrant.id) } : null;
 }
@@ -143,14 +175,7 @@ async function sourceStillActive(
       .eq("user_id", userId)
       .eq("tool_slug", "stealthwriter")
       .maybeSingle();
-    return !!(
-      data &&
-      data.status === "approved" &&
-      String(data.payment_status ?? "successful") === "successful" &&
-      isUnexpired(data.expires_at) &&
-      (String(data.access_type ?? "shared") !== "private" ||
-        String(data.fulfilment_status ?? "") === "active")
-    );
+    return !!(data && isActiveStealthWriterOrder(data));
   }
 
   const { data } = await (supabaseAdmin as any)
@@ -160,7 +185,7 @@ async function sourceStillActive(
     .eq("user_id", userId)
     .eq("tool_slug", "stealthwriter")
     .maybeSingle();
-  return !!(data && data.status === "active" && isUnexpired(data.expires_at));
+  return !!(data && isActiveStealthWriterGrant(data));
 }
 
 async function loadEncryptedStealthWriterSession() {
@@ -196,7 +221,7 @@ export async function createStealthWriterProxyLaunch(userId: string) {
   // Exactly like the AWS engine's signed handoff: the URL itself is valid
   // for only 60 seconds. The long-lived proxy session begins after exchange.
   const expiresAt = new Date(
-    Date.now() + HANDOFF_TTL_SECONDS * 1000,
+    Date.now() + STEALTHWRITER_HANDOFF_TTL_SECONDS * 1000,
   ).toISOString();
 
   const { error } = await (supabaseAdmin as any)
@@ -474,6 +499,27 @@ export function extractStealthWriterCookieRotations(setCookies: string[]) {
   return updates;
 }
 
+export function applyStealthWriterCookieRotations(
+  plaintext: string,
+  setCookies: string[],
+) {
+  const current = JSON.parse(
+    normaliseStealthWriterSession(plaintext),
+  ) as Record<string, string>;
+  const updates = extractStealthWriterCookieRotations(setCookies);
+  let changed = false;
+  for (const key of STEALTHWRITER_SESSION_KEYS) {
+    if (updates[key] && updates[key] !== current[key]) {
+      current[key] = updates[key];
+      changed = true;
+    }
+  }
+  return {
+    changed,
+    plaintext: normaliseStealthWriterSession(JSON.stringify(current)),
+  };
+}
+
 async function persistRotatedStealthWriterCookies(upstream: Response) {
   // AWS reference behavior: Better Auth may rotate these cookie values on
   // ordinary requests. Never forward Set-Cookie to the customer; merge only
@@ -492,20 +538,10 @@ async function persistRotatedStealthWriterCookies(upstream: Response) {
 
   const encrypted = await loadEncryptedStealthWriterSession();
   const currentPlaintext = decryptStealthWriterSession(encrypted);
-  const current = JSON.parse(
-    normaliseStealthWriterSession(currentPlaintext),
-  ) as Record<string, string>;
-  let changed = false;
-  for (const key of STEALTHWRITER_SESSION_KEYS) {
-    if (updates[key] && updates[key] !== current[key]) {
-      current[key] = updates[key];
-      changed = true;
-    }
-  }
-  if (!changed) return;
+  const rotated = applyStealthWriterCookieRotations(currentPlaintext, setCookies);
+  if (!rotated.changed) return;
 
-  const nextPlaintext = normaliseStealthWriterSession(JSON.stringify(current));
-  const nextEncrypted = encryptStealthWriterSession(nextPlaintext);
+  const nextEncrypted = encryptStealthWriterSession(rotated.plaintext);
   await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .update({
@@ -635,7 +671,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     return unavailable();
   }
 
-  if (upstream.status === 401 || upstream.status === 403) return unavailable();
+  if (isStealthWriterUpstreamAuthRejected(upstream.status)) return unavailable();
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
