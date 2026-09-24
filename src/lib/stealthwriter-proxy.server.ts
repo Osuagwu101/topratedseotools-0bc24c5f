@@ -164,6 +164,18 @@ export async function createStealthWriterProxyLaunch(userId: string) {
   // Fail before issuing a ticket if Phase 2 has not been configured.
   await loadEncryptedStealthWriterSession();
 
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+  const { count } = await (supabaseAdmin as any)
+    .from("stealthwriter_proxy_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", fiveMinutesAgo);
+  if ((count ?? 0) >= 3) {
+    throw new Error(
+      "Too many StealthWriter launch attempts. Please wait a few minutes and try again.",
+    );
+  }
+
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashStealthWriterProxyToken(token);
   const expiresAt = new Date(
@@ -243,16 +255,22 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     return forbidden("Your StealthWriter access is no longer active.");
   }
 
-  const { error } = await (supabaseAdmin as any)
+  // Exchange the URL ticket for a different HttpOnly cookie token. The
+  // original ticket becomes useless immediately after this atomic transition.
+  const sessionToken = randomBytes(32).toString("base64url");
+  const { data: activated, error } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
     .update({
+      token_hash: hashStealthWriterProxyToken(sessionToken),
       status: "active",
       activated_at: nowIso,
       last_seen_at: nowIso,
     })
     .eq("id", row.id)
-    .eq("status", "issued");
-  if (error) return unavailable();
+    .eq("status", "issued")
+    .select("id")
+    .maybeSingle();
+  if (error || !activated) return forbidden("This StealthWriter launch link was already used.");
 
   const target = new URL(
     `${STEALTHWRITER_PROXY_BASE}${STEALTHWRITER_LANDING_PATH}`,
@@ -263,7 +281,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     status: 302,
     headers: {
       Location: target.toString(),
-      "Set-Cookie": proxyCookie(ticket, String(row.expires_at)),
+      "Set-Cookie": proxyCookie(sessionToken, String(row.expires_at)),
       "Cache-Control": "no-store, max-age=0",
       "Referrer-Policy": "no-referrer",
       "X-Robots-Tag": "noindex, nofollow, noarchive",
