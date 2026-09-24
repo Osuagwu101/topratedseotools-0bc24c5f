@@ -468,21 +468,7 @@ function upstreamHeaders(request: Request, cookieHeader: string) {
   return h;
 }
 
-async function persistRotatedStealthWriterCookies(upstream: Response) {
-  // AWS reference behavior: Better Auth may rotate these cookie values on
-  // ordinary requests. Never forward Set-Cookie to the customer; merge only
-  // the two allowlisted values back into the encrypted server-side vault.
-  const headers = upstream.headers as Headers & { getSetCookie?: () => string[] };
-  const setCookies =
-    typeof headers.getSetCookie === "function"
-      ? headers.getSetCookie()
-      : (() => {
-          const raw = headers.get("set-cookie");
-          return raw ? [raw] : [];
-        })();
-
-  if (!setCookies.length) return;
-
+export function extractStealthWriterCookieRotations(setCookies: string[]) {
   const updates: Record<string, string> = {};
   for (const raw of setCookies) {
     const first = raw.split(";", 1)[0] ?? "";
@@ -497,6 +483,23 @@ async function persistRotatedStealthWriterCookies(upstream: Response) {
       updates[name] = value;
     }
   }
+  return updates;
+}
+
+async function persistRotatedStealthWriterCookies(upstream: Response) {
+  // AWS reference behavior: Better Auth may rotate these cookie values on
+  // ordinary requests. Never forward Set-Cookie to the customer; merge only
+  // the two allowlisted values back into the encrypted server-side vault.
+  const headers = upstream.headers as Headers & { getSetCookie?: () => string[] };
+  const setCookies =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : (() => {
+          const raw = headers.get("set-cookie");
+          return raw ? [raw] : [];
+        })();
+
+  const updates = extractStealthWriterCookieRotations(setCookies);
   if (!Object.keys(updates).length) return;
 
   const encrypted = await loadEncryptedStealthWriterSession();
