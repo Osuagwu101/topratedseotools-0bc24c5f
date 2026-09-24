@@ -108,6 +108,31 @@ assert(
   "rejects an invalid encryption key",
 );
 
+const previousDedicated = process.env.STEALTHWRITER_SESSION_ENCRYPTION_KEY;
+const previousServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+delete process.env.STEALTHWRITER_SESSION_ENCRYPTION_KEY;
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-secret-A";
+const derivedEncrypted = encryptStealthWriterSession(normalised);
+assert(
+  decryptStealthWriterSession(derivedEncrypted) === normalised,
+  "derives a working vault key from the existing server-only service key",
+);
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-secret-B";
+assert(
+  throws(() => decryptStealthWriterSession(derivedEncrypted)),
+  "derived vault ciphertext fails closed after the underlying server secret changes",
+);
+if (previousDedicated === undefined) {
+  delete process.env.STEALTHWRITER_SESSION_ENCRYPTION_KEY;
+} else {
+  process.env.STEALTHWRITER_SESSION_ENCRYPTION_KEY = previousDedicated;
+}
+if (previousServiceRole === undefined) {
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+} else {
+  process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRole;
+}
+
 console.log(`stealthwriter-session-vault: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   console.error(failures.join("\n"));
