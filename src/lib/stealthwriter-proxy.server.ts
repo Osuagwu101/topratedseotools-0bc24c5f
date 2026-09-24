@@ -191,18 +191,6 @@ export async function createStealthWriterProxyLaunch(userId: string) {
   // Fail before issuing a ticket if Phase 2 has not been configured.
   await loadEncryptedStealthWriterSession();
 
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-  const { count } = await (supabaseAdmin as any)
-    .from("stealthwriter_proxy_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", fiveMinutesAgo);
-  if ((count ?? 0) >= 3) {
-    throw new Error(
-      "Too many StealthWriter launch attempts. Please wait a few minutes and try again.",
-    );
-  }
-
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashStealthWriterProxyToken(token);
   // Exactly like the AWS engine's signed handoff: the URL itself is valid
