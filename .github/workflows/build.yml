@@ -28,9 +28,6 @@ jobs:
         run: bun tests/phrasly-auth-state.test.ts
       - name: Multi-tool browser viewer regression tests
         run: bun tests/browser-viewer.test.ts
-      - name: Browser provider coexistence policy tests
-      - name: Admin Secure Login provider-routing tests
-      - name: Phase 15 grant and saved-auth invariants
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
       - name: Typecheck
