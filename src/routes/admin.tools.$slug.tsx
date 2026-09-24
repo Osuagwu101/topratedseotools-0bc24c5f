@@ -54,6 +54,10 @@ import {
 } from "@/lib/tool-overrides.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 import { launchTool } from "@/lib/tool-launcher";
+import {
+  adminGetStealthWriterSessionStatus,
+  adminSaveStealthWriterSession,
+} from "@/lib/stealthwriter-session.functions";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
@@ -74,6 +78,10 @@ const ordersQuery = queryOptions({
 const overridesQuery = queryOptions({
   queryKey: ["tool-overrides"],
   queryFn: () => listToolOverrides(),
+});
+const stealthWriterSessionQuery = queryOptions({
+  queryKey: ["admin-stealthwriter-session"],
+  queryFn: () => adminGetStealthWriterSessionStatus(),
 });
 
 export const Route = createFileRoute("/admin/tools/$slug")({
@@ -96,6 +104,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
       context.queryClient.ensureQueryData(pricingQuery),
       context.queryClient.ensureQueryData(credsQuery),
       context.queryClient.ensureQueryData(ordersQuery),
+      ...(tool.slug === "stealthwriter"
+        ? [context.queryClient.ensureQueryData(stealthWriterSessionQuery)]
+        : []),
     ]);
     return { slug: tool.slug };
   },
@@ -112,7 +123,14 @@ export const Route = createFileRoute("/admin/tools/$slug")({
   ),
 });
 
-type Tab = "overview" | "access" | "pricing" | "accounts" | "credentials" | "orders";
+type Tab =
+  | "overview"
+  | "access"
+  | "pricing"
+  | "accounts"
+  | "session"
+  | "credentials"
+  | "orders";
 
 function AdminToolPage() {
   const { slug } = Route.useParams();
@@ -131,6 +149,13 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
+  if (tool.slug === "stealthwriter") {
+    tabs.splice(4, 0, {
+      id: "session",
+      label: "Authorized session",
+      icon: KeyRound,
+    });
+  }
 
   return (
     <AdminShell>
@@ -189,6 +214,9 @@ function AdminToolPage() {
               slug={tool.slug}
               authProvider={setting?.auth_provider}
             />
+          )}
+          {tab === "session" && tool.slug === "stealthwriter" && (
+            <StealthWriterSessionTab />
           )}
           {tab === "credentials" && <CredentialsTab tool={tool} />}
           {tab === "orders" && <OrdersTab slug={tool.slug} />}
@@ -398,6 +426,108 @@ function Field({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="mt-1 text-sm font-medium">{value}</div>
+    </div>
+  );
+}
+
+
+/* ----------------------- StealthWriter session ----------------------- */
+
+function StealthWriterSessionTab() {
+  const { data } = useSuspenseQuery(stealthWriterSessionQuery);
+  const saveSession = useServerFn(adminSaveStealthWriterSession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const updatedLabel = data.updated_at
+    ? new Date(data.updated_at).toLocaleString()
+    : "Never";
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error("Paste the authorised StealthWriter session data first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveSession({ data: { session_data: sessionData.trim() } });
+      setSessionData("");
+      await qc.invalidateQueries({ queryKey: ["admin-stealthwriter-session"] });
+      toast.success("StealthWriter authorised session saved securely.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the session.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">StealthWriter authorised session</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+            Paste the two-cookie JSON from the authorised StealthWriter browser session.
+            Saved values are encrypted on the server and are write-only from this page.
+          </p>
+        </div>
+        <div className="text-right">
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+              data.configured
+                ? "bg-success/15 text-success"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {data.configured ? "Stored" : "Not configured"}
+          </span>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            Last replaced: {updatedLabel}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-xl border border-dashed bg-muted/20 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Session data
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={7}
+          autoComplete="off"
+          spellCheck={false}
+          disabled={!data.can_manage || saving}
+          placeholder={'{"__Secure-better-auth.session_token":"PASTE_TOKEN_VALUE_HERE","__Secure-better-auth.session_data":"PASTE_DATA_VALUE_HERE"}'}
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          The stored session is never displayed back in the browser. Saving a new value
+          replaces the previous StealthWriter session.
+        </p>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        {!data.can_manage ? (
+          <span className="text-xs text-muted-foreground">
+            Only a Super Admin can replace this session.
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            Phase 2 only — this does not enable customer access yet.
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={save}
+          disabled={!data.can_manage || saving || !sessionData.trim()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" />
+          {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+        </button>
+      </div>
     </div>
   );
 }
