@@ -30,6 +30,25 @@ type AccessSource = {
   id: string;
 };
 
+const BLOCKED_STEALTHWRITER_PATH_PREFIXES = [
+  "/logout",
+  "/signout",
+  "/sign-out",
+  "/billing",
+  "/account",
+  "/accounts",
+  "/subscription",
+  "/subscriptions",
+  "/settings/billing",
+  "/settings/account",
+] as const;
+
+export function isBlockedStealthWriterPath(pathname: string) {
+  return BLOCKED_STEALTHWRITER_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
 function isUnexpired(value: string | null | undefined) {
   return !value || new Date(value).getTime() > Date.now();
 }
@@ -40,13 +59,14 @@ function isUnexpired(value: string | null | undefined) {
  * StealthWriter login lifetime is NOT imposed here; upstream Better Auth owns
  * it and can extend it by rotating the saved cookies.
  *
- * Default: 7 days (the current captured Better Auth session window).
- * Deployment may raise this, but never beyond 30 days without a code review.
+ * Default: 30 days so our own proxy cookie never shortens an otherwise-valid
+ * upstream session. The upstream Better Auth session can still expire earlier
+ * (commonly around 7 days) or be extended by normal cookie rotation.
  */
 export function proxySessionDays() {
-  const raw = Number(process.env.STEALTHWRITER_PROXY_SESSION_DAYS ?? 7);
-  if (!Number.isFinite(raw)) return 7;
-  return Math.max(1, Math.min(30, Math.round(raw)));
+  const raw = Number(process.env.STEALTHWRITER_PROXY_SESSION_DAYS ?? 30);
+  if (!Number.isFinite(raw)) return 30;
+  return Math.max(7, Math.min(30, Math.round(raw)));
 }
 
 export function hashStealthWriterProxyToken(token: string) {
@@ -569,6 +589,12 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   const target = new URL(path.startsWith("/") ? path : `/${path}`, STEALTHWRITER_UPSTREAM_ORIGIN);
   target.search = url.search;
 
+  // AWS reference Step 3: customer navigation can never reach master-account
+  // logout, billing, subscription or account-management surfaces.
+  if (isBlockedStealthWriterPath(target.pathname)) {
+    return forbidden("This StealthWriter account action is disabled.");
+  }
+
   let cookieHeader: string;
   try {
     const encrypted = await loadEncryptedStealthWriterSession();
@@ -610,7 +636,13 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   }
 
   // Persist any Better Auth cookie rotation before handling redirects/body.
-  await persistRotatedStealthWriterCookies(upstream).catch(() => undefined);
+  try {
+    await persistRotatedStealthWriterCookies(upstream);
+  } catch {
+    // Do not silently lose a Better Auth rotation. The AWS engine persists
+    // rotations synchronously because the next request may require the new value.
+    return unavailable();
+  }
 
   if (upstream.status === 401 || upstream.status === 403) return unavailable();
 
