@@ -5,6 +5,7 @@ import type { ToolSetting } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.functions";
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
+import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import {
   isAllowedToolViewerUrl,
@@ -15,6 +16,16 @@ import {
 
 function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
   if (toolSlug === "sneakwrite") return new URL(validateSneakWriteLaunchUrl(rawUrl));
+  if (toolSlug === "stealthwriter") {
+    const launchUrl = new URL(rawUrl, window.location.origin);
+    if (
+      launchUrl.origin !== window.location.origin ||
+      launchUrl.pathname !== "/api/stealthwriter-proxy"
+    ) {
+      throw new Error("The StealthWriter proxy returned an invalid launch URL.");
+    }
+    return launchUrl;
+  }
   const launchUrl = new URL(rawUrl);
   if (launchUrl.protocol !== "https:")
     throw new Error("The secure login service returned an invalid launch URL.");
@@ -68,14 +79,16 @@ export async function launchTool(
       const result =
         tool.slug === "sneakwrite"
           ? await startSneakWriteDirectSso({ data: { tool_slug: "sneakwrite" } })
-          : await startSessionOnlyOneClickAuth({
-              data: {
-                tool_slug: tool.slug,
-                grant_access: !!options?.grantAccess,
-                viewport_width: viewport.width,
-                viewport_height: viewport.height,
-              },
-            });
+          : tool.slug === "stealthwriter"
+            ? await startStealthWriterProxyLaunch()
+            : await startSessionOnlyOneClickAuth({
+                data: {
+                  tool_slug: tool.slug,
+                  grant_access: !!options?.grantAccess,
+                  viewport_width: viewport.width,
+                  viewport_height: viewport.height,
+                },
+              });
       const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
 
