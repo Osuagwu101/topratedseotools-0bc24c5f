@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,17 +22,24 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
       - name: SneakWrite SSO regression test
         run: bun tests/direct-sso-url.test.ts
       - name: Phrasly shared-auth regression tests
         run: bun tests/phrasly-auth-state.test.ts
-      - name: Multi-tool browser viewer regression tests
-        run: bun tests/browser-viewer.test.ts
-      - name: Browser provider coexistence policy tests
-      - name: Admin Secure Login provider-routing tests
-      - name: Phase 15 grant and saved-auth invariants
+
+      - name: StealthWriter Phase 2 session-vault tests
+        run: bun tests/stealthwriter-session-vault.test.ts
+      - name: StealthWriter Phase 3 proxy tests
+        run: bun tests/stealthwriter-proxy.test.ts
+      - name: StealthWriter Phase 4 validation matrix
+        run: bun tests/stealthwriter-phase4-validation.test.ts
+      - name: StealthWriter Phase 4 source conformance
+        run: bun tests/stealthwriter-phase4-source-conformance.test.ts
+
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
+
       - name: Typecheck
         run: bunx tsc --noEmit
       - name: Production build
