@@ -52,7 +52,7 @@ const base: StealthWriterUserControls = {
 // Separate Humanizer / AI Detector access.
 assert(
   grantedStealthWriterFeatures(base).join(",") === "humanizer,ai_detector",
-  "active default customer owns Humanizer and AI Detector independently",
+  "one StealthWriter purchase enables both Humanizer and AI Detector by default",
 );
 const humanizerOnly = { ...base, ai_detector_enabled: false };
 assert(
