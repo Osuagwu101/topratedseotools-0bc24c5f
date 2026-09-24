@@ -86,10 +86,11 @@ assert(
     launcher.includes("startStealthWriterProxyLaunch"),
   "only StealthWriter uses the new proxy launcher",
 );
+const fetchBody = server.slice(server.indexOf("async fetch(request"));
 assert(
-  server.includes('url.pathname === "/api/stealthwriter-proxy"') &&
-    server.indexOf('url.pathname === "/api/stealthwriter-proxy"') <
-      server.indexOf("getServerEntry()"),
+  fetchBody.includes('url.pathname === "/api/stealthwriter-proxy"') &&
+    fetchBody.indexOf('url.pathname === "/api/stealthwriter-proxy"') <
+      fetchBody.indexOf("const handler = await getServerEntry()"),
   "proxy requests are handled server-side before the React application",
 );
 
