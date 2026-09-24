@@ -270,6 +270,80 @@ export async function getStealthWriterUserLabel(userId: string) {
   return fullName && email ? `${fullName} (${email})` : fullName || email || "Customer";
 }
 
+export async function suspendTopRatedAccountForDeviceLimit(userId: string) {
+  const now = new Date().toISOString();
+
+  const { error: profileError } = await (supabaseAdmin as any)
+    .from("profiles")
+    .update({
+      account_status: "suspended",
+      suspension_reason: "stealthwriter_device_limit_exceeded",
+      suspended_at: now,
+      updated_at: now,
+    })
+    .eq("id", userId);
+  if (profileError) throw new Error(profileError.message);
+
+  await (supabaseAdmin as any)
+    .from("stealthwriter_user_controls")
+    .update({
+      status: "suspended",
+      suspended_reason: "device_limit_exceeded",
+      suspended_at: now,
+      updated_at: now,
+    })
+    .eq("user_id", userId);
+
+  await (supabaseAdmin as any)
+    .from("stealthwriter_proxy_sessions")
+    .update({ status: "revoked" })
+    .eq("user_id", userId)
+    .in("status", ["issued", "active"]);
+
+  // Supabase Auth ban blocks new password/OAuth sessions. The profiles flag is
+  // still the authoritative whole-site gate for already-issued JWTs.
+  try {
+    await (supabaseAdmin.auth.admin as any).updateUserById(userId, {
+      ban_duration: "876000h",
+    });
+  } catch (error) {
+    console.warn("[stealthwriter] auth ban failed after platform suspension", error);
+  }
+}
+
+export async function reactivateTopRatedAccount(userId: string) {
+  const now = new Date().toISOString();
+
+  const { error: profileError } = await (supabaseAdmin as any)
+    .from("profiles")
+    .update({
+      account_status: "active",
+      suspension_reason: null,
+      suspended_at: null,
+      updated_at: now,
+    })
+    .eq("id", userId);
+  if (profileError) throw new Error(profileError.message);
+
+  await (supabaseAdmin as any)
+    .from("stealthwriter_user_controls")
+    .update({
+      status: "active",
+      suspended_reason: null,
+      suspended_at: null,
+      updated_at: now,
+    })
+    .eq("user_id", userId);
+
+  try {
+    await (supabaseAdmin.auth.admin as any).updateUserById(userId, {
+      ban_duration: "none",
+    });
+  } catch (error) {
+    console.warn("[stealthwriter] auth unban failed after platform reactivation", error);
+  }
+}
+
 export async function registerOrTouchStealthWriterDevice(
   userId: string,
   fingerprint: string,
@@ -303,21 +377,7 @@ export async function registerOrTouchStealthWriterDevice(
   if (countError) throw new Error(countError.message);
 
   if ((count ?? 0) >= controls.device_limit) {
-    const now = new Date().toISOString();
-    await (supabaseAdmin as any)
-      .from("stealthwriter_user_controls")
-      .update({
-        status: "suspended",
-        suspended_reason: "device_limit_exceeded",
-        suspended_at: now,
-        updated_at: now,
-      })
-      .eq("user_id", userId);
-    await (supabaseAdmin as any)
-      .from("stealthwriter_proxy_sessions")
-      .update({ status: "revoked" })
-      .eq("user_id", userId)
-      .in("status", ["issued", "active"]);
+    await suspendTopRatedAccountForDeviceLimit(userId);
     return { ok: false as const, suspended: true as const, controls };
   }
 
