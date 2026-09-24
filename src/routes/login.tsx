@@ -35,9 +35,25 @@ function LoginPage() {
     e.preventDefault();
     if (!hydrated || loading) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
+
+    const userId = signInData.user?.id;
+    if (userId) {
+      const { data: accountState } = await (supabase as any)
+        .from("profiles")
+        .select("account_status")
+        .eq("id", userId)
+        .maybeSingle();
+      if (accountState?.account_status === "suspended") {
+        await supabase.auth.signOut();
+        return toast.error(
+          "Your account is suspended because the allowed device limit was exceeded. Please contact Admin.",
+        );
+      }
+    }
+
     const { isAdmin } = await getIsAdmin();
     if (isAdmin) {
       await supabase.auth.signOut();
