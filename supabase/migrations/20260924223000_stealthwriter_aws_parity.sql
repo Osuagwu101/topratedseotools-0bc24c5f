@@ -6,6 +6,21 @@
 --   * proxy-session device binding
 -- Raw StealthWriter auth cookies remain in tool_authorized_sessions only.
 
+-- Whole-account suspension state. Device-limit overflow on StealthWriter
+-- suspends the customer's TopRatedSEOTools account, matching the AWS policy.
+alter table public.profiles
+  add column if not exists account_status text not null default 'active'
+    check (account_status in ('active', 'suspended'));
+
+alter table public.profiles
+  add column if not exists suspension_reason text null;
+
+alter table public.profiles
+  add column if not exists suspended_at timestamptz null;
+
+create index if not exists profiles_account_status_idx
+  on public.profiles (account_status);
+
 create table if not exists public.stealthwriter_user_controls (
   user_id uuid primary key references auth.users(id) on delete cascade,
   status text not null default 'active'
@@ -175,6 +190,9 @@ revoke all on function public.consume_stealthwriter_usage(uuid, text, boolean)
   from public, anon, authenticated;
 grant execute on function public.consume_stealthwriter_usage(uuid, text, boolean)
   to service_role;
+
+comment on column public.profiles.account_status is
+  'Platform-wide customer account state. Suspended customers cannot use authenticated TopRatedSEOTools surfaces.';
 
 comment on table public.stealthwriter_user_controls is
   'AWS-parity StealthWriter feature entitlements, daily limits and device policy.';
