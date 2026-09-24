@@ -3,7 +3,8 @@
  *
  * Single page with tabs (Overview, Access & Availability, Pricing,
  * Credentials, Orders) that consolidates every setting for one tool.
- * All existing server functions are reused — no business logic changes.
+ * Existing tool-management behaviour is preserved. StealthWriter adds one
+ * private admin-only authorised-session tab for Phase 2.
  */
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
@@ -441,7 +442,7 @@ function StealthWriterSessionTab() {
   const [saving, setSaving] = useState(false);
 
   const updatedLabel = data.updated_at
-    ? new Date(data.updated_at).toLocaleString()
+    ? new Date(data.updated_at).toISOString().replace("T", " ").replace(".000Z", " UTC")
     : "Never";
 
   async function save() {
@@ -498,6 +499,8 @@ function StealthWriterSessionTab() {
           rows={7}
           autoComplete="off"
           spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
           disabled={!data.can_manage || saving}
           placeholder={'{"__Secure-better-auth.session_token":"PASTE_TOKEN_VALUE_HERE","__Secure-better-auth.session_data":"PASTE_DATA_VALUE_HERE"}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
