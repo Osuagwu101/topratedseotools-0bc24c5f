@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  adminClearStealthWriterSession,
   adminGetBrowserAuthSettings,
+  adminGetStealthWriterSessionStatus,
   adminSaveBrowserAuthSecrets,
+  adminSaveStealthWriterSession,
   adminTestBrowserAuthProvider,
   adminUpdateBrowserAuthSettings,
 } from "@/lib/browser-auth.functions";
@@ -22,25 +25,39 @@ const browserAuthQuery = queryOptions({
   queryFn: () => adminGetBrowserAuthSettings(),
 });
 
+const stealthWriterSessionQuery = queryOptions({
+  queryKey: ["admin-stealthwriter-session"],
+  queryFn: () => adminGetStealthWriterSessionStatus(),
+});
+
 export const Route = createFileRoute("/admin/settings/browser-auth")({
   ssr: false,
   head: () => ({ meta: [{ title: "One-Click Browser Login — Admin" }, { name: "robots", content: "noindex" }] }),
   beforeLoad: async () => { await requireAdminOrRedirect(); },
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(browserAuthQuery); },
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(browserAuthQuery),
+      context.queryClient.ensureQueryData(stealthWriterSessionQuery),
+    ]);
+  },
   component: BrowserAuthAdminPage,
 });
 
 function BrowserAuthAdminPage() {
   const { data } = useSuspenseQuery(browserAuthQuery);
+  const { data: stealthWriterSession } = useSuspenseQuery(stealthWriterSessionQuery);
   const router = useRouter();
   const updateSettings = useServerFn(adminUpdateBrowserAuthSettings);
   const saveSecrets = useServerFn(adminSaveBrowserAuthSecrets);
+  const saveStealthWriterSession = useServerFn(adminSaveStealthWriterSession);
+  const clearStealthWriterSession = useServerFn(adminClearStealthWriterSession);
   const testProvider = useServerFn(adminTestBrowserAuthProvider);
 
   const [enabled, setEnabled] = useState(data.settings.enabled);
   const [provider, setProvider] = useState<BrowserAuthProvider>(data.settings.default_provider);
   const [timeout, setTimeoutMinutes] = useState(data.settings.session_timeout_minutes);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [stealthWriterSessionJson, setStealthWriterSessionJson] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,6 +95,40 @@ function BrowserAuthAdminPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save credentials");
     } finally { setBusy(null); }
+  }
+
+
+  async function saveStealthWriterSessionData() {
+    if (!stealthWriterSessionJson.trim()) {
+      return toast.error("Paste the session JSON first.");
+    }
+    setBusy("save:stealthwriter");
+    try {
+      await saveStealthWriterSession({ data: { session_json: stealthWriterSessionJson } });
+      setStealthWriterSessionJson("");
+      toast.success("StealthWriter session data saved.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save session data");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function clearStealthWriterSessionData() {
+    if (!window.confirm("Remove the stored StealthWriter session data? This does not change writer access because Phase 3 has not been built.")) {
+      return;
+    }
+    setBusy("clear:stealthwriter");
+    try {
+      await clearStealthWriterSession({ data: undefined });
+      toast.success("StealthWriter session data removed.");
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove session data");
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function runTest(p: BrowserAuthProvider) {
@@ -135,6 +186,44 @@ function BrowserAuthAdminPage() {
             <SecretField label="Cloudflare Account ID" saved={info("cloudflare").configured_secrets.includes("CLOUDFLARE_ACCOUNT_ID")} value={draft.CLOUDFLARE_ACCOUNT_ID ?? ""} onChange={(v) => setDraft((d) => ({ ...d, CLOUDFLARE_ACCOUNT_ID: v }))} placeholder="Account ID" />
             <SecretField label="Browser Run API token" saved={info("cloudflare").configured_secrets.includes("CLOUDFLARE_BROWSER_RUN_API_TOKEN")} value={draft.CLOUDFLARE_BROWSER_RUN_API_TOKEN ?? ""} onChange={(v) => setDraft((d) => ({ ...d, CLOUDFLARE_BROWSER_RUN_API_TOKEN: v }))} placeholder="Browser Rendering Edit token" />
           </ProviderCard>
+        </div>
+
+        <div className="mt-5 rounded-2xl border bg-card p-5 shadow-card">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold"><KeyRound className="h-4 w-4" /> StealthWriter session data</div>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                Paste the JSON session data from your authorised StealthWriter login. It is write-only: no administrator or writer can view it again after saving.
+              </p>
+            </div>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${stealthWriterSession.configured ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {stealthWriterSession.configured ? "Saved" : "Not saved"}
+            </span>
+          </div>
+          <textarea
+            value={stealthWriterSessionJson}
+            onChange={(event) => setStealthWriterSessionJson(event.target.value)}
+            placeholder={stealthWriterSession.configured ? "Paste new JSON to replace the saved session" : "Paste StealthWriter session JSON"}
+            disabled={!stealthWriterSession.is_super_admin || busy === "save:stealthwriter" || busy === "clear:stealthwriter"}
+            className="mt-4 min-h-36 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={saveStealthWriterSessionData} disabled={!stealthWriterSession.is_super_admin || busy === "save:stealthwriter"}>
+              <KeyRound className="mr-1 h-3.5 w-3.5" /> {busy === "save:stealthwriter" ? "Saving…" : "Save session data"}
+            </Button>
+            {stealthWriterSession.configured && (
+              <Button size="sm" variant="outline" onClick={clearStealthWriterSessionData} disabled={!stealthWriterSession.is_super_admin || busy === "clear:stealthwriter"}>
+                {busy === "clear:stealthwriter" ? "Removing…" : "Remove saved data"}
+              </Button>
+            )}
+            {stealthWriterSession.updated_at && <span className="text-xs text-muted-foreground">Last changed: {new Date(stealthWriterSession.updated_at).toLocaleString()}</span>}
+            {!stealthWriterSession.is_super_admin && <span className="text-xs text-muted-foreground">Super Admin only</span>}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Phase 2 only: saving this data does not enable writer access, launch StealthWriter, or change any other tool.
+          </p>
         </div>
 
         <div className="mt-5 rounded-2xl border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
