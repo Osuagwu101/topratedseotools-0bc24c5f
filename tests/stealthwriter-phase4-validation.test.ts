@@ -271,7 +271,8 @@ assert(
 assert(
   !upstreamCookie.includes("analytics_cookie") &&
     !upstreamCookie.includes("HttpOnly") &&
-    !upstreamCookie.includes("Secure"),
+    !upstreamCookie.includes("Path=") &&
+    !upstreamCookie.includes("; Secure"),
   "upstream Cookie header contains no unrelated cookie or browser attributes",
 );
 
