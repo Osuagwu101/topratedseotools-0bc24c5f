@@ -1,39 +1,32 @@
 import {
+  resolveAdminSecureLoginProvider,
   resolveSessionBrowserProvider,
-  usesWebsiteSavedBrowserState,
-  supportsSelfHostedBrowser,
-} from "../src/lib/browser-provider-policy.ts";
+  validSessionBrowserProvider,
+} from "../src/lib/browser-provider-policy";
 
-let passed = 0;
-function assert(value: unknown, message: string) {
-  if (!value) throw new Error(message);
-  passed++;
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
 }
 
 assert(
-  resolveSessionBrowserProvider(null, "browser_use") === "browser_use",
-  "Browser Use remains the default",
+  validSessionBrowserProvider("browser_use") === "browser_use",
+  "Browser Use remains supported",
 );
 assert(
-  resolveSessionBrowserProvider("self_hosted", "browser_use") === "self_hosted",
-  "an explicit Self Hosted tool override is honored",
+  validSessionBrowserProvider("cloudflare") === "cloudflare",
+  "Cloudflare remains supported",
 );
 assert(
-  resolveSessionBrowserProvider(null, "not-supported") === "browser_use",
-  "clearing the override safely rolls back to Browser Use",
+  validSessionBrowserProvider("self_hosted") === null,
+  "retired Self Hosted values are rejected",
 );
 assert(
-  usesWebsiteSavedBrowserState("browser_use"),
-  "Browser Use keeps using existing website-managed saved state",
+  resolveSessionBrowserProvider("self_hosted", "browser_use") === "browser_use",
+  "legacy tool values fall back to Browser Use",
 );
 assert(
-  !usesWebsiteSavedBrowserState("self_hosted"),
-  "Self Hosted does not read or overwrite website-managed saved state",
+  resolveAdminSecureLoginProvider("self_hosted", "cloudflare") === "cloudflare",
+  "legacy admin settings fall back to a managed provider",
 );
 
-console.log(`browser-provider-policy: ${passed} passed`);
-
-assert(supportsSelfHostedBrowser("phrasly"), "Phrasly supports Self Hosted");
-assert(supportsSelfHostedBrowser("stealthwriter"), "StealthWriter supports Self Hosted");
-assert(supportsSelfHostedBrowser("chatgpt"), "ChatGPT supports Self Hosted");
-assert(!supportsSelfHostedBrowser("canva"), "unsupported tools reject Self Hosted");
+console.log("browser provider policy tests passed");
