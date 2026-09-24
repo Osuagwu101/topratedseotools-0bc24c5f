@@ -18,6 +18,31 @@ import {
 } from "@/lib/stealthwriter-session.server";
 
 const TOOL_SLUG = "stealthwriter";
+
+async function assertAdmin(ctx: { supabase: any; userId: string }) {
+  const { data, error } = await ctx.supabase.rpc("has_role", {
+    _user_id: ctx.userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as any;
+}
+
+async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
+  const admin = await assertAdmin(ctx);
+  const { data, error } = await ctx.supabase.rpc("is_super_admin", {
+    _user_id: ctx.userId,
+  });
+  if (error) throw new Error(error.message);
+  if (!data) {
+    throw new Error(
+      "Only a Super Admin can replace the StealthWriter authorised session.",
+    );
+  }
+  return admin;
+}
 export const adminGetStealthWriterSessionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
