@@ -70,7 +70,7 @@ const parsed = JSON.parse(normalised);
 assert(
   parsed.authenticated_cookies.length === 1 &&
     parsed.authenticated_cookies[0].name === "session",
-  "keeps reusable first-party cookies and drops analytics cookies",
+  "keeps only the Phrasly login session cookie and drops tracker cookies",
 );
 assert(
   parsed.authenticated_cookies[0].value === "opaque-cookie-value==",
@@ -170,8 +170,8 @@ assert(
   "requires at least one reusable Phrasly cookie",
 );
 assert(
-  throws(() => normalisePhraslySession("not-json")),
-  "rejects malformed JSON",
+  throws(() => normalisePhraslySession('{"cookies":')),
+  "rejects malformed JSON when the Admin uses the JSON format",
 );
 
 const encryptedA = encryptPhraslySession(normalised, keyA);
