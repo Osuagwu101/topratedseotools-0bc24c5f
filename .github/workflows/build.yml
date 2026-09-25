@@ -25,8 +25,8 @@ jobs:
 
       - name: SneakWrite SSO regression test
         run: bun tests/direct-sso-url.test.ts
-      - name: Phrasly shared-auth regression tests
-        run: bun tests/phrasly-auth-state.test.ts
+      - name: Phrasly proxy foundation regression tests
+        run: bun tests/phrasly-proxy-foundation.test.ts
 
       - name: StealthWriter Phase 2 session-vault tests
         run: bun tests/stealthwriter-session-vault.test.ts
