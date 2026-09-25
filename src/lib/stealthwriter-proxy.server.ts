@@ -37,6 +37,31 @@ export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
 export const STEALTHWRITER_UPSTREAM_ORIGIN = "https://stealthwriter.ai";
 export const STEALTHWRITER_PROXY_COOKIE = "trst_sw_proxy";
 
+export function stealthWriterProxyPublicOrigin() {
+  const raw = String(process.env.STEALTHWRITER_PROXY_PUBLIC_ORIGIN ?? "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function isDedicatedStealthWriterProxyRequest(request: Request) {
+  const publicOrigin = stealthWriterProxyPublicOrigin();
+  return !!publicOrigin && new URL(request.url).origin === publicOrigin;
+}
+
+function proxyBaseForRequest(request: Request) {
+  return isDedicatedStealthWriterProxyRequest(request) ? "" : STEALTHWRITER_PROXY_BASE;
+}
+
+function proxyCookiePathForRequest(request: Request) {
+  return isDedicatedStealthWriterProxyRequest(request) ? "/" : STEALTHWRITER_PROXY_BASE;
+}
+
 export const STEALTHWRITER_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 
@@ -255,8 +280,12 @@ export async function createStealthWriterProxyLaunch(userId: string) {
     .from("tool_usage")
     .insert({ tool_slug: "stealthwriter", user_id: userId });
 
+  const publicOrigin = stealthWriterProxyPublicOrigin();
   return {
-    launchUrl: `${STEALTHWRITER_PROXY_BASE}?ticket=${encodeURIComponent(token)}`,
+    launchUrl: publicOrigin
+      ? `${publicOrigin}/__trst/enter?ticket=${encodeURIComponent(token)}`
+      : `${STEALTHWRITER_PROXY_BASE}?ticket=${encodeURIComponent(token)}`,
+    proxyPublicOrigin: publicOrigin,
     // This is the handoff expiry, not the StealthWriter/master-session expiry.
     handoffExpiresAt: expiresAt,
   };
@@ -275,10 +304,10 @@ function parseCookieHeader(request: Request) {
   return out;
 }
 
-function proxyCookie(token: string, expiresAt: string) {
+function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   return [
     `${STEALTHWRITER_PROXY_COOKIE}=${token}`,
-    "Path=/api/stealthwriter-proxy",
+    `Path=${cookiePath}`,
     "HttpOnly",
     "Secure",
     "SameSite=Lax",
@@ -286,10 +315,10 @@ function proxyCookie(token: string, expiresAt: string) {
   ].join("; ");
 }
 
-function deviceCookie(fingerprint: string) {
+function deviceCookie(fingerprint: string, cookiePath: string) {
   return [
     `${STEALTHWRITER_DEVICE_COOKIE}=${fingerprint}`,
-    "Path=/api/stealthwriter-proxy",
+    `Path=${cookiePath}`,
     "HttpOnly",
     "Secure",
     "SameSite=Lax",
@@ -377,15 +406,17 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   if (error || !activated) return forbidden("This StealthWriter launch link was already used.");
 
   const landing = pickStealthWriterLandingPath(grantedFeatures);
+  const proxyBase = proxyBaseForRequest(request);
+  const cookiePath = proxyCookiePathForRequest(request);
   const target = new URL(
-    `${STEALTHWRITER_PROXY_BASE}${landing}`,
+    `${proxyBase}${landing}`,
     request.url,
   );
 
   const headers = standardHeaders();
   headers.set("Location", target.toString());
-  headers.append("Set-Cookie", proxyCookie(sessionToken, sessionExpiresAt));
-  headers.append("Set-Cookie", deviceCookie(deviceFingerprint));
+  headers.append("Set-Cookie", proxyCookie(sessionToken, sessionExpiresAt, cookiePath));
+  headers.append("Set-Cookie", deviceCookie(deviceFingerprint, cookiePath));
 
   return new Response(null, { status: 302, headers });
 }
@@ -467,10 +498,11 @@ async function requireProxySession(request: Request) {
 export function rewriteStealthWriterBody(
   text: string,
   contentType: string,
+  proxyBase = STEALTHWRITER_PROXY_BASE,
 ) {
-  const escapedProxy = STEALTHWRITER_PROXY_BASE.replaceAll("/", "\\/");
+  const escapedProxy = proxyBase.replaceAll("/", "\\/");
   let out = text
-    .replaceAll(STEALTHWRITER_UPSTREAM_ORIGIN, STEALTHWRITER_PROXY_BASE)
+    .replaceAll(STEALTHWRITER_UPSTREAM_ORIGIN, proxyBase)
     .replaceAll(
       "https:\\/\\/stealthwriter.ai",
       escapedProxy,
@@ -479,7 +511,7 @@ export function rewriteStealthWriterBody(
   // AWS asset_domains parity, but kept fixed-host: only first-party
   // *.stealthwriter.ai hosts from the server allow-list can be routed.
   for (const host of stealthWriterAllowedAssetHosts()) {
-    const routed = `${STEALTHWRITER_PROXY_BASE}/__host/${host}`;
+    const routed = `${proxyBase}/__host/${host}`;
     out = out
       .replaceAll(`https://${host}`, routed)
       .replaceAll(
@@ -492,18 +524,18 @@ export function rewriteStealthWriterBody(
     out = out
       .replace(
         /(<(?:script|img|link|a|form|source|video|audio)[^>]+(?:src|href|action|poster)=["'])\/(?!\/)/gi,
-        `$1${STEALTHWRITER_PROXY_BASE}/`,
+        `$1${proxyBase}/`,
       )
       .replace(
         /<head([^>]*)>/i,
-        `<head$1><base href="${STEALTHWRITER_PROXY_BASE}/"><script src="/api/stealthwriter-proxy-bootstrap"></script>`,
+        `<head$1><base href="${proxyBase}/"><script src="/api/stealthwriter-proxy-bootstrap"></script>`,
       );
   }
 
   if (contentType.includes("text/css")) {
     out = out.replace(
       /url\((['"]?)\/(?!\/)/g,
-      `url($1${STEALTHWRITER_PROXY_BASE}/`,
+      `url($1${proxyBase}/`,
     );
   }
 
@@ -513,13 +545,14 @@ export function rewriteStealthWriterBody(
 export function rewriteStealthWriterLocation(
   location: string,
   baseOrigin = STEALTHWRITER_UPSTREAM_ORIGIN,
+  proxyBase = STEALTHWRITER_PROXY_BASE,
 ) {
   const absolute = new URL(location, baseOrigin);
   if (absolute.origin === STEALTHWRITER_UPSTREAM_ORIGIN) {
-    return `${STEALTHWRITER_PROXY_BASE}${absolute.pathname}${absolute.search}${absolute.hash}`;
+    return `${proxyBase}${absolute.pathname}${absolute.search}${absolute.hash}`;
   }
   if (absolute.protocol === "https:" && stealthWriterAllowedAssetHosts().includes(absolute.hostname)) {
-    return `${STEALTHWRITER_PROXY_BASE}/__host/${absolute.hostname}${absolute.pathname}${absolute.search}${absolute.hash}`;
+    return `${proxyBase}/__host/${absolute.hostname}${absolute.pathname}${absolute.search}${absolute.hash}`;
   }
   return null;
 }
@@ -693,7 +726,14 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   const url = new URL(request.url);
   const ticket = url.searchParams.get("ticket");
 
-  if (url.pathname === STEALTHWRITER_PROXY_BASE && ticket) {
+  const dedicatedProxy = isDedicatedStealthWriterProxyRequest(request);
+  const proxyBase = dedicatedProxy ? "" : STEALTHWRITER_PROXY_BASE;
+
+  if (
+    ((dedicatedProxy && url.pathname === "/__trst/enter") ||
+      (!dedicatedProxy && url.pathname === STEALTHWRITER_PROXY_BASE)) &&
+    ticket
+  ) {
     return exchangeLaunchTicket(request, ticket);
   }
 
@@ -719,9 +759,11 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     if (origin && origin !== url.origin) return forbidden("Cross-site proxy requests are blocked.");
   }
 
-  const suffix = url.pathname.startsWith(STEALTHWRITER_PROXY_BASE)
-    ? url.pathname.slice(STEALTHWRITER_PROXY_BASE.length)
-    : "";
+  const suffix = dedicatedProxy
+    ? url.pathname
+    : url.pathname.startsWith(STEALTHWRITER_PROXY_BASE)
+      ? url.pathname.slice(STEALTHWRITER_PROXY_BASE.length)
+      : "";
 
   // Internal AWS-parity usage/status endpoint consumed by the injected widget.
   if (suffix === "/__trst/usage") {
@@ -788,7 +830,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     ) {
       const landing = pickStealthWriterLandingPath(grantedFeatures);
       const h = standardHeaders();
-      h.set("Location", `${STEALTHWRITER_PROXY_BASE}${landing}`);
+      h.set("Location", `${proxyBase}${landing}`);
       return new Response(null, { status: 302, headers: h });
     }
 
@@ -880,7 +922,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
-    const rewritten = rewriteStealthWriterLocation(location, targetOrigin);
+    const rewritten = rewriteStealthWriterLocation(location, targetOrigin, proxyBase);
     if (!rewritten) return unavailable();
     const h = standardHeaders();
     h.set("Location", rewritten);
@@ -910,7 +952,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
 
   if (isText) {
     const text = await upstream.text();
-    return new Response(rewriteStealthWriterBody(text, contentType), {
+    return new Response(rewriteStealthWriterBody(text, contentType, proxyBase), {
       status: upstream.status,
       headers,
     });
