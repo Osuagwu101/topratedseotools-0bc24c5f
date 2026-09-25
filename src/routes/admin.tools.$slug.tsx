@@ -56,8 +56,8 @@ import {
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 import { launchTool } from "@/lib/tool-launcher";
 import {
-  adminGetStealthWriterSessionStatus,
-  adminSaveStealthWriterSession,
+  adminListStealthWriterProviderAccounts,
+  adminSaveStealthWriterProviderSession,
 } from "@/lib/stealthwriter-session.functions";
 
 const settingsQuery = queryOptions({
@@ -80,9 +80,9 @@ const overridesQuery = queryOptions({
   queryKey: ["tool-overrides"],
   queryFn: () => listToolOverrides(),
 });
-const stealthWriterSessionQuery = queryOptions({
-  queryKey: ["admin-stealthwriter-session"],
-  queryFn: () => adminGetStealthWriterSessionStatus(),
+const stealthWriterProviderAccountsQuery = queryOptions({
+  queryKey: ["admin-stealthwriter-provider-accounts"],
+  queryFn: () => adminListStealthWriterProviderAccounts(),
 });
 
 export const Route = createFileRoute("/admin/tools/$slug")({
@@ -106,7 +106,7 @@ export const Route = createFileRoute("/admin/tools/$slug")({
       context.queryClient.ensureQueryData(credsQuery),
       context.queryClient.ensureQueryData(ordersQuery),
       ...(tool.slug === "stealthwriter"
-        ? [context.queryClient.ensureQueryData(stealthWriterSessionQuery)]
+        ? [context.queryClient.ensureQueryData(stealthWriterProviderAccountsQuery)]
         : []),
     ]);
     return { slug: tool.slug };
@@ -153,7 +153,7 @@ function AdminToolPage() {
   if (tool.slug === "stealthwriter") {
     tabs.splice(4, 0, {
       id: "session",
-      label: "Authorized session",
+      label: "Proxy accounts",
       icon: KeyRound,
     });
   }
@@ -432,32 +432,99 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 
-/* ----------------------- StealthWriter session ----------------------- */
+/* -------------------- StealthWriter proxy accounts -------------------- */
+
+type StealthWriterProviderAccountView = {
+  account_key: string;
+  display_name: string;
+  sort_order: number;
+  configured: boolean;
+  status: string;
+  session_format: string;
+  updated_at: string | null;
+  rotated_at: string | null;
+};
+
+function formatStealthWriterSessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
 
 function StealthWriterSessionTab() {
-  const { data } = useSuspenseQuery(stealthWriterSessionQuery);
-  const saveSession = useServerFn(adminSaveStealthWriterSession);
+  const { data } = useSuspenseQuery(stealthWriterProviderAccountsQuery);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <h3 className="text-sm font-semibold">StealthWriter proxy accounts</h3>
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          Each proxy account stores its own authorised StealthWriter session securely.
+          Secret values are encrypted server-side and are never displayed back in the browser.
+        </p>
+        <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+          Phase 2 only: customer routing has not changed. All existing customers still use Account 1.
+          Account 2 can be configured now, but it will not serve customers until the assignment phase is approved.
+        </div>
+      </div>
+
+      {data.accounts.map((account) => (
+        <StealthWriterProviderAccountCard
+          key={account.account_key}
+          account={account}
+          canManage={data.can_manage}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StealthWriterProviderAccountCard({
+  account,
+  canManage,
+}: {
+  account: StealthWriterProviderAccountView;
+  canManage: boolean;
+}) {
+  const saveProviderSession = useServerFn(adminSaveStealthWriterProviderSession);
   const qc = useQueryClient();
   const [sessionData, setSessionData] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const updatedLabel = data.updated_at
-    ? new Date(data.updated_at).toISOString().replace("T", " ").replace(".000Z", " UTC")
-    : "Never";
+  const updatedLabel = formatStealthWriterSessionTime(account.updated_at);
+  const rotatedLabel = formatStealthWriterSessionTime(account.rotated_at);
+  const isLiveAccount = account.account_key === "account_1";
 
   async function save() {
-    if (!sessionData.trim()) {
-      toast.error("Paste the authorised StealthWriter session data first.");
+    if (
+      account.account_key !== "account_1" &&
+      account.account_key !== "account_2"
+    ) {
+      toast.error("Unsupported StealthWriter proxy account.");
       return;
     }
+    if (!sessionData.trim()) {
+      toast.error(`Paste the authorised session data for ${account.display_name} first.`);
+      return;
+    }
+
     setSaving(true);
     try {
-      await saveSession({ data: { session_data: sessionData.trim() } });
+      await saveProviderSession({
+        data: {
+          account_key: account.account_key,
+          session_data: sessionData.trim(),
+        },
+      });
       setSessionData("");
-      await qc.invalidateQueries({ queryKey: ["admin-stealthwriter-session"] });
-      toast.success("StealthWriter authorised session saved securely.");
+      await qc.invalidateQueries({
+        queryKey: ["admin-stealthwriter-provider-accounts"],
+      });
+      toast.success(`${account.display_name} authorised session saved securely.`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the session.");
+      toast.error(
+        err instanceof Error ? err.message : "Could not save the proxy account session.",
+      );
     } finally {
       setSaving(false);
     }
@@ -467,31 +534,49 @@ function StealthWriterSessionTab() {
     <div className="rounded-2xl border bg-card p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">StealthWriter authorised session</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold">{account.display_name}</h3>
+            {isLiveAccount ? (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                Current live account
+              </span>
+            ) : (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                Not routed yet
+              </span>
+            )}
+          </div>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-            Paste the two-cookie JSON from the authorised StealthWriter browser session.
-            Saved values are encrypted on the server and are write-only from this page.
+            {isLiveAccount
+              ? "Replacing this session changes the upstream StealthWriter login used by current customers."
+              : "This session is stored independently and will remain unused by customers during Phase 2."}
           </p>
         </div>
+
         <div className="text-right">
           <span
             className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
-              data.configured
+              account.configured
                 ? "bg-success/15 text-success"
                 : "bg-muted text-muted-foreground"
             }`}
           >
-            {data.configured ? "Stored" : "Not configured"}
+            {account.configured ? "Stored" : "Not configured"}
           </span>
           <div className="mt-1 text-[11px] text-muted-foreground">
             Last replaced: {updatedLabel}
           </div>
+          {account.rotated_at ? (
+            <div className="text-[11px] text-muted-foreground">
+              Last upstream rotation: {rotatedLabel}
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-5 rounded-xl border border-dashed bg-muted/20 p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Session data
+          {account.display_name} session data
         </div>
         <textarea
           value={sessionData}
@@ -501,34 +586,36 @@ function StealthWriterSessionTab() {
           spellCheck={false}
           data-1p-ignore="true"
           data-lpignore="true"
-          disabled={!data.can_manage || saving}
+          disabled={!canManage || saving}
           placeholder={'{"__Secure-better-auth.session_token":"PASTE_TOKEN_VALUE_HERE","__Secure-better-auth.session_data":"PASTE_DATA_VALUE_HERE"}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs text-muted-foreground">
-          The stored session is never displayed back in the browser. Saving a new value
-          replaces the previous StealthWriter session.
+          The stored session is write-only from this page. Saving here replaces only
+          {isLiveAccount ? " Account 1." : " Account 2."}
         </p>
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        {!data.can_manage ? (
+        {!canManage ? (
           <span className="text-xs text-muted-foreground">
-            Only a Super Admin can replace this session.
+            Only a Super Admin can replace proxy-account sessions.
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">
-            Phase 2 only — this does not enable customer access yet.
+            {isLiveAccount
+              ? "Account 1 remains the only customer-facing proxy account in this phase."
+              : "Account 2 will stay isolated until customer assignment is implemented."}
           </span>
         )}
         <button
           type="button"
           onClick={save}
-          disabled={!data.can_manage || saving || !sessionData.trim()}
+          disabled={!canManage || saving || !sessionData.trim()}
           className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
-          {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+          {saving ? "Saving…" : account.configured ? "Replace session" : "Save session"}
         </button>
       </div>
     </div>
