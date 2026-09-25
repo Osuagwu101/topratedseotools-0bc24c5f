@@ -14,6 +14,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   decryptPhraslySession,
   normalisePhraslySession,
+  PHRASLY_AUTH_COOKIE_NAME,
   type PhraslySessionState,
 } from "@/lib/phrasly-session.server";
 
@@ -80,13 +81,18 @@ export function buildPhraslyCookieHeader(plaintext: string) {
     normalisePhraslySession(plaintext),
   ) as PhraslySessionState;
 
-  return parsed.authenticated_cookies
-    .filter((cookie) => {
-      const domain = cookie.domain.toLowerCase().replace(/^\./, "");
-      return domain === "phrasly.ai";
-    })
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join("; ");
+  const sessionCookie = parsed.authenticated_cookies.find((cookie) => {
+    const domain = cookie.domain.toLowerCase().replace(/^\./, "");
+    return (
+      cookie.name === PHRASLY_AUTH_COOKIE_NAME &&
+      domain === "phrasly.ai" &&
+      cookie.path === "/"
+    );
+  });
+  if (!sessionCookie) {
+    throw new Error('The stored Phrasly "session" cookie is missing.');
+  }
+  return `${PHRASLY_AUTH_COOKIE_NAME}=${sessionCookie.value}`;
 }
 
 async function requireToolEnabled() {
