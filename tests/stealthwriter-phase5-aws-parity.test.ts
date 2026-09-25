@@ -349,8 +349,10 @@ assert(
 );
 assert(
   loginRoute.includes('account_status === "suspended"') &&
-    loginRoute.includes("allowed device limit was exceeded"),
-  "password login immediately rejects and signs out a suspended customer",
+    loginRoute.includes("Account Banned for using multiple devices") &&
+    loginRoute.includes("text-red-700") &&
+    loginRoute.includes("setAccountBanned(true)"),
+  "password login shows the device-ban message prominently above the login brand",
 );
 assert(
   readFileSync("src/lib/stealthwriter-controls.server.ts", "utf8").includes(

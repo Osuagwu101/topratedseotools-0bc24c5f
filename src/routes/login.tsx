@@ -29,15 +29,23 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accountBanned, setAccountBanned] = useState(false);
   const dest = search.redirect ?? "/dashboard";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!hydrated || loading) return;
+    setAccountBanned(false);
     setLoading(true);
     const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (/\bbanned\b/i.test(error.message)) {
+        setAccountBanned(true);
+        return;
+      }
+      return toast.error(error.message);
+    }
 
     const userId = signInData.user?.id;
     if (userId) {
@@ -48,9 +56,8 @@ function LoginPage() {
         .maybeSingle();
       if (accountState?.account_status === "suspended") {
         await supabase.auth.signOut();
-        return toast.error(
-          "Your account is suspended because the allowed device limit was exceeded. Please contact Admin.",
-        );
+        setAccountBanned(true);
+        return;
       }
     }
 
@@ -73,6 +80,7 @@ function LoginPage() {
 
   return (
     <AuthShell
+      topNotice={accountBanned ? "Account Banned for using multiple devices" : undefined}
       title="Welcome back"
       subtitle="Sign in to manage your subscriptions, payments, and tool access."
       footer={<>Don't have an account?{" "}<Link to="/register" className="font-medium text-primary hover:underline">Create one</Link></>}
@@ -95,10 +103,18 @@ function LoginPage() {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: React.ReactNode; footer?: React.ReactNode }) {
+export function AuthShell({ title, subtitle, children, footer, topNotice }: { title: string; subtitle?: string; children: React.ReactNode; footer?: React.ReactNode; topNotice?: string }) {
   return (
     <div className="min-h-screen bg-gradient-hero">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
+        {topNotice && (
+          <div
+            role="alert"
+            className="mb-4 text-center text-base font-extrabold text-red-700 dark:text-red-500"
+          >
+            {topNotice}
+          </div>
+        )}
         <Link to="/" className="mb-8 inline-flex items-center gap-2 self-center font-semibold">
           <BrandLogo size={40} className="h-10 w-10 rounded-lg shadow-glow" />
           <span>{APP_NAME}</span>
