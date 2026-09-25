@@ -6,7 +6,7 @@
  * - secret payloads are write-only from the browser.
  * - Account 1 keeps using the proven legacy write path.
  * - Account 2 is independently stored.
- * - customer routing is still untouched.
+ * - later approved phases may route customers through either stored account.
  */
 import { readFileSync } from "node:fs";
 
@@ -83,15 +83,15 @@ assert(
 );
 
 assert(
-  adminRoute.includes("All existing customers still use Account 1") &&
-    adminRoute.includes("Account 2 can be configured now"),
-  "Admin UI clearly preserves the Phase 2 routing boundary",
+  adminRoute.includes("Provider routing is active") &&
+    adminRoute.includes("Customers assigned to Account 2"),
+  "Admin UI reflects the later approved live-routing state",
 );
 
 assert(
-  !proxy.includes("provider_account_key") &&
-    !proxy.includes("stealthwriter_provider_accounts"),
-  "customer proxy routing is not changed during Phase 2",
+  proxy.includes("provider_account_key") &&
+    proxy.includes("stealthwriter_provider_accounts"),
+  "later approved routing consumes the two provider accounts",
 );
 
 console.log(
