@@ -98,6 +98,21 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No user ID found in token');
     }
 
+    // Whole-site customer suspension. This check runs for every authenticated
+    // server function, so a suspended customer's already-issued JWT cannot be
+    // used to keep operating elsewhere on TopRatedSEOTools.
+    const { data: accountState, error: accountStateError } = await (supabase as any)
+      .from('profiles')
+      .select('account_status')
+      .eq('id', data.claims.sub)
+      .maybeSingle();
+    if (accountStateError) {
+      throw new Error('Unauthorized: Could not verify account status');
+    }
+    if (accountState?.account_status === 'suspended') {
+      throw new Error('Unauthorized: Account suspended');
+    }
+
     return next({
       context: {
         supabase,

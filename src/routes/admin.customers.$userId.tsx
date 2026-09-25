@@ -6,7 +6,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AssignToolDialog } from "@/components/admin/AssignToolDialog";
@@ -21,6 +21,11 @@ import {
   adminUpdateCustomerMeta,
 } from "@/lib/customer-admin.functions";
 import { adminGetCustomerCommunicationHistory } from "@/lib/customer-communication.functions";
+import {
+  adminGetStealthWriterControls,
+  adminResetStealthWriterDevices,
+  adminUpdateStealthWriterControls,
+} from "@/lib/stealthwriter-controls.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { Wallet, XCircle, ShieldCheck, KeyRound, Mail } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -128,6 +133,8 @@ function CustomerPage() {
                 </Button>
               </div>
             </div>
+
+            <StealthWriterControlsCard userId={userId} />
 
             {/* Subscriptions */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
@@ -254,6 +261,209 @@ function CustomerPage() {
         )}
       </section>
     </AdminShell>
+  );
+}
+
+function StealthWriterControlsCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-stealthwriter-controls", userId],
+    queryFn: () => adminGetStealthWriterControls({ data: { userId } }),
+  });
+
+  const [draft, setDraft] = useState<null | {
+    status: "active" | "suspended";
+    device_limit: number;
+    humanizer_enabled: boolean;
+    humanizer_daily_limit: number;
+    ai_detector_enabled: boolean;
+    ai_detector_daily_limit: number;
+  }>(null);
+
+  useEffect(() => {
+    if (!data?.controls) return;
+    setDraft({
+      status: data.controls.status,
+      device_limit: data.controls.device_limit,
+      humanizer_enabled: data.controls.humanizer_enabled,
+      humanizer_daily_limit: data.controls.humanizer_daily_limit,
+      ai_detector_enabled: data.controls.ai_detector_enabled,
+      ai_detector_daily_limit: data.controls.ai_detector_daily_limit,
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!draft) return;
+      return adminUpdateStealthWriterControls({
+        data: { userId, ...draft },
+      });
+    },
+    onSuccess: () => {
+      toast.success("StealthWriter controls saved");
+      qc.invalidateQueries({ queryKey: ["admin-stealthwriter-controls", userId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetDevices = useMutation({
+    mutationFn: () => adminResetStealthWriterDevices({ data: { userId } }),
+    onSuccess: () => {
+      toast.success("StealthWriter devices cleared and access reactivated");
+      qc.invalidateQueries({ queryKey: ["admin-stealthwriter-controls", userId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            StealthWriter AWS controls
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            One StealthWriter purchase enables both Humanizer and AI Detector. Their access paths and daily counters are enforced separately; counters reset at midnight Nigeria time.
+          </p>
+        </div>
+        {data?.controls && (
+          <span className={
+            "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase " +
+            (data.controls.status === "active"
+              ? "bg-success/15 text-success"
+              : "bg-destructive/15 text-destructive")
+          }>
+            {data.controls.status}
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 text-xs text-muted-foreground">Loading StealthWriter controls…</div>
+      ) : error || !draft ? (
+        <div className="mt-4 text-xs text-destructive">
+          {(error as Error | null)?.message ?? "Could not load StealthWriter controls."}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={draft.humanizer_enabled}
+                  onChange={(e) => setDraft({ ...draft, humanizer_enabled: e.target.checked })}
+                />
+                Humanizer access
+              </label>
+              <div className="mt-3">
+                <Label>Humanizer daily limit</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  value={draft.humanizer_daily_limit}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      humanizer_daily_limit: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={draft.ai_detector_enabled}
+                  onChange={(e) => setDraft({ ...draft, ai_detector_enabled: e.target.checked })}
+                />
+                AI Detector access
+              </label>
+              <div className="mt-3">
+                <Label>AI Detector daily limit</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  value={draft.ai_detector_daily_limit}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      ai_detector_daily_limit: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Allowed devices</Label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={draft.device_limit}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    device_limit: Math.max(1, Math.min(10, Number(e.target.value) || 1)),
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Access status</Label>
+              <select
+                value={draft.status}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    status: e.target.value === "suspended" ? "suspended" : "active",
+                  })
+                }
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl bg-muted/30 p-3 text-xs text-muted-foreground">
+            Registered devices: <strong>{data?.devices.length ?? 0}</strong>
+            {data?.controls.suspended_reason ? (
+              <> · Suspension reason: <strong>{data.controls.suspended_reason}</strong></>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+            >
+              {save.isPending ? "Saving…" : "Save StealthWriter controls"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!confirm("Clear this customer's registered StealthWriter devices and reactivate access?")) return;
+                resetDevices.mutate();
+              }}
+              disabled={resetDevices.isPending}
+            >
+              {resetDevices.isPending ? "Resetting…" : "Reset devices & reactivate"}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
