@@ -35,6 +35,7 @@ import { useMoney } from "@/components/currency/CurrencyProvider";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
 
 const pricingQuery = queryOptions({
@@ -48,6 +49,14 @@ const settingsQuery = queryOptions({
 const overridesQuery = queryOptions({
   queryKey: ["tool-overrides"],
   queryFn: () => listToolOverrides(),
+});
+const sessionQuery = queryOptions({
+  queryKey: ["session-flag"],
+  queryFn: async () => {
+    const { data } = await supabase.auth.getSession();
+    return { isAuthenticated: !!data.session };
+  },
+  staleTime: 30_000,
 });
 export const Route = createFileRoute("/tools/$slug")({
   loader: async ({ params, context }) => {
@@ -114,6 +123,7 @@ function ToolPage() {
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { data: overridesData } = useSuspenseQuery(overridesQuery);
+  const { data: session } = useQuery(sessionQuery);
   const catalog = mergeToolCatalog(overridesData.overrides);
   const tool = catalog.find((t) => t.slug === data.slug)!;
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
