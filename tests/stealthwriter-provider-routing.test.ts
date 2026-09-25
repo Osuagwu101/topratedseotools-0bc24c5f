@@ -25,7 +25,7 @@ function assert(condition: boolean, message: string) {
 }
 
 const migration = readFileSync(
-  "supabase/migrations/20260925095359_stealthwriter_provider_routing.sql",
+  "supabase/migrations/20260925100103_stealthwriter_provider_routing.sql",
   "utf8",
 );
 const proxy = readFileSync(
