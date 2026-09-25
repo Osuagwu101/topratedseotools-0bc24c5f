@@ -8,6 +8,8 @@ import {
   isDedicatedStealthWriterProxyRequest,
 } from "./lib/stealthwriter-proxy.server";
 import { stealthWriterProxyBootstrapResponse } from "./lib/stealthwriter-proxy-bootstrap.server";
+import { handlePhraslyProxyRequest } from "./lib/phrasly-proxy.server";
+import { phraslyProxyBootstrapResponse } from "./lib/phrasly-proxy-bootstrap.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -72,6 +74,13 @@ export default {
         );
       }
 
+      if (url.pathname === "/api/phrasly-proxy-bootstrap") {
+        if (request.method !== "GET") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return phraslyProxyBootstrapResponse();
+      }
+
       // When STEALTHWRITER_PROXY_PUBLIC_ORIGIN points a dedicated sw.* host
       // at this deployment, every request on that host belongs to the proxy.
       if (dedicatedStealthWriterHost) {
@@ -83,6 +92,13 @@ export default {
         url.pathname.startsWith("/api/stealthwriter-proxy/")
       ) {
         return await handleStealthWriterProxyRequest(request);
+      }
+
+      if (
+        url.pathname === "/api/phrasly-proxy" ||
+        url.pathname.startsWith("/api/phrasly-proxy/")
+      ) {
+        return await handlePhraslyProxyRequest(request);
       }
 
       const handler = await getServerEntry();

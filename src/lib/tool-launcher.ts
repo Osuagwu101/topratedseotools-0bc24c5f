@@ -6,12 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.functions";
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
+import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
-import {
-  isPhraslyToolSlug,
-  PHRASLY_PROXY_SETUP_MESSAGE,
-} from "@/lib/phrasly-proxy-policy";
+import { isPhraslyToolSlug } from "@/lib/phrasly-proxy-policy";
 
 function validateClientLaunchUrl(
   toolSlug: string,
@@ -31,6 +29,16 @@ function validateClientLaunchUrl(
       launchUrl.pathname === "/__trst/enter";
     if (!localFallback && !dedicated) {
       throw new Error("The StealthWriter proxy returned an invalid launch URL.");
+    }
+    return launchUrl;
+  }
+  if (toolSlug === "phrasly") {
+    const launchUrl = new URL(rawUrl, window.location.origin);
+    const localProxy =
+      launchUrl.origin === window.location.origin &&
+      launchUrl.pathname === "/api/phrasly-proxy";
+    if (!localProxy) {
+      throw new Error("The Phrasly proxy returned an invalid launch URL.");
     }
     return launchUrl;
   }
@@ -57,11 +65,6 @@ export async function launchTool(
   const mode = setting?.launch_mode ?? "new_tab";
 
   if (useOneClick) {
-    if (isPhraslyToolSlug(tool.slug)) {
-      toast.error(PHRASLY_PROXY_SETUP_MESSAGE);
-      return { status: "error", error: PHRASLY_PROXY_SETUP_MESSAGE };
-    }
-
     let handoffWindow: Window | null = null;
     if (mode !== "same_tab") {
       const features = mode === "popup" ? "width=1100,height=800" : undefined;
@@ -104,7 +107,9 @@ export async function launchTool(
                 }
                 return startStealthWriterProxyLaunch();
               })()
-            : await startSessionOnlyOneClickAuth({
+            : isPhraslyToolSlug(tool.slug)
+              ? await startPhraslyProxyLaunch()
+              : await startSessionOnlyOneClickAuth({
                 data: {
                   tool_slug: tool.slug,
                   grant_access: !!options?.grantAccess,
