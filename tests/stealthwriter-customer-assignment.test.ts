@@ -6,7 +6,7 @@
  * - Admin can store Account 1 or Account 2 on the customer controls;
  * - only configured provider accounts may be assigned;
  * - assignment remains server/admin-only;
- * - proxy routing still ignores the assignment in Phase 3.
+ * - the later approved routing phase consumes the stored assignment.
  */
 import { readFileSync } from "node:fs";
 
@@ -63,7 +63,7 @@ assert(
 );
 
 assert(
-  serverControls.includes("provider_account_key: string") &&
+  serverControls.includes("provider_account_key: StealthWriterProviderAccountKey") &&
     serverControls.includes("provider_account_key") &&
     serverControls.includes('provider_account_key: "account_1"'),
   "server customer controls persist the provider-account assignment",
@@ -87,7 +87,8 @@ assert(
   customerAdmin.includes("Proxy account assignment") &&
     customerAdmin.includes("data?.provider_accounts") &&
     customerAdmin.includes('e.target.value === "account_2"') &&
-    customerAdmin.includes("Phase 3 stores this assignment only"),
+    customerAdmin.includes("Live routing") &&
+    customerAdmin.includes("next StealthWriter launch"),
   "customer Admin page exposes the assignment with the Phase 3 routing warning",
 );
 
@@ -100,9 +101,9 @@ assert(
 );
 
 assert(
-  !proxy.includes("provider_account_key") &&
-    !proxy.includes("stealthwriter_provider_accounts"),
-  "proxy routing remains unchanged during Phase 3",
+  proxy.includes("provider_account_key") &&
+    proxy.includes("stealthwriter_provider_accounts"),
+  "later approved proxy routing consumes the stored customer assignment",
 );
 
 console.log(

@@ -462,9 +462,10 @@ function StealthWriterSessionTab() {
           Each proxy account stores its own authorised StealthWriter session securely.
           Secret values are encrypted server-side and are never displayed back in the browser.
         </p>
-        <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-          Phase 2 only: customer routing has not changed. All existing customers still use Account 1.
-          Account 2 can be configured now, but it will not serve customers until the assignment phase is approved.
+        <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Provider routing is active. Customers use the proxy account selected in their
+          StealthWriter customer controls. Replacing a session affects customers assigned
+          to that account on their next proxy request or launch.
         </div>
       </div>
 
@@ -536,20 +537,14 @@ function StealthWriterProviderAccountCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold">{account.display_name}</h3>
-            {isLiveAccount ? (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
-                Current live account
-              </span>
-            ) : (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                Not routed yet
-              </span>
-            )}
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+              {isLiveAccount ? "Routing + rollback bridge" : "Routing enabled"}
+            </span>
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
             {isLiveAccount
-              ? "Replacing this session changes the upstream StealthWriter login used by current customers."
-              : "This session is stored independently and will remain unused by customers during Phase 2."}
+              ? "Customers assigned to Account 1 use this session. Replacing it changes their upstream login; the legacy rollback vault stays synchronized."
+              : "Customers assigned to Account 2 use this independent upstream StealthWriter session."}
           </p>
         </div>
 
@@ -604,8 +599,8 @@ function StealthWriterProviderAccountCard({
         ) : (
           <span className="text-xs text-muted-foreground">
             {isLiveAccount
-              ? "Account 1 remains the only customer-facing proxy account in this phase."
-              : "Account 2 will stay isolated until customer assignment is implemented."}
+              ? "Customers assigned to Account 1 are routed through this session."
+              : "Customers assigned to Account 2 are routed through this session."}
           </span>
         )}
         <button

@@ -3,10 +3,17 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type StealthWriterFeatureKey = "humanizer" | "ai_detector";
+export type StealthWriterProviderAccountKey = "account_1" | "account_2";
+
+export function isStealthWriterProviderAccountKey(
+  value: unknown,
+): value is StealthWriterProviderAccountKey {
+  return value === "account_1" || value === "account_2";
+}
 
 export interface StealthWriterUserControls {
   user_id: string;
-  provider_account_key: string;
+  provider_account_key: StealthWriterProviderAccountKey;
   status: "active" | "suspended";
   device_limit: number;
   humanizer_enabled: boolean;

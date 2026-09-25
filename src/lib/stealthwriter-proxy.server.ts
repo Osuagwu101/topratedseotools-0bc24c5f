@@ -25,11 +25,13 @@ import {
   grantedStealthWriterFeatures,
   isAllowedStealthWriterDocumentPath,
   isFreeStealthWriterRehumanize,
+  isStealthWriterProviderAccountKey,
   isValidStealthWriterDeviceFingerprint,
   pickStealthWriterLandingPath,
   registerOrTouchStealthWriterDevice,
   STEALTHWRITER_DEVICE_COOKIE,
   stealthWriterAllowedAssetHosts,
+  type StealthWriterProviderAccountKey,
 } from "@/lib/stealthwriter-controls.server";
 
 export const STEALTHWRITER_PROXY_BASE = "/api/stealthwriter-proxy";
@@ -229,16 +231,18 @@ async function sourceStillActive(
   return !!(data && isActiveStealthWriterGrant(data));
 }
 
-async function loadEncryptedStealthWriterSession() {
+async function loadEncryptedStealthWriterSession(
+  providerAccountKey: StealthWriterProviderAccountKey,
+) {
   const { data, error } = await (supabaseAdmin as any)
-    .from("tool_authorized_sessions")
+    .from("stealthwriter_provider_accounts")
     .select("encrypted_payload, status")
-    .eq("tool_slug", "stealthwriter")
+    .eq("account_key", providerAccountKey)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data?.encrypted_payload || data.status !== "stored") {
     throw new Error(
-      "StealthWriter authentication needs to be refreshed by Admin.",
+      "The assigned StealthWriter proxy account needs to be refreshed by Admin.",
     );
   }
   return String(data.encrypted_payload);
@@ -257,8 +261,14 @@ export async function createStealthWriterProxyLaunch(
     );
   }
 
-  // Fail before issuing a ticket if Phase 2 has not been configured.
-  await loadEncryptedStealthWriterSession();
+  const controls = await ensureStealthWriterUserControls(userId);
+  if (!isStealthWriterProviderAccountKey(controls.provider_account_key)) {
+    throw new Error("The assigned StealthWriter proxy account is invalid.");
+  }
+  const providerAccountKey = controls.provider_account_key;
+
+  // Fail before issuing a ticket if the assigned provider has no valid session.
+  await loadEncryptedStealthWriterSession(providerAccountKey);
 
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashStealthWriterProxyToken(token);
@@ -276,6 +286,7 @@ export async function createStealthWriterProxyLaunch(
       source_kind: source.kind,
       source_id: source.id,
       status: "issued",
+      provider_account_key: providerAccountKey,
       device_fingerprint: isValidStealthWriterDeviceFingerprint(appDeviceFingerprint)
         ? appDeviceFingerprint
         : null,
@@ -363,7 +374,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
 
   const { data: row } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint, provider_account_key")
     .eq("token_hash", tokenHash)
     .eq("status", "issued")
     .gt("expires_at", nowIso)
@@ -411,6 +422,24 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   }
 
   const controls = await ensureStealthWriterUserControls(userId);
+  if (
+    !isStealthWriterProviderAccountKey(row.provider_account_key) ||
+    controls.provider_account_key !== row.provider_account_key
+  ) {
+    await (supabaseAdmin as any)
+      .from("stealthwriter_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return forbidden(
+      "Your StealthWriter proxy account assignment changed. Please launch StealthWriter again.",
+    );
+  }
+  try {
+    await loadEncryptedStealthWriterSession(row.provider_account_key);
+  } catch {
+    return unavailable();
+  }
+
   const grantedFeatures = grantedStealthWriterFeatures(controls);
   if (!grantedFeatures.length) {
     return forbidden("You do not have an active StealthWriter feature.");
@@ -464,7 +493,7 @@ async function requireProxySession(request: Request) {
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint, provider_account_key")
     .eq("token_hash", tokenHash)
     .eq("status", "active")
     .maybeSingle();
@@ -480,7 +509,11 @@ async function requireProxySession(request: Request) {
 
   await requireToolEnabled();
   const controls = await ensureStealthWriterUserControls(String(row.user_id));
-  if (controls.status !== "active") {
+  if (
+    controls.status !== "active" ||
+    !isStealthWriterProviderAccountKey(row.provider_account_key) ||
+    controls.provider_account_key !== row.provider_account_key
+  ) {
     await (supabaseAdmin as any)
       .from("stealthwriter_proxy_sessions")
       .update({ status: "revoked" })
@@ -700,7 +733,10 @@ export function applyStealthWriterCookieRotations(
   };
 }
 
-async function persistRotatedStealthWriterCookies(upstream: Response) {
+async function persistRotatedStealthWriterCookies(
+  providerAccountKey: StealthWriterProviderAccountKey,
+  upstream: Response,
+) {
   // AWS reference behavior: Better Auth may rotate these cookie values on
   // ordinary requests. Never forward Set-Cookie to the customer; merge only
   // the two allowlisted values back into the encrypted server-side vault.
@@ -716,20 +752,39 @@ async function persistRotatedStealthWriterCookies(upstream: Response) {
   const updates = extractStealthWriterCookieRotations(setCookies);
   if (!Object.keys(updates).length) return;
 
-  const encrypted = await loadEncryptedStealthWriterSession();
+  const encrypted = await loadEncryptedStealthWriterSession(providerAccountKey);
   const currentPlaintext = decryptStealthWriterSession(encrypted);
   const rotated = applyStealthWriterCookieRotations(currentPlaintext, setCookies);
   if (!rotated.changed) return;
 
   const nextEncrypted = encryptStealthWriterSession(rotated.plaintext);
-  await (supabaseAdmin as any)
-    .from("tool_authorized_sessions")
+  const rotatedAt = new Date().toISOString();
+
+  if (providerAccountKey === "account_1") {
+    // Keep the legacy Account 1 vault current as a rollback bridge. The
+    // Phase 1 trigger mirrors this update back into provider Account 1.
+    const { error } = await (supabaseAdmin as any)
+      .from("tool_authorized_sessions")
+      .update({
+        encrypted_payload: nextEncrypted,
+        rotated_at: rotatedAt,
+      })
+      .eq("tool_slug", "stealthwriter")
+      .eq("status", "stored");
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await (supabaseAdmin as any)
+    .from("stealthwriter_provider_accounts")
     .update({
       encrypted_payload: nextEncrypted,
-      rotated_at: new Date().toISOString(),
+      rotated_at: rotatedAt,
+      updated_at: rotatedAt,
     })
-    .eq("tool_slug", "stealthwriter")
+    .eq("account_key", providerAccountKey)
     .eq("status", "stored");
+  if (error) throw new Error(error.message);
 }
 
 function standardHeaders(contentType?: string) {
@@ -785,6 +840,10 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   if (!proxySession) return unauthorized();
 
   const userId = String(proxySession.user_id);
+  if (!isStealthWriterProviderAccountKey(proxySession.provider_account_key)) {
+    return unauthorized();
+  }
+  const providerAccountKey = proxySession.provider_account_key;
 
   if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(request.method)) {
     return new Response("Method not allowed", {
@@ -906,7 +965,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   let cookieHeader = "";
   if (!isSecondaryHost) {
     try {
-      const encrypted = await loadEncryptedStealthWriterSession();
+      const encrypted = await loadEncryptedStealthWriterSession(providerAccountKey);
       const plaintext = decryptStealthWriterSession(encrypted);
       cookieHeader = buildStealthWriterCookieHeader(plaintext);
     } catch {
@@ -955,7 +1014,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
   // Better Auth session. Secondary asset hosts never receive or update it.
   if (!isSecondaryHost) {
     try {
-      await persistRotatedStealthWriterCookies(upstream);
+      await persistRotatedStealthWriterCookies(providerAccountKey, upstream);
     } catch {
       return unavailable();
     }

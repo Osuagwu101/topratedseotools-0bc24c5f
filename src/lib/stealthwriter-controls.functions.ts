@@ -90,6 +90,17 @@ export const adminUpdateStealthWriterControls = createServerFn({ method: "POST" 
       );
     }
 
+    const { data: previousControls, error: previousError } = await admin
+      .from("stealthwriter_user_controls")
+      .select("provider_account_key")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (previousError) throw new Error(previousError.message);
+
+    const providerChanged =
+      !!previousControls?.provider_account_key &&
+      previousControls.provider_account_key !== data.provider_account_key;
+
     const now = new Date().toISOString();
     const row = {
       user_id: data.userId,
@@ -110,12 +121,13 @@ export const adminUpdateStealthWriterControls = createServerFn({ method: "POST" 
       .upsert(row, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
 
-    if (data.status !== "active") {
-      await admin
+    if (data.status !== "active" || providerChanged) {
+      const { error: revokeError } = await admin
         .from("stealthwriter_proxy_sessions")
         .update({ status: "revoked" })
         .eq("user_id", data.userId)
         .in("status", ["issued", "active"]);
+      if (revokeError) throw new Error(revokeError.message);
     }
 
     await logAdminActivity(context, {
@@ -126,7 +138,8 @@ export const adminUpdateStealthWriterControls = createServerFn({ method: "POST" 
       details:
         `Humanizer=${data.humanizer_enabled ? "on" : "off"} (${data.humanizer_daily_limit}/day), ` +
         `AI Detector=${data.ai_detector_enabled ? "on" : "off"} (${data.ai_detector_daily_limit}/day), ` +
-        `provider=${data.provider_account_key}, devices=${data.device_limit}, status=${data.status}`,
+        `provider=${data.provider_account_key}${providerChanged ? " (changed; proxy sessions revoked)" : ""}, ` +
+        `devices=${data.device_limit}, status=${data.status}`,
     });
 
     return { ok: true };
