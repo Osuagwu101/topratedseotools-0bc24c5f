@@ -322,6 +322,17 @@ assert(
   "AWS-style usage widget is injected and refreshed",
 );
 assert(
+  proxy.includes('headers.set("X-TRST-Daily-Limit", "1")') &&
+    proxy.includes("Daily limit reached. Please try again after reset."),
+  "daily-limit responses are explicitly marked for the injected client",
+);
+assert(
+  bootstrap.includes("Daily limit reached. Please try again after reset.") &&
+    bootstrap.includes("hideGenericQuotaErrorToasts") &&
+    bootstrap.includes('getResponseHeader("X-TRST-Daily-Limit")'),
+  "daily-limit UI replaces generic StealthWriter connection errors with a clear message",
+);
+assert(
   bootstrap.includes("data-trst-sw-blocked") &&
     bootstrap.includes("isAllowedNavigation"),
   "SPA navigation is restricted to customer's granted feature paths",

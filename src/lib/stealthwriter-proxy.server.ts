@@ -890,9 +890,11 @@ export async function handleStealthWriterProxyRequest(request: Request) {
           isFreeStealthWriterRehumanize(usageFeature, request),
         );
         if (!usage.allowed) {
+          const headers = standardHeaders("text/plain; charset=utf-8");
+          headers.set("X-TRST-Daily-Limit", "1");
           return new Response(
-            `Daily limit reached (${usage.dailyLimit}/day). Please try again tomorrow.`,
-            { status: 429, headers: standardHeaders("text/plain; charset=utf-8") },
+            "Daily limit reached. Please try again after reset.",
+            { status: 429, headers },
           );
         }
       } catch {
