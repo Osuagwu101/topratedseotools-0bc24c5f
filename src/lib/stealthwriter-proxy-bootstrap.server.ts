@@ -113,6 +113,34 @@ export function stealthWriterProxyBootstrapResponse() {
     return el;
   }
 
+  function usageCollapsed() {
+    try { return localStorage.getItem("trst_sw_usage_collapsed") === "1"; }
+    catch { return false; }
+  }
+
+  function ensureUsagePill() {
+    let pill = document.getElementById("trst-sw-usage-pill");
+    if (pill) return pill;
+    pill = document.createElement("button");
+    pill.id = "trst-sw-usage-pill";
+    pill.type = "button";
+    pill.textContent = "↑";
+    pill.setAttribute("aria-label", "Show Top Rated SEO Tools usage");
+    pill.style.cssText =
+      "position:fixed;bottom:20px;right:20px;z-index:2147483647;" +
+      "width:42px;height:42px;border-radius:999px;border:1px solid #3f7fd1;" +
+      "background:#0f172a;color:white;display:none;align-items:center;" +
+      "justify-content:center;font:700 18px system-ui;box-shadow:0 8px 30px rgba(0,0,0,.3);cursor:pointer";
+    pill.addEventListener("click", () => {
+      const box = document.getElementById("trst-sw-usage");
+      if (box) box.style.display = "block";
+      pill.style.display = "none";
+      try { localStorage.setItem("trst_sw_usage_collapsed", "0"); } catch {}
+    });
+    document.body.appendChild(pill);
+    return pill;
+  }
+
   function renderUsageWidget() {
     if (!policy) return;
     let box = document.getElementById("trst-sw-usage");
@@ -127,8 +155,32 @@ export function stealthWriterProxyBootstrapResponse() {
       document.body.appendChild(box);
     }
 
+    const pill = ensureUsagePill();
+    const collapsed = usageCollapsed();
+    box.style.display = collapsed ? "none" : "block";
+    pill.style.display = collapsed ? "flex" : "none";
+
     box.replaceChildren();
-    box.appendChild(text("div", "TOP RATED SEO TOOLS", "font-weight:800;letter-spacing:.08em;color:#93c5fd;margin-bottom:4px"));
+
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px";
+    titleRow.appendChild(text("div", "Top Rated SEO Tools", "font-weight:800;color:#60a5fa;font-size:13px"));
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Hide usage");
+    close.style.cssText =
+      "border:0;background:transparent;color:#cbd5e1;font:700 18px/1 system-ui;" +
+      "cursor:pointer;padding:0 2px";
+    close.addEventListener("click", () => {
+      box.style.display = "none";
+      pill.style.display = "flex";
+      try { localStorage.setItem("trst_sw_usage_collapsed", "1"); } catch {}
+    });
+    titleRow.appendChild(close);
+    box.appendChild(titleRow);
+
     box.appendChild(text("div", policy.user_label || "Customer", "font-size:11px;color:#cbd5e1;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"));
 
     const features = policy.features || {};
@@ -279,6 +331,7 @@ export function stealthWriterProxyBootstrapResponse() {
   new MutationObserver(() => {
     markLinks();
     if (policy && !document.getElementById("trst-sw-usage")) renderUsageWidget();
+    if (policy && !document.getElementById("trst-sw-usage-pill")) ensureUsagePill();
   }).observe(document.documentElement, { childList: true, subtree: true });
 })();`;
 
