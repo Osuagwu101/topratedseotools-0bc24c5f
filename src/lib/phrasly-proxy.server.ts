@@ -375,6 +375,21 @@ export function rewritePhraslyBody(
   return out;
 }
 
+export function buildPhraslyUpstreamUrl(
+  requestUrl: string,
+  targetPath: string,
+) {
+  const incoming = new URL(requestUrl);
+  const target = new URL(PHRASLY_UPSTREAM_ORIGIN);
+  // Assign pathname on an already-fixed origin rather than resolving targetPath
+  // as a URL. This prevents //host or backslash variants from ever escaping
+  // the single allowed upstream origin.
+  target.pathname = targetPath.startsWith("/") ? targetPath : `/${targetPath}`;
+  target.search = incoming.search;
+  target.searchParams.delete("ticket");
+  return target;
+}
+
 export function rewritePhraslyLocation(
   location: string,
   baseOrigin = PHRASLY_UPSTREAM_ORIGIN,
@@ -491,12 +506,7 @@ export async function handlePhraslyProxyRequest(request: Request) {
     ? url.pathname.slice(PHRASLY_PROXY_BASE.length)
     : "";
   const targetPath = suffix || PHRASLY_LANDING_PATH;
-  const target = new URL(
-    `${targetPath}${url.search}`,
-    PHRASLY_UPSTREAM_ORIGIN,
-  );
-  // Ticket is a Topratedseotools handoff secret; it must never reach Phrasly.
-  target.searchParams.delete("ticket");
+  const target = buildPhraslyUpstreamUrl(request.url, targetPath);
 
   let cookieHeader = "";
   try {
