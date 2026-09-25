@@ -6,6 +6,7 @@ export type StealthWriterFeatureKey = "humanizer" | "ai_detector";
 
 export interface StealthWriterUserControls {
   user_id: string;
+  provider_account_key: string;
   status: "active" | "suspended";
   device_limit: number;
   humanizer_enabled: boolean;
@@ -166,7 +167,7 @@ export async function ensureStealthWriterUserControls(
   const { data: existing, error: readError } = await (supabaseAdmin as any)
     .from("stealthwriter_user_controls")
     .select(
-      "user_id,status,device_limit,humanizer_enabled,humanizer_daily_limit,ai_detector_enabled,ai_detector_daily_limit,suspended_reason,suspended_at",
+      "user_id,provider_account_key,status,device_limit,humanizer_enabled,humanizer_daily_limit,ai_detector_enabled,ai_detector_daily_limit,suspended_reason,suspended_at",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -177,6 +178,7 @@ export async function ensureStealthWriterUserControls(
     .from("stealthwriter_user_controls")
     .insert({
       user_id: userId,
+      provider_account_key: "account_1",
       status: "active",
       device_limit: STEALTHWRITER_DEFAULT_DEVICE_LIMIT,
       humanizer_enabled: true,
@@ -185,7 +187,7 @@ export async function ensureStealthWriterUserControls(
       ai_detector_daily_limit: STEALTHWRITER_DEFAULT_DAILY_LIMIT,
     })
     .select(
-      "user_id,status,device_limit,humanizer_enabled,humanizer_daily_limit,ai_detector_enabled,ai_detector_daily_limit,suspended_reason,suspended_at",
+      "user_id,provider_account_key,status,device_limit,humanizer_enabled,humanizer_daily_limit,ai_detector_enabled,ai_detector_daily_limit,suspended_reason,suspended_at",
     )
     .single();
   if (error) throw new Error(error.message);
