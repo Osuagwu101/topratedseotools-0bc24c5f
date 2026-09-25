@@ -164,7 +164,7 @@ if (previousServiceRole === undefined) delete process.env.SUPABASE_SERVICE_ROLE_
 else process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRole;
 
 const migration = await Bun.file(
-  "supabase/migrations/20260925170000_phrasly_session_vault.sql",
+  "supabase/migrations/20260925161301_phrasly_session_vault.sql",
 ).text();
 assert(
   migration.includes("'stealthwriter', 'phrasly'"),
