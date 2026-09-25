@@ -19,6 +19,8 @@ const AAD = Buffer.from(
 
 type JsonMap = Record<string, string>;
 
+export const PHRASLY_AUTH_COOKIE_NAME = "session";
+
 export type PhraslyStoredCookie = {
   name: string;
   value: string;
@@ -68,19 +70,22 @@ function cleanStorageMap(value: unknown, label: string): JsonMap {
 
 function cleanCookies(value: unknown): PhraslyStoredCookie[] {
   if (!Array.isArray(value) || value.length < 1) {
-    throw new Error("Phrasly session data must include at least one authenticated cookie.");
+    throw new Error(
+      'Phrasly session data must include the first-party "session" cookie.',
+    );
   }
   if (value.length > 100) {
     throw new Error("Phrasly session data contains too many cookies.");
   }
 
-  const cookies: PhraslyStoredCookie[] = [];
+  let sessionCookie: PhraslyStoredCookie | null = null;
+
   for (const raw of value) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       throw new Error("Each Phrasly cookie must be a JSON object.");
     }
     const source = raw as Record<string, unknown>;
-    const name = typeof source.name === "string" ? source.name : "";
+    const name = typeof source.name === "string" ? source.name.trim() : "";
     const cookieValue = typeof source.value === "string" ? source.value : "";
     const domain =
       typeof source.domain === "string" && source.domain.trim()
@@ -100,8 +105,17 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
       );
     }
 
-    // Tracking cookies are not part of reusable authentication state.
-    if (/^(_ga|_gid|_gat|_utm)/i.test(name)) continue;
+    // Current Phrasly authentication is carried by the first-party "session"
+    // cookie. Ignore analytics/marketing/UI cookies even if Admin pastes a
+    // full DevTools export; they are not needed for writer authentication.
+    if (name !== PHRASLY_AUTH_COOKIE_NAME) continue;
+
+    const normalisedDomain = domain.toLowerCase().replace(/^\./, "");
+    if (normalisedDomain !== "phrasly.ai" || path !== "/") {
+      throw new Error(
+        'The Phrasly "session" cookie must belong to phrasly.ai with path "/".',
+      );
+    }
 
     const cookie: PhraslyStoredCookie = {
       name,
@@ -117,22 +131,65 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
     if (typeof source.sameSite === "string" && source.sameSite.length <= 32) {
       cookie.sameSite = source.sameSite;
     }
-    cookies.push(cookie);
+    sessionCookie = cookie;
   }
 
-  if (cookies.length < 1) {
-    throw new Error("No reusable Phrasly authentication cookies were found.");
+  if (!sessionCookie) {
+    throw new Error(
+      'No Phrasly login cookie was found. Copy the "session" cookie from phrasly.ai.',
+    );
   }
-  return cookies;
+
+  return [sessionCookie];
 }
 
 export function normalisePhraslySession(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error('Paste the Phrasly "session" cookie value first.');
+  }
+
+  // Admin quick-paste: Chrome DevTools exposes the Phrasly login as one
+  // first-party cookie named "session". Accept either its bare value or a
+  // session=<value> cookie pair and wrap it into the canonical encrypted shape.
+  if (!trimmed.startsWith("{")) {
+    const cookieValue = trimmed.startsWith(`${PHRASLY_AUTH_COOKIE_NAME}=`)
+      ? trimmed.slice(PHRASLY_AUTH_COOKIE_NAME.length + 1)
+      : trimmed;
+    if (
+      !cookieValue ||
+      cookieValue.length > 64000 ||
+      /[\r\n;]/.test(cookieValue)
+    ) {
+      throw new Error('The Phrasly "session" cookie value is invalid.');
+    }
+    return JSON.stringify({
+      authenticated_cookies: [
+        {
+          name: PHRASLY_AUTH_COOKIE_NAME,
+          value: cookieValue,
+          domain: ".phrasly.ai",
+          path: "/",
+          secure: true,
+          httpOnly: true,
+          sameSite: "Lax",
+        },
+      ],
+      session_tokens: {
+        storage: {
+          localStorage: {},
+          sessionStorage: {},
+        },
+      },
+    } satisfies PhraslySessionState);
+  }
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(trimmed);
   } catch {
     throw new Error(
-      "Paste the Phrasly authorised session as JSON containing cookies and browser storage.",
+      'Paste either the Phrasly "session" cookie value or valid session JSON.',
     );
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {

@@ -502,8 +502,8 @@ function PhraslySessionTab() {
           <div>
             <h3 className="text-sm font-semibold">Phrasly authorised session</h3>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              One upstream Phrasly account is used for this integration. Paste the
-              authorised first-party Phrasly cookies and browser-storage state here.
+              One upstream Phrasly account is used for this integration. For the
+              current Phrasly login flow, paste the first-party cookie named "session".
               Secret values are encrypted server-side and are never displayed back.
             </p>
           </div>
@@ -524,8 +524,8 @@ function PhraslySessionTab() {
         </div>
 
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Phase 2 stores the session only. Customer launch/proxy access remains disabled
-          until the later proxy phase, so this screen cannot expose the upstream account.
+          Phase 3 proxy access is active. Writers receive only a Topratedseotools proxy
+          session; the Phrasly "session" cookie stays encrypted and server-side.
         </div>
       </div>
 
@@ -542,13 +542,14 @@ function PhraslySessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving}
-          placeholder={'{"cookies":[{"name":"SESSION_COOKIE","value":"PASTE_VALUE","domain":".phrasly.ai","path":"/"}],"storage":{"localStorage":{"TOKEN_KEY":"PASTE_TOKEN"},"sessionStorage":{}}}'}
+          placeholder="Paste the Phrasly session cookie value here"
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Accepted format: first-party phrasly.ai cookies plus localStorage/sessionStorage.
-          The older captured format using authenticated_cookies and session_tokens.storage
-          is also accepted. Cookies for unrelated domains are rejected.
+          In Chrome: Application → Cookies → https://phrasly.ai → find "session".
+          Copy its Value and paste that value directly above. No JSON is required.
+          Tracking cookies such as _ga, _fbp, Intercom, TikTok, Google/Bing and similar
+          entries are not needed. Full JSON remains supported for advanced/legacy capture.
         </p>
 
         <div className="mt-4 flex items-center justify-between gap-3">

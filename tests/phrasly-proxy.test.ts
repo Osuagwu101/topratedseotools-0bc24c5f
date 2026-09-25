@@ -29,7 +29,7 @@ function assert(condition: boolean, message: string) {
 const sampleSession = JSON.stringify({
   authenticated_cookies: [
     {
-      name: "__session",
+      name: "session",
       value: "opaque-cookie",
       domain: ".phrasly.ai",
       path: "/",
@@ -37,9 +37,9 @@ const sampleSession = JSON.stringify({
       secure: true,
     },
     {
-      name: "subdomain-only",
-      value: "do-not-send-to-root",
-      domain: "app.phrasly.ai",
+      name: "_fbp",
+      value: "tracking-only",
+      domain: ".phrasly.ai",
       path: "/",
     },
   ],
@@ -53,12 +53,12 @@ const sampleSession = JSON.stringify({
 
 const cookieHeader = buildPhraslyCookieHeader(sampleSession);
 assert(
-  cookieHeader.includes("__session=opaque-cookie"),
-  "builds the first-party phrasly.ai upstream cookie",
+  cookieHeader === "session=opaque-cookie",
+  "forwards only the first-party Phrasly session cookie",
 );
 assert(
-  !cookieHeader.includes("subdomain-only"),
-  "does not leak a subdomain-only cookie to the phrasly.ai root host",
+  !cookieHeader.includes("_fbp"),
+  "does not forward unrelated first-party tracking cookies",
 );
 assert(
   !cookieHeader.includes("vault-only-token"),
