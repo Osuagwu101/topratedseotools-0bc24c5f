@@ -1,9 +1,10 @@
 import { stealthWriterAllowedAssetHosts } from "@/lib/stealthwriter-controls.server";
 
-export function stealthWriterProxyBootstrapResponse() {
+export function stealthWriterProxyBootstrapResponse(proxyBase = "/api/stealthwriter-proxy") {
   const assetHosts = JSON.stringify(stealthWriterAllowedAssetHosts());
+  const proxyBaseJson = JSON.stringify(proxyBase);
   const script = String.raw`(() => {
-  const PROXY = "/api/stealthwriter-proxy";
+  const PROXY = ${proxyBaseJson};
   const MAIN_HOST = "stealthwriter.ai";
   const ASSET_HOSTS = new Set(${assetHosts});
   let policy = null;
