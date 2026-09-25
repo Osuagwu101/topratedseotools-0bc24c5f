@@ -199,7 +199,7 @@ else process.env.STEALTHWRITER_ASSET_HOSTS = oldAssetHosts;
 
 // Source conformance: migration + runtime + client widget + admin controls.
 const migration = readFileSync(
-  "supabase/migrations/20260924223000_stealthwriter_aws_parity.sql",
+  "supabase/migrations/20260925031018_stealthwriter_aws_parity.sql",
   "utf8",
 );
 const proxy = readFileSync(
