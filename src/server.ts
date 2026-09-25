@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import {
+  ensureStealthWriterAppDeviceResponse,
   handleStealthWriterProxyRequest,
   isDedicatedStealthWriterProxyRequest,
 } from "./lib/stealthwriter-proxy.server";
@@ -54,6 +55,13 @@ export default {
     try {
       const url = new URL(request.url);
       const dedicatedStealthWriterHost = isDedicatedStealthWriterProxyRequest(request);
+
+      if (!dedicatedStealthWriterHost && url.pathname === "/api/stealthwriter-device") {
+        if (request.method !== "GET") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return ensureStealthWriterAppDeviceResponse(request);
+      }
 
       if (url.pathname === "/api/stealthwriter-proxy-bootstrap") {
         if (request.method !== "GET") {
