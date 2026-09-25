@@ -12,6 +12,7 @@ import {
 } from "@/lib/shared-session-launch.server";
 import { resolveSessionBrowserProvider } from "@/lib/browser-provider-policy";
 import { resolveSharedAuthLandingUrl } from "@/lib/shared-auth-policy";
+import { blockLegacyPhraslyBrowserFlow } from "@/lib/phrasly-proxy-policy";
 
 function unexpired(v: string | null | undefined) {
   return !v || new Date(v).getTime() > Date.now();
@@ -30,6 +31,7 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    blockLegacyPhraslyBrowserFlow(data.tool_slug);
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
     const { data: global } = await (admin as any)
       .from("browser_auth_settings")

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -37,12 +37,6 @@ import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
-import { PhraslyBrowserViewer } from "@/components/tools/PhraslyBrowserViewer";
-import {
-  parsePhraslyViewerLaunch,
-  viewerStorageKey,
-  type BrowserViewerLaunch,
-} from "@/lib/browser-viewer";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -64,7 +58,6 @@ const sessionQuery = queryOptions({
   },
   staleTime: 30_000,
 });
-
 export const Route = createFileRoute("/tools/$slug")({
   loader: async ({ params, context }) => {
     // Overrides carry both admin edits and admin-created (custom) tools, so the
@@ -131,9 +124,6 @@ function ToolPage() {
   const { data: settings } = useSuspenseQuery(settingsQuery);
   const { data: overridesData } = useSuspenseQuery(overridesQuery);
   const { data: session } = useQuery(sessionQuery);
-  const [viewerLaunch, setViewerLaunch] = useState<BrowserViewerLaunch | null | undefined>(
-    undefined,
-  );
   const catalog = mergeToolCatalog(overridesData.overrides);
   const tool = catalog.find((t) => t.slug === data.slug)!;
   const priceOptions = pricing.options.filter((o) => o.tool_slug === tool.slug);
@@ -141,34 +131,6 @@ function ToolPage() {
   const related = catalog
     .filter((t) => t.category === tool.category && t.slug !== tool.slug && t.is_visible)
     .slice(0, 3);
-
-  useEffect(() => {
-    if (!["phrasly", "stealthwriter", "chatgpt"].includes(data.slug)) {
-      setViewerLaunch(null);
-      return;
-    }
-    const key = viewerStorageKey(data.slug as BrowserViewerLaunch["toolSlug"]);
-    const launch = parsePhraslyViewerLaunch(sessionStorage.getItem(key));
-    if (!launch || launch.toolSlug !== data.slug) sessionStorage.removeItem(key);
-    setViewerLaunch(launch);
-  }, [data.slug]);
-
-  if (viewerLaunch && viewerLaunch.toolSlug === data.slug && session?.isAuthenticated) {
-    return (
-      <PhraslyBrowserViewer
-        launch={viewerLaunch}
-        toolName={tool.name}
-        onClose={() => {
-          sessionStorage.removeItem(viewerStorageKey(viewerLaunch.toolSlug));
-          setViewerLaunch(null);
-        }}
-      />
-    );
-  }
-
-  if (viewerLaunch && viewerLaunch.toolSlug === data.slug && session === undefined) {
-    return <div className="h-dvh bg-slate-950" aria-label={`Loading secure ${tool.name} session`} />;
-  }
 
   if (!tool.is_visible) {
     return (

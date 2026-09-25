@@ -150,6 +150,11 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
+  if (tool.slug === "phrasly") {
+    for (let i = tabs.length - 1; i >= 0; i--) {
+      if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
+    }
+  }
   if (tool.slug === "stealthwriter") {
     tabs.splice(4, 0, {
       id: "session",
@@ -674,7 +679,7 @@ function AccessTab({ slug }: { slug: string }) {
           private_access_authorization: privAuth,
           one_click_auth_enabled: ocEnabled,
           official_login_url: ocUrl.trim() || null,
-          auth_provider: ocProvider.trim() || null,
+          auth_provider: slug === "phrasly" ? null : ocProvider.trim() || null,
           launch_mode: ocMode,
           display_manual_credentials: ocDisplayCreds,
         },
@@ -864,22 +869,27 @@ function AccessTab({ slug }: { slug: string }) {
             placeholder="https://example.com/login"
             full
           />
-          <label className="text-xs font-medium">
-            <span className="text-muted-foreground">Browser provider</span>
-            <select
-              value={ocProvider}
-              onChange={(e) => setOcProvider(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Default — Browser Use</option>
-              <option value="browser_use">Browser Use</option>
-              <option value="cloudflare">Cloudflare Browser Run</option>
-
-            </select>
-            <span className="mt-1 block text-muted-foreground">
-              Clear the override to roll back to Browser Use.
-            </span>
-          </label>
+          {slug === "phrasly" ? (
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Phrasly no longer uses Browser Use or Cloudflare. Its one-click flow is reserved for the new single-account secure proxy.
+            </div>
+          ) : (
+            <label className="text-xs font-medium">
+              <span className="text-muted-foreground">Browser provider</span>
+              <select
+                value={ocProvider}
+                onChange={(e) => setOcProvider(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Default — Browser Use</option>
+                <option value="browser_use">Browser Use</option>
+                <option value="cloudflare">Cloudflare Browser Run</option>
+              </select>
+              <span className="mt-1 block text-muted-foreground">
+                Clear the override to roll back to Browser Use.
+              </span>
+            </label>
+          )}
           <label className="text-xs font-medium">
             <span className="text-muted-foreground">Launch mode</span>
             <select

@@ -1,7 +1,5 @@
 import {
   isAllowedBrowserUseLiveUrl,
-  isAllowedSelfHostedViewerUrl,
-  parsePhraslyViewerLaunch,
   resolveBrowserViewport,
 } from "../src/lib/browser-viewer.ts";
 
@@ -40,7 +38,7 @@ assert(
   isAllowedBrowserUseLiveUrl(
     "https://live.browser-use.com/?wss=https%3A%2F%2Fsession.cdp.browser-use.com",
   ),
-  "official Browser Use live viewer URL is accepted",
+  "official Browser Use live viewer URL is accepted for tools that still use it",
 );
 assert(
   !isAllowedBrowserUseLiveUrl("http://live.browser-use.com/?wss=x"),
@@ -50,38 +48,6 @@ assert(
   !isAllowedBrowserUseLiveUrl("https://live.browser-use.com.attacker.example/?wss=x"),
   "lookalike viewer host is rejected",
 );
-
-assert(isAllowedSelfHostedViewerUrl("https://runtime.topratedseotools.com/viewer/abc#signed"),
-  "official Self Hosted viewer URL is accepted");
-assert(!isAllowedSelfHostedViewerUrl("https://runtime.topratedseotools.com.attacker.example/viewer/abc#signed"),
-  "fake lookalike runtime host is rejected");
-assert(!isAllowedSelfHostedViewerUrl("https://runtime.topratedseotools.com/viewer/abc"),
-  "viewer URL without its signed fragment is rejected");
-
-const now = Date.now();
-const valid = JSON.stringify({
-  toolSlug: "phrasly",
-  provider: "browser_use",
-  liveUrl: "https://live.browser-use.com/?wss=https%3A%2F%2Fsession.cdp.browser-use.com",
-  expiresAt: new Date(now + 60_000).toISOString(),
-});
-assert(
-  parsePhraslyViewerLaunch(valid, now)?.toolSlug === "phrasly",
-  "valid active Phrasly launch is restored",
-);
-const selfHosted = JSON.stringify({
-  toolSlug: "stealthwriter",
-  provider: "self_hosted",
-  liveUrl: "https://runtime.topratedseotools.com/viewer/abc#signed",
-  expiresAt: new Date(now + 60_000).toISOString(),
-});
-assert(parsePhraslyViewerLaunch(selfHosted, now)?.provider === "self_hosted",
-  "Self Hosted multi-tool viewer launch is restored");
-assert(
-  parsePhraslyViewerLaunch(valid, now + 60_001) === null,
-  "expired Phrasly launch is rejected",
-);
-assert(parsePhraslyViewerLaunch("not-json", now) === null, "malformed viewer state is rejected");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

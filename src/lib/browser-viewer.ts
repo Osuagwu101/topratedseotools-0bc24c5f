@@ -1,16 +1,6 @@
-export const PHRASLY_VIEWER_PATH = "/tools/phrasly";
-export const PHRASLY_VIEWER_STORAGE_KEY = "toprated:browser-viewer:phrasly";
-
 export type BrowserViewport = {
   width: number;
   height: number;
-};
-
-export type BrowserViewerLaunch = {
-  toolSlug: "phrasly" | "stealthwriter" | "chatgpt";
-  provider: "browser_use";
-  liveUrl: string;
-  expiresAt: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -19,8 +9,7 @@ function clamp(value: number, min: number, max: number) {
 
 /**
  * Choose the remote browser's initial viewport from the writer's available
- * screen. Browser Use does not automatically turn a fixed desktop viewport
- * into a mobile one, so this must be supplied when the session is created.
+ * screen for tools that still use the shared browser framework.
  */
 export function resolveBrowserViewport(clientWidth: number, clientHeight: number): BrowserViewport {
   const safeWidth = Number.isFinite(clientWidth) ? clientWidth : 1440;
@@ -51,36 +40,5 @@ export function isAllowedBrowserUseLiveUrl(rawUrl: string) {
     );
   } catch {
     return false;
-  }
-}
-
-export function isAllowedToolViewerUrl(_provider: BrowserViewerLaunch["provider"], rawUrl: string) {
-  return isAllowedBrowserUseLiveUrl(rawUrl);
-}
-
-export function viewerStorageKey(toolSlug: BrowserViewerLaunch["toolSlug"]) {
-  return `toprated:browser-viewer:${toolSlug}`;
-}
-
-export function parsePhraslyViewerLaunch(
-  raw: string | null,
-  now = Date.now(),
-): BrowserViewerLaunch | null {
-  if (!raw) return null;
-  try {
-    const value = JSON.parse(raw) as Partial<BrowserViewerLaunch>;
-    const expiry = new Date(String(value.expiresAt ?? "")).getTime();
-    if (
-      !["phrasly", "stealthwriter", "chatgpt"].includes(String(value.toolSlug)) ||
-      value.provider !== "browser_use" ||
-      !isAllowedToolViewerUrl(value.provider, String(value.liveUrl ?? "")) ||
-      !Number.isFinite(expiry) ||
-      expiry <= now
-    ) {
-      return null;
-    }
-    return value as BrowserViewerLaunch;
-  } catch {
-    return null;
   }
 }

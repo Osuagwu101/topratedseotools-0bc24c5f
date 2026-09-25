@@ -19,6 +19,7 @@ import {
   resolveAdminSecureLoginProvider,
   validSessionBrowserProvider,
 } from "@/lib/browser-provider-policy";
+import { blockLegacyPhraslyBrowserFlow } from "@/lib/phrasly-proxy-policy";
 
 function validProvider(v: unknown): BrowserAuthProvider | null { return v === "browser_use" || v === "cloudflare" ? v : null; }
 
@@ -34,6 +35,7 @@ export const adminRefreshAccountAuthentication = createServerFn({ method: "POST"
       .select("id, tool_slug, login_email, login_password, login_url, enabled, status, expires_at")
       .eq("id", data.account_id).maybeSingle();
     if (accountError) throw new Error("Could not load the tool account for authentication.");
+    blockLegacyPhraslyBrowserFlow(account?.tool_slug);
     if (!account?.enabled || account.status !== "working") {
       throw new Error("This tool account is not active.");
     }
@@ -258,6 +260,7 @@ export const adminStartManualAccountAuthentication = createServerFn({ method: "P
       .eq("id", data.account_id)
       .maybeSingle();
     if (accountError) throw new Error("Could not load the tool account.");
+    blockLegacyPhraslyBrowserFlow(account?.tool_slug);
     if (!account?.enabled || account.status !== "working") {
       throw new Error("This tool account is not active.");
     }
@@ -401,6 +404,7 @@ export const adminCompleteManualAccountAuthentication = createServerFn({ method:
       .maybeSingle();
     if (sessionError) throw new Error("Could not load the manual authentication session.");
     if (!session) throw new Error("Manual authentication session was not found.");
+    blockLegacyPhraslyBrowserFlow(session.tool_slug);
     if (session.status !== "starting") {
       if (session.status === "ready") {
         return {
