@@ -542,14 +542,14 @@ function PhraslySessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving}
-          placeholder={'{"cookies":[{"name":"session","value":"PASTE_SESSION_VALUE","domain":".phrasly.ai","path":"/","secure":true,"httpOnly":true,"sameSite":"Lax"}],"storage":{"localStorage":{},"sessionStorage":{}}}'}
+          placeholder="Paste the Phrasly session cookie value here"
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           In Chrome: Application → Cookies → https://phrasly.ai → find "session".
-          Copy only that cookie value into the JSON above. Tracking cookies such as _ga,
-          _fbp, Intercom, TikTok, Google/Bing and similar entries are not needed.
-          localStorage/sessionStorage can stay empty unless later live testing proves otherwise.
+          Copy its Value and paste that value directly above. No JSON is required.
+          Tracking cookies such as _ga, _fbp, Intercom, TikTok, Google/Bing and similar
+          entries are not needed. Full JSON remains supported for advanced/legacy capture.
         </p>
 
         <div className="mt-4 flex items-center justify-between gap-3">
