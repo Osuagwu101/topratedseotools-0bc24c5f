@@ -129,8 +129,8 @@ assert(
   "Humanize API counts only against Humanizer",
 );
 assert(
-  featureForStealthWriterUsagePath("/api/scan") === "ai_detector",
-  "AWS scan API counts only against AI Detector",
+  featureForStealthWriterUsagePath("/api/scan") === null,
+  "Humanizer scan traffic refreshes the widget but does not consume AI Detector quota",
 );
 assert(
   featureForStealthWriterUsagePath("/api/detect") === "ai_detector",
@@ -212,6 +212,22 @@ const bootstrap = readFileSync(
 );
 const adminFns = readFileSync(
   "src/lib/stealthwriter-controls.functions.ts",
+  "utf8",
+);
+const customerDashboard = readFileSync(
+  "src/routes/_authenticated.dashboard.tsx",
+  "utf8",
+);
+const proxyFunctions = readFileSync(
+  "src/lib/stealthwriter-proxy.functions.ts",
+  "utf8",
+);
+const launcher = readFileSync(
+  "src/lib/tool-launcher.ts",
+  "utf8",
+);
+const serverEntry = readFileSync(
+  "src/server.ts",
   "utf8",
 );
 const authMiddleware = readFileSync(
@@ -350,6 +366,58 @@ assert(
     customerAdmin.includes("Humanizer daily limit") &&
     customerAdmin.includes("AI Detector daily limit"),
   "customer admin page exposes the AWS parity controls",
+);
+
+// Customer-video parity: dashboard counters, direct launch and self-service devices.
+assert(
+  customerDashboard.includes("Access Stealth Writer") &&
+    customerDashboard.includes("AI Detector:") &&
+    customerDashboard.includes("Humanizer:"),
+  "customer dashboard shows both daily counters and a direct Access Stealth Writer button",
+);
+assert(
+  customerDashboard.includes("Devices (") &&
+    customerDashboard.includes("Remove a device you no longer use to free up a slot.") &&
+    customerDashboard.includes("removeMyStealthWriterDevice"),
+  "customer dashboard shows device capacity and self-service removal like the AWS site",
+);
+assert(
+  adminFns.includes("getMyStealthWriterExperience") &&
+    adminFns.includes("removeMyStealthWriterDevice") &&
+    adminFns.includes("device_fingerprint"),
+  "customer dashboard APIs expose usage/devices without exposing fingerprints and revoke removed-device sessions",
+);
+
+// The video overlay has a close control and can be restored after collapse.
+assert(
+  bootstrap.includes('id = "trst-sw-usage-pill"') &&
+    bootstrap.includes('localStorage.setItem("trst_sw_usage_collapsed", "1")') &&
+    bootstrap.includes('close.textContent = "×"'),
+  "StealthWriter usage overlay matches the AWS collapsible widget experience",
+);
+
+// Clean dedicated sw.* proxy origin, with same-origin fallback retained.
+assert(
+  proxy.includes("STEALTHWRITER_PROXY_PUBLIC_ORIGIN") &&
+    proxy.includes("/__trst/enter?ticket=") &&
+    proxy.includes("proxyBaseForRequest"),
+  "proxy can launch on an AWS-style dedicated StealthWriter subdomain",
+);
+assert(
+  serverEntry.includes("isDedicatedStealthWriterProxyRequest") &&
+    serverEntry.includes("dedicatedStealthWriterHost"),
+  "server routes every request on the configured dedicated StealthWriter origin through the proxy",
+);
+assert(
+  proxyFunctions.includes("proxy_origin: launch.proxyPublicOrigin") &&
+    launcher.includes("trustedProxyOrigin") &&
+    launcher.includes('launchUrl.pathname === "/__trst/enter"'),
+  "client accepts only the exact trusted dedicated proxy origin returned by the server",
+);
+assert(
+  proxy.includes('"Device"') &&
+    !proxy.includes('request.headers.get("user-agent") ?? "Device"'),
+  "new customer devices use the same neutral Device label shown in the AWS dashboard/video",
 );
 
 console.log(
