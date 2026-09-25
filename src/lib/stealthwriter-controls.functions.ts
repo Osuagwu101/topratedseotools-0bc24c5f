@@ -135,3 +135,75 @@ export const adminResetStealthWriterDevices = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+
+/* Customer-facing AWS dashboard experience. Secrets/fingerprints are never returned. */
+export const getMyStealthWriterExperience = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const {
+      ensureStealthWriterUserControls,
+      getStealthWriterUsageSnapshot,
+    } = await import("@/lib/stealthwriter-controls.server");
+
+    const [controls, snapshot, devicesResult] = await Promise.all([
+      ensureStealthWriterUserControls(context.userId),
+      getStealthWriterUsageSnapshot(context.userId),
+      (supabaseAdmin as any)
+        .from("stealthwriter_devices")
+        .select("id,label,first_seen_at,last_seen_at")
+        .eq("user_id", context.userId)
+        .order("last_seen_at", { ascending: false }),
+    ]);
+
+    if (devicesResult.error) throw new Error(devicesResult.error.message);
+
+    return {
+      status: controls.status,
+      device_limit: controls.device_limit,
+      features: snapshot.features,
+      resets_in: snapshot.resets_in,
+      devices: ((devicesResult.data ?? []) as any[]).map((device) => ({
+        id: String(device.id),
+        label: String(device.label ?? "Device"),
+        first_seen_at: String(device.first_seen_at),
+        last_seen_at: String(device.last_seen_at),
+      })),
+    };
+  });
+
+export const removeMyStealthWriterDevice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ deviceId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: device, error: readError } = await (supabaseAdmin as any)
+      .from("stealthwriter_devices")
+      .select("id,device_fingerprint")
+      .eq("id", data.deviceId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!device) throw new Error("Device not found.");
+
+    const { error: deleteError } = await (supabaseAdmin as any)
+      .from("stealthwriter_devices")
+      .delete()
+      .eq("id", data.deviceId)
+      .eq("user_id", context.userId);
+    if (deleteError) throw new Error(deleteError.message);
+
+    // A removed device must not keep an old proxy session alive.
+    await (supabaseAdmin as any)
+      .from("stealthwriter_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("user_id", context.userId)
+      .eq("device_fingerprint", String(device.device_fingerprint))
+      .in("status", ["issued", "active"]);
+
+    return { ok: true };
+  });
