@@ -59,6 +59,10 @@ import {
   adminListStealthWriterProviderAccounts,
   adminSaveStealthWriterProviderSession,
 } from "@/lib/stealthwriter-session.functions";
+import {
+  adminGetPhraslySessionStatus,
+  adminSavePhraslySession,
+} from "@/lib/phrasly-session.functions";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
@@ -84,6 +88,10 @@ const stealthWriterProviderAccountsQuery = queryOptions({
   queryKey: ["admin-stealthwriter-provider-accounts"],
   queryFn: () => adminListStealthWriterProviderAccounts(),
 });
+const phraslySessionQuery = queryOptions({
+  queryKey: ["admin-phrasly-authorized-session"],
+  queryFn: () => adminGetPhraslySessionStatus(),
+});
 
 export const Route = createFileRoute("/admin/tools/$slug")({
   ssr: false,
@@ -107,6 +115,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
       context.queryClient.ensureQueryData(ordersQuery),
       ...(tool.slug === "stealthwriter"
         ? [context.queryClient.ensureQueryData(stealthWriterProviderAccountsQuery)]
+        : []),
+      ...(tool.slug === "phrasly"
+        ? [context.queryClient.ensureQueryData(phraslySessionQuery)]
         : []),
     ]);
     return { slug: tool.slug };
@@ -154,6 +165,12 @@ function AdminToolPage() {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
+    const ordersIndex = tabs.findIndex((item) => item.id === "orders");
+    tabs.splice(ordersIndex < 0 ? tabs.length : ordersIndex, 0, {
+      id: "session",
+      label: "Authorised session",
+      icon: KeyRound,
+    });
   }
   if (tool.slug === "stealthwriter") {
     tabs.splice(4, 0, {
@@ -220,6 +237,9 @@ function AdminToolPage() {
               slug={tool.slug}
               authProvider={setting?.auth_provider}
             />
+          )}
+          {tab === "session" && tool.slug === "phrasly" && (
+            <PhraslySessionTab />
           )}
           {tab === "session" && tool.slug === "stealthwriter" && (
             <StealthWriterSessionTab />
@@ -432,6 +452,126 @@ function Field({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="mt-1 text-sm font-medium">{value}</div>
+    </div>
+  );
+}
+
+
+/* --------------------- Phrasly authorised session --------------------- */
+
+function formatPhraslySessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
+
+function PhraslySessionTab() {
+  const { data } = useSuspenseQuery(phraslySessionQuery);
+  const saveSession = useServerFn(adminSavePhraslySession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error("Paste the authorised Phrasly session data first.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await saveSession({ data: { session_data: sessionData.trim() } });
+      setSessionData("");
+      await qc.invalidateQueries({
+        queryKey: ["admin-phrasly-authorized-session"],
+      });
+      toast.success("Phrasly authorised session saved securely.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not save the Phrasly session.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Phrasly authorised session</h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              One upstream Phrasly account is used for this integration. Paste the
+              authorised first-party Phrasly cookies and browser-storage state here.
+              Secret values are encrypted server-side and are never displayed back.
+            </p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                data.configured
+                  ? "bg-success/15 text-success"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {data.configured ? "Stored" : "Not configured"}
+            </span>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Last replaced: {formatPhraslySessionTime(data.updated_at)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Phase 2 stores the session only. Customer launch/proxy access remains disabled
+          until the later proxy phase, so this screen cannot expose the upstream account.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Phrasly session data
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={12}
+          autoComplete="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          disabled={!data.can_manage || saving}
+          placeholder={'{"cookies":[{"name":"SESSION_COOKIE","value":"PASTE_VALUE","domain":".phrasly.ai","path":"/"}],"storage":{"localStorage":{"TOKEN_KEY":"PASTE_TOKEN"},"sessionStorage":{}}}'}
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Accepted format: first-party phrasly.ai cookies plus localStorage/sessionStorage.
+          The older captured format using authenticated_cookies and session_tokens.storage
+          is also accepted. Cookies for unrelated domains are rejected.
+        </p>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {!data.can_manage ? (
+            <span className="text-xs text-muted-foreground">
+              Only a Super Admin can replace the Phrasly authorised session.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Stored data is write-only here and encrypted before database storage.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={!data.can_manage || saving || !sessionData.trim()}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
