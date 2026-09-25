@@ -366,7 +366,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     deviceGate = await registerOrTouchStealthWriterDevice(
       userId,
       deviceFingerprint,
-      request.headers.get("user-agent") ?? "Device",
+      "Device",
     );
   } catch {
     return unavailable();
