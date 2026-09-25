@@ -23,7 +23,7 @@ const proxy = readFileSync("src/lib/stealthwriter-proxy.server.ts", "utf8");
 const launcher = readFileSync("src/lib/tool-launcher.ts", "utf8");
 const server = readFileSync("src/server.ts", "utf8");
 const migration = readFileSync(
-  "supabase/migrations/20260924093000_stealthwriter_session_vault.sql",
+  "supabase/migrations/20260925031011_stealthwriter_session_vault.sql",
   "utf8",
 );
 
