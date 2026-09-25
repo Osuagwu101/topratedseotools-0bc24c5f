@@ -85,8 +85,8 @@ assert(
 
 assert(
   customerAdmin.includes("Proxy account assignment") &&
-    customerAdmin.includes("Account 1") &&
-    customerAdmin.includes("Account 2") &&
+    customerAdmin.includes("data?.provider_accounts") &&
+    customerAdmin.includes('e.target.value === "account_2"') &&
     customerAdmin.includes("Phase 3 stores this assignment only"),
   "customer Admin page exposes the assignment with the Phase 3 routing warning",
 );
