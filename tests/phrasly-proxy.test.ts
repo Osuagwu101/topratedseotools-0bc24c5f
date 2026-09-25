@@ -4,6 +4,7 @@
  */
 import {
   buildPhraslyCookieHeader,
+  buildPhraslyUpstreamUrl,
   hashPhraslyProxyToken,
   isActivePhraslyGrant,
   isActivePhraslyOrder,
@@ -160,6 +161,23 @@ assert(
 assert(
   rewritePhraslyLocation("https://example.com/login") === null,
   "blocks proxy redirects to unrelated origins",
+);
+
+const pinned = buildPhraslyUpstreamUrl(
+  "https://topratedseotools.com/api/phrasly-proxy//evil.example/path?x=1&ticket=secret",
+  "//evil.example/path",
+);
+assert(
+  pinned.origin === "https://phrasly.ai",
+  "pins malformed double-slash paths to the phrasly.ai upstream origin",
+);
+assert(
+  pinned.pathname === "//evil.example/path",
+  "treats a double-slash target as a path rather than a new host",
+);
+assert(
+  pinned.searchParams.get("x") === "1" && !pinned.searchParams.has("ticket"),
+  "preserves normal query data but never forwards the launch ticket upstream",
 );
 
 const server = await Bun.file("src/server.ts").text();
