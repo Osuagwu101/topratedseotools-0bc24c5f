@@ -144,12 +144,52 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
 }
 
 export function normalisePhraslySession(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error('Paste the Phrasly "session" cookie value first.');
+  }
+
+  // Admin quick-paste: Chrome DevTools exposes the Phrasly login as one
+  // first-party cookie named "session". Accept either its bare value or a
+  // session=<value> cookie pair and wrap it into the canonical encrypted shape.
+  if (!trimmed.startsWith("{")) {
+    const cookieValue = trimmed.startsWith(`${PHRASLY_AUTH_COOKIE_NAME}=`)
+      ? trimmed.slice(PHRASLY_AUTH_COOKIE_NAME.length + 1)
+      : trimmed;
+    if (
+      !cookieValue ||
+      cookieValue.length > 64000 ||
+      /[\r\n;]/.test(cookieValue)
+    ) {
+      throw new Error('The Phrasly "session" cookie value is invalid.');
+    }
+    return JSON.stringify({
+      authenticated_cookies: [
+        {
+          name: PHRASLY_AUTH_COOKIE_NAME,
+          value: cookieValue,
+          domain: ".phrasly.ai",
+          path: "/",
+          secure: true,
+          httpOnly: true,
+          sameSite: "Lax",
+        },
+      ],
+      session_tokens: {
+        storage: {
+          localStorage: {},
+          sessionStorage: {},
+        },
+      },
+    } satisfies PhraslySessionState);
+  }
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(trimmed);
   } catch {
     throw new Error(
-      'Paste the Phrasly authorised session as JSON containing the phrasly.ai "session" cookie.',
+      'Paste either the Phrasly "session" cookie value or valid session JSON.',
     );
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
