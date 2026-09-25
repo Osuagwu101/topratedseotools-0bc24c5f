@@ -2,7 +2,10 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { handleStealthWriterProxyRequest } from "./lib/stealthwriter-proxy.server";
+import {
+  handleStealthWriterProxyRequest,
+  isDedicatedStealthWriterProxyRequest,
+} from "./lib/stealthwriter-proxy.server";
 import { stealthWriterProxyBootstrapResponse } from "./lib/stealthwriter-proxy-bootstrap.server";
 
 type ServerEntry = {
@@ -50,12 +53,23 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      const dedicatedStealthWriterHost = isDedicatedStealthWriterProxyRequest(request);
+
       if (url.pathname === "/api/stealthwriter-proxy-bootstrap") {
         if (request.method !== "GET") {
           return new Response("Method not allowed", { status: 405 });
         }
-        return stealthWriterProxyBootstrapResponse();
+        return stealthWriterProxyBootstrapResponse(
+          dedicatedStealthWriterHost ? "" : "/api/stealthwriter-proxy",
+        );
       }
+
+      // When STEALTHWRITER_PROXY_PUBLIC_ORIGIN points a dedicated sw.* host
+      // at this deployment, every request on that host belongs to the proxy.
+      if (dedicatedStealthWriterHost) {
+        return await handleStealthWriterProxyRequest(request);
+      }
+
       if (
         url.pathname === "/api/stealthwriter-proxy" ||
         url.pathname.startsWith("/api/stealthwriter-proxy/")
