@@ -213,6 +213,58 @@ export function stealthWriterProxyBootstrapResponse(proxyBase = "/api/stealthwri
     if (reset) reset.textContent = "Resets in " + formatDuration(secondsLeft);
   }
 
+  function hideGenericQuotaErrorToasts() {
+    const messages = [
+      "Failed to connect. Please try again.",
+      "Failed to connect to scanner.",
+    ];
+    const sweep = () => {
+      const nodes = document.querySelectorAll(
+        '[data-sonner-toast], [role="alert"], [role="status"], div, li',
+      );
+      for (const node of nodes) {
+        const value = String(node.textContent || "").trim();
+        if (!messages.some((message) => value === message || value.includes(message))) continue;
+        const toast = node.closest('[data-sonner-toast], [role="alert"], [role="status"]') || node;
+        if (toast.id === "trst-sw-daily-limit") continue;
+        toast.style.setProperty("display", "none", "important");
+      }
+    };
+    for (const delay of [0, 75, 200, 500, 1000, 2000]) {
+      setTimeout(sweep, delay);
+    }
+  }
+
+  function showDailyLimitNotice() {
+    let notice = document.getElementById("trst-sw-daily-limit");
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "trst-sw-daily-limit";
+      notice.setAttribute("role", "alert");
+      notice.style.cssText =
+        "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
+        "max-width:min(92vw,520px);padding:13px 18px;border-radius:10px;" +
+        "background:#7f1d1d;color:#fff;border:1px solid #991b1b;" +
+        "font:700 14px/1.4 system-ui,-apple-system,sans-serif;text-align:center;" +
+        "box-shadow:0 10px 30px rgba(0,0,0,.28)";
+      document.body.appendChild(notice);
+    }
+    notice.textContent = "Daily limit reached. Please try again after reset.";
+    notice.style.display = "block";
+    hideGenericQuotaErrorToasts();
+    clearTimeout(window.__trstSwDailyLimitTimer);
+    window.__trstSwDailyLimitTimer = setTimeout(() => {
+      if (notice) notice.style.display = "none";
+    }, 7000);
+  }
+
+  function isDailyLimitResponse(response) {
+    return !!response &&
+      response.status === 429 &&
+      response.headers &&
+      response.headers.get("X-TRST-Daily-Limit") === "1";
+  }
+
   async function refreshPolicy() {
     try {
       const res = await nativeFetch(PROXY + "/__trst/usage", {
@@ -272,13 +324,39 @@ export function stealthWriterProxyBootstrapResponse(proxyBase = "/api/stealthwri
         path.startsWith("/api/detect/")
       ));
     if (isUsageCall) {
-      result.then(() => refreshPolicy()).catch(() => {});
+      result.then((response) => {
+        if (isDailyLimitResponse(response)) showDailyLimitNotice();
+        refreshPolicy();
+      }).catch(() => {});
     }
     return result;
   };
 
   const nativeOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    const path = logicalPath(url);
+    const isUsageCall =
+      path === "/api/humanize" ||
+      path === "/api/scan" ||
+      path === "/api/detect" ||
+      (path && (
+        path.startsWith("/api/humanize/") ||
+        path.startsWith("/api/scan/") ||
+        path.startsWith("/api/detect/")
+      ));
+    if (isUsageCall) {
+      this.addEventListener("loadend", () => {
+        try {
+          if (
+            this.status === 429 &&
+            this.getResponseHeader("X-TRST-Daily-Limit") === "1"
+          ) {
+            showDailyLimitNotice();
+          }
+        } catch {}
+        refreshPolicy();
+      }, { once: true });
+    }
     return nativeOpen.call(this, method, mapUrl(url), ...rest);
   };
 
