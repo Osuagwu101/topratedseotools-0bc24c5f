@@ -25,9 +25,10 @@ const DEFAULT_AI_DETECTOR_DOCUMENT_PATHS = ["/dashboard/ai-detector"] as const;
 const COMMON_DOCUMENT_PATHS = ["/dashboard$"] as const;
 
 const HUMANIZER_USAGE_PATHS = ["/api/humanize"] as const;
-// The recovered AWS source references both names in different places; accept
-// both so a backend rename cannot silently bypass the per-feature counter.
-const AI_DETECTOR_USAGE_PATHS = ["/api/scan", "/api/detect"] as const;
+// AWS tool configuration uses /api/detect as the billable AI Detector action.
+// /api/scan is observed from the Humanizer experience and only refreshes the
+// badge; it must not consume the customer's separate AI Detector allowance.
+const AI_DETECTOR_USAGE_PATHS = ["/api/detect"] as const;
 
 function parsePathList(raw: string | undefined, fallback: readonly string[]) {
   const values = String(raw ?? "")
