@@ -415,6 +415,19 @@ assert(
   "client accepts only the exact trusted dedicated proxy origin returned by the server",
 );
 assert(
+  proxy.includes("STEALTHWRITER_APP_DEVICE_COOKIE") &&
+    proxy.includes("ensureStealthWriterAppDeviceResponse") &&
+    proxy.includes("device_fingerprint: isValidStealthWriterDeviceFingerprint(appDeviceFingerprint)"),
+  "main-site device identity is persisted and embedded into the 60-second handoff row",
+);
+assert(
+  proxyFunctions.includes("getRequest") &&
+    proxyFunctions.includes("readStealthWriterAppDeviceFingerprint") &&
+    launcher.includes('fetch("/api/stealthwriter-device"') &&
+    serverEntry.includes('url.pathname === "/api/stealthwriter-device"'),
+  "customer device is created on TopRatedSEOTools before the StealthWriter launch, matching AWS access.php",
+);
+assert(
   proxy.includes('"Device"') &&
     !proxy.includes('request.headers.get("user-agent") ?? "Device"'),
   "new customer devices use the same neutral Device label shown in the AWS dashboard/video",
