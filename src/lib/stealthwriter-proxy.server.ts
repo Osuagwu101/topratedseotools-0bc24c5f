@@ -562,6 +562,7 @@ function upstreamHeaders(
   cookieHeader: string,
   targetOrigin = STEALTHWRITER_UPSTREAM_ORIGIN,
   includeMasterCookie = true,
+  proxyBase = STEALTHWRITER_PROXY_BASE,
 ) {
   const h = new Headers();
 
@@ -604,8 +605,13 @@ function upstreamHeaders(
   if (incomingReferer) {
     try {
       const r = new URL(incomingReferer);
-      if (r.pathname.startsWith(STEALTHWRITER_PROXY_BASE)) {
-        const proxiedPath = r.pathname.slice(STEALTHWRITER_PROXY_BASE.length);
+      const proxiedPath =
+        proxyBase === ""
+          ? r.pathname
+          : r.pathname.startsWith(proxyBase)
+            ? r.pathname.slice(proxyBase.length)
+            : "";
+      if (proxiedPath) {
         const hostPrefix = proxiedPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
         if (hostPrefix && `https://${hostPrefix[1]}` === targetOrigin) {
           referer = targetOrigin + (hostPrefix[2] || "/") + r.search;
@@ -901,6 +907,7 @@ export async function handleStealthWriterProxyRequest(request: Request) {
         cookieHeader,
         targetOrigin,
         !isSecondaryHost,
+        proxyBase,
       ),
       body,
       redirect: "manual",
