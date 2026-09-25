@@ -272,6 +272,7 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
   });
 
   const [draft, setDraft] = useState<null | {
+    provider_account_key: "account_1" | "account_2";
     status: "active" | "suspended";
     device_limit: number;
     humanizer_enabled: boolean;
@@ -283,6 +284,8 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
   useEffect(() => {
     if (!data?.controls) return;
     setDraft({
+      provider_account_key:
+        data.controls.provider_account_key === "account_2" ? "account_2" : "account_1",
       status: data.controls.status,
       device_limit: data.controls.device_limit,
       humanizer_enabled: data.controls.humanizer_enabled,
@@ -398,6 +401,46 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Label>Proxy account assignment</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose which authorised StealthWriter provider account this customer
+                  will use once provider routing is activated.
+                </p>
+              </div>
+              <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                Phase 3
+              </span>
+            </div>
+            <select
+              value={draft.provider_account_key}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  provider_account_key:
+                    e.target.value === "account_2" ? "account_2" : "account_1",
+                })
+              }
+              className="mt-3 h-10 w-full rounded-md border bg-background px-3 text-sm sm:max-w-sm"
+            >
+              {(data?.provider_accounts ?? []).map((account) => (
+                <option
+                  key={account.account_key}
+                  value={account.account_key}
+                  disabled={!account.configured}
+                >
+                  {account.display_name} — {account.configured ? "Configured" : "Not configured"}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+              Phase 3 stores this assignment only. The live proxy still serves every
+              customer from Account 1 until the routing phase is approved and deployed.
+            </p>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
