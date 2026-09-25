@@ -67,7 +67,9 @@ export function AccountsCapacityTab({ slug, authProvider }: { slug: string; auth
 
   return (
     <div className="space-y-6">
-      <AdminOtpQueue toolSlug={slug} authProvider={authProvider} />
+      {slug !== "phrasly" ? (
+        <AdminOtpQueue toolSlug={slug} authProvider={authProvider} />
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Accounts & Capacity</h2>
