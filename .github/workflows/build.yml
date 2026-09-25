@@ -40,6 +40,8 @@ jobs:
         run: bun tests/stealthwriter-phase5-aws-parity.test.ts
       - name: StealthWriter multi-account foundation
         run: bun tests/stealthwriter-multi-account-foundation.test.ts
+      - name: StealthWriter multi-account admin
+        run: bun tests/stealthwriter-multi-account-admin.test.ts
 
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
