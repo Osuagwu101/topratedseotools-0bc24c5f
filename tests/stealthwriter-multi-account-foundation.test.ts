@@ -21,7 +21,7 @@ function assert(condition: boolean, message: string) {
 }
 
 const migration = readFileSync(
-  "supabase/migrations/20260925083000_stealthwriter_multi_account_foundation.sql",
+  "supabase/migrations/20260925080735_stealthwriter_multi_account_foundation.sql",
   "utf8",
 );
 const sessionFn = readFileSync(
