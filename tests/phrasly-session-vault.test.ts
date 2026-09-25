@@ -36,7 +36,7 @@ const keyB = "44".repeat(32);
 const legacyCapture = JSON.stringify({
   authenticated_cookies: [
     {
-      name: "__session",
+      name: "session",
       value: "opaque-cookie-value==",
       domain: ".phrasly.ai",
       path: "/",
@@ -69,7 +69,7 @@ const normalised = normalisePhraslySession(legacyCapture);
 const parsed = JSON.parse(normalised);
 assert(
   parsed.authenticated_cookies.length === 1 &&
-    parsed.authenticated_cookies[0].name === "__session",
+    parsed.authenticated_cookies[0].name === "session",
   "keeps reusable first-party cookies and drops analytics cookies",
 );
 assert(
@@ -85,10 +85,35 @@ assert(
   "preserves sessionStorage values exactly",
 );
 
+const quickPaste = normalisePhraslySession("eyJhbGciOiJIUzI1NiJ9.test.signature");
+const quickParsed = JSON.parse(quickPaste);
+assert(
+  quickParsed.authenticated_cookies.length === 1 &&
+    quickParsed.authenticated_cookies[0].name === "session" &&
+    quickParsed.authenticated_cookies[0].domain === ".phrasly.ai" &&
+    quickParsed.authenticated_cookies[0].path === "/",
+  "wraps a bare Phrasly session cookie value into the canonical server-only shape",
+);
+assert(
+  quickParsed.session_tokens.storage.localStorage &&
+    Object.keys(quickParsed.session_tokens.storage.localStorage).length === 0 &&
+    Object.keys(quickParsed.session_tokens.storage.sessionStorage).length === 0,
+  "quick-paste does not invent browser-storage secrets",
+);
+
+const cookiePairPaste = normalisePhraslySession(
+  "session=opaque-cookie-pair-value==",
+);
+assert(
+  JSON.parse(cookiePairPaste).authenticated_cookies[0].value ===
+    "opaque-cookie-pair-value==",
+  "accepts a session=<value> quick-paste form",
+);
+
 const friendlyShape = normalisePhraslySession(
   JSON.stringify({
     cookies: [
-      { name: "session", value: "value-_/=+", domain: "app.phrasly.ai" },
+      { name: "session", value: "value-_/=+", domain: ".phrasly.ai", path: "/" },
     ],
     storage: {
       localStorage: { token: "abc" },
@@ -97,7 +122,7 @@ const friendlyShape = normalisePhraslySession(
   }),
 );
 assert(
-  JSON.parse(friendlyShape).authenticated_cookies[0].domain === "app.phrasly.ai",
+  JSON.parse(friendlyShape).authenticated_cookies[0].domain === ".phrasly.ai",
   "accepts the simpler admin-friendly cookies/storage shape",
 );
 
@@ -112,6 +137,32 @@ assert(
     ),
   ),
   "rejects cookies from unrelated domains",
+);
+
+assert(
+  throws(() =>
+    normalisePhraslySession(
+      JSON.stringify({
+        cookies: [
+          { name: "session", value: "secret", domain: "app.phrasly.ai", path: "/" },
+        ],
+      }),
+    ),
+  ),
+  "rejects a session cookie scoped only to a Phrasly subdomain",
+);
+
+assert(
+  throws(() =>
+    normalisePhraslySession(
+      JSON.stringify({
+        cookies: [
+          { name: "_fbp", value: "tracking-only", domain: ".phrasly.ai", path: "/" },
+        ],
+      }),
+    ),
+  ),
+  "requires the actual Phrasly session cookie instead of tracker cookies",
 );
 
 assert(
