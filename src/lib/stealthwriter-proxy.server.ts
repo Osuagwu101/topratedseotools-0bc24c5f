@@ -36,6 +36,7 @@ export const STEALTHWRITER_PROXY_BASE = "/api/stealthwriter-proxy";
 export const STEALTHWRITER_LANDING_PATH = "/dashboard/humanizer";
 export const STEALTHWRITER_UPSTREAM_ORIGIN = "https://stealthwriter.ai";
 export const STEALTHWRITER_PROXY_COOKIE = "trst_sw_proxy";
+export const STEALTHWRITER_APP_DEVICE_COOKIE = "trst_app_device";
 
 export function stealthWriterProxyPublicOrigin() {
   const raw = String(process.env.STEALTHWRITER_PROXY_PUBLIC_ORIGIN ?? "").trim();
@@ -243,7 +244,10 @@ async function loadEncryptedStealthWriterSession() {
   return String(data.encrypted_payload);
 }
 
-export async function createStealthWriterProxyLaunch(userId: string) {
+export async function createStealthWriterProxyLaunch(
+  userId: string,
+  appDeviceFingerprint?: string | null,
+) {
   await requireToolEnabled();
 
   const source = await findActiveAccess(userId);
@@ -272,6 +276,9 @@ export async function createStealthWriterProxyLaunch(userId: string) {
       source_kind: source.kind,
       source_id: source.id,
       status: "issued",
+      device_fingerprint: isValidStealthWriterDeviceFingerprint(appDeviceFingerprint)
+        ? appDeviceFingerprint
+        : null,
       expires_at: expiresAt,
     });
   if (error) throw new Error("Could not start StealthWriter. Please try again.");
@@ -304,6 +311,30 @@ function parseCookieHeader(request: Request) {
   return out;
 }
 
+export function readStealthWriterAppDeviceFingerprint(request: Request) {
+  const value = parseCookieHeader(request).get(STEALTHWRITER_APP_DEVICE_COOKIE);
+  return isValidStealthWriterDeviceFingerprint(value) ? String(value) : null;
+}
+
+function appDeviceCookie(fingerprint: string) {
+  return [
+    `${STEALTHWRITER_APP_DEVICE_COOKIE}=${fingerprint}`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
+  ].join("; ");
+}
+
+export function ensureStealthWriterAppDeviceResponse(request: Request) {
+  const existing = readStealthWriterAppDeviceFingerprint(request);
+  const fingerprint = existing ?? randomBytes(16).toString("hex");
+  const headers = standardHeaders();
+  if (!existing) headers.append("Set-Cookie", appDeviceCookie(fingerprint));
+  return new Response(null, { status: 204, headers });
+}
+
 function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   return [
     `${STEALTHWRITER_PROXY_COOKIE}=${token}`,
@@ -332,7 +363,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
 
   const { data: row } = await (supabaseAdmin as any)
     .from("stealthwriter_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", tokenHash)
     .eq("status", "issued")
     .gt("expires_at", nowIso)
@@ -357,9 +388,11 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   // AWS parity: stable per-browser device identity. A new device above the
   // customer's limit suspends StealthWriter access until Admin reviews it.
   const cookieDevice = parseCookieHeader(request).get(STEALTHWRITER_DEVICE_COOKIE);
-  const deviceFingerprint = isValidStealthWriterDeviceFingerprint(cookieDevice)
-    ? String(cookieDevice)
-    : randomBytes(16).toString("hex");
+  const deviceFingerprint = isValidStealthWriterDeviceFingerprint(row.device_fingerprint)
+    ? String(row.device_fingerprint)
+    : isValidStealthWriterDeviceFingerprint(cookieDevice)
+      ? String(cookieDevice)
+      : randomBytes(16).toString("hex");
 
   let deviceGate;
   try {
