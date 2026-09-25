@@ -14,14 +14,23 @@ import {
   type BrowserViewerLaunch,
 } from "@/lib/browser-viewer";
 
-function validateClientLaunchUrl(toolSlug: string, rawUrl: string) {
+function validateClientLaunchUrl(
+  toolSlug: string,
+  rawUrl: string,
+  trustedProxyOrigin?: string | null,
+) {
   if (toolSlug === "sneakwrite") return new URL(validateSneakWriteLaunchUrl(rawUrl));
   if (toolSlug === "stealthwriter") {
     const launchUrl = new URL(rawUrl, window.location.origin);
-    if (
-      launchUrl.origin !== window.location.origin ||
-      launchUrl.pathname !== "/api/stealthwriter-proxy"
-    ) {
+    const localFallback =
+      launchUrl.origin === window.location.origin &&
+      launchUrl.pathname === "/api/stealthwriter-proxy";
+    const dedicated =
+      !!trustedProxyOrigin &&
+      launchUrl.origin === trustedProxyOrigin &&
+      launchUrl.protocol === "https:" &&
+      launchUrl.pathname === "/__trst/enter";
+    if (!localFallback && !dedicated) {
       throw new Error("The StealthWriter proxy returned an invalid launch URL.");
     }
     return launchUrl;
@@ -89,7 +98,17 @@ export async function launchTool(
                   viewport_height: viewport.height,
                 },
               });
-      const launchUrl = validateClientLaunchUrl(tool.slug, result.launch_url);
+      const trustedProxyOrigin =
+        tool.slug === "stealthwriter" &&
+        "proxy_origin" in result &&
+        typeof result.proxy_origin === "string"
+          ? result.proxy_origin
+          : null;
+      const launchUrl = validateClientLaunchUrl(
+        tool.slug,
+        result.launch_url,
+        trustedProxyOrigin,
+      );
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
 
       const viewerTool = tool.slug === "phrasly";
