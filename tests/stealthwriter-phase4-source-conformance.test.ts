@@ -66,7 +66,7 @@ assert(
 
 // AWS proxy.php: rotated cookies are persisted but Set-Cookie is never exposed.
 assert(
-  proxy.includes("persistRotatedStealthWriterCookies(upstream)"),
+  proxy.includes("persistRotatedStealthWriterCookies(providerAccountKey, upstream)"),
   "upstream Better Auth cookie rotations are persisted",
 );
 assert(
