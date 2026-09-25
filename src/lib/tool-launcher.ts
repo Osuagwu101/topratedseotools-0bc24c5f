@@ -89,7 +89,17 @@ export async function launchTool(
         tool.slug === "sneakwrite"
           ? await startSneakWriteDirectSso({ data: { tool_slug: "sneakwrite" } })
           : tool.slug === "stealthwriter"
-            ? await startStealthWriterProxyLaunch()
+            ? await (async () => {
+                const deviceReady = await fetch("/api/stealthwriter-device", {
+                  method: "GET",
+                  credentials: "same-origin",
+                  cache: "no-store",
+                });
+                if (!deviceReady.ok) {
+                  throw new Error("Could not prepare this device for StealthWriter.");
+                }
+                return startStealthWriterProxyLaunch();
+              })()
             : await startSessionOnlyOneClickAuth({
                 data: {
                   tool_slug: tool.slug,
