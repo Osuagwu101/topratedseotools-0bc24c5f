@@ -7,12 +7,11 @@ import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.function
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
+import { resolveBrowserViewport } from "@/lib/browser-viewer";
 import {
-  isAllowedToolViewerUrl,
-  viewerStorageKey,
-  resolveBrowserViewport,
-  type BrowserViewerLaunch,
-} from "@/lib/browser-viewer";
+  isPhraslyToolSlug,
+  PHRASLY_PROXY_SETUP_MESSAGE,
+} from "@/lib/phrasly-proxy-policy";
 
 function validateClientLaunchUrl(
   toolSlug: string,
@@ -58,6 +57,11 @@ export async function launchTool(
   const mode = setting?.launch_mode ?? "new_tab";
 
   if (useOneClick) {
+    if (isPhraslyToolSlug(tool.slug)) {
+      toast.error(PHRASLY_PROXY_SETUP_MESSAGE);
+      return { status: "error", error: PHRASLY_PROXY_SETUP_MESSAGE };
+    }
+
     let handoffWindow: Window | null = null;
     if (mode !== "same_tab") {
       const features = mode === "popup" ? "width=1100,height=800" : undefined;
@@ -120,35 +124,6 @@ export async function launchTool(
         trustedProxyOrigin,
       );
       toast.success(`${tool.name} is ready`, { id: toastId, duration: 1800 });
-
-      const viewerTool = tool.slug === "phrasly";
-      const viewerProvider = result.provider === "browser_use" ? result.provider : null;
-      const isEmbeddedViewer = viewerTool && viewerProvider === "browser_use";
-      if (isEmbeddedViewer && viewerProvider && !isAllowedToolViewerUrl(viewerProvider, launchUrl.toString())) {
-        throw new Error("The secure login service returned an invalid secure viewer URL.");
-      }
-
-      const targetWindow =
-        mode === "same_tab" || !handoffWindow || handoffWindow.closed ? window : handoffWindow;
-
-      if (isEmbeddedViewer && viewerProvider) {
-        const expiresAt =
-          "expires_at" in result && typeof result.expires_at === "string"
-            ? result.expires_at
-            : new Date(Date.now() + 30 * 60_000).toISOString();
-        const viewerLaunch: BrowserViewerLaunch = {
-          toolSlug: tool.slug as BrowserViewerLaunch["toolSlug"],
-          provider: viewerProvider,
-          liveUrl: launchUrl.toString(),
-          expiresAt,
-        };
-        targetWindow.sessionStorage.setItem(
-          viewerStorageKey(viewerLaunch.toolSlug),
-          JSON.stringify(viewerLaunch),
-        );
-        targetWindow.location.href = `/tools/${viewerLaunch.toolSlug}`;
-        return { status: "launched", launchUrl: `/tools/${viewerLaunch.toolSlug}`, expiresAt };
-      }
 
       if (mode === "same_tab") window.location.href = launchUrl.toString();
       else if (handoffWindow && !handoffWindow.closed)
