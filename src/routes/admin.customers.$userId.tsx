@@ -409,11 +409,11 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
                 <Label>Proxy account assignment</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Choose which authorised StealthWriter provider account this customer
-                  will use once provider routing is activated.
+                  uses for live proxy requests.
                 </p>
               </div>
               <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                Phase 3
+                Live routing
               </span>
             </div>
             <select
@@ -438,8 +438,8 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
               ))}
             </select>
             <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-              Phase 3 stores this assignment only. The live proxy still serves every
-              customer from Account 1 until the routing phase is approved and deployed.
+              Changing this assignment revokes the customer&apos;s issued and active proxy
+              sessions. Their next StealthWriter launch will use the newly selected account.
             </p>
           </div>
 
