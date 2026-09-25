@@ -65,16 +65,17 @@ assert(
   "a configured account cannot exist without encrypted session material",
 );
 
-// Phase boundary: current production admin/proxy code remains untouched.
+// The Phase 1 rollback bridge still exists, while the later approved routing
+// phase is allowed to consume the provider-account vault.
 assert(
   sessionFn.includes('.from("tool_authorized_sessions")') &&
     sessionFn.includes('{ onConflict: "tool_slug" }'),
-  "current admin replacement remains on the proven legacy write path in Phase 1",
+  "Account 1 admin replacement still preserves the legacy rollback bridge",
 );
 assert(
-  proxy.includes('.from("tool_authorized_sessions")') &&
-    !proxy.includes('provider_account_key'),
-  "Phase 1 does not introduce customer routing or assignment",
+  proxy.includes('.from("stealthwriter_provider_accounts")') &&
+    proxy.includes('provider_account_key'),
+  "later approved routing consumes the provider-account foundation",
 );
 
 console.log(
