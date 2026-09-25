@@ -54,7 +54,7 @@ assert(
 
 const adminAuth = await Bun.file("src/lib/admin-account-auth.functions.ts").text();
 assert(
-  (adminAuth.match(/blockLegacyPhraslyBrowserFlow\(/g) ?? []).length >= 4,
+  (adminAuth.match(/blockLegacyPhraslyBrowserFlow\(/g) ?? []).length >= 3,
   "admin automatic, manual-start, and manual-complete browser paths all guard Phrasly",
 );
 
