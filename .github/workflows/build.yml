@@ -29,6 +29,8 @@ jobs:
         run: bun tests/phrasly-proxy-foundation.test.ts
       - name: Phrasly Phase 2 session-vault tests
         run: bun tests/phrasly-session-vault.test.ts
+      - name: Phrasly Phase 3 proxy tests
+        run: bun tests/phrasly-proxy.test.ts
 
       - name: StealthWriter Phase 2 session-vault tests
         run: bun tests/stealthwriter-session-vault.test.ts
