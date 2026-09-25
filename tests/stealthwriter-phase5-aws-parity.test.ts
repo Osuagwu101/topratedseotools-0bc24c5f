@@ -129,12 +129,12 @@ assert(
   "Humanize API counts only against Humanizer",
 );
 assert(
-  featureForStealthWriterUsagePath("/api/scan") === null,
-  "Humanizer scan traffic refreshes the widget but does not consume AI Detector quota",
+  featureForStealthWriterUsagePath("/api/scan") === "ai_detector",
+  "live StealthWriter scan API counts against AI Detector",
 );
 assert(
   featureForStealthWriterUsagePath("/api/detect") === "ai_detector",
-  "AWS detect API alias also counts against AI Detector",
+  "legacy AWS detect API alias also counts against AI Detector",
 );
 
 // Rehumanize one-shot exemption.
