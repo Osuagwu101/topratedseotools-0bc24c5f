@@ -36,8 +36,22 @@ export const adminGetStealthWriterControls = createServerFn({ method: "GET" })
       .order("last_seen_at", { ascending: false });
     if (error) throw new Error(error.message);
 
+    const { data: providerAccounts, error: providerError } = await admin
+      .from("stealthwriter_provider_accounts")
+      .select("account_key,display_name,sort_order,status")
+      .in("account_key", ["account_1", "account_2"])
+      .order("sort_order", { ascending: true });
+    if (providerError) throw new Error(providerError.message);
+
     return {
       controls,
+      provider_accounts: ((providerAccounts ?? []) as any[]).map((account) => ({
+        account_key: String(account.account_key),
+        display_name: String(account.display_name),
+        sort_order: Number(account.sort_order),
+        configured: account.status === "stored",
+        status: String(account.status),
+      })),
       devices: (devices ?? []) as Array<{
         id: string;
         label: string;
@@ -48,6 +62,7 @@ export const adminGetStealthWriterControls = createServerFn({ method: "GET" })
   });
 
 const updateInput = userInput.extend({
+  provider_account_key: z.enum(["account_1", "account_2"]),
   humanizer_enabled: z.boolean(),
   humanizer_daily_limit: z.number().int().min(0).max(10000),
   ai_detector_enabled: z.boolean(),
@@ -61,9 +76,24 @@ export const adminUpdateStealthWriterControls = createServerFn({ method: "POST" 
   .inputValidator((input) => updateInput.parse(input))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
+
+    const { data: providerAccount, error: providerError } = await admin
+      .from("stealthwriter_provider_accounts")
+      .select("account_key,status")
+      .eq("account_key", data.provider_account_key)
+      .eq("status", "stored")
+      .maybeSingle();
+    if (providerError) throw new Error(providerError.message);
+    if (!providerAccount) {
+      throw new Error(
+        "Configure the selected StealthWriter proxy account before assigning customers to it.",
+      );
+    }
+
     const now = new Date().toISOString();
     const row = {
       user_id: data.userId,
+      provider_account_key: data.provider_account_key,
       status: data.status,
       device_limit: data.device_limit,
       humanizer_enabled: data.humanizer_enabled,
@@ -96,7 +126,7 @@ export const adminUpdateStealthWriterControls = createServerFn({ method: "POST" 
       details:
         `Humanizer=${data.humanizer_enabled ? "on" : "off"} (${data.humanizer_daily_limit}/day), ` +
         `AI Detector=${data.ai_detector_enabled ? "on" : "off"} (${data.ai_detector_daily_limit}/day), ` +
-        `devices=${data.device_limit}, status=${data.status}`,
+        `provider=${data.provider_account_key}, devices=${data.device_limit}, status=${data.status}`,
     });
 
     return { ok: true };
