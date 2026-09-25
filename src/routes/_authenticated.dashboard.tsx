@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Sparkles, Star, Clock, User, CheckCircle2, ExternalLink, MessageSquare, KeyRound } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { supabase } from "@/integrations/supabase/client";
 import { TOOLS, getTool } from "@/lib/tools-data";
-import { listMyOrders } from "@/lib/access.functions";
+import { listMyOrders, listToolSettings } from "@/lib/access.functions";
 import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { listMyReviewEligibility } from "@/lib/reviews.functions";
+import { launchTool } from "@/lib/tool-launcher";
+import {
+  getMyStealthWriterExperience,
+  removeMyStealthWriterDevice,
+} from "@/lib/stealthwriter-controls.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -21,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
+  const qc = useQueryClient();
   const usesAdminIssuedPassword =
     (user.user_metadata as { admin_issued_password?: boolean } | null)
       ?.admin_issued_password === true;
@@ -33,6 +39,11 @@ function Dashboard() {
   const { data: grantsData } = useQuery({
     queryKey: ["my-granted-access"],
     queryFn: () => getMyGrantedAccess(),
+  });
+
+  const { data: toolSettingsData } = useQuery({
+    queryKey: ["tool-settings"],
+    queryFn: () => listToolSettings(),
   });
 
   const { data: favorites } = useQuery({
@@ -122,10 +133,54 @@ function Dashboard() {
   const activeGrants = grantsData?.grants ?? [];
   const paidSlugs = new Set(activeOrders.map((o) => o.tool_slug));
   const grantOnly = activeGrants.filter((g) => !paidSlugs.has(g.tool_slug));
+  const activeStealthWriterOrder = activeOrders.find((o) => o.tool_slug === "stealthwriter");
+  const activeStealthWriterGrant = activeGrants.find((g) => g.tool_slug === "stealthwriter");
+  const hasStealthWriterAccess = !!activeStealthWriterOrder || !!activeStealthWriterGrant;
   const activeToolCount = new Set([
     ...activeOrders.map((o) => o.tool_slug),
     ...activeGrants.map((g) => g.tool_slug),
   ]).size;
+
+  const { data: stealthWriterExperience } = useQuery({
+    queryKey: ["my-stealthwriter-experience", user.id],
+    queryFn: () => getMyStealthWriterExperience(),
+    enabled: hasStealthWriterAccess,
+    staleTime: 15_000,
+  });
+
+  const removeStealthWriterDevice = useMutation({
+    mutationFn: (deviceId: string) =>
+      removeMyStealthWriterDevice({ data: { deviceId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-stealthwriter-experience", user.id] });
+    },
+  });
+
+  const stealthWriterTool = getTool("stealthwriter");
+  const stealthWriterSetting = toolSettingsData?.settings.find(
+    (setting) => setting.tool_slug === "stealthwriter",
+  );
+
+  const stealthWriterExpiry = activeStealthWriterOrder?.expires_at
+    ? new Date(activeStealthWriterOrder.expires_at)
+    : null;
+  const stealthWriterDaysLeft = stealthWriterExpiry
+    ? Math.max(0, Math.ceil((stealthWriterExpiry.getTime() - now) / 86_400_000))
+    : null;
+  const stealthWriterDurationDays = Math.max(
+    1,
+    Number(activeStealthWriterOrder?.duration_days ?? 28),
+  );
+  const stealthWriterProgress =
+    stealthWriterDaysLeft == null
+      ? 100
+      : Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round((stealthWriterDaysLeft / stealthWriterDurationDays) * 100),
+          ),
+        );
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
   const nextRenewalOrder = activeOrders
@@ -190,6 +245,140 @@ function Dashboard() {
           </div>
         </div>
 
+        {hasStealthWriterAccess && stealthWriterTool ? (
+          <div className="mt-8 space-y-5">
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="lg:col-span-2 rounded-2xl border bg-card p-6 shadow-card">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Welcome back,</div>
+                    <div className="text-xl font-bold">
+                      {profile?.full_name || user.email || "Customer"}
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
+                    {stealthWriterDaysLeft == null
+                      ? "Active"
+                      : `${stealthWriterDaysLeft} day(s) left`}
+                  </span>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${stealthWriterProgress}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {stealthWriterExpiry
+                    ? `Subscription active — expires ${stealthWriterExpiry.toISOString().replace("T", " ").replace(".000Z", " UTC")}`
+                    : "StealthWriter access is active."}
+                </div>
+              </div>
+
+              <Link
+                to="/tools"
+                className="rounded-2xl bg-gradient-primary p-6 text-primary-foreground shadow-card"
+              >
+                <div className="text-lg font-bold">Browse Tools</div>
+                <div className="mt-2 text-sm opacity-90">
+                  See everything available on Top Rated SEO Tools.
+                </div>
+                <div className="mt-4 w-fit rounded-full bg-white/15 px-3 py-1 text-xs">
+                  Browse tools →
+                </div>
+              </Link>
+            </div>
+
+            <div>
+              <h2 className="mb-4 text-lg font-semibold">Your Tools</h2>
+              <div className="max-w-md overflow-hidden rounded-2xl border bg-card shadow-card">
+                <div className="flex h-24 items-center justify-center border-b bg-muted/20">
+                  <ToolBrandMark tool={stealthWriterTool} size="lg" />
+                </div>
+                <div className="p-5">
+                  <div className="font-semibold">{stealthWriterTool.name}</div>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <div>
+                      AI Detector:{" "}
+                      <strong className="text-foreground">
+                        {stealthWriterExperience?.features.ai_detector.used ?? 0} /{" "}
+                        {stealthWriterExperience?.features.ai_detector.limit ?? 20}
+                      </strong>{" "}
+                      used today
+                    </div>
+                    <div>
+                      Humanizer:{" "}
+                      <strong className="text-foreground">
+                        {stealthWriterExperience?.features.humanizer.used ?? 0} /{" "}
+                        {stealthWriterExperience?.features.humanizer.limit ?? 20}
+                      </strong>{" "}
+                      used today
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!stealthWriterSetting?.one_click_auth_enabled}
+                    onClick={() => {
+                      if (!stealthWriterSetting) return;
+                      void launchTool(stealthWriterTool, stealthWriterSetting, {
+                        grantAccess: !!activeStealthWriterGrant,
+                      });
+                    }}
+                    className="mt-4 w-full rounded-lg bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Access Stealth Writer
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border bg-card p-6 shadow-card">
+              <h2 className="font-semibold">
+                Devices ({stealthWriterExperience?.devices.length ?? 0} /{" "}
+                {stealthWriterExperience?.device_limit ?? 2})
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Remove a device you no longer use to free up a slot.
+              </p>
+              <div className="mt-4 divide-y">
+                {(stealthWriterExperience?.devices ?? []).map((device) => (
+                  <div
+                    key={device.id}
+                    className="flex items-center justify-between gap-4 py-3 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{device.label || "Device"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Last used{" "}
+                        {new Date(device.last_seen_at)
+                          .toISOString()
+                          .replace("T", " ")
+                          .replace(".000Z", " UTC")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={removeStealthWriterDevice.isPending}
+                      onClick={() => {
+                        if (!window.confirm("Remove this device?")) return;
+                        removeStealthWriterDevice.mutate(device.id);
+                      }}
+                      className="shrink-0 text-xs font-medium text-destructive hover:underline disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {(stealthWriterExperience?.devices.length ?? 0) === 0 ? (
+                  <div className="py-3 text-sm text-muted-foreground">
+                    No devices registered yet — the first one is added when you access StealthWriter.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             icon={CheckCircle2}
@@ -201,6 +390,7 @@ function Dashboard() {
           <StatCard icon={Star} label="Favourites" value={String(favTools.length)} />
         </div>
 
+        {!hasStealthWriterAccess || activeToolCount > 1 ? (
         <div className="mt-10">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Your active tools</h2>
@@ -221,7 +411,7 @@ function Dashboard() {
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activeOrders.map((o) => {
+              {activeOrders.filter((o) => o.tool_slug !== "stealthwriter").map((o) => {
                 const t = getTool(o.tool_slug);
                 if (!t) return null;
                 return (
@@ -247,7 +437,7 @@ function Dashboard() {
                 );
               })}
 
-              {grantOnly.map((g) => {
+              {grantOnly.filter((g) => g.tool_slug !== "stealthwriter").map((g) => {
                 const t = getTool(g.tool_slug);
                 if (!t) return null;
                 return (
@@ -274,6 +464,7 @@ function Dashboard() {
             </div>
           )}
         </div>
+        ) : null}
 
         <div className="mt-10">
           <div className="mb-3 flex items-center justify-between">
