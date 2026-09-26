@@ -5,18 +5,22 @@ export function chatgptProxyBootstrapResponse(
   const assetHosts = JSON.stringify(
     Array.from(
       new Set(
-        ["api.chatgpt.ai", ...String(process.env.CHATGPT_ASSET_HOSTS ?? "")
+        ["cdn.oaistatic.com", "persistent.oaistatic.com", ...String(process.env.CHATGPT_ASSET_HOSTS ?? "")
           .split(",")]
           .map((value) => value.trim().toLowerCase())
           .filter(
-            (host) => host && host !== "chatgpt.ai" && host.endsWith(".chatgpt.ai"),
+            (host) =>
+              host &&
+              ((host.endsWith(".chatgpt.com") && host !== "chatgpt.com") ||
+                host === "oaistatic.com" ||
+                host.endsWith(".oaistatic.com")),
           ),
       ),
     ),
   );
   const script = String.raw`(() => {
   const PROXY = ${proxyBaseJson};
-  const MAIN = "https://chatgpt.ai";
+  const MAIN = "https://chatgpt.com";
   const ASSET_HOSTS = new Set(${assetHosts});
 
   function mapUrl(value) {
