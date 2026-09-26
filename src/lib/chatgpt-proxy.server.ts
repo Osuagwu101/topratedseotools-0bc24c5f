@@ -920,14 +920,25 @@ export async function handleChatGPTProxyRequest(request: Request) {
     return new Response(null, { status: upstream.status, headers });
   }
 
-  const isText =
+  // ChatGPT responses can be streamed. Never buffer event streams;
+  // forward the upstream ReadableStream directly so tokens reach the writer
+  // incrementally. Binary/non-rewriteable bodies are streamed for the same reason.
+  if (contentType.includes("text/event-stream")) {
+    headers.set("Cache-Control", "no-store");
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers,
+    });
+  }
+
+  const isRewriteableText =
     contentType.includes("text/html") ||
     contentType.includes("text/css") ||
     contentType.includes("javascript") ||
     contentType.includes("application/json") ||
     contentType.includes("text/plain");
 
-  if (isText) {
+  if (isRewriteableText) {
     const text = await upstream.text();
     return new Response(
       rewriteChatGPTBody(text, contentType, proxyBase),
@@ -938,7 +949,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     );
   }
 
-  return new Response(await upstream.arrayBuffer(), {
+  return new Response(upstream.body, {
     status: upstream.status,
     headers,
   });
