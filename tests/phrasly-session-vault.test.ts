@@ -45,8 +45,20 @@ const legacyCapture = JSON.stringify({
       sameSite: "Lax",
     },
     {
+      name: "app_state",
+      value: "opaque-first-party-state",
+      domain: ".phrasly.ai",
+      path: "/",
+    },
+    {
       name: "_ga",
       value: "tracking-only",
+      domain: ".phrasly.ai",
+      path: "/",
+    },
+    {
+      name: "cf_clearance",
+      value: "challenge-cookie-is-not-vaulted",
       domain: ".phrasly.ai",
       path: "/",
     },
@@ -68,13 +80,25 @@ const legacyCapture = JSON.stringify({
 const normalised = normalisePhraslySession(legacyCapture);
 const parsed = JSON.parse(normalised);
 assert(
-  parsed.authenticated_cookies.length === 1 &&
-    parsed.authenticated_cookies[0].name === "session",
-  "keeps only the Phrasly login session cookie and drops tracker cookies",
+  parsed.authenticated_cookies.length === 2 &&
+    parsed.authenticated_cookies[0].name === "session" &&
+    parsed.authenticated_cookies.some((cookie: any) => cookie.name === "app_state"),
+  "keeps reusable first-party Phrasly state while dropping tracker/challenge cookies",
 );
 assert(
-  parsed.authenticated_cookies[0].value === "opaque-cookie-value==",
-  "preserves cookie values exactly",
+  parsed.authenticated_cookies[0].value === "opaque-cookie-value==" &&
+    parsed.authenticated_cookies.some(
+      (cookie: any) =>
+        cookie.name === "app_state" &&
+        cookie.value === "opaque-first-party-state",
+    ),
+  "preserves reusable first-party cookie values exactly",
+);
+assert(
+  !parsed.authenticated_cookies.some(
+    (cookie: any) => cookie.name === "_ga" || cookie.name === "cf_clearance",
+  ),
+  "does not vault analytics or Cloudflare challenge cookies",
 );
 assert(
   parsed.session_tokens.storage.localStorage["auth-token"] === "opaque-local-token",
