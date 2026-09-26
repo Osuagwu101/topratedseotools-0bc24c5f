@@ -36,6 +36,8 @@ jobs:
         run: bun tests/chatgpt-session-vault.test.ts
       - name: ChatGPT Phase 2 foundation checks
         run: bun tests/chatgpt-phase2-foundation.test.ts
+      - name: ChatGPT Phase 3 proxy tests
+        run: bun tests/chatgpt-proxy.test.ts
 
       - name: StealthWriter Phase 2 session-vault tests
         run: bun tests/stealthwriter-session-vault.test.ts
