@@ -78,13 +78,14 @@ export async function ensureChatGptUserControls(
 
 export async function suspendChatGptAccessForDeviceLimit(userId: string) {
   const now = new Date().toISOString();
+  const controls = await ensureChatGptUserControls(userId);
   const { error } = await (supabaseAdmin as any)
     .from("chatgpt_user_controls")
     .upsert(
       {
         user_id: userId,
         status: "suspended",
-        device_limit: CHATGPT_DEFAULT_DEVICE_LIMIT,
+        device_limit: controls.device_limit,
         suspended_reason: "device_limit_exceeded",
         suspended_at: now,
         updated_at: now,
