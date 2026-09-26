@@ -578,18 +578,20 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
 }
 
 async function requireProxySession(request: Request) {
-  const token = parseCookieHeader(request).get(CHATGPT_PROXY_COOKIE);
-  if (!token) return null;
+  const cookies = parseCookieHeader(request);
+  const token = cookies.get(CHATGPT_PROXY_COOKIE);
+  const deviceFingerprint = cookies.get(CHATGPT_DEVICE_COOKIE);
+  if (!token || !isValidChatGptDeviceFingerprint(deviceFingerprint)) return null;
 
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", hashChatGPTProxyToken(token))
     .eq("status", "active")
     .maybeSingle();
 
-  if (!row) return null;
+  if (!row || row.device_fingerprint !== deviceFingerprint) return null;
   if (new Date(String(row.expires_at)).getTime() <= Date.now()) {
     await (supabaseAdmin as any)
       .from("chatgpt_proxy_sessions")
@@ -599,6 +601,30 @@ async function requireProxySession(request: Request) {
   }
 
   await requireToolEnabled();
+
+  const controls = await ensureChatGptUserControls(String(row.user_id));
+  if (controls.status !== "active") {
+    await (supabaseAdmin as any)
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
+  const { data: registeredDevice } = await (supabaseAdmin as any)
+    .from("chatgpt_devices")
+    .select("id")
+    .eq("user_id", row.user_id)
+    .eq("device_fingerprint", deviceFingerprint)
+    .maybeSingle();
+  if (!registeredDevice?.id) {
+    await (supabaseAdmin as any)
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
   const stillActive = await sourceStillActive(String(row.user_id), {
     kind: row.source_kind as "order" | "grant",
     id: String(row.source_id),
@@ -610,6 +636,12 @@ async function requireProxySession(request: Request) {
       .eq("id", row.id);
     return null;
   }
+
+  await (supabaseAdmin as any)
+    .from("chatgpt_devices")
+    .update({ last_seen_at: nowIso })
+    .eq("user_id", row.user_id)
+    .eq("device_fingerprint", deviceFingerprint);
 
   await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
