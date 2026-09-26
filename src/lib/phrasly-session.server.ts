@@ -68,6 +68,18 @@ function cleanStorageMap(value: unknown, label: string): JsonMap {
   return out;
 }
 
+function isIgnoredPhraslyCookieName(name: string) {
+  const lower = name.toLowerCase();
+  return (
+    /^(_ga|_gid|_gat|_utm)/.test(lower) ||
+    ["_fbp", "_fbc", "_clck", "_clsk", "_uetmsclkid", "_uetsid", "_uetvid", "_ttp", "cf_clearance", "__cf_bm"].includes(lower) ||
+    lower.startsWith("intercom-") ||
+    lower.startsWith("hubspot") ||
+    lower.startsWith("ajs_") ||
+    lower.startsWith("amplitude")
+  );
+}
+
 function cleanCookies(value: unknown): PhraslyStoredCookie[] {
   if (!Array.isArray(value) || value.length < 1) {
     throw new Error(
@@ -78,7 +90,8 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
     throw new Error("Phrasly session data contains too many cookies.");
   }
 
-  let sessionCookie: PhraslyStoredCookie | null = null;
+  const cookies: PhraslyStoredCookie[] = [];
+  let hasRootSessionCookie = false;
 
   for (const raw of value) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -105,16 +118,18 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
       );
     }
 
-    // Current Phrasly authentication is carried by the first-party "session"
-    // cookie. Ignore analytics/marketing/UI cookies even if Admin pastes a
-    // full DevTools export; they are not needed for writer authentication.
-    if (name !== PHRASLY_AUTH_COOKIE_NAME) continue;
+    // Keep only reusable first-party application state. Tracking/support
+    // cookies and Cloudflare challenge cookies are intentionally excluded.
+    if (isIgnoredPhraslyCookieName(name)) continue;
 
     const normalisedDomain = domain.toLowerCase().replace(/^\./, "");
-    if (normalisedDomain !== "phrasly.ai" || path !== "/") {
-      throw new Error(
-        'The Phrasly "session" cookie must belong to phrasly.ai with path "/".',
-      );
+    if (name === PHRASLY_AUTH_COOKIE_NAME) {
+      if (normalisedDomain !== "phrasly.ai" || path !== "/") {
+        throw new Error(
+          'The Phrasly "session" cookie must belong to phrasly.ai with path "/".',
+        );
+      }
+      hasRootSessionCookie = true;
     }
 
     const cookie: PhraslyStoredCookie = {
@@ -131,16 +146,24 @@ function cleanCookies(value: unknown): PhraslyStoredCookie[] {
     if (typeof source.sameSite === "string" && source.sameSite.length <= 32) {
       cookie.sameSite = source.sameSite;
     }
-    sessionCookie = cookie;
+    cookies.push(cookie);
   }
 
-  if (!sessionCookie) {
+  if (!hasRootSessionCookie) {
     throw new Error(
       'No Phrasly login cookie was found. Copy the "session" cookie from phrasly.ai.',
     );
   }
 
-  return [sessionCookie];
+  // Stable order keeps the primary auth cookie first while preserving the
+  // remaining first-party cookie order from the browser export.
+  return cookies.sort((a, b) =>
+    a.name === PHRASLY_AUTH_COOKIE_NAME
+      ? -1
+      : b.name === PHRASLY_AUTH_COOKIE_NAME
+        ? 1
+        : 0,
+  );
 }
 
 export function normalisePhraslySession(raw: string): string {
