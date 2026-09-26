@@ -894,6 +894,14 @@ export async function handleChatGPTProxyRequest(request: Request) {
     targetOrigin,
   );
 
+  if (
+    targetOrigin === CHATGPT_UPSTREAM_ORIGIN &&
+    isChatGptDocumentRequest(request) &&
+    isBlockedChatGptDocumentPath(target.pathname)
+  ) {
+    return forbidden("This ChatGPT account, settings, or billing page is restricted.");
+  }
+
   let cookieHeader = "";
   try {
     const encrypted = await loadEncryptedChatGPTSession();
