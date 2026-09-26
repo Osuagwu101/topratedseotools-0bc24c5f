@@ -438,6 +438,30 @@ function parseCookieHeader(request: Request) {
   return out;
 }
 
+export function readChatGptAppDeviceFingerprint(request: Request) {
+  const value = parseCookieHeader(request).get(CHATGPT_APP_DEVICE_COOKIE);
+  return isValidChatGptDeviceFingerprint(value) ? String(value) : null;
+}
+
+function appDeviceCookie(fingerprint: string) {
+  return [
+    `${CHATGPT_APP_DEVICE_COOKIE}=${fingerprint}`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
+  ].join("; ");
+}
+
+export function ensureChatGptAppDeviceResponse(request: Request) {
+  const existing = readChatGptAppDeviceFingerprint(request);
+  const fingerprint = existing ?? randomBytes(16).toString("hex");
+  const headers = standardHeaders();
+  if (!existing) headers.append("Set-Cookie", appDeviceCookie(fingerprint));
+  return new Response(null, { status: 204, headers });
+}
+
 function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   return [
     `${CHATGPT_PROXY_COOKIE}=${token}`,
@@ -446,6 +470,17 @@ function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
     "Secure",
     "SameSite=Lax",
     `Expires=${new Date(expiresAt).toUTCString()}`,
+  ].join("; ");
+}
+
+function deviceCookie(fingerprint: string, cookiePath: string) {
+  return [
+    `${CHATGPT_DEVICE_COOKIE}=${fingerprint}`,
+    `Path=${cookiePath}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
   ].join("; ");
 }
 
