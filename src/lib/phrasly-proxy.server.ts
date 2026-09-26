@@ -721,8 +721,14 @@ function unavailable() {
 export async function handlePhraslyProxyRequest(request: Request) {
   const url = new URL(request.url);
   const ticket = url.searchParams.get("ticket");
+  const dedicatedProxy = isDedicatedPhraslyProxyRequest(request);
+  const proxyBase = dedicatedProxy ? "" : PHRASLY_PROXY_BASE;
 
-  if (url.pathname === PHRASLY_PROXY_BASE && ticket) {
+  if (
+    ((dedicatedProxy && url.pathname === "/__trst/enter") ||
+      (!dedicatedProxy && url.pathname === PHRASLY_PROXY_BASE)) &&
+    ticket
+  ) {
     return exchangeLaunchTicket(request, ticket);
   }
 
@@ -748,30 +754,53 @@ export async function handlePhraslyProxyRequest(request: Request) {
     }
   }
 
-  const suffix = url.pathname.startsWith(PHRASLY_PROXY_BASE)
-    ? url.pathname.slice(PHRASLY_PROXY_BASE.length)
-    : "";
-  const targetPath = suffix || PHRASLY_LANDING_PATH;
-  const target = buildPhraslyUpstreamUrl(request.url, targetPath);
+  const suffix = dedicatedProxy
+    ? url.pathname
+    : url.pathname.startsWith(PHRASLY_PROXY_BASE)
+      ? url.pathname.slice(PHRASLY_PROXY_BASE.length)
+      : "";
+
+  let targetOrigin = PHRASLY_UPSTREAM_ORIGIN;
+  let targetPath = suffix || PHRASLY_LANDING_PATH;
+  let isSecondaryHost = false;
+
+  const routedHost = targetPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
+  if (routedHost) {
+    const host = routedHost[1].toLowerCase();
+    if (!phraslyAllowedAssetHosts().includes(host)) {
+      return forbidden("This Phrasly asset host is not allowed.");
+    }
+    targetOrigin = `https://${host}`;
+    targetPath = routedHost[2] || "/";
+    isSecondaryHost = true;
+  }
+
+  const target = buildPhraslyUpstreamUrl(
+    request.url,
+    targetPath,
+    targetOrigin,
+  );
 
   let cookieHeader = "";
-  try {
-    const encrypted = await loadEncryptedPhraslySession();
-    const plaintext = decryptPhraslySession(encrypted);
-    cookieHeader = buildPhraslyCookieHeader(plaintext);
-  } catch {
-    await recordPhraslyProxyDiagnostic(
-      String(proxySession.id),
-      "session_decrypt_failed",
-    );
-    return unavailable();
-  }
-  if (!cookieHeader) {
-    await recordPhraslyProxyDiagnostic(
-      String(proxySession.id),
-      "session_cookie_missing",
-    );
-    return unavailable();
+  if (!isSecondaryHost) {
+    try {
+      const encrypted = await loadEncryptedPhraslySession();
+      const plaintext = decryptPhraslySession(encrypted);
+      cookieHeader = buildPhraslyCookieHeader(plaintext, target.toString());
+    } catch {
+      await recordPhraslyProxyDiagnostic(
+        String(proxySession.id),
+        "session_decrypt_failed",
+      );
+      return unavailable();
+    }
+    if (!cookieHeader) {
+      await recordPhraslyProxyDiagnostic(
+        String(proxySession.id),
+        "session_cookie_missing",
+      );
+      return unavailable();
+    }
   }
 
   let body: ArrayBuffer | undefined;
@@ -797,7 +826,13 @@ export async function handlePhraslyProxyRequest(request: Request) {
   try {
     upstream = await fetch(target, {
       method: request.method,
-      headers: upstreamHeaders(request, cookieHeader),
+      headers: upstreamHeaders(
+        request,
+        cookieHeader,
+        targetOrigin,
+        !isSecondaryHost,
+        proxyBase,
+      ),
       body,
       redirect: "manual",
     });
@@ -809,28 +844,38 @@ export async function handlePhraslyProxyRequest(request: Request) {
     return unavailable();
   }
 
-  // Never forward upstream Set-Cookie. Phase 4 will add allowlisted,
-  // server-side cookie rotation persistence after live Phrasly validation.
-  if (upstream.status === 401) {
-    await recordPhraslyProxyDiagnostic(
-      String(proxySession.id),
-      "upstream_401",
-      upstream.status,
-    );
-    return unavailable();
-  }
-  if (upstream.status === 403) {
-    await recordPhraslyProxyDiagnostic(
-      String(proxySession.id),
-      "upstream_403",
-      upstream.status,
-    );
-    return unavailable();
+  if (!isSecondaryHost) {
+    try {
+      await persistRotatedPhraslyCookies(upstream);
+    } catch {
+      return unavailable();
+    }
+
+    if (upstream.status === 401) {
+      await recordPhraslyProxyDiagnostic(
+        String(proxySession.id),
+        "upstream_401",
+        upstream.status,
+      );
+      return unavailable();
+    }
+    if (upstream.status === 403) {
+      await recordPhraslyProxyDiagnostic(
+        String(proxySession.id),
+        classifyPhrasly403(upstream),
+        upstream.status,
+      );
+      return unavailable();
+    }
   }
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
-    const rewritten = rewritePhraslyLocation(location);
+    const rewritten = rewritePhraslyLocation(
+      location,
+      targetOrigin,
+      proxyBase,
+    );
     if (!rewritten) {
       await recordPhraslyProxyDiagnostic(
         String(proxySession.id),
@@ -882,10 +927,13 @@ export async function handlePhraslyProxyRequest(request: Request) {
 
   if (isText) {
     const text = await upstream.text();
-    return new Response(rewritePhraslyBody(text, contentType), {
-      status: upstream.status,
-      headers,
-    });
+    return new Response(
+      rewritePhraslyBody(text, contentType, proxyBase),
+      {
+        status: upstream.status,
+        headers,
+      },
+    );
   }
 
   return new Response(await upstream.arrayBuffer(), {
@@ -893,3 +941,4 @@ export async function handlePhraslyProxyRequest(request: Request) {
     headers,
   });
 }
+
