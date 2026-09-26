@@ -32,6 +32,11 @@ export const startSessionOnlyOneClickAuth = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     blockLegacyPhraslyBrowserFlow(data.tool_slug);
+    if (data.tool_slug === "chatgpt") {
+      throw new Error(
+        "ChatGPT secure launch is not enabled yet. Admin is still configuring the authorised session.",
+      );
+    }
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
     const { data: global } = await (admin as any)
       .from("browser_auth_settings")
