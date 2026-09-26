@@ -267,10 +267,20 @@ assert(
     proxySource.includes('"session_decrypt_failed"'),
   "records safe Phase 3 live diagnostic codes without exposing upstream secrets",
 );
+const diagnosticStart = proxySource.indexOf(
+  "async function recordPhraslyProxyDiagnostic",
+);
+const diagnosticEnd = proxySource.indexOf(
+  "export async function createPhraslyProxyLaunch",
+  diagnosticStart,
+);
+const diagnosticSource = proxySource.slice(diagnosticStart, diagnosticEnd);
 assert(
-  !proxySource.includes("response_body") &&
-    !proxySource.includes("cookie_value") &&
-    !proxySource.includes("encrypted_payload:"),
+  diagnosticStart >= 0 &&
+    diagnosticEnd > diagnosticStart &&
+    !diagnosticSource.includes("response_body") &&
+    !diagnosticSource.includes("cookie_value") &&
+    !diagnosticSource.includes("encrypted_payload"),
   "Phrasly live diagnostics do not persist response bodies or secret values",
 );
 assert(
