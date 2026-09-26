@@ -198,6 +198,31 @@ assert(
   "customer launcher uses the new Phrasly proxy instead of the Phase 1 setup block",
 );
 
+const proxySource = await Bun.file("src/lib/phrasly-proxy.server.ts").text();
+assert(
+  proxySource.includes('"upstream_401"') &&
+    proxySource.includes('"upstream_403"') &&
+    proxySource.includes('"upstream_network_error"') &&
+    proxySource.includes('"session_decrypt_failed"'),
+  "records safe Phase 3 live diagnostic codes without exposing upstream secrets",
+);
+assert(
+  !proxySource.includes("response_body") &&
+    !proxySource.includes("cookie_value") &&
+    !proxySource.includes("encrypted_payload:"),
+  "Phrasly live diagnostics do not persist response bodies or secret values",
+);
+
+const diagMigration = await Bun.file(
+  "supabase/migrations/20260926023050_phrasly_proxy_diagnostics.sql",
+).text();
+assert(
+  diagMigration.includes("last_error_code") &&
+    diagMigration.includes("last_upstream_status") &&
+    diagMigration.includes("diagnostic_updated_at"),
+  "adds server-only safe diagnostic fields to Phrasly proxy sessions",
+);
+
 console.log(`phrasly-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   console.error(failures.join("\n"));

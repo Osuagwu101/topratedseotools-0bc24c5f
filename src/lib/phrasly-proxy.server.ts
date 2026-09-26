@@ -179,6 +179,35 @@ async function loadEncryptedPhraslySession() {
   return String(data.encrypted_payload);
 }
 
+type PhraslyProxyDiagnosticCode =
+  | "session_decrypt_failed"
+  | "session_cookie_missing"
+  | "upstream_network_error"
+  | "upstream_401"
+  | "upstream_403"
+  | "upstream_external_redirect"
+  | "upstream_redirect"
+  | "upstream_ok";
+
+async function recordPhraslyProxyDiagnostic(
+  proxySessionId: string,
+  code: PhraslyProxyDiagnosticCode,
+  upstreamStatus: number | null = null,
+) {
+  try {
+    await (supabaseAdmin as any)
+      .from("phrasly_proxy_sessions")
+      .update({
+        last_error_code: code === "upstream_ok" ? null : code,
+        last_upstream_status: upstreamStatus,
+        diagnostic_updated_at: new Date().toISOString(),
+      })
+      .eq("id", proxySessionId);
+  } catch {
+    // Diagnostics are non-fatal and must never interrupt writer access.
+  }
+}
+
 export async function createPhraslyProxyLaunch(userId: string) {
   await requireToolEnabled();
 
@@ -520,9 +549,19 @@ export async function handlePhraslyProxyRequest(request: Request) {
     const plaintext = decryptPhraslySession(encrypted);
     cookieHeader = buildPhraslyCookieHeader(plaintext);
   } catch {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "session_decrypt_failed",
+    );
     return unavailable();
   }
-  if (!cookieHeader) return unavailable();
+  if (!cookieHeader) {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "session_cookie_missing",
+    );
+    return unavailable();
+  }
 
   let body: ArrayBuffer | undefined;
   if (!["GET", "HEAD"].includes(request.method)) {
@@ -552,23 +591,58 @@ export async function handlePhraslyProxyRequest(request: Request) {
       redirect: "manual",
     });
   } catch {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "upstream_network_error",
+    );
     return unavailable();
   }
 
   // Never forward upstream Set-Cookie. Phase 4 will add allowlisted,
   // server-side cookie rotation persistence after live Phrasly validation.
-  if (upstream.status === 401 || upstream.status === 403) {
+  if (upstream.status === 401) {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "upstream_401",
+      upstream.status,
+    );
+    return unavailable();
+  }
+  if (upstream.status === 403) {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "upstream_403",
+      upstream.status,
+    );
     return unavailable();
   }
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
     const rewritten = rewritePhraslyLocation(location);
-    if (!rewritten) return unavailable();
+    if (!rewritten) {
+      await recordPhraslyProxyDiagnostic(
+        String(proxySession.id),
+        "upstream_external_redirect",
+        upstream.status,
+      );
+      return unavailable();
+    }
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "upstream_redirect",
+      upstream.status,
+    );
     const h = standardHeaders();
     h.set("Location", rewritten);
     return new Response(null, { status: upstream.status, headers: h });
   }
+
+  await recordPhraslyProxyDiagnostic(
+    String(proxySession.id),
+    "upstream_ok",
+    upstream.status,
+  );
 
   const contentType =
     upstream.headers.get("content-type") ?? "application/octet-stream";
