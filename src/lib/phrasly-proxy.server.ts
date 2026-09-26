@@ -56,7 +56,7 @@ export function phraslyAllowedAssetHosts() {
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
-  return Array.from(new Set(configured)).filter(
+  return Array.from(new Set(["api.phrasly.ai", ...configured])).filter(
     (host) => host !== "phrasly.ai" && host.endsWith(".phrasly.ai"),
   );
 }
@@ -146,6 +146,7 @@ function cookieMatchesPhraslyTarget(
 export function buildPhraslyCookieHeader(
   plaintext: string,
   targetUrl = PHRASLY_UPSTREAM_ORIGIN + "/",
+  requireSession = true,
 ) {
   const parsed = JSON.parse(
     normalisePhraslySession(plaintext),
@@ -159,7 +160,7 @@ export function buildPhraslyCookieHeader(
   const sessionCookie = cookies.find(
     (cookie) => cookie.name === PHRASLY_AUTH_COOKIE_NAME,
   );
-  if (!sessionCookie) {
+  if (requireSession && !sessionCookie) {
     throw new Error('The stored Phrasly "session" cookie is missing.');
   }
 
@@ -782,25 +783,27 @@ export async function handlePhraslyProxyRequest(request: Request) {
   );
 
   let cookieHeader = "";
-  if (!isSecondaryHost) {
-    try {
-      const encrypted = await loadEncryptedPhraslySession();
-      const plaintext = decryptPhraslySession(encrypted);
-      cookieHeader = buildPhraslyCookieHeader(plaintext, target.toString());
-    } catch {
-      await recordPhraslyProxyDiagnostic(
-        String(proxySession.id),
-        "session_decrypt_failed",
-      );
-      return unavailable();
-    }
-    if (!cookieHeader) {
-      await recordPhraslyProxyDiagnostic(
-        String(proxySession.id),
-        "session_cookie_missing",
-      );
-      return unavailable();
-    }
+  try {
+    const encrypted = await loadEncryptedPhraslySession();
+    const plaintext = decryptPhraslySession(encrypted);
+    cookieHeader = buildPhraslyCookieHeader(
+      plaintext,
+      target.toString(),
+      !isSecondaryHost,
+    );
+  } catch {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "session_decrypt_failed",
+    );
+    return unavailable();
+  }
+  if (!isSecondaryHost && !cookieHeader) {
+    await recordPhraslyProxyDiagnostic(
+      String(proxySession.id),
+      "session_cookie_missing",
+    );
+    return unavailable();
   }
 
   let body: ArrayBuffer | undefined;
@@ -830,7 +833,7 @@ export async function handlePhraslyProxyRequest(request: Request) {
         request,
         cookieHeader,
         targetOrigin,
-        !isSecondaryHost,
+        !!cookieHeader,
         proxyBase,
       ),
       body,
@@ -844,13 +847,13 @@ export async function handlePhraslyProxyRequest(request: Request) {
     return unavailable();
   }
 
-  if (!isSecondaryHost) {
-    try {
-      await persistRotatedPhraslyCookies(upstream);
-    } catch {
-      return unavailable();
-    }
+  try {
+    await persistRotatedPhraslyCookies(upstream);
+  } catch {
+    return unavailable();
+  }
 
+  if (!isSecondaryHost) {
     if (upstream.status === 401) {
       await recordPhraslyProxyDiagnostic(
         String(proxySession.id),
