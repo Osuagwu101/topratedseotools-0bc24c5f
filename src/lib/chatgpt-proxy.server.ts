@@ -17,6 +17,16 @@ import {
   normaliseChatGptSession,
   type ChatGptSessionState,
 } from "@/lib/chatgpt-session.server";
+import {
+  assertChatGptLaunchRateLimit,
+  ensureChatGptUserControls,
+  isBlockedChatGptDocumentPath,
+  isChatGptDocumentRequest,
+  isValidChatGptDeviceFingerprint,
+  registerOrTouchChatGptDevice,
+  CHATGPT_APP_DEVICE_COOKIE,
+  CHATGPT_DEVICE_COOKIE,
+} from "@/lib/chatgpt-controls.server";
 
 export const CHATGPT_PROXY_BASE = "/api/chatgpt-proxy";
 export const CHATGPT_LANDING_PATH = "/";
@@ -359,8 +369,17 @@ async function recordChatGPTProxyDiagnostic(
   }
 }
 
-export async function createChatGPTProxyLaunch(userId: string) {
+export async function createChatGPTProxyLaunch(
+  userId: string,
+  appDeviceFingerprint?: string | null,
+) {
   await requireToolEnabled();
+
+  const controls = await ensureChatGptUserControls(userId);
+  if (controls.status !== "active") {
+    throw new Error("Your ChatGPT access is suspended. Please contact Admin.");
+  }
+  await assertChatGptLaunchRateLimit(userId);
 
   const source = await findActiveAccess(userId);
   if (!source) {
@@ -385,6 +404,9 @@ export async function createChatGPTProxyLaunch(userId: string) {
       source_kind: source.kind,
       source_id: source.id,
       status: "issued",
+      device_fingerprint: isValidChatGptDeviceFingerprint(appDeviceFingerprint)
+        ? appDeviceFingerprint
+        : null,
       expires_at: expiresAt,
     });
   if (error) throw new Error("Could not start ChatGPT. Please try again.");
