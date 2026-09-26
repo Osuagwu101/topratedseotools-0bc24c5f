@@ -1,12 +1,12 @@
-/* Phase 3 — authenticated internal-writer entrypoint for ChatGpt proxy launch. */
+/* Phase 3 — authenticated internal-writer entrypoint for ChatGPT proxy launch. */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createChatGptProxyLaunch } from "@/lib/chatgpt-proxy.server";
+import { createChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.server";
 
-export const startChatGptProxyLaunch = createServerFn({ method: "POST" })
+export const startChatGPTProxyLaunch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const launch = await createChatGptProxyLaunch(context.userId);
+    const launch = await createChatGPTProxyLaunch(context.userId);
     return {
       ok: true,
       launch_url: launch.launchUrl,
