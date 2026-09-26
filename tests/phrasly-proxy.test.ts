@@ -3,8 +3,11 @@
  * Run: bun tests/phrasly-proxy.test.ts
  */
 import {
+  applyPhraslyCookieRotations,
   buildPhraslyCookieHeader,
   buildPhraslyUpstreamUrl,
+  extractPhraslyCookieRotations,
+  phraslyAllowedAssetHosts,
   hashPhraslyProxyToken,
   isActivePhraslyGrant,
   isActivePhraslyOrder,
@@ -37,6 +40,12 @@ const sampleSession = JSON.stringify({
       secure: true,
     },
     {
+      name: "app_state",
+      value: "opaque-app-state",
+      domain: ".phrasly.ai",
+      path: "/",
+    },
+    {
       name: "_fbp",
       value: "tracking-only",
       domain: ".phrasly.ai",
@@ -53,8 +62,8 @@ const sampleSession = JSON.stringify({
 
 const cookieHeader = buildPhraslyCookieHeader(sampleSession);
 assert(
-  cookieHeader === "session=opaque-cookie",
-  "forwards only the first-party Phrasly session cookie",
+  cookieHeader === "session=opaque-cookie; app_state=opaque-app-state",
+  "forwards reusable first-party Phrasly cookies with the session cookie first",
 );
 assert(
   !cookieHeader.includes("_fbp"),
@@ -63,6 +72,34 @@ assert(
 assert(
   !cookieHeader.includes("vault-only-token"),
   "does not copy browser-storage secrets into the Cookie header",
+);
+
+const rotations = extractPhraslyCookieRotations(
+  [
+    "session=rotated-session; Path=/; HttpOnly; Secure",
+    "app_state=rotated-app-state; Path=/; Secure",
+    "new_untrusted_cookie=ignore-me; Path=/",
+  ],
+  ["session", "app_state"],
+);
+assert(
+  rotations.session === "rotated-session" &&
+    rotations.app_state === "rotated-app-state" &&
+    !("new_untrusted_cookie" in rotations),
+  "captures rotations only for cookie names already approved in the encrypted vault",
+);
+const rotated = JSON.parse(
+  applyPhraslyCookieRotations(sampleSession, [
+    "session=rotated-session; Path=/; HttpOnly; Secure",
+    "app_state=rotated-app-state; Path=/; Secure",
+  ]).plaintext,
+);
+assert(
+  rotated.authenticated_cookies.find((cookie: any) => cookie.name === "session")?.value ===
+    "rotated-session" &&
+    rotated.authenticated_cookies.find((cookie: any) => cookie.name === "app_state")?.value ===
+      "rotated-app-state",
+  "persists allowlisted Phrasly cookie rotation exactly like the StealthWriter vault",
 );
 
 const h1 = hashPhraslyProxyToken("ticket-a");
@@ -163,6 +200,24 @@ assert(
   "blocks proxy redirects to unrelated origins",
 );
 
+const previousAssetHosts = process.env.PHRASLY_ASSET_HOSTS;
+process.env.PHRASLY_ASSET_HOSTS = "api.phrasly.ai,cdn.phrasly.ai,evil.example";
+assert(
+  phraslyAllowedAssetHosts().includes("api.phrasly.ai") &&
+    phraslyAllowedAssetHosts().includes("cdn.phrasly.ai") &&
+    !phraslyAllowedAssetHosts().includes("evil.example"),
+  "allows only configured first-party Phrasly subdomains",
+);
+assert(
+  rewritePhraslyLocation(
+    "https://api.phrasly.ai/v1/status",
+    "https://phrasly.ai",
+  ) === "/api/phrasly-proxy/__host/api.phrasly.ai/v1/status",
+  "routes configured first-party Phrasly subdomains through the fixed proxy",
+);
+if (previousAssetHosts === undefined) delete process.env.PHRASLY_ASSET_HOSTS;
+else process.env.PHRASLY_ASSET_HOSTS = previousAssetHosts;
+
 const pinned = buildPhraslyUpstreamUrl(
   "https://topratedseotools.com/api/phrasly-proxy//evil.example/path?x=1&ticket=secret",
   "//evil.example/path",
@@ -190,6 +245,11 @@ assert(
   server.includes('url.pathname === "/api/phrasly-proxy-bootstrap"'),
   "server entry exposes the Phrasly proxy bootstrap",
 );
+assert(
+  server.includes("isDedicatedPhraslyProxyRequest") &&
+    server.includes("dedicatedPhraslyHost"),
+  "server supports the same dedicated proxy-origin pattern as StealthWriter",
+);
 
 const launcher = await Bun.file("src/lib/tool-launcher.ts").text();
 assert(
@@ -202,15 +262,39 @@ const proxySource = await Bun.file("src/lib/phrasly-proxy.server.ts").text();
 assert(
   proxySource.includes('"upstream_401"') &&
     proxySource.includes('"upstream_403"') &&
+    proxySource.includes('"upstream_403_edge_challenge"') &&
     proxySource.includes('"upstream_network_error"') &&
     proxySource.includes('"session_decrypt_failed"'),
   "records safe Phase 3 live diagnostic codes without exposing upstream secrets",
 );
+const diagnosticStart = proxySource.indexOf(
+  "async function recordPhraslyProxyDiagnostic",
+);
+const diagnosticEnd = proxySource.indexOf(
+  "export async function createPhraslyProxyLaunch",
+  diagnosticStart,
+);
+const diagnosticSource = proxySource.slice(diagnosticStart, diagnosticEnd);
 assert(
-  !proxySource.includes("response_body") &&
-    !proxySource.includes("cookie_value") &&
-    !proxySource.includes("encrypted_payload:"),
+  diagnosticStart >= 0 &&
+    diagnosticEnd > diagnosticStart &&
+    !diagnosticSource.includes("response_body") &&
+    !diagnosticSource.includes("cookie_value") &&
+    !diagnosticSource.includes("encrypted_payload"),
   "Phrasly live diagnostics do not persist response bodies or secret values",
+);
+assert(
+  proxySource.includes('"sec-fetch-dest"') &&
+    proxySource.includes('"sec-fetch-mode"') &&
+    proxySource.includes('"sec-fetch-site"') &&
+    proxySource.includes('"upgrade-insecure-requests"') &&
+    proxySource.includes("persistRotatedPhraslyCookies"),
+  "Phrasly upstream requests mirror the working StealthWriter/AWS request shape and rotation model",
+);
+assert(
+  launcher.includes('tool.slug === "phrasly"') &&
+    launcher.includes('launchUrl.pathname === "/__trst/enter"'),
+  "Phrasly client validates an optional trusted dedicated proxy origin",
 );
 
 const diagMigration = await Bun.file(

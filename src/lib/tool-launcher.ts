@@ -37,7 +37,12 @@ function validateClientLaunchUrl(
     const localProxy =
       launchUrl.origin === window.location.origin &&
       launchUrl.pathname === "/api/phrasly-proxy";
-    if (!localProxy) {
+    const dedicated =
+      !!trustedProxyOrigin &&
+      launchUrl.origin === trustedProxyOrigin &&
+      launchUrl.protocol === "https:" &&
+      launchUrl.pathname === "/__trst/enter";
+    if (!localProxy && !dedicated) {
       throw new Error("The Phrasly proxy returned an invalid launch URL.");
     }
     return launchUrl;
@@ -118,7 +123,7 @@ export async function launchTool(
                 },
               });
       const trustedProxyOrigin =
-        tool.slug === "stealthwriter" &&
+        (tool.slug === "stealthwriter" || tool.slug === "phrasly") &&
         "proxy_origin" in result &&
         typeof result.proxy_origin === "string"
           ? result.proxy_origin

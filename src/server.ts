@@ -8,7 +8,10 @@ import {
   isDedicatedStealthWriterProxyRequest,
 } from "./lib/stealthwriter-proxy.server";
 import { stealthWriterProxyBootstrapResponse } from "./lib/stealthwriter-proxy-bootstrap.server";
-import { handlePhraslyProxyRequest } from "./lib/phrasly-proxy.server";
+import {
+  handlePhraslyProxyRequest,
+  isDedicatedPhraslyProxyRequest,
+} from "./lib/phrasly-proxy.server";
 import { phraslyProxyBootstrapResponse } from "./lib/phrasly-proxy-bootstrap.server";
 
 type ServerEntry = {
@@ -57,6 +60,7 @@ export default {
     try {
       const url = new URL(request.url);
       const dedicatedStealthWriterHost = isDedicatedStealthWriterProxyRequest(request);
+      const dedicatedPhraslyHost = isDedicatedPhraslyProxyRequest(request);
 
       if (!dedicatedStealthWriterHost && url.pathname === "/api/stealthwriter-device") {
         if (request.method !== "GET") {
@@ -78,13 +82,18 @@ export default {
         if (request.method !== "GET") {
           return new Response("Method not allowed", { status: 405 });
         }
-        return phraslyProxyBootstrapResponse();
+        return phraslyProxyBootstrapResponse(
+          dedicatedPhraslyHost ? "" : "/api/phrasly-proxy",
+        );
       }
 
-      // When STEALTHWRITER_PROXY_PUBLIC_ORIGIN points a dedicated sw.* host
-      // at this deployment, every request on that host belongs to the proxy.
+      // Dedicated proxy origins route every request through their fixed-host
+      // proxy while the main site keeps the /api/* fallback routes.
       if (dedicatedStealthWriterHost) {
         return await handleStealthWriterProxyRequest(request);
+      }
+      if (dedicatedPhraslyHost) {
+        return await handlePhraslyProxyRequest(request);
       }
 
       if (
