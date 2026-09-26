@@ -14,14 +14,14 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   decryptChatGptSession,
   encryptChatGptSession,
-  normaliseChatGptSession;
+  normaliseChatGptSession,
   type ChatGptSessionState,
 } from "@/lib/chatgpt-session.server";
 
 export const CHATGPT_PROXY_BASE = "/api/chatgpt-proxy";
 export const CHATGPT_LANDING_PATH = "/";
 export const CHATGPT_UPSTREAM_ORIGIN = "https://chatgpt.com";
-export const CHATGPT_PROXY_COOKIE = "trst_ph_proxy";
+export const CHATGPT_PROXY_COOKIE = "trst_cg_proxy";
 export const CHATGPT_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
 
