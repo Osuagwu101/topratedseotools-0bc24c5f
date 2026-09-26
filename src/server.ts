@@ -13,6 +13,11 @@ import {
   isDedicatedPhraslyProxyRequest,
 } from "./lib/phrasly-proxy.server";
 import { phraslyProxyBootstrapResponse } from "./lib/phrasly-proxy-bootstrap.server";
+import {
+  handleChatGPTProxyRequest,
+  isDedicatedChatGPTProxyRequest,
+} from "./lib/chatgpt-proxy.server";
+import { chatgptProxyBootstrapResponse } from "./lib/chatgpt-proxy-bootstrap.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -61,6 +66,7 @@ export default {
       const url = new URL(request.url);
       const dedicatedStealthWriterHost = isDedicatedStealthWriterProxyRequest(request);
       const dedicatedPhraslyHost = isDedicatedPhraslyProxyRequest(request);
+      const dedicatedChatGPTHost = isDedicatedChatGPTProxyRequest(request);
 
       if (!dedicatedStealthWriterHost && url.pathname === "/api/stealthwriter-device") {
         if (request.method !== "GET") {
@@ -87,6 +93,15 @@ export default {
         );
       }
 
+      if (url.pathname === "/api/chatgpt-proxy-bootstrap") {
+        if (request.method !== "GET") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return chatgptProxyBootstrapResponse(
+          dedicatedChatGPTHost ? "" : "/api/chatgpt-proxy",
+        );
+      }
+
       // Dedicated proxy origins route every request through their fixed-host
       // proxy while the main site keeps the /api/* fallback routes.
       if (dedicatedStealthWriterHost) {
@@ -94,6 +109,9 @@ export default {
       }
       if (dedicatedPhraslyHost) {
         return await handlePhraslyProxyRequest(request);
+      }
+      if (dedicatedChatGPTHost) {
+        return await handleChatGPTProxyRequest(request);
       }
 
       if (
@@ -108,6 +126,13 @@ export default {
         url.pathname.startsWith("/api/phrasly-proxy/")
       ) {
         return await handlePhraslyProxyRequest(request);
+      }
+
+      if (
+        url.pathname === "/api/chatgpt-proxy" ||
+        url.pathname.startsWith("/api/chatgpt-proxy/")
+      ) {
+        return await handleChatGPTProxyRequest(request);
       }
 
       const handler = await getServerEntry();
