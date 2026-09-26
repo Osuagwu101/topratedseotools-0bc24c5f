@@ -548,6 +548,16 @@ export function rewritePhraslyBody(
     .replaceAll(PHRASLY_UPSTREAM_ORIGIN, proxyBase)
     .replaceAll("https:\\/\\/phrasly.ai", escapedProxy);
 
+  for (const host of phraslyAllowedAssetHosts()) {
+    const routed = `${proxyBase}/__host/${host}`;
+    out = out
+      .replaceAll(`https://${host}`, routed)
+      .replaceAll(
+        `https:\\/\\/${host}`,
+        routed.replaceAll("/", "\\/"),
+      );
+  }
+
   if (contentType.includes("text/html")) {
     out = out
       .replace(
@@ -573,12 +583,10 @@ export function rewritePhraslyBody(
 export function buildPhraslyUpstreamUrl(
   requestUrl: string,
   targetPath: string,
+  targetOrigin = PHRASLY_UPSTREAM_ORIGIN,
 ) {
   const incoming = new URL(requestUrl);
-  const target = new URL(PHRASLY_UPSTREAM_ORIGIN);
-  // Assign pathname on an already-fixed origin rather than resolving targetPath
-  // as a URL. This prevents //host or backslash variants from ever escaping
-  // the single allowed upstream origin.
+  const target = new URL(targetOrigin);
   target.pathname = targetPath.startsWith("/") ? targetPath : `/${targetPath}`;
   target.search = incoming.search;
   target.searchParams.delete("ticket");
@@ -591,11 +599,25 @@ export function rewritePhraslyLocation(
   proxyBase = PHRASLY_PROXY_BASE,
 ) {
   const absolute = new URL(location, baseOrigin);
-  if (absolute.origin !== PHRASLY_UPSTREAM_ORIGIN) return null;
-  return `${proxyBase}${absolute.pathname}${absolute.search}${absolute.hash}`;
+  if (absolute.origin === PHRASLY_UPSTREAM_ORIGIN) {
+    return `${proxyBase}${absolute.pathname}${absolute.search}${absolute.hash}`;
+  }
+  if (
+    absolute.protocol === "https:" &&
+    phraslyAllowedAssetHosts().includes(absolute.hostname)
+  ) {
+    return `${proxyBase}/__host/${absolute.hostname}${absolute.pathname}${absolute.search}${absolute.hash}`;
+  }
+  return null;
 }
 
-function upstreamHeaders(request: Request, cookieHeader: string) {
+function upstreamHeaders(
+  request: Request,
+  cookieHeader: string,
+  targetOrigin = PHRASLY_UPSTREAM_ORIGIN,
+  includeMasterCookie = true,
+  proxyBase = PHRASLY_PROXY_BASE,
+) {
   const h = new Headers();
   const copy = [
     "accept",
@@ -613,6 +635,11 @@ function upstreamHeaders(request: Request, cookieHeader: string) {
     "sec-ch-ua",
     "sec-ch-ua-mobile",
     "sec-ch-ua-platform",
+    "sec-fetch-dest",
+    "sec-fetch-mode",
+    "sec-fetch-site",
+    "sec-fetch-user",
+    "upgrade-insecure-requests",
   ];
   for (const name of copy) {
     const value = request.headers.get(name);
@@ -623,9 +650,33 @@ function upstreamHeaders(request: Request, cookieHeader: string) {
   if (userAgent) h.set("User-Agent", userAgent);
   if (!h.has("Accept-Language")) h.set("Accept-Language", "en-US,en;q=0.9");
   h.set("Accept-Encoding", "identity");
-  h.set("Origin", PHRASLY_UPSTREAM_ORIGIN);
-  h.set("Referer", `${PHRASLY_UPSTREAM_ORIGIN}/`);
-  h.set("Cookie", cookieHeader);
+  h.set("Origin", targetOrigin);
+
+  const incomingReferer = request.headers.get("referer");
+  let referer = `${targetOrigin}/`;
+  if (incomingReferer) {
+    try {
+      const r = new URL(incomingReferer);
+      const proxiedPath =
+        proxyBase === ""
+          ? r.pathname
+          : r.pathname.startsWith(proxyBase)
+            ? r.pathname.slice(proxyBase.length)
+            : "";
+      if (proxiedPath) {
+        const hostPrefix = proxiedPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
+        if (hostPrefix && `https://${hostPrefix[1]}` === targetOrigin) {
+          referer = targetOrigin + (hostPrefix[2] || "/") + r.search;
+        } else if (!hostPrefix && targetOrigin === PHRASLY_UPSTREAM_ORIGIN) {
+          referer = targetOrigin + (proxiedPath || "/") + r.search;
+        }
+      }
+    } catch {
+      /* use upstream root */
+    }
+  }
+  h.set("Referer", referer);
+  if (includeMasterCookie) h.set("Cookie", cookieHeader);
   return h;
 }
 
