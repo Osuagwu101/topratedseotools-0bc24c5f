@@ -2,9 +2,22 @@ export function phraslyProxyBootstrapResponse(
   proxyBase = "/api/phrasly-proxy",
 ) {
   const proxyBaseJson = JSON.stringify(proxyBase);
+  const assetHosts = JSON.stringify(
+    Array.from(
+      new Set(
+        String(process.env.PHRASLY_ASSET_HOSTS ?? "")
+          .split(",")
+          .map((value) => value.trim().toLowerCase())
+          .filter(
+            (host) => host && host !== "phrasly.ai" && host.endsWith(".phrasly.ai"),
+          ),
+      ),
+    ),
+  );
   const script = String.raw`(() => {
   const PROXY = ${proxyBaseJson};
   const MAIN = "https://phrasly.ai";
+  const ASSET_HOSTS = new Set(${assetHosts});
 
   function mapUrl(value) {
     if (!value) return value;
@@ -21,6 +34,9 @@ export function phraslyProxyBootstrapResponse(
       }
       if (u.origin === MAIN) {
         return PROXY + u.pathname + u.search + u.hash;
+      }
+      if (ASSET_HOSTS.has(u.hostname)) {
+        return PROXY + "/__host/" + u.hostname + u.pathname + u.search + u.hash;
       }
       if (u.origin === window.location.origin && u.pathname.startsWith("/")) {
         return PROXY + u.pathname + u.search + u.hash;
