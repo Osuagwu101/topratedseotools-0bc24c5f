@@ -5,8 +5,8 @@ export function phraslyProxyBootstrapResponse(
   const assetHosts = JSON.stringify(
     Array.from(
       new Set(
-        String(process.env.PHRASLY_ASSET_HOSTS ?? "")
-          .split(",")
+        ["api.phrasly.ai", ...String(process.env.PHRASLY_ASSET_HOSTS ?? "")
+          .split(",")]
           .map((value) => value.trim().toLowerCase())
           .filter(
             (host) => host && host !== "phrasly.ai" && host.endsWith(".phrasly.ai"),
