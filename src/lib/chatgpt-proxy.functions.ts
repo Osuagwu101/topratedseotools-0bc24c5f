@@ -1,12 +1,23 @@
 /* Phase 3 — authenticated internal-writer entrypoint for ChatGPT proxy launch. */
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.server";
+import {
+  createChatGPTProxyLaunch,
+  readChatGptAppDeviceFingerprint,
+} from "@/lib/chatgpt-proxy.server";
 
 export const startChatGPTProxyLaunch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const launch = await createChatGPTProxyLaunch(context.userId);
+    const request = getRequest();
+    const deviceFingerprint = request
+      ? readChatGptAppDeviceFingerprint(request)
+      : null;
+    const launch = await createChatGPTProxyLaunch(
+      context.userId,
+      deviceFingerprint,
+    );
     return {
       ok: true,
       launch_url: launch.launchUrl,

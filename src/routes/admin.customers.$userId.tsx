@@ -26,6 +26,11 @@ import {
   adminResetStealthWriterDevices,
   adminUpdateStealthWriterControls,
 } from "@/lib/stealthwriter-controls.functions";
+import {
+  adminGetChatGptControls,
+  adminResetChatGptDevices,
+  adminUpdateChatGptControls,
+} from "@/lib/chatgpt-controls.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { Wallet, XCircle, ShieldCheck, KeyRound, Mail } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -135,6 +140,7 @@ function CustomerPage() {
             </div>
 
             <StealthWriterControlsCard userId={userId} />
+            <ChatGptControlsCard userId={userId} />
 
             {/* Subscriptions */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
@@ -497,6 +503,145 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
               variant="outline"
               onClick={() => {
                 if (!confirm("Clear this customer's registered StealthWriter devices and reactivate access?")) return;
+                resetDevices.mutate();
+              }}
+              disabled={resetDevices.isPending}
+            >
+              {resetDevices.isPending ? "Resetting…" : "Reset devices & reactivate"}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChatGptControlsCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-chatgpt-controls", userId],
+    queryFn: () => adminGetChatGptControls({ data: { userId } }),
+  });
+
+  const [draft, setDraft] = useState<null | {
+    status: "active" | "suspended";
+    device_limit: number;
+  }>(null);
+
+  useEffect(() => {
+    if (!data?.controls) return;
+    setDraft({
+      status: data.controls.status,
+      device_limit: data.controls.device_limit,
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!draft) return;
+      return adminUpdateChatGptControls({ data: { userId, ...draft } });
+    },
+    onSuccess: () => {
+      toast.success("ChatGPT controls saved");
+      qc.invalidateQueries({ queryKey: ["admin-chatgpt-controls", userId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetDevices = useMutation({
+    mutationFn: () => adminResetChatGptDevices({ data: { userId } }),
+    onSuccess: () => {
+      toast.success("ChatGPT devices cleared and access reactivated");
+      qc.invalidateQueries({ queryKey: ["admin-chatgpt-controls", userId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            ChatGPT proxy controls
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Device limits and ChatGPT-only suspension are enforced server-side.
+          </p>
+        </div>
+        {data?.controls && (
+          <span className={
+            "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase " +
+            (data.controls.status === "active"
+              ? "bg-success/15 text-success"
+              : "bg-destructive/15 text-destructive")
+          }>
+            {data.controls.status}
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 text-xs text-muted-foreground">Loading ChatGPT controls…</div>
+      ) : error || !draft ? (
+        <div className="mt-4 text-xs text-destructive">
+          {(error as Error | null)?.message ?? "Could not load ChatGPT controls."}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Allowed devices</Label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={draft.device_limit}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    device_limit: Math.max(1, Math.min(10, Number(e.target.value) || 1)),
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Access status</Label>
+              <select
+                value={draft.status}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    status: e.target.value === "suspended" ? "suspended" : "active",
+                  })
+                }
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl bg-muted/30 p-3 text-xs text-muted-foreground">
+            Registered devices: <strong>{data?.devices.length ?? 0}</strong>
+            {data?.controls.suspended_reason ? (
+              <> · Suspension reason: <strong>{data.controls.suspended_reason}</strong></>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+            >
+              {save.isPending ? "Saving…" : "Save ChatGPT controls"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!confirm("Clear this customer's registered ChatGPT devices and reactivate ChatGPT access?")) return;
                 resetDevices.mutate();
               }}
               disabled={resetDevices.isPending}

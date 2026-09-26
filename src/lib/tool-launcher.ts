@@ -131,7 +131,17 @@ export async function launchTool(
             : isPhraslyToolSlug(tool.slug)
               ? await startPhraslyProxyLaunch()
               : tool.slug === "chatgpt"
-                ? await startChatGPTProxyLaunch()
+                ? await (async () => {
+                    const deviceReady = await fetch("/api/chatgpt-device", {
+                      method: "GET",
+                      credentials: "same-origin",
+                      cache: "no-store",
+                    });
+                    if (!deviceReady.ok) {
+                      throw new Error("Could not prepare this device for ChatGPT.");
+                    }
+                    return startChatGPTProxyLaunch();
+                  })()
                 : await startSessionOnlyOneClickAuth({
                 data: {
                   tool_slug: tool.slug,

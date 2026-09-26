@@ -17,6 +17,16 @@ import {
   normaliseChatGptSession,
   type ChatGptSessionState,
 } from "@/lib/chatgpt-session.server";
+import {
+  assertChatGptLaunchRateLimit,
+  ensureChatGptUserControls,
+  isBlockedChatGptDocumentPath,
+  isChatGptDocumentRequest,
+  isValidChatGptDeviceFingerprint,
+  registerOrTouchChatGptDevice,
+  CHATGPT_APP_DEVICE_COOKIE,
+  CHATGPT_DEVICE_COOKIE,
+} from "@/lib/chatgpt-controls.server";
 
 export const CHATGPT_PROXY_BASE = "/api/chatgpt-proxy";
 export const CHATGPT_LANDING_PATH = "/";
@@ -359,8 +369,17 @@ async function recordChatGPTProxyDiagnostic(
   }
 }
 
-export async function createChatGPTProxyLaunch(userId: string) {
+export async function createChatGPTProxyLaunch(
+  userId: string,
+  appDeviceFingerprint?: string | null,
+) {
   await requireToolEnabled();
+
+  const controls = await ensureChatGptUserControls(userId);
+  if (controls.status !== "active") {
+    throw new Error("Your ChatGPT access is suspended. Please contact Admin.");
+  }
+  await assertChatGptLaunchRateLimit(userId);
 
   const source = await findActiveAccess(userId);
   if (!source) {
@@ -385,6 +404,9 @@ export async function createChatGPTProxyLaunch(userId: string) {
       source_kind: source.kind,
       source_id: source.id,
       status: "issued",
+      device_fingerprint: isValidChatGptDeviceFingerprint(appDeviceFingerprint)
+        ? appDeviceFingerprint
+        : null,
       expires_at: expiresAt,
     });
   if (error) throw new Error("Could not start ChatGPT. Please try again.");
@@ -416,6 +438,30 @@ function parseCookieHeader(request: Request) {
   return out;
 }
 
+export function readChatGptAppDeviceFingerprint(request: Request) {
+  const value = parseCookieHeader(request).get(CHATGPT_APP_DEVICE_COOKIE);
+  return isValidChatGptDeviceFingerprint(value) ? String(value) : null;
+}
+
+function appDeviceCookie(fingerprint: string) {
+  return [
+    `${CHATGPT_APP_DEVICE_COOKIE}=${fingerprint}`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
+  ].join("; ");
+}
+
+export function ensureChatGptAppDeviceResponse(request: Request) {
+  const existing = readChatGptAppDeviceFingerprint(request);
+  const fingerprint = existing ?? randomBytes(16).toString("hex");
+  const headers = standardHeaders();
+  if (!existing) headers.append("Set-Cookie", appDeviceCookie(fingerprint));
+  return new Response(null, { status: 204, headers });
+}
+
 function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   return [
     `${CHATGPT_PROXY_COOKIE}=${token}`,
@@ -427,11 +473,22 @@ function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   ].join("; ");
 }
 
+function deviceCookie(fingerprint: string, cookiePath: string) {
+  return [
+    `${CHATGPT_DEVICE_COOKIE}=${fingerprint}`,
+    `Path=${cookiePath}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}`,
+  ].join("; ");
+}
+
 async function exchangeLaunchTicket(request: Request, ticket: string) {
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", hashChatGPTProxyToken(ticket))
     .eq("status", "issued")
     .gt("expires_at", nowIso)
@@ -453,6 +510,28 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     return forbidden("Your ChatGPT access is no longer active.");
   }
 
+  const cookieDevice = parseCookieHeader(request).get(CHATGPT_DEVICE_COOKIE);
+  const deviceFingerprint = isValidChatGptDeviceFingerprint(row.device_fingerprint)
+    ? String(row.device_fingerprint)
+    : isValidChatGptDeviceFingerprint(cookieDevice)
+      ? String(cookieDevice)
+      : randomBytes(16).toString("hex");
+
+  try {
+    const deviceGate = await registerOrTouchChatGptDevice(
+      userId,
+      deviceFingerprint,
+      "Device",
+    );
+    if (!deviceGate.ok) {
+      return forbidden(
+        "Your ChatGPT access is suspended because the device limit was exceeded. Please contact Admin.",
+      );
+    }
+  } catch {
+    return unavailable();
+  }
+
   try {
     await loadEncryptedChatGPTSession();
   } catch {
@@ -472,6 +551,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       activated_at: nowIso,
       last_seen_at: nowIso,
       expires_at: sessionExpiresAt,
+      device_fingerprint: deviceFingerprint,
     })
     .eq("id", row.id)
     .eq("status", "issued")
@@ -493,22 +573,25 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     "Set-Cookie",
     proxyCookie(sessionToken, sessionExpiresAt, cookiePath),
   );
+  headers.append("Set-Cookie", deviceCookie(deviceFingerprint, cookiePath));
   return new Response(null, { status: 302, headers });
 }
 
 async function requireProxySession(request: Request) {
-  const token = parseCookieHeader(request).get(CHATGPT_PROXY_COOKIE);
-  if (!token) return null;
+  const cookies = parseCookieHeader(request);
+  const token = cookies.get(CHATGPT_PROXY_COOKIE);
+  const deviceFingerprint = cookies.get(CHATGPT_DEVICE_COOKIE);
+  if (!token || !isValidChatGptDeviceFingerprint(deviceFingerprint)) return null;
 
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", hashChatGPTProxyToken(token))
     .eq("status", "active")
     .maybeSingle();
 
-  if (!row) return null;
+  if (!row || row.device_fingerprint !== deviceFingerprint) return null;
   if (new Date(String(row.expires_at)).getTime() <= Date.now()) {
     await (supabaseAdmin as any)
       .from("chatgpt_proxy_sessions")
@@ -518,6 +601,30 @@ async function requireProxySession(request: Request) {
   }
 
   await requireToolEnabled();
+
+  const controls = await ensureChatGptUserControls(String(row.user_id));
+  if (controls.status !== "active") {
+    await (supabaseAdmin as any)
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
+  const { data: registeredDevice } = await (supabaseAdmin as any)
+    .from("chatgpt_devices")
+    .select("id")
+    .eq("user_id", row.user_id)
+    .eq("device_fingerprint", deviceFingerprint)
+    .maybeSingle();
+  if (!registeredDevice?.id) {
+    await (supabaseAdmin as any)
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .eq("id", row.id);
+    return null;
+  }
+
   const stillActive = await sourceStillActive(String(row.user_id), {
     kind: row.source_kind as "order" | "grant",
     id: String(row.source_id),
@@ -529,6 +636,12 @@ async function requireProxySession(request: Request) {
       .eq("id", row.id);
     return null;
   }
+
+  await (supabaseAdmin as any)
+    .from("chatgpt_devices")
+    .update({ last_seen_at: nowIso })
+    .eq("user_id", row.user_id)
+    .eq("device_fingerprint", deviceFingerprint);
 
   await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
@@ -780,6 +893,14 @@ export async function handleChatGPTProxyRequest(request: Request) {
     targetPath,
     targetOrigin,
   );
+
+  if (
+    targetOrigin === CHATGPT_UPSTREAM_ORIGIN &&
+    isChatGptDocumentRequest(request) &&
+    isBlockedChatGptDocumentPath(target.pathname)
+  ) {
+    return forbidden("This ChatGPT account, settings, or billing page is restricted.");
+  }
 
   let cookieHeader = "";
   try {

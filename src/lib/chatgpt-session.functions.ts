@@ -99,13 +99,19 @@ export const adminSaveChatGptSession = createServerFn({ method: "POST" })
       );
     if (error) throw new Error(error.message);
 
+    const { error: revokeProxyError } = await admin
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .in("status", ["issued", "active"]);
+    if (revokeProxyError) throw new Error(revokeProxyError.message);
+
     await logAdminActivity(context, {
       action: "chatgpt.authorized_session_replace",
       area: "tools",
       target_type: "tool_authorized_session",
       target_id: TOOL_SLUG,
       details:
-        "Authorised ChatGPT session replaced; cookie/storage values were not logged.",
+        "Authorised ChatGPT session replaced; cookie/storage values were not logged; existing ChatGPT proxy sessions were revoked.",
     });
 
     return { ok: true, status: "stored", updated_at: now };
@@ -137,12 +143,18 @@ export const adminRevokeChatGptSession = createServerFn({ method: "POST" })
       .eq("tool_slug", TOOL_SLUG);
     if (error) throw new Error(error.message);
 
+    const { error: revokeProxyError } = await admin
+      .from("chatgpt_proxy_sessions")
+      .update({ status: "revoked" })
+      .in("status", ["issued", "active"]);
+    if (revokeProxyError) throw new Error(revokeProxyError.message);
+
     await logAdminActivity(context, {
       action: "chatgpt.authorized_session_revoke",
       area: "tools",
       target_type: "tool_authorized_session",
       target_id: TOOL_SLUG,
-      details: "Authorised ChatGPT session revoked; secret values were not logged.",
+      details: "Authorised ChatGPT session revoked; secret values were not logged; existing ChatGPT proxy sessions were revoked.",
     });
 
     return { ok: true, status: "revoked", updated_at: now };
