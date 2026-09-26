@@ -7,6 +7,7 @@ import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.function
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
+import { startChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
 import { isPhraslyToolSlug } from "@/lib/phrasly-proxy-policy";
@@ -44,6 +45,21 @@ function validateClientLaunchUrl(
       launchUrl.pathname === "/__trst/enter";
     if (!localProxy && !dedicated) {
       throw new Error("The Phrasly proxy returned an invalid launch URL.");
+    }
+    return launchUrl;
+  }
+  if (toolSlug === "chatgpt") {
+    const launchUrl = new URL(rawUrl, window.location.origin);
+    const localProxy =
+      launchUrl.origin === window.location.origin &&
+      launchUrl.pathname === "/api/chatgpt-proxy";
+    const dedicated =
+      !!trustedProxyOrigin &&
+      launchUrl.origin === trustedProxyOrigin &&
+      launchUrl.protocol === "https:" &&
+      launchUrl.pathname === "/__trst/enter";
+    if (!localProxy && !dedicated) {
+      throw new Error("The ChatGPT proxy returned an invalid launch URL.");
     }
     return launchUrl;
   }
@@ -114,7 +130,9 @@ export async function launchTool(
               })()
             : isPhraslyToolSlug(tool.slug)
               ? await startPhraslyProxyLaunch()
-              : await startSessionOnlyOneClickAuth({
+              : tool.slug === "chatgpt"
+                ? await startChatGPTProxyLaunch()
+                : await startSessionOnlyOneClickAuth({
                 data: {
                   tool_slug: tool.slug,
                   grant_access: !!options?.grantAccess,
@@ -123,7 +141,7 @@ export async function launchTool(
                 },
               });
       const trustedProxyOrigin =
-        (tool.slug === "stealthwriter" || tool.slug === "phrasly") &&
+        (tool.slug === "stealthwriter" || tool.slug === "phrasly" || tool.slug === "chatgpt") &&
         "proxy_origin" in result &&
         typeof result.proxy_origin === "string"
           ? result.proxy_origin
