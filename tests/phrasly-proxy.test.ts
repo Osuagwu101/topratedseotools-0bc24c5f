@@ -214,7 +214,7 @@ assert(
 );
 
 const diagMigration = await Bun.file(
-  "supabase/migrations/20260926022500_phrasly_proxy_diagnostics.sql",
+  "supabase/migrations/20260926023050_phrasly_proxy_diagnostics.sql",
 ).text();
 assert(
   diagMigration.includes("last_error_code") &&
