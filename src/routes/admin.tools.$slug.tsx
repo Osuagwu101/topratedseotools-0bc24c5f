@@ -63,6 +63,11 @@ import {
   adminGetPhraslySessionStatus,
   adminSavePhraslySession,
 } from "@/lib/phrasly-session.functions";
+import {
+  adminGetChatGptSessionStatus,
+  adminSaveChatGptSession,
+  adminRevokeChatGptSession,
+} from "@/lib/chatgpt-session.functions";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
@@ -92,6 +97,10 @@ const phraslySessionQuery = queryOptions({
   queryKey: ["admin-phrasly-authorized-session"],
   queryFn: () => adminGetPhraslySessionStatus(),
 });
+const chatGptSessionQuery = queryOptions({
+  queryKey: ["admin-chatgpt-authorized-session"],
+  queryFn: () => adminGetChatGptSessionStatus(),
+});
 
 export const Route = createFileRoute("/admin/tools/$slug")({
   ssr: false,
@@ -118,6 +127,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
         : []),
       ...(tool.slug === "phrasly"
         ? [context.queryClient.ensureQueryData(phraslySessionQuery)]
+        : []),
+      ...(tool.slug === "chatgpt"
+        ? [context.queryClient.ensureQueryData(chatGptSessionQuery)]
         : []),
     ]);
     return { slug: tool.slug };
@@ -161,7 +173,7 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
-  if (tool.slug === "phrasly") {
+  if (tool.slug === "phrasly" || tool.slug === "chatgpt") {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
@@ -240,6 +252,9 @@ function AdminToolPage() {
           )}
           {tab === "session" && tool.slug === "phrasly" && (
             <PhraslySessionTab />
+          )}
+          {tab === "session" && tool.slug === "chatgpt" && (
+            <ChatGptSessionTab />
           )}
           {tab === "session" && tool.slug === "stealthwriter" && (
             <StealthWriterSessionTab />
@@ -577,6 +592,163 @@ function PhraslySessionTab() {
   );
 }
 
+
+
+function formatChatGptSessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
+
+function ChatGptSessionTab() {
+  const { data } = useSuspenseQuery(chatGptSessionQuery);
+  const saveSession = useServerFn(adminSaveChatGptSession);
+  const revokeSession = useServerFn(adminRevokeChatGptSession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error("Paste the authorised ChatGPT session JSON first.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await saveSession({ data: { session_data: sessionData.trim() } });
+      setSessionData("");
+      await qc.invalidateQueries({
+        queryKey: ["admin-chatgpt-authorized-session"],
+      });
+      toast.success("ChatGPT authorised session saved securely.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not save the ChatGPT session.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revoke() {
+    if (!confirm("Revoke the stored ChatGPT authorised session?")) return;
+    setRevoking(true);
+    try {
+      await revokeSession();
+      setSessionData("");
+      await qc.invalidateQueries({
+        queryKey: ["admin-chatgpt-authorized-session"],
+      });
+      toast.success("ChatGPT authorised session revoked.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not revoke the ChatGPT session.",
+      );
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">ChatGPT authorised session</h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Phase 2 stores one Admin-authorised ChatGPT browser session securely.
+              First-party ChatGPT/OpenAI session state is encrypted server-side and is
+              never displayed back in the browser after saving.
+            </p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                data.configured
+                  ? "bg-success/15 text-success"
+                  : data.status === "revoked"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {data.configured
+                ? "Stored"
+                : data.status === "revoked"
+                  ? "Revoked"
+                  : "Not configured"}
+            </span>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Last changed: {formatChatGptSessionTime(data.updated_at)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Phase 2 is Admin-only. Writer launch is intentionally disabled until
+          the Phase 3 launch/proxy layer is built and approved.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          ChatGPT session JSON
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={12}
+          autoComplete="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          disabled={!data.can_manage || saving || revoking}
+          placeholder={'{"authenticated_cookies":[{"name":"...","value":"...","domain":".chatgpt.com","path":"/"}],"session_tokens":{"storage":{"localStorage":{},"sessionStorage":{}}}}'}
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Paste only authorised first-party ChatGPT/OpenAI browser session JSON.
+          The server rejects unrelated domains and discards analytics, support,
+          and Cloudflare challenge cookies. Do not paste session values into chat.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {!data.can_manage ? (
+            <span className="text-xs text-muted-foreground">
+              Only a Super Admin can replace or revoke the ChatGPT authorised session.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Stored data is write-only here and encrypted before database storage.
+            </span>
+          )}
+          <div className="flex gap-2">
+            {data.configured ? (
+              <button
+                type="button"
+                onClick={revoke}
+                disabled={!data.can_manage || saving || revoking}
+                className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {revoking ? "Revoking…" : "Revoke session"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={save}
+              disabled={!data.can_manage || saving || revoking || !sessionData.trim()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* -------------------- StealthWriter proxy accounts -------------------- */
 
