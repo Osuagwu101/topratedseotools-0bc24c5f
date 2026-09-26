@@ -250,12 +250,92 @@ async function loadEncryptedPhraslySession() {
   return String(data.encrypted_payload);
 }
 
+export function extractPhraslyCookieRotations(
+  setCookies: string[],
+  allowedNames: Iterable<string>,
+) {
+  const allowed = new Set(allowedNames);
+  const updates: Record<string, string> = {};
+  for (const raw of setCookies) {
+    const first = raw.split(";", 1)[0] ?? "";
+    const eq = first.indexOf("=");
+    if (eq <= 0) continue;
+    const name = first.slice(0, eq).trim();
+    const value = first.slice(eq + 1);
+    if (allowed.has(name) && value !== "") updates[name] = value;
+  }
+  return updates;
+}
+
+export function applyPhraslyCookieRotations(
+  plaintext: string,
+  setCookies: string[],
+) {
+  const current = JSON.parse(
+    normalisePhraslySession(plaintext),
+  ) as PhraslySessionState;
+  const updates = extractPhraslyCookieRotations(
+    setCookies,
+    current.authenticated_cookies.map((cookie) => cookie.name),
+  );
+  let changed = false;
+
+  for (const cookie of current.authenticated_cookies) {
+    const nextValue = updates[cookie.name];
+    if (nextValue && nextValue !== cookie.value) {
+      cookie.value = nextValue;
+      changed = true;
+    }
+  }
+
+  return {
+    changed,
+    plaintext: normalisePhraslySession(JSON.stringify(current)),
+  };
+}
+
+async function persistRotatedPhraslyCookies(upstream: Response) {
+  const headers = upstream.headers as Headers & { getSetCookie?: () => string[] };
+  const setCookies =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : (() => {
+          const raw = headers.get("set-cookie");
+          return raw ? [raw] : [];
+        })();
+  if (!setCookies.length) return;
+
+  const encrypted = await loadEncryptedPhraslySession();
+  const currentPlaintext = decryptPhraslySession(encrypted);
+  const rotated = applyPhraslyCookieRotations(currentPlaintext, setCookies);
+  if (!rotated.changed) return;
+
+  const nowIso = new Date().toISOString();
+  const { error } = await (supabaseAdmin as any)
+    .from("tool_authorized_sessions")
+    .update({
+      encrypted_payload: encryptPhraslySession(rotated.plaintext),
+      rotated_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("tool_slug", "phrasly")
+    .eq("status", "stored");
+  if (error) throw new Error(error.message);
+}
+
+function classifyPhrasly403(upstream: Response): PhraslyProxyDiagnosticCode {
+  const mitigated = String(upstream.headers.get("cf-mitigated") ?? "").toLowerCase();
+  if (mitigated === "challenge") return "upstream_403_edge_challenge";
+  return "upstream_403";
+}
+
 type PhraslyProxyDiagnosticCode =
   | "session_decrypt_failed"
   | "session_cookie_missing"
   | "upstream_network_error"
   | "upstream_401"
   | "upstream_403"
+  | "upstream_403_edge_challenge"
   | "upstream_external_redirect"
   | "upstream_redirect"
   | "upstream_ok";
@@ -313,8 +393,12 @@ export async function createPhraslyProxyLaunch(userId: string) {
     .from("tool_usage")
     .insert({ tool_slug: "phrasly", user_id: userId });
 
+  const publicOrigin = phraslyProxyPublicOrigin();
   return {
-    launchUrl: `${PHRASLY_PROXY_BASE}?ticket=${encodeURIComponent(token)}`,
+    launchUrl: publicOrigin
+      ? `${publicOrigin}/__trst/enter?ticket=${encodeURIComponent(token)}`
+      : `${PHRASLY_PROXY_BASE}?ticket=${encodeURIComponent(token)}`,
+    proxyPublicOrigin: publicOrigin,
     handoffExpiresAt: expiresAt,
   };
 }
@@ -332,10 +416,10 @@ function parseCookieHeader(request: Request) {
   return out;
 }
 
-function proxyCookie(token: string, expiresAt: string) {
+function proxyCookie(token: string, expiresAt: string, cookiePath: string) {
   return [
     `${PHRASLY_PROXY_COOKIE}=${token}`,
-    `Path=${PHRASLY_PROXY_BASE}`,
+    `Path=${cookiePath}`,
     "HttpOnly",
     "Secure",
     "SameSite=Lax",
@@ -397,13 +481,18 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     return forbidden("This Phrasly launch link was already used.");
   }
 
+  const proxyBase = proxyBaseForRequest(request);
+  const cookiePath = proxyCookiePathForRequest(request);
   const target = new URL(
-    `${PHRASLY_PROXY_BASE}${PHRASLY_LANDING_PATH}`,
+    `${proxyBase}${PHRASLY_LANDING_PATH}`,
     request.url,
   );
   const headers = standardHeaders();
   headers.set("Location", target.toString());
-  headers.append("Set-Cookie", proxyCookie(sessionToken, sessionExpiresAt));
+  headers.append(
+    "Set-Cookie",
+    proxyCookie(sessionToken, sessionExpiresAt, cookiePath),
+  );
   return new Response(null, { status: 302, headers });
 }
 
