@@ -14,6 +14,7 @@ import {
 } from "./lib/phrasly-proxy.server";
 import { phraslyProxyBootstrapResponse } from "./lib/phrasly-proxy-bootstrap.server";
 import {
+  ensureChatGptAppDeviceResponse,
   handleChatGPTProxyRequest,
   isDedicatedChatGPTProxyRequest,
 } from "./lib/chatgpt-proxy.server";
@@ -73,6 +74,13 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return ensureStealthWriterAppDeviceResponse(request);
+      }
+
+      if (!dedicatedChatGPTHost && url.pathname === "/api/chatgpt-device") {
+        if (request.method !== "GET") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return ensureChatGptAppDeviceResponse(request);
       }
 
       if (url.pathname === "/api/stealthwriter-proxy-bootstrap") {
