@@ -11,6 +11,7 @@ export const startPhraslyProxyLaunch = createServerFn({ method: "POST" })
       ok: true,
       launch_url: launch.launchUrl,
       expires_at: launch.handoffExpiresAt,
+      proxy_origin: launch.proxyPublicOrigin,
       provider: "phrasly_proxy" as const,
     };
   });
