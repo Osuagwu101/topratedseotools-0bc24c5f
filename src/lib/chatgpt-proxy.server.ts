@@ -488,7 +488,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
     .eq("token_hash", hashChatGPTProxyToken(ticket))
     .eq("status", "issued")
     .gt("expires_at", nowIso)
@@ -510,6 +510,28 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     return forbidden("Your ChatGPT access is no longer active.");
   }
 
+  const cookieDevice = parseCookieHeader(request).get(CHATGPT_DEVICE_COOKIE);
+  const deviceFingerprint = isValidChatGptDeviceFingerprint(row.device_fingerprint)
+    ? String(row.device_fingerprint)
+    : isValidChatGptDeviceFingerprint(cookieDevice)
+      ? String(cookieDevice)
+      : randomBytes(16).toString("hex");
+
+  try {
+    const deviceGate = await registerOrTouchChatGptDevice(
+      userId,
+      deviceFingerprint,
+      "Device",
+    );
+    if (!deviceGate.ok) {
+      return forbidden(
+        "Your ChatGPT access is suspended because the device limit was exceeded. Please contact Admin.",
+      );
+    }
+  } catch {
+    return unavailable();
+  }
+
   try {
     await loadEncryptedChatGPTSession();
   } catch {
@@ -529,6 +551,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       activated_at: nowIso,
       last_seen_at: nowIso,
       expires_at: sessionExpiresAt,
+      device_fingerprint: deviceFingerprint,
     })
     .eq("id", row.id)
     .eq("status", "issued")
@@ -550,6 +573,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
     "Set-Cookie",
     proxyCookie(sessionToken, sessionExpiresAt, cookiePath),
   );
+  headers.append("Set-Cookie", deviceCookie(deviceFingerprint, cookiePath));
   return new Response(null, { status: 302, headers });
 }
 
