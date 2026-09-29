@@ -31,7 +31,8 @@ export type ChatGptStoredCookie = {
 };
 
 export type ChatGptSessionState = {
-  authenticated_cookies: ChatGptStoredCookie[];
+  version: 2;
+  cookies: ChatGptStoredCookie[];
   session_tokens: {
     storage: {
       localStorage: JsonMap;
@@ -207,7 +208,8 @@ export function normaliseChatGptSession(raw: string): string {
         : source;
 
   const clean: ChatGptSessionState = {
-    authenticated_cookies: cookies,
+    version: 2,
+    cookies,
     session_tokens: {
       storage: {
         localStorage: cleanStorageMap(
