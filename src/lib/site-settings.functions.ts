@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  getPublicConfigCached,
+  invalidatePublicConfigCache,
+} from "@/lib/public-config-cache";
 
 export type ActiveTheme = "theme-1" | "theme-2";
 
@@ -24,29 +28,33 @@ function publicClient() {
   });
 }
 
-/** Publicly readable — theme + admin WhatsApp number (used for private-access fulfilment CTAs). */
-export const getPublicSiteSettings = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = publicClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("active_theme, admin_whatsapp_number")
-    .eq("id", true)
-    .maybeSingle();
-  return {
-    activeTheme: (data?.active_theme ?? "theme-1") as ActiveTheme,
-    adminWhatsappNumber: (data?.admin_whatsapp_number as string | null) ?? null,
-  };
-});
+const SITE_SETTINGS_CACHE_KEY = "public:site-settings";
+const SITE_SETTINGS_TTL_MS = 5 * 60_000;
 
-/** Back-compat alias — used by root route. */
+async function loadPublicSiteSettings() {
+  return getPublicConfigCached(SITE_SETTINGS_CACHE_KEY, SITE_SETTINGS_TTL_MS, async () => {
+    const supabase = publicClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("active_theme, admin_whatsapp_number")
+      .eq("id", true)
+      .maybeSingle();
+    return {
+      activeTheme: (data?.active_theme ?? "theme-1") as ActiveTheme,
+      adminWhatsappNumber: (data?.admin_whatsapp_number as string | null) ?? null,
+    };
+  });
+}
+
+/** Publicly readable — theme + admin WhatsApp number (used for private-access fulfilment CTAs). */
+export const getPublicSiteSettings = createServerFn({ method: "GET" }).handler(
+  loadPublicSiteSettings,
+);
+
+/** Back-compat alias — used by root route. Shares the same cached read. */
 export const getActiveTheme = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = publicClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("active_theme")
-    .eq("id", true)
-    .maybeSingle();
-  return { activeTheme: (data?.active_theme ?? "theme-1") as ActiveTheme };
+  const settings = await loadPublicSiteSettings();
+  return { activeTheme: settings.activeTheme };
 });
 
 export const setActiveTheme = createServerFn({ method: "POST" })
@@ -69,6 +77,7 @@ export const setActiveTheme = createServerFn({ method: "POST" })
       .update({ active_theme: data.theme, updated_by: context.userId })
       .eq("id", true);
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(SITE_SETTINGS_CACHE_KEY);
     return { ok: true, activeTheme: data.theme as ActiveTheme };
   });
 
@@ -106,6 +115,7 @@ export const setAdminWhatsappNumber = createServerFn({ method: "POST" })
       .update({ admin_whatsapp_number: data.number, updated_by: context.userId } as any)
       .eq("id", true);
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(SITE_SETTINGS_CACHE_KEY);
     return { ok: true, adminWhatsappNumber: data.number };
   });
 
