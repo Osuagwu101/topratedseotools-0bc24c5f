@@ -658,8 +658,8 @@ function ChatGptSessionTab() {
           <div>
             <h3 className="text-sm font-semibold">ChatGPT authorised session</h3>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Phase 2 stores one Admin-authorised ChatGPT browser session securely.
-              First-party ChatGPT/OpenAI session state is encrypted server-side and is
+              The authorised-session vault stores one encrypted multi-cookie session bundle.
+              Multiple first-party cookie objects are kept together server-side and are
               never displayed back in the browser after saving.
             </p>
           </div>
@@ -686,8 +686,8 @@ function ChatGptSessionTab() {
         </div>
 
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Phase 2 is Admin-only. Writer launch is intentionally disabled until
-          the Phase 3 launch/proxy layer is built and approved.
+          Phase 5 uses this Admin-only vault as the source for the existing
+          launch, proxy, device-control, and access-control layers.
         </div>
       </div>
 
@@ -704,13 +704,14 @@ function ChatGptSessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving || revoking}
-          placeholder={'{"authenticated_cookies":[{"name":"...","value":"...","domain":".chatgpt.com","path":"/"}],"session_tokens":{"storage":{"localStorage":{},"sessionStorage":{}}}}'}
+          placeholder={'{"version":2,"cookies":[{"name":"cookie_a","value":"...","domain":".chatgpt.com","path":"/"},{"name":"cookie_b","value":"...","domain":".chatgpt.com","path":"/"},{"name":"cookie_c","value":"...","domain":".chatgpt.com","path":"/"}],"session_tokens":{"storage":{"localStorage":{},"sessionStorage":{}}}}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste only authorised first-party ChatGPT/OpenAI browser session JSON.
-          The server rejects unrelated domains and discards analytics, support,
-          and Cloudflare challenge cookies. Do not paste session values into chat.
+          Paste the authorised multi-cookie session JSON here. The server accepts
+          multiple first-party cookie objects in one bundle, rejects unrelated domains,
+          and discards analytics, support, and challenge cookies. Do not paste secret
+          session values into chat.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
