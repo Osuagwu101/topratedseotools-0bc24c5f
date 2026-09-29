@@ -125,7 +125,7 @@ export function chatgptProxySessionHours() {
 }
 
 function cookieMatchesChatGPTTarget(
-  cookie: ChatGptSessionState["authenticated_cookies"][number],
+  cookie: ChatGptSessionState["cookies"][number],
   target: URL,
 ) {
   const host = target.hostname.toLowerCase();
@@ -165,7 +165,7 @@ export function buildChatGPTCookieHeader(
   ) as ChatGptSessionState;
   const target = new URL(targetUrl);
 
-  const cookies = parsed.authenticated_cookies.filter((cookie) =>
+  const cookies = parsed.cookies.filter((cookie) =>
     cookieMatchesChatGPTTarget(cookie, target),
   );
 
@@ -286,11 +286,11 @@ export function applyChatGPTCookieRotations(
   ) as ChatGptSessionState;
   const updates = extractChatGPTCookieRotations(
     setCookies,
-    current.authenticated_cookies.map((cookie) => cookie.name),
+    current.cookies.map((cookie) => cookie.name),
   );
   let changed = false;
 
-  for (const cookie of current.authenticated_cookies) {
+  for (const cookie of current.cookies) {
     const nextValue = updates[cookie.name];
     if (nextValue && nextValue !== cookie.value) {
       cookie.value = nextValue;
