@@ -29,7 +29,8 @@ function assert(condition: boolean, message: string) {
 }
 
 const sampleSession = JSON.stringify({
-  authenticated_cookies: [
+  version: 2,
+  cookies: [
     {
       name: "__Secure-chat-session",
       value: "opaque-chat-session",
@@ -41,6 +42,12 @@ const sampleSession = JSON.stringify({
     {
       name: "app_state",
       value: "opaque-app-state",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "session_state",
+      value: "opaque-session-state",
       domain: ".chatgpt.com",
       path: "/",
     },
@@ -68,14 +75,32 @@ const sampleSession = JSON.stringify({
 const cookieHeader = buildChatGPTCookieHeader(sampleSession);
 assert(
   cookieHeader.includes("__Secure-chat-session=opaque-chat-session") &&
-    cookieHeader.includes("app_state=opaque-app-state"),
-  "forwards reusable first-party ChatGPT cookies",
+    cookieHeader.includes("app_state=opaque-app-state") &&
+    cookieHeader.includes("session_state=opaque-session-state"),
+  "forwards all reusable first-party cookies from one multi-cookie bundle",
 );
 assert(
   !cookieHeader.includes("_ga") &&
     !cookieHeader.includes("cf_clearance") &&
     !cookieHeader.includes("vault-only-storage"),
   "never forwards analytics, challenge, or browser-storage values as cookies",
+);
+
+const legacySession = JSON.stringify({
+  authenticated_cookies: [
+    {
+      name: "legacy_cookie",
+      value: "legacy-value",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+  ],
+});
+assert(
+  buildChatGPTCookieHeader(legacySession).includes(
+    "legacy_cookie=legacy-value",
+  ),
+  "keeps backward compatibility with the legacy authenticated_cookies input",
 );
 
 const rotated = JSON.parse(
@@ -86,13 +111,13 @@ const rotated = JSON.parse(
   ]).plaintext,
 );
 assert(
-  rotated.authenticated_cookies.find(
+  rotated.cookies.find(
     (cookie: any) => cookie.name === "__Secure-chat-session",
   )?.value === "rotated-session" &&
-    rotated.authenticated_cookies.find(
+    rotated.cookies.find(
       (cookie: any) => cookie.name === "app_state",
     )?.value === "rotated-app-state" &&
-    !rotated.authenticated_cookies.some(
+    !rotated.cookies.some(
       (cookie: any) => cookie.name === "new_cookie",
     ),
   "rotates only cookie names already approved in the encrypted vault",
