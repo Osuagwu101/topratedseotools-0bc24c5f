@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  getPublicConfigCached,
+  invalidatePublicConfigCache,
+} from "@/lib/public-config-cache";
 
 export type AccessType = "shared" | "private";
 
@@ -47,17 +51,22 @@ function publicClient() {
   });
 }
 
+const TOOL_PRICING_CACHE_KEY = "public:tool-pricing";
+const TOOL_PRICING_TTL_MS = 60_000;
+
 /** Public — returns all pricing rows for all tools. */
-export const listToolPricing = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = publicClient();
-  const { data, error } = await supabase
-    .from("tool_pricing")
-    .select("*")
-    .order("tool_slug", { ascending: true })
-    .order("sort_order", { ascending: true });
-  if (error) throw new Error(error.message);
-  return { options: (data ?? []) as ToolPricingOption[] };
-});
+export const listToolPricing = createServerFn({ method: "GET" }).handler(async () =>
+  getPublicConfigCached(TOOL_PRICING_CACHE_KEY, TOOL_PRICING_TTL_MS, async () => {
+    const supabase = publicClient();
+    const { data, error } = await supabase
+      .from("tool_pricing")
+      .select("*")
+      .order("tool_slug", { ascending: true })
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error(error.message);
+    return { options: (data ?? []) as ToolPricingOption[] };
+  }),
+);
 
 async function assertAdmin(context: { supabase: any; userId: string }) {
   const { data, error } = await context.supabase
@@ -143,6 +152,7 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
         .update(row)
         .eq("id", data.id);
       if (error) throw new Error(error.message);
+      invalidatePublicConfigCache(TOOL_PRICING_CACHE_KEY);
       return { ok: true, id: data.id };
     }
     const { data: inserted, error } = await context.supabase
@@ -151,6 +161,7 @@ export const upsertToolPricing = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(TOOL_PRICING_CACHE_KEY);
     return { ok: true, id: inserted.id };
   });
 
@@ -165,6 +176,7 @@ export const deleteToolPricing = createServerFn({ method: "POST" })
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(TOOL_PRICING_CACHE_KEY);
     return { ok: true };
   });
 

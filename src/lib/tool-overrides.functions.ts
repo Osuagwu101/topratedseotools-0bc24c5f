@@ -14,6 +14,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  getPublicConfigCached,
+  invalidatePublicConfigCache,
+} from "@/lib/public-config-cache";
 
 export interface ToolOverride {
   tool_slug: string;
@@ -61,13 +65,18 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
   if (!data) throw new Error("Forbidden");
 }
 
+const TOOL_OVERRIDES_CACHE_KEY = "public:tool-overrides";
+const TOOL_OVERRIDES_TTL_MS = 60_000;
+
 /** Public — everyone reads this to merge into the hardcoded catalog. */
-export const listToolOverrides = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = publicClient();
-  const { data, error } = await supabase.from("tool_overrides").select("*");
-  if (error) throw new Error(error.message);
-  return { overrides: (data ?? []) as ToolOverride[] };
-});
+export const listToolOverrides = createServerFn({ method: "GET" }).handler(async () =>
+  getPublicConfigCached(TOOL_OVERRIDES_CACHE_KEY, TOOL_OVERRIDES_TTL_MS, async () => {
+    const supabase = publicClient();
+    const { data, error } = await supabase.from("tool_overrides").select("*");
+    if (error) throw new Error(error.message);
+    return { overrides: (data ?? []) as ToolOverride[] };
+  }),
+);
 
 const upsertInput = z.object({
   tool_slug: z.string().min(1).max(120),
@@ -107,6 +116,7 @@ export const adminUpsertToolOverride = createServerFn({ method: "POST" })
       .from("tool_overrides")
       .upsert(row, { onConflict: "tool_slug" });
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(TOOL_OVERRIDES_CACHE_KEY);
     return { ok: true };
   });
 
@@ -120,6 +130,7 @@ export const adminResetToolOverride = createServerFn({ method: "POST" })
       .delete()
       .eq("tool_slug", data.tool_slug);
     if (error) throw new Error(error.message);
+    invalidatePublicConfigCache(TOOL_OVERRIDES_CACHE_KEY);
     return { ok: true };
   });
 

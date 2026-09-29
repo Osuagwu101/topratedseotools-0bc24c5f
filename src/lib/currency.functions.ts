@@ -11,6 +11,10 @@ import { createClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { CURRENCY_META, isSupportedCurrency, type SupportedCurrency } from "./currency-convert";
+import {
+  getPublicConfigCached,
+  invalidatePublicConfigCache,
+} from "@/lib/public-config-cache";
 
 // Keyless provider ("1 NGN = <rate> <quote>"). exchangerate.host now requires
 // an access key, so we default to open.er-api.com; override with EXCHANGE_RATE_URL.
@@ -45,46 +49,53 @@ export interface PublicCurrencyConfig {
   }>;
 }
 
+const CURRENCY_CONFIG_CACHE_KEY = "public:currency-config";
+const CURRENCY_CONFIG_TTL_MS = 5 * 60_000;
+
 export const getPublicCurrencyConfig = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PublicCurrencyConfig> => {
-    const db = serverPublic();
-    const { data: settings } = await db
-      .from("currency_settings")
-      .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies")
-      .eq("id", true)
-      .maybeSingle();
+  async (): Promise<PublicCurrencyConfig> =>
+    getPublicConfigCached(CURRENCY_CONFIG_CACHE_KEY, CURRENCY_CONFIG_TTL_MS, async () => {
+      const db = serverPublic();
+      const [settingsResult, ratesResult] = await Promise.all([
+        db
+          .from("currency_settings")
+          .select("switching_enabled, surcharge_enabled, surcharge_percent, supported_currencies")
+          .eq("id", true)
+          .maybeSingle(),
+        db
+          .from("exchange_rates")
+          .select("quote_currency, rate, fetched_at, expires_at")
+          .eq("base_currency", "NGN"),
+      ]);
 
-    const supported = ((settings?.supported_currencies as string[] | null) ?? [
-      "NGN", "GHS", "KES", "ZAR", "USD",
-    ]).filter(isSupportedCurrency);
+      const settings = settingsResult.data;
+      const rows = ratesResult.data;
+      const supported = ((settings?.supported_currencies as string[] | null) ?? [
+        "NGN", "GHS", "KES", "ZAR", "USD",
+      ]).filter(isSupportedCurrency);
 
-    const { data: rows } = await db
-      .from("exchange_rates")
-      .select("quote_currency, rate, fetched_at, expires_at")
-      .eq("base_currency", "NGN");
+      const now = Date.now();
+      const rates: PublicCurrencyConfig["rates"] = supported.map((code) => {
+        if (code === "NGN") return { currency: code, rate: 1, fetched_at: null, stale: false };
+        const row = (rows ?? []).find((r) => (r as any).quote_currency === code) as any;
+        if (!row) return { currency: code, rate: 0, fetched_at: null, stale: true };
+        const stale = row.expires_at ? new Date(row.expires_at).getTime() < now : false;
+        return {
+          currency: code,
+          rate: Number(row.rate) || 0,
+          fetched_at: row.fetched_at ?? null,
+          stale,
+        };
+      });
 
-    const now = Date.now();
-    const rates: PublicCurrencyConfig["rates"] = supported.map((code) => {
-      if (code === "NGN") return { currency: code, rate: 1, fetched_at: null, stale: false };
-      const row = (rows ?? []).find((r) => (r as any).quote_currency === code) as any;
-      if (!row) return { currency: code, rate: 0, fetched_at: null, stale: true };
-      const stale = row.expires_at ? new Date(row.expires_at).getTime() < now : false;
       return {
-        currency: code,
-        rate: Number(row.rate) || 0,
-        fetched_at: row.fetched_at ?? null,
-        stale,
+        switching_enabled: settings?.switching_enabled ?? true,
+        surcharge_enabled: settings?.surcharge_enabled ?? true,
+        surcharge_percent: Number(settings?.surcharge_percent ?? 3),
+        supported_currencies: supported,
+        rates,
       };
-    });
-
-    return {
-      switching_enabled: settings?.switching_enabled ?? true,
-      surcharge_enabled: settings?.surcharge_enabled ?? true,
-      surcharge_percent: Number(settings?.surcharge_percent ?? 3),
-      supported_currencies: supported,
-      rates,
-    };
-  },
+    }),
 );
 
 async function assertAdmin(supabase: any, userId: string) {
@@ -150,6 +161,7 @@ export const refreshExchangeRates = createServerFn({ method: "POST" })
       .from("exchange_rates")
       .upsert(upserts, { onConflict: "base_currency,quote_currency" });
     await supabaseAdmin.from("exchange_rate_logs").insert(logs);
+    invalidatePublicConfigCache(CURRENCY_CONFIG_CACHE_KEY);
     return { ok: true, updated: upserts.length };
   });
 
@@ -177,6 +189,7 @@ export const updateCurrencySettings = createServerFn({ method: "POST" })
     if (data.surcharge_percent !== undefined) patch.surcharge_percent = data.surcharge_percent;
     if (data.supported_currencies !== undefined) patch.supported_currencies = data.supported_currencies;
     await supabaseAdmin.from("currency_settings").update(patch).eq("id", true);
+    invalidatePublicConfigCache(CURRENCY_CONFIG_CACHE_KEY);
     return { ok: true };
   });
 
