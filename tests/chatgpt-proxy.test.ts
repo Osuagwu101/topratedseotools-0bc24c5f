@@ -2,6 +2,7 @@
  * Phase 3 ChatGPT proxy regression tests.
  * Run: bun tests/chatgpt-proxy.test.ts
  */
+import { readFileSync } from "node:fs";
 import {
   applyChatGPTCookieRotations,
   buildChatGPTCookieHeader,
@@ -269,7 +270,7 @@ assert(
   "preserves normal query data but never forwards the launch ticket upstream",
 );
 
-const server = await Bun.file("src/server.ts").text();
+const server = readFileSync("src/server.ts", "utf8");
 assert(
   server.includes('url.pathname === "/api/chatgpt-proxy"') &&
     server.includes('url.pathname.startsWith("/api/chatgpt-proxy/")') &&
@@ -282,7 +283,7 @@ assert(
   "server supports an optional dedicated ChatGPT proxy origin",
 );
 
-const launcher = await Bun.file("src/lib/tool-launcher.ts").text();
+const launcher = readFileSync("src/lib/tool-launcher.ts", "utf8");
 assert(
   launcher.includes("startChatGPTProxyLaunch") &&
     launcher.includes('tool.slug === "chatgpt"'),
@@ -294,7 +295,7 @@ assert(
   "client validates both local and trusted dedicated ChatGPT launch URLs",
 );
 
-const proxySource = await Bun.file("src/lib/chatgpt-proxy.server.ts").text();
+const proxySource = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
 assert(
   proxySource.includes('"upstream_401"') &&
     proxySource.includes('"upstream_403"') &&
@@ -334,9 +335,10 @@ assert(
   "uses the established AWS/StealthWriter request and cookie-rotation model",
 );
 
-const migration = await Bun.file(
+const migration = readFileSync(
   "supabase/migrations/20260926062000_chatgpt_proxy_sessions.sql",
-).text();
+  "utf8",
+);
 assert(
   migration.includes("chatgpt_proxy_sessions") &&
     migration.includes("last_error_code") &&
