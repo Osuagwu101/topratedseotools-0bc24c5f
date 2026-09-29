@@ -36,6 +36,8 @@ export interface AdminOverview {
     pendingOrders: number;
     cancelledExpiredOrders: number;
     pendingPrivateFulfilment: number;
+    pendingActivation: number;
+    suspendedUsers: number;
     uniqueBuyers: number;
   };
   revenue: {
@@ -78,7 +80,14 @@ export interface AdminOverview {
     revenueTotal: number[];
     revenueRecurring: number[];
     revenueOneTime: number[];
+    toolAccess: number[];
   };
+  engineStatus: Array<{
+    tool_slug: "stealthwriter" | "phrasly" | "chatgpt";
+    status: "active" | "revoked" | "not_configured";
+    updatedAt: string | null;
+    endpoint: string | null;
+  }>;
   recentActivity: Array<{
     id: string;
     at: string;
@@ -119,9 +128,14 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       ordersActiveRes,
       ordersAllRes,
       paymentsRes,
+      browserAuthRes,
+      stealthwriterProxyRes,
+      phraslyProxyRes,
+      chatgptProxyRes,
+      authorisedSessionsRes,
     ] = await Promise.all([
       admin.from("profiles").select("id", { count: "exact", head: true }),
-      admin.from("profiles").select("id, email, full_name, created_at").order("created_at", { ascending: false }),
+      admin.from("profiles").select("id, email, full_name, created_at, suspended_at").order("created_at", { ascending: false }),
       admin
         .from("tool_orders")
         .select("id, user_id, tool_slug, status, access_type, billing_period, payment_type, expires_at, fulfilment_status, fulfilment_deadline_at, subscription_status, renewal_status, payment_status, created_at, updated_at, approved_at, price_amount")
@@ -136,12 +150,38 @@ export const getAdminOverview = createServerFn({ method: "POST" })
         .select("id, user_id, order_id, tool_slug, payment_type, classification, amount, base_amount_ngn, payment_currency, payment_status, paid_at, created_at, source")
         .order("created_at", { ascending: false })
         .limit(5000),
+      admin
+        .from("browser_auth_sessions")
+        .select("created_at")
+        .gte("created_at", trendStart.toISOString()),
+      admin
+        .from("stealthwriter_proxy_sessions")
+        .select("created_at")
+        .gte("created_at", trendStart.toISOString()),
+      admin
+        .from("phrasly_proxy_sessions")
+        .select("created_at")
+        .gte("created_at", trendStart.toISOString()),
+      admin
+        .from("chatgpt_proxy_sessions")
+        .select("created_at")
+        .gte("created_at", trendStart.toISOString()),
+      admin
+        .from("tool_authorized_sessions")
+        .select("tool_slug, status, updated_at")
+        .in("tool_slug", ["stealthwriter", "phrasly", "chatgpt"]),
     ]);
 
     const profiles = profilesRes.data ?? [];
     const activeOrders = ordersActiveRes.data ?? [];
     const allOrders = ordersAllRes.data ?? [];
     const payments = paymentsRes.data ?? [];
+    const accessEvents = [
+      ...(browserAuthRes.data ?? []),
+      ...(stealthwriterProxyRes.data ?? []),
+      ...(phraslyProxyRes.data ?? []),
+      ...(chatgptProxyRes.data ?? []),
+    ];
 
     // Active (unexpired approved) subset
     const liveOrders = activeOrders.filter(
@@ -168,6 +208,13 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       pendingPrivateFulfilment: allOrders.filter(
         (o) => (o.access_type ?? "") === "private" && o.fulfilment_status === "pending",
       ).length,
+      pendingActivation: allOrders.filter(
+        (o) =>
+          o.status === "pending" ||
+          (o.status === "approved" &&
+            (o.fulfilment_status === "pending" || o.fulfilment_status === "awaiting")),
+      ).length,
+      suspendedUsers: profiles.filter((p) => !!p.suspended_at).length,
       uniqueBuyers: uniqueBuyerSet.size,
     };
 
@@ -268,6 +315,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     const revenueTotal = zeroArr();
     const revenueRecurring = zeroArr();
     const revenueOneTime = zeroArr();
+    const toolAccess = zeroArr();
     const bucket = (iso: string | null | undefined) => {
       if (!iso) return -1;
       const idx = days.indexOf(iso.slice(0, 10));
@@ -298,6 +346,36 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       if (p.payment_type === "recurring_subscription") revenueRecurring[i] += amt;
       else revenueOneTime[i] += amt;
     }
+    for (const event of accessEvents) {
+      const i = bucket(event.created_at as string);
+      if (i >= 0) toolAccess[i]++;
+    }
+
+    const authorisedByTool = new Map(
+      (authorisedSessionsRes.data ?? []).map((row) => [row.tool_slug as string, row]),
+    );
+    const engineStatus: AdminOverview["engineStatus"] = (
+      [
+        ["stealthwriter", "https://sw.topratedseotools.com"],
+        ["phrasly", null],
+        ["chatgpt", null],
+      ] as const
+    ).map(([tool_slug, endpoint]) => {
+      const row = authorisedByTool.get(tool_slug) as
+        | { status?: string | null; updated_at?: string | null }
+        | undefined;
+      return {
+        tool_slug,
+        status:
+          row?.status === "stored"
+            ? ("active" as const)
+            : row?.status === "revoked"
+              ? ("revoked" as const)
+              : ("not_configured" as const),
+        updatedAt: row?.updated_at ?? null,
+        endpoint,
+      };
+    });
 
     // ---- recent activity (last ~25 events across orders + payments) ----
     type Ev = AdminOverview["recentActivity"][number];
@@ -390,7 +468,16 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       attention,
       breakdown,
       topTools,
-      trend: { days, registrations, newSubscribers, revenueTotal, revenueRecurring, revenueOneTime },
+      trend: {
+        days,
+        registrations,
+        newSubscribers,
+        revenueTotal,
+        revenueRecurring,
+        revenueOneTime,
+        toolAccess,
+      },
+      engineStatus,
       recentActivity,
     };
     // Suppress noise in dev logs for unused variables
