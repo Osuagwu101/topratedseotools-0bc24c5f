@@ -46,6 +46,12 @@ assert(
   "admin functions use the v2 multi-cookie format without decrypting or logging the stored session",
 );
 assert(
+  funcs.includes("setChatGptOneClickEnabled(admin, true)") &&
+    funcs.includes("setChatGptOneClickEnabled(admin, false)") &&
+    funcs.includes("one_click_auth_enabled: enabled"),
+  "ChatGPT one-click launch automatically follows authorised-session availability",
+);
+assert(
   adminRoute.includes("admin-chatgpt-authorized-session") &&
     adminRoute.includes("function ChatGptSessionTab") &&
     adminRoute.includes("ChatGPT authorised session"),
