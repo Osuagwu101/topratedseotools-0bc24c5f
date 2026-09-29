@@ -18,7 +18,7 @@ import {
 } from "@/lib/chatgpt-session.server";
 
 const TOOL_SLUG = "chatgpt";
-export const CHATGPT_SESSION_FORMAT = "chatgpt_session_state_json_v1";
+export const CHATGPT_SESSION_FORMAT = "chatgpt_session_state_json_v2";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {

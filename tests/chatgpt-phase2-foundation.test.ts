@@ -41,8 +41,9 @@ assert(
 );
 assert(
   funcs.includes("cookie/storage values were not logged") &&
+    funcs.includes("chatgpt_session_state_json_v2") &&
     !funcs.includes("decryptChatGptSession"),
-  "admin functions do not decrypt or log the stored ChatGPT session",
+  "admin functions use the v2 multi-cookie format without decrypting or logging the stored session",
 );
 assert(
   adminRoute.includes("admin-chatgpt-authorized-session") &&

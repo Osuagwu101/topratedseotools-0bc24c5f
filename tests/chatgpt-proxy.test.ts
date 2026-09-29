@@ -2,6 +2,7 @@
  * Phase 3 ChatGPT proxy regression tests.
  * Run: bun tests/chatgpt-proxy.test.ts
  */
+import { readFileSync } from "node:fs";
 import {
   applyChatGPTCookieRotations,
   buildChatGPTCookieHeader,
@@ -29,7 +30,8 @@ function assert(condition: boolean, message: string) {
 }
 
 const sampleSession = JSON.stringify({
-  authenticated_cookies: [
+  version: 2,
+  cookies: [
     {
       name: "__Secure-chat-session",
       value: "opaque-chat-session",
@@ -41,6 +43,12 @@ const sampleSession = JSON.stringify({
     {
       name: "app_state",
       value: "opaque-app-state",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "session_state",
+      value: "opaque-session-state",
       domain: ".chatgpt.com",
       path: "/",
     },
@@ -68,14 +76,32 @@ const sampleSession = JSON.stringify({
 const cookieHeader = buildChatGPTCookieHeader(sampleSession);
 assert(
   cookieHeader.includes("__Secure-chat-session=opaque-chat-session") &&
-    cookieHeader.includes("app_state=opaque-app-state"),
-  "forwards reusable first-party ChatGPT cookies",
+    cookieHeader.includes("app_state=opaque-app-state") &&
+    cookieHeader.includes("session_state=opaque-session-state"),
+  "forwards all reusable first-party cookies from one multi-cookie bundle",
 );
 assert(
   !cookieHeader.includes("_ga") &&
     !cookieHeader.includes("cf_clearance") &&
     !cookieHeader.includes("vault-only-storage"),
   "never forwards analytics, challenge, or browser-storage values as cookies",
+);
+
+const legacySession = JSON.stringify({
+  authenticated_cookies: [
+    {
+      name: "legacy_cookie",
+      value: "legacy-value",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+  ],
+});
+assert(
+  buildChatGPTCookieHeader(legacySession).includes(
+    "legacy_cookie=legacy-value",
+  ),
+  "keeps backward compatibility with the legacy authenticated_cookies input",
 );
 
 const rotated = JSON.parse(
@@ -86,13 +112,13 @@ const rotated = JSON.parse(
   ]).plaintext,
 );
 assert(
-  rotated.authenticated_cookies.find(
+  rotated.cookies.find(
     (cookie: any) => cookie.name === "__Secure-chat-session",
   )?.value === "rotated-session" &&
-    rotated.authenticated_cookies.find(
+    rotated.cookies.find(
       (cookie: any) => cookie.name === "app_state",
     )?.value === "rotated-app-state" &&
-    !rotated.authenticated_cookies.some(
+    !rotated.cookies.some(
       (cookie: any) => cookie.name === "new_cookie",
     ),
   "rotates only cookie names already approved in the encrypted vault",
@@ -244,7 +270,7 @@ assert(
   "preserves normal query data but never forwards the launch ticket upstream",
 );
 
-const server = await Bun.file("src/server.ts").text();
+const server = readFileSync("src/server.ts", "utf8");
 assert(
   server.includes('url.pathname === "/api/chatgpt-proxy"') &&
     server.includes('url.pathname.startsWith("/api/chatgpt-proxy/")') &&
@@ -257,7 +283,7 @@ assert(
   "server supports an optional dedicated ChatGPT proxy origin",
 );
 
-const launcher = await Bun.file("src/lib/tool-launcher.ts").text();
+const launcher = readFileSync("src/lib/tool-launcher.ts", "utf8");
 assert(
   launcher.includes("startChatGPTProxyLaunch") &&
     launcher.includes('tool.slug === "chatgpt"'),
@@ -269,7 +295,7 @@ assert(
   "client validates both local and trusted dedicated ChatGPT launch URLs",
 );
 
-const proxySource = await Bun.file("src/lib/chatgpt-proxy.server.ts").text();
+const proxySource = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
 assert(
   proxySource.includes('"upstream_401"') &&
     proxySource.includes('"upstream_403"') &&
@@ -309,9 +335,10 @@ assert(
   "uses the established AWS/StealthWriter request and cookie-rotation model",
 );
 
-const migration = await Bun.file(
+const migration = readFileSync(
   "supabase/migrations/20260926062000_chatgpt_proxy_sessions.sql",
-).text();
+  "utf8",
+);
 assert(
   migration.includes("chatgpt_proxy_sessions") &&
     migration.includes("last_error_code") &&
