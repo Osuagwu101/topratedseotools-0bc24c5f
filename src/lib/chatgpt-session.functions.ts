@@ -45,6 +45,14 @@ async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
   return admin;
 }
 
+async function setChatGptOneClickEnabled(admin: any, enabled: boolean) {
+  const { error } = await admin
+    .from("tool_settings")
+    .update({ one_click_auth_enabled: enabled })
+    .eq("tool_slug", TOOL_SLUG);
+  if (error) throw new Error(error.message);
+}
+
 export const adminGetChatGptSessionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -105,6 +113,8 @@ export const adminSaveChatGptSession = createServerFn({ method: "POST" })
       .in("status", ["issued", "active"]);
     if (revokeProxyError) throw new Error(revokeProxyError.message);
 
+    await setChatGptOneClickEnabled(admin, true);
+
     await logAdminActivity(context, {
       action: "chatgpt.authorized_session_replace",
       area: "tools",
@@ -130,6 +140,7 @@ export const adminRevokeChatGptSession = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readError) throw new Error(readError.message);
     if (!existing) {
+      await setChatGptOneClickEnabled(admin, false);
       return { ok: true, status: "not_configured", updated_at: null };
     }
 
@@ -148,6 +159,8 @@ export const adminRevokeChatGptSession = createServerFn({ method: "POST" })
       .update({ status: "revoked" })
       .in("status", ["issued", "active"]);
     if (revokeProxyError) throw new Error(revokeProxyError.message);
+
+    await setChatGptOneClickEnabled(admin, false);
 
     await logAdminActivity(context, {
       action: "chatgpt.authorized_session_revoke",
