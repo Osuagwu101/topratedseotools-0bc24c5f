@@ -16,6 +16,8 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  Moon,
+  Sun,
   PackageCheck,
   Settings2,
   ShieldCheck,
@@ -31,6 +33,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -42,6 +45,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { APP_NAME } from "@/lib/site-config";
 
 const FULFILMENT_ITEMS = [
   { title: "Awaiting Assignment", to: "/admin/awaiting-assignments" as const },
@@ -76,22 +81,52 @@ const ADVANCED_ITEMS = [
 
 export function AdminShell({ children }: { children: ReactNode }) {
   useCatalogRegistration();
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("trst_admin_color_mode");
+    const shouldUseDark =
+      stored === "dark" ||
+      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setDarkMode(shouldUseDark);
+    document.documentElement.classList.toggle("dark", shouldUseDark);
+  }, []);
+
+  function toggleDarkMode() {
+    setDarkMode((current) => {
+      const next = !current;
+      document.documentElement.classList.toggle("dark", next);
+      localStorage.setItem("trst_admin_color_mode", next ? "dark" : "light");
+      return next;
+    });
+  }
 
   return (
     <SidebarProvider defaultOpen>
-      <div className="flex min-h-svh w-full md:h-svh md:overflow-hidden">
+      <div className="flex min-h-svh w-full bg-background md:h-svh md:overflow-hidden">
         <AdminSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background px-3 md:static md:z-auto">
+          <header className="sticky top-0 z-30 grid h-12 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:static md:z-auto">
             <SidebarTrigger />
             <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Admin
             </span>
-            <Link to="/" className="shrink-0 text-xs text-muted-foreground hover:underline">
-              View site
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label={darkMode ? "Use light mode" : "Use dark mode"}
+                title={darkMode ? "Use light mode" : "Use dark mode"}
+              >
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <Link to="/" className="shrink-0 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+                View site
+              </Link>
+            </div>
           </header>
-          <main className="min-w-0 flex-1 overflow-x-hidden md:overflow-y-auto">{children}</main>
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-background md:overflow-y-auto">{children}</main>
         </div>
       </div>
     </SidebarProvider>
@@ -185,6 +220,22 @@ function AdminSidebar() {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border p-2">
+        <Link
+          to="/admin/dashboard"
+          className="flex min-h-12 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar px-2.5 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:p-0"
+          aria-label={APP_NAME}
+        >
+          <BrandLogo size={34} className="h-8 w-8 rounded-md" />
+          {!collapsed && (
+            <span className="min-w-0 text-[13px] font-semibold leading-tight text-sidebar-foreground">
+              Top Rated
+              <br />
+              SEO Tools
+            </span>
+          )}
+        </Link>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">
@@ -193,7 +244,7 @@ function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SimpleItem to="/admin/dashboard" title="Dashboard" icon={LayoutDashboard} active={path === "/admin/dashboard"} />
+              <SimpleItem to="/admin/dashboard" title="Overview" icon={LayoutDashboard} active={path === "/admin/dashboard"} />
               <SimpleItem to="/admin/tools" title="Tools" icon={Settings2} active={path.startsWith("/admin/tools")} />
               <SimpleItem to="/admin/customers" title="Customers" icon={Users} active={path.startsWith("/admin/customers")} />
               <SimpleItem to="/admin/orders" title="Orders" icon={ClipboardList} active={path === "/admin/orders"} />
