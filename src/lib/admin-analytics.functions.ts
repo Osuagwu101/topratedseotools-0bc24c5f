@@ -109,7 +109,9 @@ export const getAdminOverview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => overviewInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdminAndGetAdmin(context);
+    // The deployed schema includes later session/control migrations that are
+    // not yet represented in the checked-in generated Supabase types.
+    const admin: any = await assertAdminAndGetAdmin(context);
     const trendDays = data?.trendDays ?? 30;
     const now = new Date();
     const nowIso = now.toISOString();
@@ -172,15 +174,16 @@ export const getAdminOverview = createServerFn({ method: "POST" })
         .in("tool_slug", ["stealthwriter", "phrasly", "chatgpt"]),
     ]);
 
-    const profiles = profilesRes.data ?? [];
-    const activeOrders = ordersActiveRes.data ?? [];
-    const allOrders = ordersAllRes.data ?? [];
-    const payments = paymentsRes.data ?? [];
-    const accessEvents = [
-      ...(browserAuthRes.data ?? []),
-      ...(stealthwriterProxyRes.data ?? []),
-      ...(phraslyProxyRes.data ?? []),
-      ...(chatgptProxyRes.data ?? []),
+    type AnalyticsRow = Record<string, any>;
+    const profiles: AnalyticsRow[] = (profilesRes.data ?? []) as AnalyticsRow[];
+    const activeOrders: AnalyticsRow[] = (ordersActiveRes.data ?? []) as AnalyticsRow[];
+    const allOrders: AnalyticsRow[] = (ordersAllRes.data ?? []) as AnalyticsRow[];
+    const payments: AnalyticsRow[] = (paymentsRes.data ?? []) as AnalyticsRow[];
+    const accessEvents: AnalyticsRow[] = [
+      ...((browserAuthRes.data ?? []) as AnalyticsRow[]),
+      ...((stealthwriterProxyRes.data ?? []) as AnalyticsRow[]),
+      ...((phraslyProxyRes.data ?? []) as AnalyticsRow[]),
+      ...((chatgptProxyRes.data ?? []) as AnalyticsRow[]),
     ];
 
     // Active (unexpired approved) subset
@@ -352,7 +355,10 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     }
 
     const authorisedByTool = new Map(
-      (authorisedSessionsRes.data ?? []).map((row) => [row.tool_slug as string, row]),
+      ((authorisedSessionsRes.data ?? []) as AnalyticsRow[]).map((row) => [
+        row.tool_slug as string,
+        row,
+      ]),
     );
     const engineStatus: AdminOverview["engineStatus"] = (
       [
