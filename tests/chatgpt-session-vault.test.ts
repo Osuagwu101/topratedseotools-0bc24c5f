@@ -89,7 +89,7 @@ assert(
   "preserves ChatGPT first-party cookie values exactly",
 );
 assert(
-  parsed.authenticated_cookies.some(
+  parsed.cookies.some(
     (cookie: any) =>
       cookie.name === "openai_app_state" &&
       cookie.value === "opaque-openai-state",
