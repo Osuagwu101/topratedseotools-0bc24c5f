@@ -1,7 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Menu, X, LogOut, LayoutDashboard, User as UserIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -17,19 +17,38 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+
+    void import("@/integrations/supabase/client").then(({ supabase }) => {
+      if (!active) return;
+
+      void supabase.auth.getSession().then(({ data }) => {
+        if (active) setUser(data.session?.user ?? null);
+      });
+
+      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+        if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+          router.invalidate();
+          if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+        }
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [queryClient, router]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -39,6 +58,7 @@ export function Navbar() {
   }, []);
 
   async function signOut() {
+    const { supabase } = await import("@/integrations/supabase/client");
     await supabase.auth.signOut();
     router.navigate({ to: "/" });
   }
