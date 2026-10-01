@@ -73,11 +73,15 @@ const normalised = normaliseChatGptSession(raw);
 const parsed = JSON.parse(normalised);
 
 assert(
-  parsed.authenticated_cookies.length === 2,
+  parsed.version === 2,
+  "emits the canonical v2 vault session schema",
+);
+assert(
+  parsed.cookies.length === 2,
   "keeps reusable first-party ChatGPT/OpenAI cookies and drops excluded cookies",
 );
 assert(
-  parsed.authenticated_cookies.some(
+  parsed.cookies.some(
     (cookie: any) =>
       cookie.name === "__Secure-chat-session" &&
       cookie.value === "opaque-chat-session-value",
@@ -93,7 +97,7 @@ assert(
   "preserves OpenAI first-party cookie values exactly",
 );
 assert(
-  !parsed.authenticated_cookies.some(
+  !parsed.cookies.some(
     (cookie: any) => cookie.name === "_ga" || cookie.name === "cf_clearance",
   ),
   "does not store analytics or Cloudflare challenge cookies",
