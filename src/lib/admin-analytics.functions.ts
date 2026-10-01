@@ -109,7 +109,9 @@ export const getAdminOverview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => overviewInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdminAndGetAdmin(context);
+    // The deployed schema includes later session/control migrations that are
+    // not yet represented in the checked-in generated Supabase types.
+    const admin: any = await assertAdminAndGetAdmin(context);
     const trendDays = data?.trendDays ?? 30;
     const now = new Date();
     const nowIso = now.toISOString();
