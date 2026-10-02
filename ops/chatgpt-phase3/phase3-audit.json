@@ -1,0 +1,63 @@
+{
+  "outcome": "passed",
+  "checks": [
+    {
+      "check": 1,
+      "result": "PASS",
+      "details": "Authenticated temporary writer; ChatGPT-specific active grant, assigned account and 60-second ticket verified"
+    },
+    {
+      "check": 2,
+      "result": "PASS",
+      "details": "Public HTTPS gateway consumed ticket and issued gateway session; root returns controlled missing-session-source"
+    },
+    {
+      "check": 3,
+      "result": "PASS",
+      "details": "Direct visit and missing ticket rejected with 401 and no-store"
+    },
+    {
+      "check": 4,
+      "result": "PASS",
+      "details": "Real 60-second ticket expired naturally and was rejected"
+    },
+    {
+      "check": 5,
+      "result": "PASS",
+      "details": "Consumed launch ticket rejected on replay"
+    },
+    {
+      "check": 6,
+      "result": "PASS",
+      "details": "Foreign ticket rejected live; tool-confusion fixtures for StealthWriter/Phrasly/generic also passed unit tests"
+    },
+    {
+      "check": 7,
+      "result": "PASS",
+      "details": "Writer B browser proof rejected for writer A; changing assigned account after issuance invalidated ticket"
+    },
+    {
+      "check": 8,
+      "result": "PASS",
+      "details": "All gateway cookies use __Host names, Path=/, Secure, HttpOnly and SameSite=Lax; no Domain"
+    },
+    {
+      "check": 9,
+      "result": "PASS",
+      "details": "StealthWriter retained 401 and no-store"
+    },
+    {
+      "check": 10,
+      "result": "PASS",
+      "details": "Main site returned healthy 200"
+    },
+    {
+      "check": 11,
+      "result": "PASS",
+      "details": "No test tickets, gateway cookie values, auth tokens, fixture credentials or service-role key found in gateway logs; Nginx query logging disabled"
+    }
+  ],
+  "cleanup_errors": 0,
+  "temporary_users_removed": 2,
+  "temporary_accounts_removed": 2
+}

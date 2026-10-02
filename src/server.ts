@@ -140,7 +140,10 @@ export default {
         url.pathname === "/api/chatgpt-proxy" ||
         url.pathname.startsWith("/api/chatgpt-proxy/")
       ) {
-        return await handleChatGPTProxyRequest(request);
+        return new Response("Launch ChatGPT from your dashboard.", {
+          status: 403,
+          headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
+        });
       }
 
       const handler = await getServerEntry();

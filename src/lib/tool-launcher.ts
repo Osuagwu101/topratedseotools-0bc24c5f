@@ -7,7 +7,7 @@ import { startSessionOnlyOneClickAuth } from "@/lib/session-only-access.function
 import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
-import { startChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.functions";
+
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
 import { isPhraslyToolSlug } from "@/lib/phrasly-proxy-policy";
@@ -50,15 +50,12 @@ function validateClientLaunchUrl(
   }
   if (toolSlug === "chatgpt") {
     const launchUrl = new URL(rawUrl, window.location.origin);
-    const localProxy =
-      launchUrl.origin === window.location.origin &&
-      launchUrl.pathname === "/api/chatgpt-proxy";
     const dedicated =
       !!trustedProxyOrigin &&
       launchUrl.origin === trustedProxyOrigin &&
       launchUrl.protocol === "https:" &&
       launchUrl.pathname === "/__trst/enter";
-    if (!localProxy && !dedicated) {
+    if (!dedicated || launchUrl.origin !== "https://chatgpt.topratedseotools.com") {
       throw new Error("The ChatGPT proxy returned an invalid launch URL.");
     }
     return launchUrl;
@@ -132,15 +129,37 @@ export async function launchTool(
               ? await startPhraslyProxyLaunch()
               : tool.slug === "chatgpt"
                 ? await (async () => {
-                    const deviceReady = await fetch("/api/chatgpt-device", {
-                      method: "GET",
-                      credentials: "same-origin",
-                      cache: "no-store",
-                    });
-                    if (!deviceReady.ok) {
-                      throw new Error("Could not prepare this device for ChatGPT.");
+                    const gatewayOrigin = "https://chatgpt.topratedseotools.com";
+                    const { data: auth, error: authError } = await supabase.auth.getSession();
+                    if (authError || !auth.session?.access_token) {
+                      throw new Error("Sign in to launch ChatGPT.");
                     }
-                    return startChatGPTProxyLaunch();
+                    const response = await fetch(gatewayOrigin + "/__trst/launch", {
+                      method: "POST",
+                      credentials: "include",
+                      cache: "no-store",
+                      headers: { Authorization: "Bearer " + auth.session.access_token },
+                    });
+                    if (!response.ok) {
+                      throw new Error(await response.text());
+                    }
+                    const launch = await response.json();
+                    const exact = new URL(launch.launch_url);
+                    if (
+                      launch.proxy_origin !== gatewayOrigin ||
+                      exact.origin !== gatewayOrigin ||
+                      exact.pathname !== "/__trst/enter" ||
+                      !exact.searchParams.get("ticket")
+                    ) {
+                      throw new Error("ChatGPT returned an invalid launch link.");
+                    }
+                    return {
+                      ok: true,
+                      launch_url: launch.launch_url as string,
+                      expires_at: launch.expires_at as string,
+                      proxy_origin: gatewayOrigin,
+                      provider: "chatgpt_proxy" as const,
+                    };
                   })()
                 : await startSessionOnlyOneClickAuth({
                 data: {
