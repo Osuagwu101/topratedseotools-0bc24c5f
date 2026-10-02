@@ -39,7 +39,7 @@ test("account and login document routes are blocked", () => {
 
 test("unsupported methods fail closed", () => {
   assert.throws(
-    () => classifyGatewayRequest(req("/", {method:"CONNECT"})),
+    () => classifyGatewayRequest(req("/", {method:"PROPFIND"})),
     e => e.code === "method_not_allowed" && e.status === 405,
   );
 });
