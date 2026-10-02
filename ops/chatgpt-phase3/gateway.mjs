@@ -2,6 +2,8 @@ import http from 'node:http';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, open, unlink, chmod } from 'node:fs/promises';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { Phase4PolicyError, classifyGatewayRequest, assertRequestSize } from '../chatgpt-phase4/transport.mjs';
 export const ORIGIN = 'https://chatgpt.topratedseotools.com';
 const DASHBOARD_ORIGINS = new Set(['https://topratedseotools.com', 'https://www.topratedseotools.com']);
 const STATE = process.env.CHATGPT_PHASE3_STATE_DIR || '/home/ubuntu/state/chatgpt-phase3';
@@ -229,12 +231,22 @@ export async function handle(req) {
       if (req.method!=='GET') fail('invalid_ticket');
       return await redeem(req);
     }
-    await sessionGate(req);fail('missing_chatgpt_session_source',503);
+    await sessionGate(req);
+    assertRequestSize(req);
+    classifyGatewayRequest(req);
+    fail('missing_chatgpt_session_source',503);
   } catch(e) {
-    const code=e instanceof GateError ? e.code : 'local_gateway_failure', status=e instanceof GateError ? e.status : 503;
-    console.info(JSON.stringify({component:'chatgpt_phase3',category:code,request_id:requestId}));
+    const phase4=e instanceof Phase4PolicyError;
+    const code=e instanceof GateError ? e.code : phase4 ? e.code : 'local_gateway_failure';
+    const status=e instanceof GateError ? e.status : phase4 ? e.status : 503;
+    console.info(JSON.stringify({component:'chatgpt_gateway',category:code,request_id:requestId}));
     const h=headers(req.headers.get('origin'));h.set('X-Request-ID',requestId);
     const msg=code==='missing_chatgpt_session_source' ? 'Your secure ChatGPT gateway access is ready. The ChatGPT connection is not configured yet.' :
+      code==='method_not_allowed' ? 'Method not allowed.' :
+      code==='restricted_document_route' ? 'This ChatGPT account or settings page is restricted.' :
+      code==='request_too_large' ? 'This ChatGPT request is too large.' :
+      code==='asset_host_blocked' || code==='invalid_gateway_origin' ? 'This ChatGPT route is not allowed.' :
+      code==='unsupported_upgrade' ? 'This ChatGPT connection type is not available.' :
       status===401 ? 'Open ChatGPT from your TopRatedSEOTools account.' :
       status===503 ? 'ChatGPT is temporarily unavailable. Please try again later.' :
       'ChatGPT access could not be verified. Launch again from your TopRatedSEOTools account.';
@@ -245,15 +257,24 @@ export function start() {
   const server=http.createServer(async (incoming,outgoing)=>{
     try {
       const url=(incoming.headers['x-forwarded-proto']==='https'?'https':'http')+'://'+incoming.headers.host+incoming.url;
-      const req=new Request(url,{method:incoming.method,headers:incoming.headers});
+      const init={method:incoming.method,headers:incoming.headers};
+      if (!['GET','HEAD'].includes(incoming.method || 'GET')) {
+        init.body=Readable.toWeb(incoming);init.duplex='half';
+      }
+      const req=new Request(url,init);
       const res=await handle(req);
       outgoing.statusCode=res.status;
       for(const [k,v] of res.headers) if(k!=='set-cookie') outgoing.setHeader(k,v);
       const sets=res.headers.getSetCookie();if(sets.length) outgoing.setHeader('Set-Cookie',sets);
-      outgoing.end(Buffer.from(await res.arrayBuffer()));
+      if (!res.body) outgoing.end();
+      else Readable.fromWeb(res.body).pipe(outgoing);
     } catch {
       outgoing.writeHead(503,{'Cache-Control':'no-store','Content-Type':'text/plain'});outgoing.end('ChatGPT is temporarily unavailable.');
     }
+  });
+  server.on('upgrade',(_incoming,socket)=>{
+    socket.write('HTTP/1.1 503 Service Unavailable\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nChatGPT connection is not configured yet.');
+    socket.destroy();
   });
   server.requestTimeout=15_000;server.headersTimeout=10_000;
   server.listen(Number(process.env.PORT||3006),'127.0.0.1');return server;
