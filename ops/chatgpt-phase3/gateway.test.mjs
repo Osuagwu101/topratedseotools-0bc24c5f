@@ -42,9 +42,10 @@ global.fetch=async (url,options={})=>{
 };
 const issue=user=>handle(new Request(ORIGIN+'/__trst/launch',{method:'POST',headers:{Origin:'https://topratedseotools.com',Authorization:'Bearer '+jwt(user)}}));
 const cookieJar=r=>r.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
+const mergeCookies=(...jars)=>{const m=new Map();for(const jar of jars)for(const part of jar.split(';')){const i=part.indexOf('=');if(i>0)m.set(part.slice(0,i).trim(),part.slice(i+1).trim());}return [...m].map(([k,v])=>k+'='+v).join('; ');};
 const enter=(url,cs)=>handle(new Request(url,{headers:cs?{Cookie:cs}:{}}));
 const ticketFile=url=>state+'/ticket-'+hash(new URL(url).searchParams.get('ticket'))+'.json';
-let issuedUrl, issuedCookies;
+let issuedUrl, issuedCookies, gatewaySessionCookies;
 await test('eligible writer gets exact ChatGPT-only 60-second launch',async()=>{
  const r=await issue('writer-a');assert.equal(r.status,200);
  const b=await r.json();issuedUrl=b.launch_url;issuedCookies=cookieJar(r);
@@ -65,7 +66,14 @@ await test('valid ticket consumed exactly once under concurrent requests',async(
  const ok=rs.find(r=>r.status===302);
  assert.equal(ok.headers.get('Location'),ORIGIN+'/');
  assert.match(ok.headers.getSetCookie().join(';'),/__Host-trst_cg_gateway_v3=/);
+ gatewaySessionCookies=mergeCookies(issuedCookies,cookieJar(ok));
  assert.equal((await enter(issuedUrl,issuedCookies)).status,403);
+});
+await test('Phase 4 guards execute after valid Phase 3 gateway session',async()=>{
+ const root=await handle(new Request(ORIGIN+'/',{headers:{Cookie:gatewaySessionCookies}}));assert.equal(root.status,503);assert.match(await root.text(),/gateway access is ready/);
+ const restricted=await handle(new Request(ORIGIN+'/settings',{headers:{Cookie:gatewaySessionCookies,Accept:'text/html'}}));assert.equal(restricted.status,403);assert.match(await restricted.text(),/restricted/);
+ const asset=await handle(new Request(ORIGIN+'/__host/evil.example/app.js',{headers:{Cookie:gatewaySessionCookies}}));assert.equal(asset.status,403);
+ const method=await handle(new Request(ORIGIN+'/',{method:'PROPFIND',headers:{Cookie:gatewaySessionCookies}}));assert.equal(method.status,405);
 });
 await test('expired ticket rejected',async()=>{
  const r=await issue('writer-c');const b=await r.json();const f=ticketFile(b.launch_url);const row=JSON.parse(await readFile(f,'utf8'));row.expires=Date.now()-1;await writeFile(f,JSON.stringify(row));
