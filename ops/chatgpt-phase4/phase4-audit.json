@@ -1,0 +1,53 @@
+{
+  "phase": "ChatGPT Phase 4",
+  "date": "2026-10-03",
+  "status": "passed",
+  "tests": {
+    "combined_node_tests": {
+      "passed": 23,
+      "failed": 0
+    },
+    "phase3_ticket_and_entitlement_regression": true,
+    "phase4_post_session_policy": true,
+    "isolated_server_get_status": 401,
+    "isolated_server_post_status": 401,
+    "isolated_server_upgrade_status": 503
+  },
+  "live": {
+    "chatgpt_direct_status": 401,
+    "chatgpt_missing_ticket_status": 401,
+    "public_upgrade_status": 503,
+    "stealthwriter_status": 401,
+    "main_site_status": 200,
+    "listeners": {
+      "stealthwriter": "127.0.0.1:3000",
+      "main_site": "127.0.0.1:3005",
+      "chatgpt": "127.0.0.1:3006"
+    },
+    "protected_pids_unchanged": {
+      "stealthwriter": 246050,
+      "main_site": 261770
+    },
+    "chatgpt_pid_after_deploy": 265395
+  },
+  "nginx": {
+    "syntax_test": "passed",
+    "proxy_buffering_off": true,
+    "proxy_request_buffering_off": true,
+    "read_timeout_seconds": 3600,
+    "upgrade_map": true,
+    "access_log_off_instances": 2,
+    "error_log_null_instances": 2
+  },
+  "isolation": {
+    "transport_upstream_fetch_calls": 0,
+    "transport_supabase_references": 0,
+    "transport_vault_or_session_decrypt_references": 0,
+    "transport_antibot_automation_references": 0,
+    "pm2_log_raw_ticket_query_matches": 0,
+    "pm2_log_bearer_matches": 0,
+    "pm2_log_cookie_header_matches": 0,
+    "browser_or_upstream_session_added": false
+  },
+  "boundary": "Phase 4 transport is deployed but deliberately does not connect to ChatGPT upstream until Phase 5 supplies an authorized account-specific session adapter."
+}
