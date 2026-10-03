@@ -1,0 +1,30 @@
+{
+  "phase": "ChatGPT Phase 5 session-structure hardening",
+  "date": "2026-10-03",
+  "status": "deployed",
+  "rules": {
+    "unchunked_allowed": "__Secure-next-auth.session-token",
+    "chunked_allowed": "__Secure-next-auth.session-token.0 .. .N",
+    "chunked_requirements": "starts at .0, at least two chunks, contiguous with no gaps",
+    "mixed_chunked_and_unchunked": "rejected",
+    "supporting_optional": [
+      "__Host-next-auth.csrf-token",
+      "__Secure-next-auth.callback-url"
+    ],
+    "unrelated_first_party_cookies": "discarded",
+    "wrong_domain_or_path": "rejected"
+  },
+  "tests": {
+    "combined_phase3_phase4_phase5": 35,
+    "failed": 0
+  },
+  "live": {
+    "chatgpt_status_without_ticket": 401,
+    "stealthwriter_status": 401,
+    "main_site_status": 200,
+    "chatgpt_pid": 271407,
+    "stealthwriter_pid_unchanged": 246050,
+    "main_site_pid_unchanged": 261770
+  },
+  "rollback_backup": "/home/ubuntu/backups/chatgpt-phase5-session-structure-20261003"
+}
