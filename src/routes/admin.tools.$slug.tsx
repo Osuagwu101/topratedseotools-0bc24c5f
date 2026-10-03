@@ -590,7 +590,7 @@ function PhraslySessionTab() {
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+            {saving ? "Saving…" : data.configured ? "Approve & Replace Session" : "Approve & Save Session"}
           </button>
         </div>
       </div>
@@ -885,8 +885,10 @@ function ChatGptSessionTab() {
           Manual ChatGPT session replacement
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Copy each requested value from Chrome DevTools and paste it into the matching
-          field below. Do not paste these secret values into chat.
+          Paste each requested value into the matching field below. The page builds the
+          accepted JSON format internally, validates the required core, and only
+          stores it after you approve the replacement. Do not paste these secret
+          values into chat.
         </p>
 
         <div className="mt-4 space-y-3">
