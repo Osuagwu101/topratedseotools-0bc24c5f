@@ -69,12 +69,32 @@ function checkTokenStructure(names) {
   return { ok: true, detail: "Complete chunked session token detected: ." + indexes.join(", .") };
 }
 
+
+async function renderObserved() {
+  const box = document.getElementById("observed");
+  const observed = (await chrome.storage.session.get("observed")).observed || {};
+  const rows = [];
+  for (const key of ["user","me","init"]) {
+    const item = observed[key];
+    if (!item) continue;
+    rows.push(
+      key + ": " +
+      (item.names.length ? item.names.join(", ") : "no Cookie header names visible")
+    );
+  }
+  box.textContent = rows.length
+    ? rows.join("\n")
+    : "No matching requests observed yet. Refresh chatgpt.com, then check again.";
+}
+
 async function runCheck() {
   setOverall(false, "Checking…");
   try {
     const cookies = await chrome.cookies.getAll({ domain: "chatgpt.com" });
     const names = new Set(cookies.map(cookie => cookie.name));
     renderList(names);
+
+    await renderObserved();
 
     const token = checkTokenStructure(names);
     const supportingCount = SUPPORTING.filter(name => names.has(name)).length;
