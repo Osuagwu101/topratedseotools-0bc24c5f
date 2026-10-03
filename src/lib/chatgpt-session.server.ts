@@ -39,38 +39,70 @@ export type ChatGptSessionState = {
   cookies: ChatGptStoredCookie[];
 };
 
-function isChatGptCookieDomain(raw: string): boolean {
+export const CHATGPT_SESSION_COOKIE = "__Secure-next-auth.session-token";
+export const CHATGPT_SESSION_CHUNK_PREFIX = CHATGPT_SESSION_COOKIE + ".";
+export const CHATGPT_SUPPORTING_COOKIE_NAMES = [
+  "__Host-next-auth.csrf-token",
+  "__Secure-next-auth.callback-url",
+] as const;
+
+function isChatGptSessionDomain(raw: string): boolean {
   const host = raw.trim().toLowerCase().replace(/^\./, "");
+  return host === "chatgpt.com" || host.endsWith(".chatgpt.com");
+}
+
+function isAllowedAuthCookieName(name: string): boolean {
   return (
-    host === "chatgpt.com" ||
-    host.endsWith(".chatgpt.com") ||
-    host === "openai.com" ||
-    host.endsWith(".openai.com")
+    name === CHATGPT_SESSION_COOKIE ||
+    /^__Secure-next-auth\.session-token\.\d+$/.test(name) ||
+    (CHATGPT_SUPPORTING_COOKIE_NAMES as readonly string[]).includes(name)
   );
 }
 
-function isIgnoredCookieName(name: string) {
-  const lower = name.toLowerCase();
-  return (
-    /^(_ga|_gid|_gat|_utm)/.test(lower) ||
-    [
-      "_fbp",
-      "_fbc",
-      "_clck",
-      "_clsk",
-      "_uetmsclkid",
-      "_uetsid",
-      "_uetvid",
-      "_ttp",
-      "cf_clearance",
-      "__cf_bm",
-      "_cfuvid",
-    ].includes(lower) ||
-    lower.startsWith("intercom-") ||
-    lower.startsWith("hubspot") ||
-    lower.startsWith("ajs_") ||
-    lower.startsWith("amplitude")
-  );
+function validateSessionTokenStructure(cookies: ChatGptStoredCookie[]) {
+  const byName = new Map(cookies.map((cookie) => [cookie.name, cookie]));
+  const unchunked = byName.get(CHATGPT_SESSION_COOKIE);
+  const chunks = cookies
+    .map((cookie) => {
+      const match = cookie.name.match(
+        /^__Secure-next-auth\.session-token\.(\d+)$/,
+      );
+      return match ? { index: Number(match[1]), cookie } : null;
+    })
+    .filter(
+      (
+        value,
+      ): value is { index: number; cookie: ChatGptStoredCookie } =>
+        value !== null,
+    )
+    .sort((a, b) => a.index - b.index);
+
+  if (unchunked && chunks.length > 0) {
+    throw new Error(
+      "ChatGPT session contains both unchunked and chunked session-token cookies. Save one format only.",
+    );
+  }
+
+  if (!unchunked && chunks.length === 0) {
+    throw new Error(
+      "Missing ChatGPT session token. Include __Secure-next-auth.session-token or the complete .0, .1, ... chunk set.",
+    );
+  }
+
+  if (chunks.length > 0) {
+    if (chunks.length < 2 || chunks[0]?.index !== 0) {
+      throw new Error(
+        "Incomplete ChatGPT session-token chunks. A chunked session must start at .0 and include the complete sequence.",
+      );
+    }
+    for (let index = 0; index < chunks.length; index += 1) {
+      if (chunks[index]?.index !== index) {
+        throw new Error(
+          `Incomplete ChatGPT session-token chunks. Missing .${index}.`,
+        );
+      }
+    }
+  }
 }
 
 function cleanCookies(value: unknown): ChatGptStoredCookie[] {
@@ -83,16 +115,18 @@ function cleanCookies(value: unknown): ChatGptStoredCookie[] {
     throw new Error("ChatGPT session data contains too many cookies.");
   }
 
-  const cookies: ChatGptStoredCookie[] = [];
+  const kept: ChatGptStoredCookie[] = [];
   const names = new Set<string>();
 
   for (const raw of value) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      throw new Error("Each ChatGPT cookie must be a JSON object.");
+      continue;
     }
 
     const source = raw as Record<string, unknown>;
     const name = typeof source.name === "string" ? source.name.trim() : "";
+    if (!isAllowedAuthCookieName(name)) continue;
+
     const cookieValue = typeof source.value === "string" ? source.value : "";
     const domain =
       typeof source.domain === "string" && source.domain.trim()
@@ -104,20 +138,17 @@ function cleanCookies(value: unknown): ChatGptStoredCookie[] {
         : "/";
 
     if (
-      !name ||
-      !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) ||
-      cookieValue.length < 1 ||
+      !cookieValue ||
       cookieValue.length > 128000 ||
       /[\r\n;]/.test(cookieValue)
     ) {
-      throw new Error("ChatGPT session contains an invalid cookie name/value.");
+      throw new Error(`Invalid ChatGPT auth cookie value for ${name}.`);
     }
-    if (!domain || !isChatGptCookieDomain(domain)) {
+    if (!domain || !isChatGptSessionDomain(domain) || cookiePath !== "/") {
       throw new Error(
-        `Refusing to store cookie "${name}" because its domain is not chatgpt.com/openai.com.`,
+        `ChatGPT auth cookie "${name}" must belong to chatgpt.com and use path /.`,
       );
     }
-    if (isIgnoredCookieName(name)) continue;
     if (names.has(name)) {
       throw new Error(
         `ChatGPT session contains duplicate cookie name "${name}".`,
@@ -134,20 +165,32 @@ function cleanCookies(value: unknown): ChatGptStoredCookie[] {
     if (typeof source.expires === "number" && Number.isFinite(source.expires)) {
       cookie.expires = source.expires;
     }
-    cookies.push(cookie);
+    kept.push(cookie);
   }
 
-  if (!cookies.length) {
-    throw new Error(
-      "No reusable first-party ChatGPT authentication cookies remained after validation.",
-    );
-  }
-  if (cookies.length > 16) {
-    throw new Error(
-      "Too many reusable ChatGPT cookies remain. Save only the minimal authentication state.",
-    );
-  }
-  return cookies;
+  validateSessionTokenStructure(kept);
+
+  const sessionCookies = kept
+    .filter(
+      (cookie) =>
+        cookie.name === CHATGPT_SESSION_COOKIE ||
+        cookie.name.startsWith(CHATGPT_SESSION_CHUNK_PREFIX),
+    )
+    .sort((a, b) => {
+      if (a.name === CHATGPT_SESSION_COOKIE) return -1;
+      if (b.name === CHATGPT_SESSION_COOKIE) return 1;
+      return (
+        Number(a.name.slice(CHATGPT_SESSION_CHUNK_PREFIX.length)) -
+        Number(b.name.slice(CHATGPT_SESSION_CHUNK_PREFIX.length))
+      );
+    });
+
+  const supportingCookies = CHATGPT_SUPPORTING_COOKIE_NAMES.flatMap((name) => {
+    const cookie = kept.find((candidate) => candidate.name === name);
+    return cookie ? [cookie] : [];
+  });
+
+  return [...sessionCookies, ...supportingCookies];
 }
 
 export function normaliseChatGptSession(raw: string): string {
