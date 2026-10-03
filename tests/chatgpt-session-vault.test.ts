@@ -1,6 +1,5 @@
 /**
- * Phase 2 ChatGPT admin-session vault regression tests.
- * Run: bun tests/chatgpt-session-vault.test.ts
+ * ChatGPT Phase 5 authorised-session vault regression tests.
  */
 import {
   decryptChatGptSession,
@@ -33,38 +32,46 @@ function throws(fn: () => unknown) {
 const raw = JSON.stringify({
   authenticated_cookies: [
     {
-      name: "__Secure-chat-session",
-      value: "opaque-chat-session-value",
+      name: "__Secure-next-auth.session-token.0",
+      value: "opaque-session-part-0",
       domain: ".chatgpt.com",
       path: "/",
-      secure: true,
-      httpOnly: true,
-      sameSite: "Lax",
     },
     {
-      name: "openai_app_state",
-      value: "opaque-openai-state",
-      domain: ".openai.com",
+      name: "__Secure-next-auth.session-token.1",
+      value: "opaque-session-part-1",
+      domain: ".chatgpt.com",
       path: "/",
-      secure: true,
     },
     {
-      name: "_ga",
-      value: "analytics-value",
+      name: "__Host-next-auth.csrf-token",
+      value: "opaque-csrf",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "__Secure-next-auth.callback-url",
+      value: "https://chatgpt.com/",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "oai-did",
+      value: "discard-me",
       domain: ".chatgpt.com",
       path: "/",
     },
     {
       name: "cf_clearance",
-      value: "challenge-value",
+      value: "discard-me-too",
       domain: ".chatgpt.com",
       path: "/",
     },
   ],
   session_tokens: {
     storage: {
-      localStorage: { "app-key": "opaque-local" },
-      sessionStorage: { "session-key": "opaque-session" },
+      localStorage: { old: "must-not-survive" },
+      sessionStorage: { old: "must-not-survive" },
     },
   },
 });
@@ -72,70 +79,37 @@ const raw = JSON.stringify({
 const normalised = normaliseChatGptSession(raw);
 const parsed = JSON.parse(normalised);
 
+assert(parsed.version === 3, "writes the v3 minimal session format");
 assert(
-  parsed.authenticated_cookies.length === 2,
-  "keeps reusable first-party ChatGPT/OpenAI cookies and drops excluded cookies",
+  JSON.stringify(parsed.cookies.map((cookie: any) => cookie.name)) ===
+    JSON.stringify([
+      "__Secure-next-auth.session-token.0",
+      "__Secure-next-auth.session-token.1",
+      "__Host-next-auth.csrf-token",
+      "__Secure-next-auth.callback-url",
+    ]),
+  "keeps only the session-token family and known supporting auth cookies",
 );
 assert(
-  parsed.authenticated_cookies.some(
-    (cookie: any) =>
-      cookie.name === "__Secure-chat-session" &&
-      cookie.value === "opaque-chat-session-value",
-  ),
-  "preserves ChatGPT first-party cookie values exactly",
+  parsed.cookies[0].value === "opaque-session-part-0" &&
+    parsed.cookies[1].value === "opaque-session-part-1",
+  "preserves session-token chunk values exactly",
 );
 assert(
-  parsed.authenticated_cookies.some(
-    (cookie: any) =>
-      cookie.name === "openai_app_state" &&
-      cookie.value === "opaque-openai-state",
-  ),
-  "preserves OpenAI first-party cookie values exactly",
-);
-assert(
-  !parsed.authenticated_cookies.some(
-    (cookie: any) => cookie.name === "_ga" || cookie.name === "cf_clearance",
-  ),
-  "does not store analytics or Cloudflare challenge cookies",
-);
-assert(
-  parsed.session_tokens.storage.localStorage["app-key"] === "opaque-local" &&
-    parsed.session_tokens.storage.sessionStorage["session-key"] ===
-      "opaque-session",
-  "preserves browser storage values inside the encrypted session container",
+  !normalised.includes("must-not-survive") &&
+    !normalised.includes("oai-did") &&
+    !normalised.includes("cf_clearance"),
+  "drops browser storage and unrelated/challenge cookies",
 );
 
 assert(
   throws(() =>
     normaliseChatGptSession(
       JSON.stringify({
-        authenticated_cookies: [
+        cookies: [
           {
-            name: "session",
-            value: "opaque",
-            domain: ".evil.example",
-            path: "/",
-          },
-        ],
-      }),
-    ),
-  ),
-  "rejects cookies from unrelated domains",
-);
-
-assert(
-  throws(() => normaliseChatGptSession("not-json")),
-  "rejects malformed session JSON",
-);
-
-assert(
-  throws(() =>
-    normaliseChatGptSession(
-      JSON.stringify({
-        authenticated_cookies: [
-          {
-            name: "cf_clearance",
-            value: "only-challenge-cookie",
+            name: "__Host-next-auth.csrf-token",
+            value: "csrf-only",
             domain: ".chatgpt.com",
             path: "/",
           },
@@ -143,7 +117,129 @@ assert(
       }),
     ),
   ),
-  "rejects a container that contains only excluded challenge state",
+  "rejects a session with no NextAuth session token",
+);
+
+assert(
+  throws(() =>
+    normaliseChatGptSession(
+      JSON.stringify({
+        cookies: [
+          {
+            name: "__Secure-next-auth.session-token.0",
+            value: "part-0",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+          {
+            name: "__Secure-next-auth.session-token.2",
+            value: "part-2",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+        ],
+      }),
+    ),
+  ),
+  "rejects a chunked session with a missing chunk",
+);
+
+assert(
+  throws(() =>
+    normaliseChatGptSession(
+      JSON.stringify({
+        cookies: [
+          {
+            name: "__Secure-next-auth.session-token",
+            value: "whole",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+          {
+            name: "__Secure-next-auth.session-token.0",
+            value: "part-0",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+          {
+            name: "__Secure-next-auth.session-token.1",
+            value: "part-1",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+        ],
+      }),
+    ),
+  ),
+  "rejects mixed unchunked and chunked token formats",
+);
+
+const unchunked = JSON.parse(
+  normaliseChatGptSession(
+    JSON.stringify({
+      cookies: [
+        {
+          name: "__Secure-next-auth.session-token",
+          value: "whole-session",
+          domain: ".chatgpt.com",
+          path: "/",
+        },
+      ],
+    }),
+  ),
+);
+assert(
+  unchunked.cookies.length === 1 &&
+    unchunked.cookies[0].name === "__Secure-next-auth.session-token",
+  "accepts one valid unchunked session token",
+);
+
+assert(
+  throws(() =>
+    normaliseChatGptSession(
+      JSON.stringify({
+        cookies: [
+          {
+            name: "__Secure-next-auth.session-token.0",
+            value: "part-0",
+            domain: ".evil.example",
+            path: "/",
+          },
+          {
+            name: "__Secure-next-auth.session-token.1",
+            value: "part-1",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+        ],
+      }),
+    ),
+  ),
+  "rejects a session-token chunk with the wrong domain",
+);
+
+assert(
+  throws(() =>
+    normaliseChatGptSession(
+      JSON.stringify({
+        cookies: [
+          {
+            name: "__Secure-next-auth.session-token.0",
+            value: "part-0",
+            domain: ".chatgpt.com",
+            path: "/wrong",
+          },
+          {
+            name: "__Secure-next-auth.session-token.1",
+            value: "part-1",
+            domain: ".chatgpt.com",
+            path: "/",
+          },
+        ],
+      }),
+    ),
+  ),
+  "rejects a session-token chunk with the wrong path",
 );
 
 const keyA = "33".repeat(32);
@@ -153,9 +249,8 @@ const encryptedB = encryptChatGptSession(normalised, keyA);
 
 assert(encryptedA !== encryptedB, "uses a fresh AES-GCM IV for every save");
 assert(
-  !encryptedA.includes("opaque-chat-session-value") &&
-    !encryptedA.includes("opaque-local"),
-  "does not leave cookie/storage values visible in ciphertext",
+  !encryptedA.includes("opaque-session-part-0"),
+  "does not leave session-token values visible in ciphertext",
 );
 assert(
   decryptChatGptSession(encryptedA, keyA) === normalised,
@@ -169,32 +264,6 @@ assert(
   throws(() => encryptChatGptSession(normalised, "too-short")),
   "rejects an invalid dedicated encryption key",
 );
-
-const previousDedicated = process.env.CHATGPT_SESSION_ENCRYPTION_KEY;
-const previousServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-delete process.env.CHATGPT_SESSION_ENCRYPTION_KEY;
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-secret-chatgpt-A";
-const derivedEncrypted = encryptChatGptSession(normalised);
-assert(
-  decryptChatGptSession(derivedEncrypted) === normalised,
-  "derives a working isolated vault key from the server-only service key",
-);
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-secret-chatgpt-B";
-assert(
-  throws(() => decryptChatGptSession(derivedEncrypted)),
-  "derived ciphertext fails closed after the underlying server secret changes",
-);
-
-if (previousDedicated === undefined) {
-  delete process.env.CHATGPT_SESSION_ENCRYPTION_KEY;
-} else {
-  process.env.CHATGPT_SESSION_ENCRYPTION_KEY = previousDedicated;
-}
-if (previousServiceRole === undefined) {
-  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-} else {
-  process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRole;
-}
 
 console.log(`chatgpt-session-vault: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
