@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile, rename, open, unlink, chmod } from 'node:fs
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { Phase4PolicyError, classifyGatewayRequest, assertRequestSize } from '../chatgpt-phase4/transport.mjs';
+import { Phase5SessionError, proxyWithSingleChatGptSession } from '../chatgpt-phase5/session-adapter.mjs';
 export const ORIGIN = 'https://chatgpt.topratedseotools.com';
 const DASHBOARD_ORIGINS = new Set(['https://topratedseotools.com', 'https://www.topratedseotools.com']);
 const STATE = process.env.CHATGPT_PHASE3_STATE_DIR || '/home/ubuntu/state/chatgpt-phase3';
@@ -231,14 +232,16 @@ export async function handle(req) {
       if (req.method!=='GET') fail('invalid_ticket');
       return await redeem(req);
     }
-    await sessionGate(req);
+    const gatewaySession=await sessionGate(req);
     assertRequestSize(req);
-    classifyGatewayRequest(req);
-    fail('missing_chatgpt_session_source',503);
+    const route=classifyGatewayRequest(req);
+    if(route.kind==='websocket') fail('missing_chatgpt_session_source',503);
+    return await proxyWithSingleChatGptSession(req,route,gatewaySession);
   } catch(e) {
     const phase4=e instanceof Phase4PolicyError;
-    const code=e instanceof GateError ? e.code : phase4 ? e.code : 'local_gateway_failure';
-    const status=e instanceof GateError ? e.status : phase4 ? e.status : 503;
+    const phase5=e instanceof Phase5SessionError;
+    const code=e instanceof GateError ? e.code : phase4 ? e.code : phase5 ? e.code : 'local_gateway_failure';
+    const status=e instanceof GateError ? e.status : phase4 ? e.status : phase5 ? e.status : 503;
     console.info(JSON.stringify({component:'chatgpt_gateway',category:code,request_id:requestId}));
     const h=headers(req.headers.get('origin'));h.set('X-Request-ID',requestId);
     const msg=code==='missing_chatgpt_session_source' ? 'Your secure ChatGPT gateway access is ready. The ChatGPT connection is not configured yet.' :
@@ -247,6 +250,9 @@ export async function handle(req) {
       code==='request_too_large' ? 'This ChatGPT request is too large.' :
       code==='asset_host_blocked' || code==='invalid_gateway_origin' ? 'This ChatGPT route is not allowed.' :
       code==='unsupported_upgrade' ? 'This ChatGPT connection type is not available.' :
+      code==='chatgpt_account_mismatch' ? 'ChatGPT account assignment could not be verified.' :
+      code==='chatgpt_session_invalid' || code==='chatgpt_session_expired' || code==='upstream_auth_rejected' || code==='upstream_edge_challenge' ? 'ChatGPT is temporarily unavailable. Admin may need to refresh the authorised session.' :
+      code==='upstream_network_error' || code==='upstream_external_redirect' ? 'ChatGPT is temporarily unavailable. Please try again later.' :
       status===401 ? 'Open ChatGPT from your TopRatedSEOTools account.' :
       status===503 ? 'ChatGPT is temporarily unavailable. Please try again later.' :
       'ChatGPT access could not be verified. Launch again from your TopRatedSEOTools account.';
