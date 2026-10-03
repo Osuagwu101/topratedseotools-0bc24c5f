@@ -24,8 +24,11 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role";
 
 const rawLegacy = JSON.stringify({
   authenticated_cookies: [
-    { name: "auth_a", value: "opaque-a", domain: ".chatgpt.com", path: "/" },
-    { name: "auth_b", value: "opaque-b", domain: ".chatgpt.com", path: "/" },
+    { name: "__Secure-next-auth.session-token.0", value: "opaque-0", domain: ".chatgpt.com", path: "/" },
+    { name: "__Secure-next-auth.session-token.1", value: "opaque-1", domain: ".chatgpt.com", path: "/" },
+    { name: "__Host-next-auth.csrf-token", value: "csrf-opaque", domain: ".chatgpt.com", path: "/" },
+    { name: "__Secure-next-auth.callback-url", value: "https://chatgpt.com/", domain: ".chatgpt.com", path: "/" },
+    { name: "oai-did", value: "functional-junk", domain: ".chatgpt.com", path: "/" },
     { name: "_ga", value: "analytics", domain: ".chatgpt.com", path: "/" },
     { name: "cf_clearance", value: "challenge", domain: ".chatgpt.com", path: "/" },
   ],
@@ -40,74 +43,101 @@ const rawLegacy = JSON.stringify({
 test("normalises legacy bundle to minimal cookie-only v3", () => {
   const parsed = JSON.parse(normalisePhase5Session(rawLegacy));
   assert.equal(parsed.version, 3);
-  assert.deepEqual(parsed.cookies.map(c => c.name), ["auth_a", "auth_b"]);
+  assert.deepEqual(parsed.cookies.map(c => c.name), [
+    "__Secure-next-auth.session-token.0",
+    "__Secure-next-auth.session-token.1",
+    "__Host-next-auth.csrf-token",
+    "__Secure-next-auth.callback-url",
+  ]);
   assert.equal("session_tokens" in parsed, false);
   assert.equal(JSON.stringify(parsed).includes("must-not-survive"), false);
 });
 
 test("preserves opaque values exactly", () => {
   const parsed = JSON.parse(normalisePhase5Session(rawLegacy));
-  assert.equal(parsed.cookies[0].value, "opaque-a");
-  assert.equal(parsed.cookies[1].value, "opaque-b");
+  assert.equal(parsed.cookies[0].value, "opaque-0");
+  assert.equal(parsed.cookies[1].value, "opaque-1");
 });
 
-test("rejects duplicate names and unrelated domains", () => {
+test("rejects duplicate names and wrong auth-cookie scope", () => {
   assert.throws(
     () => normalisePhase5Session(JSON.stringify({cookies:[
-      {name:"dup",value:"a",domain:".chatgpt.com",path:"/"},
-      {name:"dup",value:"b",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.0",value:"a",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.0",value:"b",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.1",value:"c",domain:".chatgpt.com",path:"/"},
     ]})),
     e => e instanceof Phase5SessionError,
   );
   assert.throws(
     () => normalisePhase5Session(JSON.stringify({cookies:[
-      {name:"auth",value:"a",domain:".evil.example",path:"/"},
+      {name:"__Secure-next-auth.session-token.0",value:"a",domain:".evil.example",path:"/"},
+      {name:"__Secure-next-auth.session-token.1",value:"b",domain:".chatgpt.com",path:"/"},
     ]})),
-    e => e instanceof Phase5SessionError,
+    e => e instanceof Phase5SessionError && e.code==="chatgpt_session_cookie_scope_invalid",
   );
 });
 
-test("rejects challenge-only state", () => {
+test("requires a real session token and complete contiguous chunks", () => {
   assert.throws(
     () => normalisePhase5Session(JSON.stringify({cookies:[
       {name:"cf_clearance",value:"challenge",domain:".chatgpt.com",path:"/"},
     ]})),
-    e => e instanceof Phase5SessionError,
+    e => e instanceof Phase5SessionError && e.code==="chatgpt_session_token_missing",
   );
+  assert.throws(
+    () => normalisePhase5Session(JSON.stringify({cookies:[
+      {name:"__Secure-next-auth.session-token.0",value:"a",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.2",value:"c",domain:".chatgpt.com",path:"/"},
+    ]})),
+    e => e instanceof Phase5SessionError && e.code==="chatgpt_session_token_incomplete",
+  );
+  assert.throws(
+    () => normalisePhase5Session(JSON.stringify({cookies:[
+      {name:"__Secure-next-auth.session-token",value:"whole",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.0",value:"a",domain:".chatgpt.com",path:"/"},
+      {name:"__Secure-next-auth.session-token.1",value:"b",domain:".chatgpt.com",path:"/"},
+    ]})),
+    e => e instanceof Phase5SessionError && e.code==="chatgpt_session_token_ambiguous",
+  );
+});
+
+test("accepts one unchunked session token", () => {
+  const parsed=JSON.parse(normalisePhase5Session(JSON.stringify({cookies:[
+    {name:"__Secure-next-auth.session-token",value:"whole",domain:".chatgpt.com",path:"/"},
+  ]})));
+  assert.deepEqual(parsed.cookies.map(c=>c.name),["__Secure-next-auth.session-token"]);
 });
 
 test("v3 encryption round-trips without exposing plaintext", () => {
   const normalised = normalisePhase5Session(rawLegacy);
   const encrypted = encryptPhase5State(normalised);
-  assert.equal(encrypted.includes("opaque-a"), false);
+  assert.equal(encrypted.includes("opaque-0"), false);
   assert.equal(normalisePhase5Session(decryptPhase5Envelope(encrypted)), normalised);
 });
 
-test("cookie header respects domain and path", () => {
-  const state = JSON.parse(normalisePhase5Session(JSON.stringify({cookies:[
-    {name:"root",value:"r",domain:".chatgpt.com",path:"/"},
-    {name:"api",value:"a",domain:".chatgpt.com",path:"/backend-api"},
-    {name:"openai",value:"o",domain:".openai.com",path:"/"},
-  ]})));
+test("cookie header carries the complete approved auth structure", () => {
+  const state = JSON.parse(normalisePhase5Session(rawLegacy));
   const h = buildPhase5CookieHeader(state,"https://chatgpt.com/backend-api/models");
-  assert.match(h,/root=r/);
-  assert.match(h,/api=a/);
-  assert.doesNotMatch(h,/openai=o/);
+  assert.match(h,/__Secure-next-auth\.session-token\.0=opaque-0/);
+  assert.match(h,/__Secure-next-auth\.session-token\.1=opaque-1/);
+  assert.match(h,/__Host-next-auth\.csrf-token=csrf-opaque/);
+  assert.doesNotMatch(h,/oai-did=/);
+  assert.doesNotMatch(h,/cf_clearance=/);
 });
 
 test("rotation updates only already-approved names", () => {
   const state = JSON.parse(normalisePhase5Session(rawLegacy));
   const updates = extractPhase5Rotations(
-    ["auth_a=rotated; Path=/; Secure","new_cookie=ignore; Path=/"],
+    ["__Secure-next-auth.session-token.0=rotated; Path=/; Secure","new_cookie=ignore; Path=/"],
     state.cookies.map(c=>c.name),
   );
-  assert.deepEqual(updates,{auth_a:"rotated"});
+  assert.deepEqual(updates,{"__Secure-next-auth.session-token.0":"rotated"});
   const rotated = applyPhase5Rotations(state,[
-    "auth_a=rotated; Path=/; Secure",
+    "__Secure-next-auth.session-token.0=rotated; Path=/; Secure",
     "new_cookie=ignore; Path=/",
   ]);
   assert.equal(rotated.changed,true);
-  assert.equal(rotated.state.cookies.find(c=>c.name==="auth_a").value,"rotated");
+  assert.equal(rotated.state.cookies.find(c=>c.name==="__Secure-next-auth.session-token.0").value,"rotated");
   assert.equal(rotated.state.cookies.some(c=>c.name==="new_cookie"),false);
 });
 
@@ -147,9 +177,9 @@ test("single-account loader auto-migrates legacy v2 row", async () => {
   try{
     const loaded=await loadSingleAccountSession("account-1");
     assert.equal(loaded.state.version,3);
-    assert.equal(loaded.state.cookies.length,2);
+    assert.equal(loaded.state.cookies.length,4);
     assert.equal(patchBody.session_format,CHATGPT_SESSION_FORMAT);
-    assert.equal(patchBody.encrypted_payload.includes("opaque-a"),false);
+    assert.equal(patchBody.encrypted_payload.includes("opaque-0"),false);
   } finally { global.fetch=originalFetch; }
 });
 
@@ -193,7 +223,7 @@ test("proxy keeps upstream auth server-side and strips Set-Cookie", async () => 
         status:200,
         headers:{
           "content-type":"application/json",
-          "set-cookie":"auth_a=rotated; Path=/; Secure; HttpOnly",
+          "set-cookie":"__Secure-next-auth.session-token.0=rotated; Path=/; Secure; HttpOnly",
         },
       });
     }
@@ -213,8 +243,8 @@ test("proxy keeps upstream auth server-side and strips Set-Cookie", async () => 
       entitlement:{account:"account-1"},
     });
     assert.equal(response.status,200);
-    assert.match(seen.cookie,/auth_a=opaque-a/);
-    assert.match(seen.cookie,/auth_b=opaque-b/);
+    assert.match(seen.cookie,/__Secure-next-auth\.session-token\.0=opaque-0/);
+    assert.match(seen.cookie,/__Secure-next-auth\.session-token\.1=opaque-1/);
     assert.equal(response.headers.get("set-cookie"),null);
     assert.equal((await response.text()).includes("https://chatgpt.com"),false);
   } finally { global.fetch=originalFetch; }
