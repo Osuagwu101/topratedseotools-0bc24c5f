@@ -426,6 +426,16 @@ export async function proxyWithSingleChatGptSession(request, route, gatewaySessi
     ? ""
     : buildPhase5CookieHeader(state, route.target.toString());
 
+  if (!route.secondaryHost) {
+    console.info(JSON.stringify({
+      component: "chatgpt_phase5_auth_meta",
+      session_format: row.session_format,
+      cookie_names: state.cookies.map(cookie => cookie.name),
+      target_host: route.target.hostname,
+      target_path: route.target.pathname,
+    }));
+  }
+
   if (!route.secondaryHost && !cookieHeader) fail("chatgpt_session_expired");
 
   const headers = sanitizeUpstreamHeaders(request, route.targetOrigin);
@@ -452,6 +462,13 @@ export async function proxyWithSingleChatGptSession(request, route, gatewaySessi
   }
 
   if (!route.secondaryHost) {
+    console.info(JSON.stringify({
+      component: "chatgpt_phase5_upstream_meta",
+      status: upstream.status,
+      target_host: route.target.hostname,
+      target_path: route.target.pathname,
+      content_type: upstream.headers.get("content-type") || null,
+    }));
     await persistRotations(row, state, upstream);
     if (upstream.status === 401) fail("upstream_auth_rejected");
     if (upstream.status === 403) {
