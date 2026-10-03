@@ -1,10 +1,12 @@
 {
   "manifest_version": 3,
   "name": "TopRatedSEOtools ChatGPT Session Checker",
-  "version": "0.1.0",
-  "description": "Admin-only checker for ChatGPT cookie-name/session structure. Never reads or sends cookie values.",
+  "version": "0.2.0",
+  "description": "Admin-only checker for ChatGPT session structure and cookie names actually attached to requests. Never stores or sends cookie values.",
   "permissions": [
-    "cookies"
+    "cookies",
+    "storage",
+    "webRequest"
   ],
   "host_permissions": [
     "https://chatgpt.com/*"
@@ -12,5 +14,8 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "Check ChatGPT session"
+  },
+  "background": {
+    "service_worker": "background.js"
   }
 }
