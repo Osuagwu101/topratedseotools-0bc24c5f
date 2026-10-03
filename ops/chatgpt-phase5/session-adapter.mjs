@@ -22,6 +22,10 @@ const SAFE_CODES = new Set([
   "missing_chatgpt_session_source",
   "chatgpt_account_mismatch",
   "chatgpt_session_invalid",
+  "chatgpt_session_token_missing",
+  "chatgpt_session_token_incomplete",
+  "chatgpt_session_token_ambiguous",
+  "chatgpt_session_cookie_scope_invalid",
   "chatgpt_session_expired",
   "upstream_network_error",
   "upstream_auth_rejected",
@@ -40,25 +44,51 @@ export class Phase5SessionError extends Error {
 
 const fail = (code, status) => { throw new Phase5SessionError(code, status); };
 
-function ignoredCookieName(name) {
-  const lower = name.toLowerCase();
+export const CHATGPT_SESSION_COOKIE = "__Secure-next-auth.session-token";
+export const CHATGPT_SESSION_CHUNK_PREFIX = CHATGPT_SESSION_COOKIE + ".";
+export const CHATGPT_SUPPORTING_COOKIE_NAMES = [
+  "__Host-next-auth.csrf-token",
+  "__Secure-next-auth.callback-url",
+];
+
+function isChatGptSessionDomain(raw) {
+  const host = String(raw || "").trim().toLowerCase().replace(/^\./, "");
+  return host === "chatgpt.com" || host.endsWith(".chatgpt.com");
+}
+
+function isAllowedAuthCookieName(name) {
   return (
-    /^(_ga|_gid|_gat|_utm)/.test(lower) ||
-    [
-      "_fbp","_fbc","_clck","_clsk","_uetmsclkid","_uetsid","_uetvid","_ttp",
-      "cf_clearance","__cf_bm","_cfuvid",
-    ].includes(lower) ||
-    lower.startsWith("intercom-") ||
-    lower.startsWith("hubspot") ||
-    lower.startsWith("ajs_") ||
-    lower.startsWith("amplitude")
+    name === CHATGPT_SESSION_COOKIE ||
+    /^__Secure-next-auth\.session-token\.\d+$/.test(name) ||
+    CHATGPT_SUPPORTING_COOKIE_NAMES.includes(name)
   );
 }
 
-function allowedDomain(raw) {
-  const host = String(raw || "").trim().toLowerCase().replace(/^\./, "");
-  return host === "chatgpt.com" || host.endsWith(".chatgpt.com") ||
-    host === "openai.com" || host.endsWith(".openai.com");
+function validateSessionTokenStructure(cookies) {
+  const byName = new Map(cookies.map(cookie => [cookie.name, cookie]));
+  const unchunked = byName.get(CHATGPT_SESSION_COOKIE);
+  const chunks = cookies
+    .map(cookie => {
+      const match = cookie.name.match(/^__Secure-next-auth\.session-token\.(\d+)$/);
+      return match ? { index: Number(match[1]), cookie } : null;
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.index-b.index);
+
+  if (unchunked && chunks.length) fail("chatgpt_session_token_ambiguous");
+
+  if (!unchunked && !chunks.length) fail("chatgpt_session_token_missing");
+
+  if (chunks.length) {
+    if (chunks.length < 2 || chunks[0].index !== 0) {
+      fail("chatgpt_session_token_incomplete");
+    }
+    for (let index=0; index<chunks.length; index++) {
+      if (chunks[index].index !== index) {
+        fail("chatgpt_session_token_incomplete");
+      }
+    }
+  }
 }
 
 export function normalisePhase5Session(raw) {
@@ -69,33 +99,30 @@ export function normalisePhase5Session(raw) {
     fail("chatgpt_session_invalid");
   }
 
-  const source = parsed;
-  const input = source.cookies ?? source.authenticated_cookies;
+  const input = parsed.cookies ?? parsed.authenticated_cookies;
   if (!Array.isArray(input) || input.length < 1 || input.length > 48) {
     fail("chatgpt_session_invalid");
   }
 
-  const cookies = [];
+  const kept = [];
   const names = new Set();
+
   for (const item of input) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      fail("chatgpt_session_invalid");
-    }
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+
     const name = typeof item.name === "string" ? item.name.trim() : "";
+    if (!isAllowedAuthCookieName(name)) continue;
+
     const value = typeof item.value === "string" ? item.value : "";
     const domain = typeof item.domain === "string" ? item.domain.trim() : "";
     const path = typeof item.path === "string" && item.path.startsWith("/") ? item.path : "/";
 
-    if (
-      !name ||
-      !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) ||
-      !value ||
-      value.length > 128000 ||
-      /[\r\n;]/.test(value) ||
-      !allowedDomain(domain)
-    ) fail("chatgpt_session_invalid");
-
-    if (ignoredCookieName(name)) continue;
+    if (!value || value.length > 128000 || /[\r\n;]/.test(value)) {
+      fail("chatgpt_session_invalid");
+    }
+    if (!isChatGptSessionDomain(domain) || path !== "/") {
+      fail("chatgpt_session_cookie_scope_invalid");
+    }
     if (names.has(name)) fail("chatgpt_session_invalid");
     names.add(name);
 
@@ -103,11 +130,29 @@ export function normalisePhase5Session(raw) {
     if (typeof item.expires === "number" && Number.isFinite(item.expires)) {
       cookie.expires = item.expires;
     }
-    cookies.push(cookie);
+    kept.push(cookie);
   }
 
-  if (!cookies.length || cookies.length > 16) fail("chatgpt_session_invalid");
-  return JSON.stringify({ version: 3, cookies });
+  validateSessionTokenStructure(kept);
+
+  const sessionCookies = kept
+    .filter(cookie =>
+      cookie.name === CHATGPT_SESSION_COOKIE ||
+      cookie.name.startsWith(CHATGPT_SESSION_CHUNK_PREFIX)
+    )
+    .sort((a,b) => {
+      if (a.name === CHATGPT_SESSION_COOKIE) return -1;
+      if (b.name === CHATGPT_SESSION_COOKIE) return 1;
+      return Number(a.name.slice(CHATGPT_SESSION_CHUNK_PREFIX.length)) -
+        Number(b.name.slice(CHATGPT_SESSION_CHUNK_PREFIX.length));
+    });
+
+  const supportingCookies = CHATGPT_SUPPORTING_COOKIE_NAMES.flatMap(name => {
+    const cookie = kept.find(candidate => candidate.name === name);
+    return cookie ? [cookie] : [];
+  });
+
+  return JSON.stringify({ version: 3, cookies: [...sessionCookies, ...supportingCookies] });
 }
 
 function keyFromEnvironment() {
