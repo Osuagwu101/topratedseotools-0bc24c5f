@@ -251,6 +251,10 @@ export async function handle(req) {
       code==='asset_host_blocked' || code==='invalid_gateway_origin' ? 'This ChatGPT route is not allowed.' :
       code==='unsupported_upgrade' ? 'This ChatGPT connection type is not available.' :
       code==='chatgpt_account_mismatch' ? 'ChatGPT account assignment could not be verified.' :
+      code==='chatgpt_session_token_missing' ? 'The stored ChatGPT session is missing its session token. Admin needs to refresh the authorised session.' :
+      code==='chatgpt_session_token_incomplete' ? 'The stored ChatGPT session-token chunks are incomplete. Admin needs to save the complete session.' :
+      code==='chatgpt_session_token_ambiguous' ? 'The stored ChatGPT session contains conflicting token formats. Admin needs to refresh the authorised session.' :
+      code==='chatgpt_session_cookie_scope_invalid' ? 'The stored ChatGPT auth cookie scope is invalid. Admin needs to refresh the authorised session.' :
       code==='chatgpt_session_invalid' || code==='chatgpt_session_expired' || code==='upstream_auth_rejected' || code==='upstream_edge_challenge' ? 'ChatGPT is temporarily unavailable. Admin may need to refresh the authorised session.' :
       code==='upstream_network_error' || code==='upstream_external_redirect' ? 'ChatGPT is temporarily unavailable. Please try again later.' :
       status===401 ? 'Open ChatGPT from your TopRatedSEOTools account.' :
