@@ -23,12 +23,21 @@
 
     <section class="card">
       <h2>Observed authenticated requests</h2>
-      <div id="observed" class="muted">No matching requests observed yet. Refresh chatgpt.com, then check again.</div>
+      <div id="observed" class="muted">No matching requests observed yet.</div>
+    </section>
+
+    <section class="card">
+      <h2>Candidate manual replacement set</h2>
+      <div id="candidate" class="muted">Observe ChatGPT first.</div>
     </section>
 
     <div class="actions">
-      <button id="refresh">Check again</button>
-      <button id="open-admin" class="secondary">Open Admin</button>
+      <button id="observe">Observe now</button>
+      <button id="refresh" class="secondary">Check again</button>
+    </div>
+    <div class="actions">
+      <button id="configure-admin">Configure Admin</button>
+      <button id="clear" class="secondary">Clear observations</button>
     </div>
   </main>
   <script src="popup.js"></script>
