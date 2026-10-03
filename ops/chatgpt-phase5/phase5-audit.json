@@ -1,0 +1,62 @@
+{
+  "phase": "ChatGPT Phase 5",
+  "date": "2026-10-03",
+  "architecture": "single_account",
+  "status": "deployed_pending_real_writer_acceptance",
+  "repository_tests": {
+    "combined_phase3_phase4_phase5": {
+      "passed": 34,
+      "failed": 0
+    },
+    "production_build": "passed",
+    "typescript_repo_wide": "blocked_by_pre_existing_supabase_generated_type_drift",
+    "changed_files_named_in_typescript_errors": false,
+    "targeted_lint": "functional_build_passed; existing Prettier debt remains in large admin route"
+  },
+  "live_database": {
+    "chatgpt_accounts": 1,
+    "active_grants_on_single_account": 3,
+    "active_paid_order_users": 3,
+    "grant_order_user_overlap": 3,
+    "active_order_assignments": 0,
+    "vault_status": "stored",
+    "vault_format_before_first_real_phase5_use": "chatgpt_session_state_json_v2",
+    "migration_target": "chatgpt_minimal_cookie_json_v3"
+  },
+  "live_deployment": {
+    "chatgpt_direct_status": 401,
+    "stealthwriter_status": 401,
+    "main_site_status": 200,
+    "chatgpt_pid": 267564,
+    "stealthwriter_pid_unchanged": 246050,
+    "main_site_pid_unchanged": 261770,
+    "chatgpt_port": "127.0.0.1:3006",
+    "stealthwriter_port": "127.0.0.1:3000",
+    "main_site_port": "127.0.0.1:3005",
+    "rollback_backup": "/home/ubuntu/backups/chatgpt-phase5-20261003",
+    "session_adapter_present": true
+  },
+  "secret_audit": {
+    "raw_ticket_log_matches": 0,
+    "bearer_log_matches": 0,
+    "cookie_header_log_matches": 0,
+    "upstream_set_cookie_forwarded_to_writer": false
+  },
+  "temporary_acceptance_fixture": {
+    "created": true,
+    "request_execution": "blocked_by_remote_safety_boundary_before_run",
+    "temporary_device_removed": true,
+    "temporary_gateway_session_removed": true
+  },
+  "known_non_phase5_issue": {
+    "name": "assign_tool_account_for_order database function",
+    "detail": "Existing global function currently fails in PostgreSQL because its account-selection SELECT combines FOR UPDATE with an aggregate LATERAL query. It was not modified during Phase 5.",
+    "impact_on_current_chatgpt_users": "none for the three current paid users because the same three users already have active grants pointing to the single ChatGPT account"
+  },
+  "final_acceptance_needed": [
+    "Launch ChatGPT normally from one eligible TopRated writer account",
+    "Verify the stored vault format migrates to chatgpt_minimal_cookie_json_v3",
+    "Verify upstream homepage/native UI response or capture the controlled upstream auth/challenge category",
+    "Verify no upstream auth value is exposed to the writer"
+  ]
+}
