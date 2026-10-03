@@ -57,7 +57,37 @@ const raw = JSON.stringify({
     },
     {
       name: "oai-did",
-      value: "discard-me",
+      value: "supporting-device",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "_account",
+      value: "supporting-account",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "_puid",
+      value: "supporting-puid",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "_uasid",
+      value: "supporting-uasid",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "_umsid",
+      value: "supporting-umsid",
+      domain: ".chatgpt.com",
+      path: "/",
+    },
+    {
+      name: "oai-sc",
+      value: "supporting-security",
       domain: ".chatgpt.com",
       path: "/",
     },
@@ -87,6 +117,12 @@ assert(
       "__Secure-next-auth.session-token.1",
       "__Host-next-auth.csrf-token",
       "__Secure-next-auth.callback-url",
+      "_account",
+      "_puid",
+      "_uasid",
+      "_umsid",
+      "oai-did",
+      "oai-sc",
     ]),
   "keeps only the session-token family and known supporting auth cookies",
 );
@@ -95,11 +131,28 @@ assert(
     parsed.cookies[1].value === "opaque-session-part-1",
   "preserves session-token chunk values exactly",
 );
+
+const simpleMap = JSON.parse(
+  normaliseChatGptSession(
+    JSON.stringify({
+      "__Secure-next-auth.session-token.0": "simple-part-0",
+      "__Secure-next-auth.session-token.1": "simple-part-1",
+      "_account": "simple-account",
+      "oai-did": "simple-device",
+      "oai-sc": "simple-security",
+    }),
+  ),
+);
+assert(
+  simpleMap.cookies.some((cookie: any) => cookie.name === "_account") &&
+    simpleMap.cookies.some((cookie: any) => cookie.name === "oai-did"),
+  "accepts approved supporting cookies in the simple Admin cookie map",
+);
 assert(
   !normalised.includes("must-not-survive") &&
-    !normalised.includes("oai-did") &&
+    normalised.includes("oai-did") &&
     !normalised.includes("cf_clearance"),
-  "drops browser storage and unrelated/challenge cookies",
+  "keeps approved supporting state while dropping browser storage and challenge cookies",
 );
 
 assert(
