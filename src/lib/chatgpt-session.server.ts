@@ -1,9 +1,12 @@
 /*
- * Server-only primitives for the ChatGPT authorised-session vault.
+ * ChatGPT single-account authorised-session vault.
  *
- * Phase 2 only: validate the container/domain boundaries, preserve opaque
- * first-party session state, encrypt at rest, and never expose decrypted
- * values to a client. This module does not provide a writer launch path.
+ * Phase 5 follows the working StealthWriter principle:
+ * known reusable first-party auth state -> preserve opaque values exactly ->
+ * encrypt server-side -> never expose the values to writers.
+ *
+ * Browser localStorage/sessionStorage is deliberately not part of the v3
+ * format. Legacy v2 containers can be normalised into v3 server-side.
  */
 import {
   createCipheriv,
@@ -12,12 +15,16 @@ import {
   randomBytes,
 } from "node:crypto";
 
-const AAD = Buffer.from(
+export const CHATGPT_SESSION_FORMAT = "chatgpt_minimal_cookie_json_v3";
+
+const AAD_V3 = Buffer.from(
+  "topratedseotools:chatgpt:minimal_cookie_json:v3",
+  "utf8",
+);
+const LEGACY_AAD_V1 = Buffer.from(
   "topratedseotools:chatgpt:session_state_json:v1",
   "utf8",
 );
-
-type JsonMap = Record<string, string>;
 
 export type ChatGptStoredCookie = {
   name: string;
@@ -25,20 +32,11 @@ export type ChatGptStoredCookie = {
   domain: string;
   path: string;
   expires?: number;
-  secure?: boolean;
-  httpOnly?: boolean;
-  sameSite?: string;
 };
 
 export type ChatGptSessionState = {
-  version: 2;
+  version: 3;
   cookies: ChatGptStoredCookie[];
-  session_tokens: {
-    storage: {
-      localStorage: JsonMap;
-      sessionStorage: JsonMap;
-    };
-  };
 };
 
 function isChatGptCookieDomain(raw: string): boolean {
@@ -49,32 +47,6 @@ function isChatGptCookieDomain(raw: string): boolean {
     host === "openai.com" ||
     host.endsWith(".openai.com")
   );
-}
-
-function cleanStorageMap(value: unknown, label: string): JsonMap {
-  if (value == null) return {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be a JSON object of string values.`);
-  }
-
-  const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length > 300) {
-    throw new Error(`${label} contains too many entries.`);
-  }
-
-  const out: JsonMap = {};
-  for (const [key, item] of entries) {
-    if (
-      !key ||
-      key.length > 512 ||
-      typeof item !== "string" ||
-      item.length > 128000
-    ) {
-      throw new Error(`Invalid ${label} entry.`);
-    }
-    out[key] = item;
-  }
-  return out;
 }
 
 function isIgnoredCookieName(name: string) {
@@ -104,14 +76,16 @@ function isIgnoredCookieName(name: string) {
 function cleanCookies(value: unknown): ChatGptStoredCookie[] {
   if (!Array.isArray(value) || value.length < 1) {
     throw new Error(
-      "ChatGPT session JSON must include at least one first-party authenticated cookie.",
+      "ChatGPT session JSON must include the reusable first-party authentication cookies.",
     );
   }
-  if (value.length > 150) {
+  if (value.length > 48) {
     throw new Error("ChatGPT session data contains too many cookies.");
   }
 
   const cookies: ChatGptStoredCookie[] = [];
+  const names = new Set<string>();
+
   for (const raw of value) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       throw new Error("Each ChatGPT cookie must be a JSON object.");
@@ -124,51 +98,53 @@ function cleanCookies(value: unknown): ChatGptStoredCookie[] {
       typeof source.domain === "string" && source.domain.trim()
         ? source.domain.trim()
         : "";
-    const path =
+    const cookiePath =
       typeof source.path === "string" && source.path.startsWith("/")
         ? source.path
         : "/";
 
     if (
       !name ||
-      name.length > 256 ||
+      !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) ||
       cookieValue.length < 1 ||
-      cookieValue.length > 128000
+      cookieValue.length > 128000 ||
+      /[\r\n;]/.test(cookieValue)
     ) {
-      throw new Error(
-        "ChatGPT session contains a missing or invalid cookie name/value.",
-      );
+      throw new Error("ChatGPT session contains an invalid cookie name/value.");
     }
     if (!domain || !isChatGptCookieDomain(domain)) {
       throw new Error(
         `Refusing to store cookie "${name}" because its domain is not chatgpt.com/openai.com.`,
       );
     }
-
-    // The vault stores reusable first-party application state only.
-    // Analytics/support cookies and Cloudflare challenge state are excluded.
     if (isIgnoredCookieName(name)) continue;
+    if (names.has(name)) {
+      throw new Error(
+        `ChatGPT session contains duplicate cookie name "${name}".`,
+      );
+    }
+    names.add(name);
 
     const cookie: ChatGptStoredCookie = {
       name,
       value: cookieValue,
       domain,
-      path,
+      path: cookiePath,
     };
     if (typeof source.expires === "number" && Number.isFinite(source.expires)) {
       cookie.expires = source.expires;
-    }
-    if (typeof source.secure === "boolean") cookie.secure = source.secure;
-    if (typeof source.httpOnly === "boolean") cookie.httpOnly = source.httpOnly;
-    if (typeof source.sameSite === "string" && source.sameSite.length <= 32) {
-      cookie.sameSite = source.sameSite;
     }
     cookies.push(cookie);
   }
 
   if (!cookies.length) {
     throw new Error(
-      "No reusable first-party ChatGPT session cookies remained after validation.",
+      "No reusable first-party ChatGPT authentication cookies remained after validation.",
+    );
+  }
+  if (cookies.length > 16) {
+    throw new Error(
+      "Too many reusable ChatGPT cookies remain. Save only the minimal authentication state.",
     );
   }
   return cookies;
@@ -191,37 +167,9 @@ export function normaliseChatGptSession(raw: string): string {
   }
 
   const source = parsed as Record<string, unknown>;
-  const cookies = cleanCookies(source.authenticated_cookies ?? source.cookies);
-
-  const legacyStorage =
-    source.session_tokens &&
-    typeof source.session_tokens === "object" &&
-    !Array.isArray(source.session_tokens)
-      ? (source.session_tokens as Record<string, unknown>).storage
-      : undefined;
-
-  const storageSource =
-    legacyStorage && typeof legacyStorage === "object" && !Array.isArray(legacyStorage)
-      ? (legacyStorage as Record<string, unknown>)
-      : source.storage && typeof source.storage === "object" && !Array.isArray(source.storage)
-        ? (source.storage as Record<string, unknown>)
-        : source;
-
   const clean: ChatGptSessionState = {
-    version: 2,
-    cookies,
-    session_tokens: {
-      storage: {
-        localStorage: cleanStorageMap(
-          storageSource.localStorage,
-          "ChatGPT localStorage",
-        ),
-        sessionStorage: cleanStorageMap(
-          storageSource.sessionStorage,
-          "ChatGPT sessionStorage",
-        ),
-      },
-    },
+    version: 3,
+    cookies: cleanCookies(source.cookies ?? source.authenticated_cookies),
   };
 
   return JSON.stringify(clean);
@@ -268,15 +216,16 @@ export function encryptChatGptSession(
   plaintext: string,
   keyMaterial?: string,
 ): string {
+  const normalised = normaliseChatGptSession(plaintext);
   const iv = randomBytes(12);
   const cipher = createCipheriv(
     "aes-256-gcm",
     decodeEncryptionKey(keyMaterial),
     iv,
   );
-  cipher.setAAD(AAD);
+  cipher.setAAD(AAD_V3);
   const ciphertext = Buffer.concat([
-    cipher.update(plaintext, "utf8"),
+    cipher.update(normalised, "utf8"),
     cipher.final(),
   ]);
   const tag = cipher.getAuthTag();
@@ -288,6 +237,24 @@ export function encryptChatGptSession(
     tag: tag.toString("base64"),
     ct: ciphertext.toString("base64"),
   });
+}
+
+function decryptWithAad(
+  envelope: Record<string, unknown>,
+  key: Buffer,
+  aad: Buffer,
+): string {
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(String(envelope.iv), "base64"),
+  );
+  decipher.setAAD(aad);
+  decipher.setAuthTag(Buffer.from(String(envelope.tag), "base64"));
+  return (
+    decipher.update(Buffer.from(String(envelope.ct), "base64")).toString("utf8") +
+    decipher.final("utf8")
+  );
 }
 
 export function decryptChatGptSession(
@@ -315,19 +282,17 @@ export function decryptChatGptSession(
     throw new Error("Invalid ChatGPT session ciphertext.");
   }
 
-  try {
-    const decipher = createDecipheriv(
-      "aes-256-gcm",
-      decodeEncryptionKey(keyMaterial),
-      Buffer.from(value.iv, "base64"),
-    );
-    decipher.setAAD(AAD);
-    decipher.setAuthTag(Buffer.from(value.tag, "base64"));
-    return (
-      decipher.update(Buffer.from(value.ct, "base64")).toString("utf8") +
-      decipher.final("utf8")
-    );
-  } catch {
-    throw new Error("Could not decrypt the stored ChatGPT session.");
+  const key = decodeEncryptionKey(keyMaterial);
+  for (const aad of [AAD_V3, LEGACY_AAD_V1]) {
+    try {
+      return decryptWithAad(value, key, aad);
+    } catch {
+      // Try the next known historical AAD.
+    }
   }
+  throw new Error("Could not decrypt the stored ChatGPT session.");
+}
+
+export function migrateChatGptSessionPlaintext(plaintext: string): string {
+  return normaliseChatGptSession(plaintext);
 }
