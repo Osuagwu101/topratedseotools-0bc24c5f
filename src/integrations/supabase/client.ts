@@ -28,11 +28,32 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 
+const PRODUCTION_SUPABASE_URL = 'https://vuhnvsejdszfvwicflbb.supabase.co';
+const PRODUCTION_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_qACYapb1FmF5eAfeG9wEPw_KYGrmAa6';
+
+function productionBrowserConfig() {
+  if (typeof window === 'undefined') return null;
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname === 'topratedseotools.com' || hostname === 'www.topratedseotools.com') {
+    return {
+      url: PRODUCTION_SUPABASE_URL,
+      publishableKey: PRODUCTION_SUPABASE_PUBLISHABLE_KEY,
+    };
+  }
+  return null;
+}
+
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  // Production hostname is pinned to the production Supabase project so
+  // preview/stale VITE_* variables cannot issue tokens from another project.
+  // Non-production environments keep using their configured Vite/server values.
+  const production = productionBrowserConfig();
+  const SUPABASE_URL =
+    production?.url || import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY =
+    production?.publishableKey ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
