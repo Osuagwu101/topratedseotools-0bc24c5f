@@ -1,0 +1,47 @@
+{
+  "phase": "ChatGPT Phase 5 explicit supporting session state",
+  "date": "2026-10-03",
+  "status": "deployed_pending_real_acceptance",
+  "required_session": "__Secure-next-auth.session-token or complete .0..N chunks",
+  "supporting_cookie_names": [
+    "__Host-next-auth.csrf-token",
+    "__Secure-next-auth.callback-url",
+    "__Secure-oai-is",
+    "_account",
+    "_puid",
+    "_uasid",
+    "_umsid",
+    "oai-did",
+    "oai-sc",
+    "oai_client_auth_info",
+    "oai-client-auth-info",
+    "oai-client-session-epoch",
+    "oai-hlib",
+    "__oailb"
+  ],
+  "excluded_examples": [
+    "cf_clearance",
+    "__cf_bm",
+    "_cfuvid",
+    "_ga",
+    "_fbp",
+    "intercom-*"
+  ],
+  "tests": {
+    "phase3_phase4_phase5": 35,
+    "passed": 35,
+    "failed": 0
+  },
+  "live": {
+    "main_status": 200,
+    "chatgpt_without_ticket": 401,
+    "stealthwriter_status": 401,
+    "chatgpt_proxy_pid": 273581,
+    "admin_pid": 273790,
+    "stealthwriter_pid_unchanged": 246050
+  },
+  "backups": [
+    "/home/ubuntu/backups/chatgpt-phase5-supporting-state-20261003",
+    "/home/ubuntu/backups/chatgpt-admin-supporting-state-20261003"
+  ]
+}
