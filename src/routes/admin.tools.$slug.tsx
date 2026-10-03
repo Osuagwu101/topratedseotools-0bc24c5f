@@ -158,7 +158,13 @@ type Tab =
 
 function AdminToolPage() {
   const { slug } = Route.useParams();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const requested = new URLSearchParams(window.location.search).get("tab");
+      if (requested === "session") return "session";
+    }
+    return "overview";
+  });
 
   const { data: overridesForTool } = useSuspenseQuery(overridesQuery);
   const tool = findCatalogTool(overridesForTool.overrides, slug)!;
@@ -594,6 +600,88 @@ function PhraslySessionTab() {
 
 
 
+const CHATGPT_ADMIN_SUPPORTING_COOKIE_NAMES = [
+  "__Host-next-auth.csrf-token",
+  "__Secure-next-auth.callback-url",
+  "__Secure-oai-is",
+  "_account",
+  "_puid",
+  "_uasid",
+  "_umsid",
+  "oai-did",
+  "oai-sc",
+  "oai_client_auth_info",
+  "oai-client-auth-info",
+  "oai-client-session-epoch",
+  "oai-hlib",
+  "__oailb",
+] as const;
+
+type ChatGptDetectedFieldRole = "core" | "support" | "optional";
+
+type ChatGptDetectedField = {
+  name: string;
+  role: ChatGptDetectedFieldRole;
+};
+
+function isAllowedChatGptDetectedName(name: string) {
+  return (
+    name === "__Secure-next-auth.session-token" ||
+    /^__Secure-next-auth\.session-token\.\d+$/.test(name) ||
+    (CHATGPT_ADMIN_SUPPORTING_COOKIE_NAMES as readonly string[]).includes(name)
+  );
+}
+
+function readChatGptDetectedForm() {
+  const fallback: ChatGptDetectedField[] = [
+    { name: "__Secure-next-auth.session-token.0", role: "core" },
+    { name: "__Secure-next-auth.session-token.1", role: "core" },
+  ];
+
+  if (typeof window === "undefined") {
+    return {
+      fields: fallback,
+      fromExtension: false,
+      observedTargets: [] as string[],
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const readNames = (key: string) =>
+    (params.get(key) ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter((name) => name && isAllowedChatGptDetectedName(name));
+
+  const core = readNames("cg_core");
+  const support = readNames("cg_support");
+  const optional = readNames("cg_optional");
+  const observedTargets = (params.get("cg_observed") ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+  const fields: ChatGptDetectedField[] = [];
+  const seen = new Set<string>();
+  const add = (names: string[], role: ChatGptDetectedFieldRole) => {
+    for (const name of names) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      fields.push({ name, role });
+    }
+  };
+
+  add(core, "core");
+  add(support, "support");
+  add(optional, "optional");
+
+  return {
+    fields: fields.length ? fields : fallback,
+    fromExtension: core.length > 0,
+    observedTargets,
+  };
+}
+
 function formatChatGptSessionTime(value: string | null) {
   return value
     ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
@@ -605,20 +693,51 @@ function ChatGptSessionTab() {
   const saveSession = useServerFn(adminSaveChatGptSession);
   const revokeSession = useServerFn(adminRevokeChatGptSession);
   const qc = useQueryClient();
-  const [sessionData, setSessionData] = useState("");
+
+  const detected = useMemo(() => readChatGptDetectedForm(), []);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(detected.fields.map((field) => [field.name, ""])),
+  );
   const [saving, setSaving] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
+  const coreFields = detected.fields.filter((field) => field.role === "core");
+  const supportFields = detected.fields.filter((field) => field.role === "support");
+  const optionalFields = detected.fields.filter((field) => field.role === "optional");
+  const coreComplete = coreFields.every(
+    (field) => (fieldValues[field.name] ?? "").trim().length > 0,
+  );
+
+  const updateField = (name: string, value: string) => {
+    setFieldValues((current) => ({ ...current, [name]: value }));
+  };
+
   async function save() {
-    if (!sessionData.trim()) {
-      toast.error("Paste the authorised ChatGPT session JSON first.");
+    const missingCore = coreFields
+      .filter((field) => !(fieldValues[field.name] ?? "").trim())
+      .map((field) => field.name);
+
+    if (missingCore.length) {
+      toast.error(
+        `Paste the required ChatGPT session value${missingCore.length > 1 ? "s" : ""} first.`,
+      );
       return;
     }
 
+    const sessionMap = Object.fromEntries(
+      detected.fields
+        .map((field) => [field.name, (fieldValues[field.name] ?? "").trim()] as const)
+        .filter(([, value]) => value.length > 0),
+    );
+
     setSaving(true);
     try {
-      await saveSession({ data: { session_data: sessionData.trim() } });
-      setSessionData("");
+      await saveSession({
+        data: { session_data: JSON.stringify(sessionMap) },
+      });
+      setFieldValues(
+        Object.fromEntries(detected.fields.map((field) => [field.name, ""])),
+      );
       await qc.invalidateQueries({
         queryKey: ["admin-chatgpt-authorized-session"],
       });
@@ -637,7 +756,9 @@ function ChatGptSessionTab() {
     setRevoking(true);
     try {
       await revokeSession();
-      setSessionData("");
+      setFieldValues(
+        Object.fromEntries(detected.fields.map((field) => [field.name, ""])),
+      );
       await qc.invalidateQueries({
         queryKey: ["admin-chatgpt-authorized-session"],
       });
@@ -651,6 +772,60 @@ function ChatGptSessionTab() {
     }
   }
 
+  const renderFieldGroup = (
+    title: string,
+    description: string,
+    fields: ChatGptDetectedField[],
+  ) => {
+    if (!fields.length) return null;
+    return (
+      <div className="rounded-xl border bg-muted/10 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+        <div className="mt-3 grid gap-3">
+          {fields.map((field) => (
+            <label key={field.name} className="block">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-mono font-semibold">{field.name}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    field.role === "core"
+                      ? "bg-destructive/10 text-destructive"
+                      : field.role === "support"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {field.role === "core"
+                    ? "Required"
+                    : field.role === "support"
+                      ? "Observed on all"
+                      : "Additional observed"}
+                </span>
+              </div>
+              <input
+                type="password"
+                value={fieldValues[field.name] ?? ""}
+                onChange={(event) => updateField(field.name, event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                data-1p-ignore="true"
+                data-lpignore="true"
+                disabled={!data.can_manage || saving || revoking}
+                placeholder="Paste this cookie value from Chrome"
+                className="w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-5 shadow-card">
@@ -658,10 +833,9 @@ function ChatGptSessionTab() {
           <div>
             <h3 className="text-sm font-semibold">ChatGPT authorised session</h3>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              This integration uses one authorised ChatGPT account. The vault stores only
-              the minimal reusable first-party authentication cookies, encrypted server-side.
-              Browser storage is not part of the Phase 5 session format and secret values are
-              never displayed back after saving.
+              Manual Admin replacement remains the source of truth. The Chrome extension
+              supplies cookie names only; secret values are entered here by the Admin,
+              encrypted server-side, and never displayed back after saving.
             </p>
           </div>
           <div className="text-right">
@@ -686,34 +860,52 @@ function ChatGptSessionTab() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Phase 5 uses this one Admin-only session source behind the existing
-          launch, ticket, device-control, access-control, and transport layers.
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          {detected.fromExtension ? (
+            <>
+              Extension configuration detected
+              {detected.observedTargets.length
+                ? ` from: ${detected.observedTargets.join(", ")}`
+                : ""}.
+              Core token fields are required. "Observed on all" fields are candidate
+              supporting state, not yet proven individually necessary.
+            </>
+          ) : (
+            <>
+              No extension configuration was supplied. The form is using the confirmed
+              chunked session-token core (.0 and .1). Use the Chrome extension's
+              "Configure Admin" button to add observed supporting fields automatically.
+            </>
+          )}
         </div>
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-card">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          ChatGPT minimal session JSON
+          Manual ChatGPT session replacement
         </div>
-        <textarea
-          value={sessionData}
-          onChange={(e) => setSessionData(e.target.value)}
-          rows={12}
-          autoComplete="off"
-          spellCheck={false}
-          data-1p-ignore="true"
-          data-lpignore="true"
-          disabled={!data.can_manage || saving || revoking}
-          placeholder={'{"cookies":[{"name":"auth_cookie","value":"...","domain":".chatgpt.com","path":"/"}]}' }
-          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
-        />
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste only the reusable first-party ChatGPT authentication cookies here.
-          The server preserves opaque values exactly, rejects unrelated domains and
-          duplicate names, discards analytics/challenge state, and does not store
-          localStorage or sessionStorage. Do not paste secret session values into chat.
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Copy each requested value from Chrome DevTools and paste it into the matching
+          field below. Do not paste these secret values into chat.
         </p>
+
+        <div className="mt-4 space-y-3">
+          {renderFieldGroup(
+            "Core session",
+            "The complete NextAuth session-token structure detected by the extension.",
+            coreFields,
+          )}
+          {renderFieldGroup(
+            "Common supporting state",
+            "Approved supporting cookies observed on every captured authenticated request.",
+            supportFields,
+          )}
+          {renderFieldGroup(
+            "Additional observed state",
+            "Approved cookies observed on only some captured authenticated requests. These are optional for the first test.",
+            optionalFields,
+          )}
+        </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           {!data.can_manage ? (
@@ -722,7 +914,7 @@ function ChatGptSessionTab() {
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Stored data is write-only here and encrypted before database storage.
+              Values remain write-only here and are encrypted before database storage.
             </span>
           )}
           <div className="flex gap-2">
@@ -739,7 +931,7 @@ function ChatGptSessionTab() {
             <button
               type="button"
               onClick={save}
-              disabled={!data.can_manage || saving || revoking || !sessionData.trim()}
+              disabled={!data.can_manage || saving || revoking || !coreComplete}
               className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
