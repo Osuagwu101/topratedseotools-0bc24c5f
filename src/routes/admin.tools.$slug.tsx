@@ -705,14 +705,14 @@ function ChatGptSessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving || revoking}
-          placeholder={'{"cookies":[{"name":"auth_cookie","value":"...","domain":".chatgpt.com","path":"/"}]}' }
+          placeholder={'{"__Secure-next-auth.session-token.0":"...","__Secure-next-auth.session-token.1":"...","__Host-next-auth.csrf-token":"..."}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste only the reusable first-party ChatGPT authentication cookies here.
-          The server preserves opaque values exactly, rejects unrelated domains and
-          duplicate names, discards analytics/challenge state, and does not store
-          localStorage or sessionStorage. Do not paste secret session values into chat.
+          Paste the simple cookie-name/value JSON object shown above. The server
+          adds the ChatGPT domain and path internally, requires a complete session-token
+          structure, preserves opaque values exactly, and stores only the approved auth
+          cookies. The older cookies-array format also remains supported.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
