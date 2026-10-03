@@ -11,8 +11,8 @@ const {encryptPhase5State,CHATGPT_SESSION_FORMAT}=await import('../chatgpt-phase
 const testVault=encryptPhase5State(JSON.stringify({
  version:3,
  cookies:[
-  {name:'auth_a',value:'opaque-a',domain:'.chatgpt.com',path:'/'},
-  {name:'auth_b',value:'opaque-b',domain:'.chatgpt.com',path:'/'},
+  {name:'__Secure-next-auth.session-token.0',value:'opaque-0',domain:'.chatgpt.com',path:'/'},
+  {name:'__Secure-next-auth.session-token.1',value:'opaque-1',domain:'.chatgpt.com',path:'/'},
  ],
 }));
 const {handle,ORIGIN}=await import('./gateway.mjs');
