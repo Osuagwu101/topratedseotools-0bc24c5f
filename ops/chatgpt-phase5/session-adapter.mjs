@@ -49,6 +49,18 @@ export const CHATGPT_SESSION_CHUNK_PREFIX = CHATGPT_SESSION_COOKIE + ".";
 export const CHATGPT_SUPPORTING_COOKIE_NAMES = [
   "__Host-next-auth.csrf-token",
   "__Secure-next-auth.callback-url",
+  "__Secure-oai-is",
+  "_account",
+  "_puid",
+  "_uasid",
+  "_umsid",
+  "oai-did",
+  "oai-sc",
+  "oai_client_auth_info",
+  "oai-client-auth-info",
+  "oai-client-session-epoch",
+  "oai-hlib",
+  "__oailb",
 ];
 
 function isChatGptSessionDomain(raw) {
