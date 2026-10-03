@@ -205,6 +205,24 @@ function cleanCookies(value: unknown): ChatGptStoredCookie[] {
   return [...sessionCookies, ...supportingCookies];
 }
 
+function directCookieMapToArray(
+  source: Record<string, unknown>,
+): ChatGptStoredCookie[] | null {
+  const entries = Object.entries(source).filter(([name]) =>
+    isAllowedAuthCookieName(name),
+  );
+  if (!entries.length) return null;
+  if (entries.some(([, value]) => typeof value !== "string")) {
+    throw new Error("ChatGPT cookie-map values must be strings.");
+  }
+  return entries.map(([name, value]) => ({
+    name,
+    value: value as string,
+    domain: ".chatgpt.com",
+    path: "/",
+  }));
+}
+
 export function normaliseChatGptSession(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -222,9 +240,20 @@ export function normaliseChatGptSession(raw: string): string {
   }
 
   const source = parsed as Record<string, unknown>;
+  const nested = source.cookies ?? source.authenticated_cookies;
+  const input = Array.isArray(nested)
+    ? nested
+    : directCookieMapToArray(source);
+
+  if (!input) {
+    throw new Error(
+      "Use either the simple cookie-name/value JSON object or a cookies array.",
+    );
+  }
+
   const clean: ChatGptSessionState = {
     version: 3,
-    cookies: cleanCookies(source.cookies ?? source.authenticated_cookies),
+    cookies: cleanCookies(input),
   };
 
   return JSON.stringify(clean);
