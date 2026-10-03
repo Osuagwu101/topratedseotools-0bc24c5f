@@ -37,3 +37,5 @@ button.secondary {
   color: #111827;
   border: 1px solid #d1d5db;
 }
+
+#observed, #candidate { white-space: pre-line; }
