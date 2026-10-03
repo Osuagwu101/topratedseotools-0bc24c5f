@@ -95,6 +95,26 @@ assert(
     parsed.cookies[1].value === "opaque-session-part-1",
   "preserves session-token chunk values exactly",
 );
+
+const simpleMap = normaliseChatGptSession(
+  JSON.stringify({
+    "__Secure-next-auth.session-token.0": "simple-part-0",
+    "__Secure-next-auth.session-token.1": "simple-part-1",
+    "__Host-next-auth.csrf-token": "simple-csrf",
+  }),
+);
+const simpleParsed = JSON.parse(simpleMap);
+assert(
+  simpleParsed.cookies.length === 3 &&
+    simpleParsed.cookies[0].domain === ".chatgpt.com" &&
+    simpleParsed.cookies[0].path === "/",
+  "accepts the Admin simple cookie-name/value map and adds chatgpt.com scope internally",
+);
+assert(
+  simpleParsed.cookies[0].value === "simple-part-0" &&
+    simpleParsed.cookies[1].value === "simple-part-1",
+  "preserves simple-map session-token values exactly",
+);
 assert(
   !normalised.includes("must-not-survive") &&
     !normalised.includes("oai-did") &&
