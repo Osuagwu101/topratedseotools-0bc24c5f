@@ -28,3 +28,10 @@ Admin-only Chrome extension for checking the structure of the current signed-in 
 6. Click the extension icon and choose **Check again**.
 
 This extension is intended only for the TopRatedSEOtools Admin's own browser.
+
+
+## Version 0.2
+
+Version 0.2 can observe the cookie **names only** attached to matching ChatGPT `user`, `me`, and `init` requests through Chrome's webRequest API.
+
+It still never records, displays, stores, or transmits cookie values.
