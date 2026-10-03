@@ -7,6 +7,14 @@ const state=await mkdtemp(tmpdir()+'/trst-cg-unit-');
 process.env.CHATGPT_PHASE3_STATE_DIR=state;
 process.env.SUPABASE_URL='https://db.example';
 process.env.SUPABASE_SERVICE_ROLE_KEY='test-only-key';
+const {encryptPhase5State,CHATGPT_SESSION_FORMAT}=await import('../chatgpt-phase5/session-adapter.mjs');
+const testVault=encryptPhase5State(JSON.stringify({
+ version:3,
+ cookies:[
+  {name:'auth_a',value:'opaque-a',domain:'.chatgpt.com',path:'/'},
+  {name:'auth_b',value:'opaque-b',domain:'.chatgpt.com',path:'/'},
+ ],
+}));
 const {handle,ORIGIN}=await import('./gateway.mjs');
 const hash=v=>createHash('sha256').update(v).digest('hex');
 const jwt=user=>'eyJhbGciOiJub25lIn0.'+Buffer.from(JSON.stringify({sub:user,session_id:'session-'+user,exp:Math.floor(Date.now()/1000)+600})).toString('base64url')+'.testsignature';
@@ -28,9 +36,11 @@ global.fetch=async (url,options={})=>{
  if(u.pathname.endsWith('/tool_orders'))return json([]);
  if(u.pathname.endsWith('/tool_access_grants')){
   if(who==='ineligible'||revoked)return json([]);
-  return json([{id:'grant-'+who,user_id:who,tool_slug:'chatgpt',account_id:changedAccount?'changed':'account-'+who,access_type:'shared',status:'active',expires_at:null}]);
+  return json([{id:'grant-'+who,user_id:who,tool_slug:'chatgpt',account_id:changedAccount?'changed':'account-1',access_type:'shared',status:'active',expires_at:null}]);
  }
- if(u.pathname.endsWith('/tool_accounts'))return json([{id:u.searchParams.get('id').slice(3),tool_slug:'chatgpt',access_type:'shared',enabled:true,status:'working',expires_at:null}]);
+ if(u.pathname.endsWith('/tool_accounts'))return json([{id:'account-1',tool_slug:'chatgpt',access_type:'shared',enabled:true,status:'working',expires_at:null}]);
+ if(u.pathname.endsWith('/tool_authorized_sessions'))return json([{tool_slug:'chatgpt',encrypted_payload:testVault,session_format:CHATGPT_SESSION_FORMAT,status:'stored',updated_at:null}]);
+ if(u.hostname==='chatgpt.com')return new Response('<html><head></head><body><a href="https://chatgpt.com/c/1">ok</a></body></html>',{status:200,headers:{'content-type':'text/html; charset=utf-8'}});
  if(u.pathname.endsWith('/chatgpt_devices')){
   if(options.method==='POST'){
    const body=JSON.parse(options.body);registered.set(body.user_id,[{id:'device-'+body.user_id,device_fingerprint:body.device_fingerprint}]);return json([body]);
@@ -51,7 +61,7 @@ await test('eligible writer gets exact ChatGPT-only 60-second launch',async()=>{
  const b=await r.json();issuedUrl=b.launch_url;issuedCookies=cookieJar(r);
  assert.equal(new URL(b.launch_url).origin,ORIGIN);assert.equal(new URL(b.launch_url).pathname,'/__trst/enter');
  const record=JSON.parse(await readFile(ticketFile(b.launch_url),'utf8'));
- assert.equal(record.tool,'chatgpt');assert.equal(record.entitlement.user,'writer-a');assert.equal(record.entitlement.account,'account-writer-a');
+ assert.equal(record.tool,'chatgpt');assert.equal(record.entitlement.user,'writer-a');assert.equal(record.entitlement.account,'account-1');
  assert.equal(record.expires-record.created<=60_000,true);
  for(const c of r.headers.getSetCookie()){assert.match(c,/Secure/);assert.match(c,/HttpOnly/);assert.match(c,/SameSite=Lax/);assert.doesNotMatch(c,/Domain=/i);assert.match(c,/^__Host-/);}
 });
@@ -69,8 +79,9 @@ await test('valid ticket consumed exactly once under concurrent requests',async(
  gatewaySessionCookies=mergeCookies(issuedCookies,cookieJar(ok));
  assert.equal((await enter(issuedUrl,issuedCookies)).status,403);
 });
-await test('Phase 4 guards execute after valid Phase 3 gateway session',async()=>{
- const root=await handle(new Request(ORIGIN+'/',{headers:{Cookie:gatewaySessionCookies}}));assert.equal(root.status,503);assert.match(await root.text(),/gateway access is ready/);
+await test('Phase 5 uses the single account after valid Phase 3 gateway session',async()=>{
+ const root=await handle(new Request(ORIGIN+'/',{headers:{Cookie:gatewaySessionCookies,Accept:'text/html'}}));assert.equal(root.status,200);
+ const html=await root.text();assert.equal(html.includes('https://chatgpt.com/c/1'),false);
  const restricted=await handle(new Request(ORIGIN+'/settings',{headers:{Cookie:gatewaySessionCookies,Accept:'text/html'}}));assert.equal(restricted.status,403);assert.match(await restricted.text(),/restricted/);
  const asset=await handle(new Request(ORIGIN+'/__host/evil.example/app.js',{headers:{Cookie:gatewaySessionCookies}}));assert.equal(asset.status,403);
  const method=await handle(new Request(ORIGIN+'/',{method:'PROPFIND',headers:{Cookie:gatewaySessionCookies}}));assert.equal(method.status,405);
