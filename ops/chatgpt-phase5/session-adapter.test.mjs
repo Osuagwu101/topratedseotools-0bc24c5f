@@ -28,7 +28,12 @@ const rawLegacy = JSON.stringify({
     { name: "__Secure-next-auth.session-token.1", value: "opaque-1", domain: ".chatgpt.com", path: "/" },
     { name: "__Host-next-auth.csrf-token", value: "csrf-opaque", domain: ".chatgpt.com", path: "/" },
     { name: "__Secure-next-auth.callback-url", value: "https://chatgpt.com/", domain: ".chatgpt.com", path: "/" },
-    { name: "oai-did", value: "functional-junk", domain: ".chatgpt.com", path: "/" },
+    { name: "oai-did", value: "supporting-device", domain: ".chatgpt.com", path: "/" },
+    { name: "_account", value: "supporting-account", domain: ".chatgpt.com", path: "/" },
+    { name: "_puid", value: "supporting-puid", domain: ".chatgpt.com", path: "/" },
+    { name: "_uasid", value: "supporting-uasid", domain: ".chatgpt.com", path: "/" },
+    { name: "_umsid", value: "supporting-umsid", domain: ".chatgpt.com", path: "/" },
+    { name: "oai-sc", value: "supporting-security", domain: ".chatgpt.com", path: "/" },
     { name: "_ga", value: "analytics", domain: ".chatgpt.com", path: "/" },
     { name: "cf_clearance", value: "challenge", domain: ".chatgpt.com", path: "/" },
   ],
@@ -48,6 +53,12 @@ test("normalises legacy bundle to minimal cookie-only v3", () => {
     "__Secure-next-auth.session-token.1",
     "__Host-next-auth.csrf-token",
     "__Secure-next-auth.callback-url",
+    "_account",
+    "_puid",
+    "_uasid",
+    "_umsid",
+    "oai-did",
+    "oai-sc",
   ]);
   assert.equal("session_tokens" in parsed, false);
   assert.equal(JSON.stringify(parsed).includes("must-not-survive"), false);
@@ -121,7 +132,8 @@ test("cookie header carries the complete approved auth structure", () => {
   assert.match(h,/__Secure-next-auth\.session-token\.0=opaque-0/);
   assert.match(h,/__Secure-next-auth\.session-token\.1=opaque-1/);
   assert.match(h,/__Host-next-auth\.csrf-token=csrf-opaque/);
-  assert.doesNotMatch(h,/oai-did=/);
+  assert.match(h,/oai-did=supporting-device/);
+  assert.match(h,/_account=supporting-account/);
   assert.doesNotMatch(h,/cf_clearance=/);
 });
 
@@ -177,7 +189,7 @@ test("single-account loader auto-migrates legacy v2 row", async () => {
   try{
     const loaded=await loadSingleAccountSession("account-1");
     assert.equal(loaded.state.version,3);
-    assert.equal(loaded.state.cookies.length,4);
+    assert.equal(loaded.state.cookies.length,10);
     assert.equal(patchBody.session_format,CHATGPT_SESSION_FORMAT);
     assert.equal(patchBody.encrypted_payload.includes("opaque-0"),false);
   } finally { global.fetch=originalFetch; }
