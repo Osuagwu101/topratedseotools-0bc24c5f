@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ChatGPT Session Checker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <h1>ChatGPT Session Checker</h1>
+    <p class="muted">Checks cookie names and structure only. Values are never displayed, stored, or transmitted.</p>
+
+    <section class="card">
+      <div id="overall" class="status">Checking…</div>
+      <div id="session-detail" class="muted"></div>
+    </section>
+
+    <section class="card">
+      <h2>Approved state</h2>
+      <ul id="cookie-list"></ul>
+    </section>
+
+    <div class="actions">
+      <button id="refresh">Check again</button>
+      <button id="open-admin" class="secondary">Open Admin</button>
+    </div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
