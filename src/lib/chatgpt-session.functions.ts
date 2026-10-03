@@ -13,13 +13,12 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logAdminActivity } from "@/lib/admin-audit.server";
 import {
+  CHATGPT_SESSION_FORMAT,
   encryptChatGptSession,
   normaliseChatGptSession,
 } from "@/lib/chatgpt-session.server";
 
 const TOOL_SLUG = "chatgpt";
-export const CHATGPT_SESSION_FORMAT = "chatgpt_session_state_json_v2";
-
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
     _user_id: ctx.userId,
@@ -121,7 +120,7 @@ export const adminSaveChatGptSession = createServerFn({ method: "POST" })
       target_type: "tool_authorized_session",
       target_id: TOOL_SLUG,
       details:
-        "Authorised ChatGPT session replaced; cookie/storage values were not logged; existing ChatGPT proxy sessions were revoked.",
+        "Authorised ChatGPT session replaced; opaque auth values were not logged; existing ChatGPT proxy sessions were revoked.",
     });
 
     return { ok: true, status: "stored", updated_at: now };
@@ -167,7 +166,7 @@ export const adminRevokeChatGptSession = createServerFn({ method: "POST" })
       area: "tools",
       target_type: "tool_authorized_session",
       target_id: TOOL_SLUG,
-      details: "Authorised ChatGPT session revoked; secret values were not logged; existing ChatGPT proxy sessions were revoked.",
+      details: "Authorised ChatGPT session revoked; opaque auth values were not logged; existing ChatGPT proxy sessions were revoked.",
     });
 
     return { ok: true, status: "revoked", updated_at: now };
