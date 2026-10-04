@@ -62,6 +62,9 @@ jobs:
       - name: StealthWriter provider-aware routing
         run: bun tests/stealthwriter-provider-routing.test.ts
 
+      - name: Turnitin Phase 3 credit foundation
+        run: bun tests/turnitin-credit-foundation.test.ts
+
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
 
