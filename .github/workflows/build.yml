@@ -77,6 +77,9 @@ jobs:
       - name: Turnitin V2 Phase 2 navigation
         run: bun tests/turnitin-v2-navigation.test.ts
 
+      - name: Turnitin V2 Phase 3 Admin credits
+        run: bun tests/turnitin-admin-credits.test.ts
+
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
 
