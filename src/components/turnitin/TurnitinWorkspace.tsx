@@ -17,7 +17,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getMyTurnitinReportDownload,
   getMyTurnitinWorkspace,
@@ -32,8 +32,17 @@ import {
   syncMyTurnitinJobs,
 } from "@/lib/turnitin-jobs.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
+import {
+  initializeTurnitinCreditPurchase,
+  verifyTurnitinCreditPurchase,
+} from "@/lib/turnitin-credit-payments.functions";
+import {
+  TURNITIN_CREDIT_MAX_QUANTITY,
+  TURNITIN_CREDIT_UNIT_PRICE_NGN,
+} from "@/lib/turnitin-pricing";
 
-const UNIT_PRICE_NGN = 2300;
+const UNIT_PRICE_NGN = TURNITIN_CREDIT_UNIT_PRICE_NGN;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const ACCEPTED_EXTENSIONS = [".pdf", ".doc", ".docx"];
 
@@ -116,6 +125,10 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [retryingJob, setRetryingJob] = useState<string | null>(null);
+  const [buyingCredits, setBuyingCredits] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const workspace = useQuery({
@@ -132,6 +145,101 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
         : false;
     },
   });
+
+  const activeGateway = useQuery({
+    queryKey: ["active-gateway"],
+    queryFn: () => getActiveGatewayInfo(),
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const callbackReference =
+      params.get("reference") ||
+      params.get("trxref") ||
+      params.get("tx_ref") ||
+      window.sessionStorage.getItem("turnitin-credit-reference");
+
+    if (!callbackReference) return;
+
+    let cancelled = false;
+    setVerifyingPayment(true);
+    setPaymentError(null);
+
+    void verifyTurnitinCreditPurchase({
+      data: { reference: callbackReference },
+    })
+      .then(async (result) => {
+        if (cancelled) return;
+        if (result.status === "paid") {
+          window.sessionStorage.removeItem("turnitin-credit-reference");
+          setPaymentMessage(
+            `${result.quantity} Turnitin credit${result.quantity === 1 ? "" : "s"} added successfully.`,
+          );
+          await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+        } else if (result.status === "pending") {
+          setPaymentMessage(
+            "Your payment is still being confirmed. Your credits will appear after verification.",
+          );
+        } else {
+          window.sessionStorage.removeItem("turnitin-credit-reference");
+          setPaymentError(
+            "The payment provider did not confirm this Turnitin credit purchase.",
+          );
+        }
+
+        if (params.toString()) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setPaymentError(
+          error instanceof Error
+            ? error.message
+            : "Could not verify the Turnitin credit payment.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setVerifyingPayment(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, qc]);
+
+  const buyCredits = async () => {
+    if (!workspace.data?.foundationReady) {
+      setPaymentError("The Turnitin credit system is not ready in this environment.");
+      return;
+    }
+
+    setBuyingCredits(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const checkout = await initializeTurnitinCreditPurchase({
+        data: { quantity },
+      });
+      window.sessionStorage.setItem(
+        "turnitin-credit-reference",
+        checkout.reference,
+      );
+      window.location.href = checkout.authorization_url;
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not start the Turnitin credit payment.",
+      );
+      setBuyingCredits(false);
+    }
+  };
 
   const jobs = workspace.data?.jobs ?? [];
   const hasActiveJobs = jobs.some((job) =>
@@ -416,7 +524,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
               value={quantity}
               onChange={(e) =>
                 setQuantity(
-                  Math.min(500, Math.max(1, Math.floor(Number(e.target.value) || 1))),
+                  Math.min(TURNITIN_CREDIT_MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value) || 1))),
                 )
               }
               className="w-28 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -439,16 +547,37 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
 
           <button
             type="button"
-            disabled
-            className="mt-5 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground opacity-60"
+            onClick={() => void buyCredits()}
+            disabled={buyingCredits || verifyingPayment || !foundationReady}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <ShoppingCart className="h-4 w-4" />
-            Buy {quantity} credit{quantity === 1 ? "" : "s"}
+            {buyingCredits || verifyingPayment ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-4 w-4" />
+            )}
+            {buyingCredits
+              ? "Opening payment…"
+              : verifyingPayment
+                ? "Confirming payment…"
+                : `Pay ${formatNaira(quantity * UNIT_PRICE_NGN)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
           </button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            The dedicated credit checkout is connected in the payment phase. Existing tool
-            subscriptions are not used for these credits.
+            One-time payment only. Credits are added after verified payment and remain valid
+            for seven days. Existing tool subscriptions are not used.
           </p>
+          {paymentMessage ? (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {paymentMessage}
+            </div>
+          ) : null}
+          {paymentError ? (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {paymentError}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-2xl border bg-card p-6 shadow-card">
