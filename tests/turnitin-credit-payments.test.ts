@@ -181,6 +181,20 @@ assert(
   "workspace starts checkout, remembers the reference and verifies the return through the existing gateway",
 );
 
+
+assert(
+  functions.includes("reconcileLatestTurnitinCreditPurchase") &&
+    functions.includes('.eq("status", "pending")') &&
+    functions.includes(".order(\"created_at\", { ascending: false })"),
+  "customer recovery action locates only the signed-in user's latest pending Turnitin purchase",
+);
+
+assert(
+  workspace.includes("Retry last payment verification") &&
+    workspace.includes("reconcileLatestTurnitinCreditPurchase"),
+  "workspace exposes a safe retry action for already-paid pending purchases",
+);
+
 assert(
   workspace.includes("One-time payment only") &&
     workspace.includes("seven days") &&
