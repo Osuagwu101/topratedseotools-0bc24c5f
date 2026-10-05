@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
 import {
@@ -37,7 +37,6 @@ import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
-import { TurnitinWorkspace } from "@/components/turnitin/TurnitinWorkspace";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -61,6 +60,10 @@ const sessionQuery = queryOptions({
 });
 export const Route = createFileRoute("/tools/$slug")({
   loader: async ({ params, context }) => {
+    if (params.slug === "turnitin") {
+      throw redirect({ to: "/turnitin" });
+    }
+
     // Overrides carry both admin edits and admin-created (custom) tools, so the
     // slug is resolved against the merged catalogue.
     const { overrides } = await context.queryClient.ensureQueryData(overridesQuery);
@@ -198,9 +201,7 @@ function ToolPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        {tool.slug === "turnitin" ? (
-          <TurnitinWorkspace isAuthenticated={session?.isAuthenticated ?? false} />
-        ) : tool.pricingModel === "per_use" ? (
+        {tool.pricingModel === "per_use" ? (
           <PerUsePanel tool={tool} />
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
