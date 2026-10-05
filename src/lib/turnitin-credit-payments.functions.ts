@@ -278,6 +278,8 @@ export const initializeTurnitinCreditPurchase = createServerFn({ method: "POST" 
       customerName = customerName || profile?.full_name || null;
     }
 
+    const checkoutEmail = email || `${context.userId}@users.local`;
+
     const metadata = {
       kind: "turnitin_credit_purchase",
       turnitin_purchase_id: purchase.id,
@@ -291,7 +293,7 @@ export const initializeTurnitinCreditPurchase = createServerFn({ method: "POST" 
         reference,
         amountMinor: majorToMinor(totalAmount),
         currency: "NGN",
-        email,
+        email: checkoutEmail,
         callbackUrl: TURNITIN_CALLBACK_URL,
         customerName,
         description: `Turnitin Checks · ${quantity} credit${quantity === 1 ? "" : "s"}`,
