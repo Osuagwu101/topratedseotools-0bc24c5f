@@ -71,6 +71,50 @@ assert(
   "small-match exclusion exposes word/percentage threshold controls",
 );
 
+
+assert(
+  workspace.includes("Submission details") &&
+    workspace.includes('useState("Top Rated")') &&
+    workspace.includes('useState("Writing Services")') &&
+    workspace.includes("Author first name") &&
+    workspace.includes("Author last name"),
+  "upload area exposes editable author defaults for Top Rated Writing Services",
+);
+
+assert(
+  workspace.includes("reportTitle.trim() || selectedFile.name") &&
+    workspace.includes("authorFirstName.trim() || null") &&
+    workspace.includes("authorLastName.trim() || null"),
+  "the exact TRST title/author values are submitted with the Turnitin job",
+);
+
+assert(
+  workspace.includes('useState<"sources" | "match_groups">("sources")') &&
+    workspace.includes("Similarity report view") &&
+    workspace.includes("Classic layout with numbered, colour-coded sources") &&
+    workspace.includes("Highlights coloured by match group"),
+  "upload area offers Sources/Match groups and defaults to Sources",
+);
+
+for (const requirement of [
+  "Requirements for AI Detection",
+  "at least 300 words in paragraph format",
+  "30,000 words for AI detection",
+  "English, Spanish, or Japanese",
+  "file must be under 100 MB",
+]) {
+  assert(
+    workspace.toLowerCase().includes(requirement.toLowerCase()),
+    `upload area states Originality requirement: ${requirement}`,
+  );
+}
+
+assert(
+  workspace.includes("This check will use 1 credit after Originality Reports accepts the document") &&
+    workspace.includes("summary.available_credits"),
+  "upload area shows the one-credit rule and the user's current available balance",
+);
+
 assert(
   workspace.includes("Search document name") &&
     workspace.includes("name.includes(q)") &&
