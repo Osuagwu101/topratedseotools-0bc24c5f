@@ -24,7 +24,15 @@ export const Route = createFileRoute("/api/public/webhooks/monnify")({
           ((data as { config?: Record<string, unknown> } | null)?.config ?? {}) as Record<string, unknown>,
         );
 
+        const { tryHandleTurnitinPostpaidSettlementWebhook } = await import("@/lib/turnitin-postpaid-settlements.webhook");
         const { tryHandleTurnitinCreditWebhook } = await import("@/lib/turnitin-credit-payments.webhook");
+        const turnitinPostpaid = await tryHandleTurnitinPostpaidSettlementWebhook(request.clone(), {
+          gateway: "monnify",
+          adapter: adapter,
+          supabaseAdmin,
+        });
+        if (turnitinPostpaid) return turnitinPostpaid;
+
         const turnitinCredits = await tryHandleTurnitinCreditWebhook(request.clone(), {
           gateway: "monnify",
           adapter,
