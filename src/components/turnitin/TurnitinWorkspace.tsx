@@ -1024,7 +1024,15 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {settlements.slice(0, 10).map((row) => (
+                  {settlements.slice(0, 10).map((row: {
+                    id: string;
+                    amountNgn: number;
+                    allocatedAmountNgn: number;
+                    method: string;
+                    status: string;
+                    confirmedAt: string | null;
+                    createdAt: string;
+                  }) => (
                     <div
                       key={row.id}
                       className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
