@@ -377,11 +377,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     }
 
     const summary = workspace.data?.summary;
+    const isPostpaid = workspace.data?.account.billing_mode === "postpaid";
     if (!workspace.data?.foundationReady) {
       setSubmitError("The Turnitin workspace is not ready in this environment.");
       return;
     }
-    if (!summary || summary.available_credits < 1) {
+    if (!summary || (!isPostpaid && summary.available_credits < 1)) {
       setSubmitError("You need at least one available Turnitin check credit.");
       return;
     }
@@ -522,6 +523,16 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     next_expiry_at: null,
   };
   const foundationReady = workspace.data?.foundationReady ?? true;
+  const account = workspace.data?.account ?? {
+    billing_mode: "prepaid" as const,
+    postpaid_rate_ngn: null,
+  };
+  const postpaid = workspace.data?.postpaid ?? {
+    total_charges: 0,
+    unpaid_checks: 0,
+    outstanding_ngn: 0,
+  };
+  const isPostpaid = account.billing_mode === "postpaid";
 
   return (
     <div className="space-y-6">
@@ -540,34 +551,69 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
 
       {(view === "all" || view === "overview") ? (
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={Coins}
-          label="Available credits"
-          value={String(summary.available_credits)}
-          hint="1 credit = 1 document"
-        />
-        <StatCard
-          icon={Clock3}
-          label="Reserved"
-          value={String(summary.reserved_credits)}
-          hint="Checks waiting for acceptance"
-        />
-        <StatCard
-          icon={CalendarClock}
-          label="Next expiry"
-          value={
-            summary.next_expiry_at
-              ? new Date(summary.next_expiry_at).toLocaleDateString()
-              : "—"
-          }
-          hint="Unused purchase credits expire after 7 days"
-        />
-        <StatCard
-          icon={ShoppingCart}
-          label="Price"
-          value={formatNaira(UNIT_PRICE_NGN)}
-          hint="per check"
-        />
+        {isPostpaid ? (
+          <>
+            <StatCard
+              icon={ShoppingCart}
+              label="Postpaid rate"
+              value={
+                account.postpaid_rate_ngn == null
+                  ? "—"
+                  : `${formatNaira(account.postpaid_rate_ngn)} / check`
+              }
+              hint="Agreed amount per accepted check"
+            />
+            <StatCard
+              icon={Clock3}
+              label="Unpaid checks"
+              value={String(postpaid.unpaid_checks)}
+              hint="Accepted checks awaiting settlement"
+            />
+            <StatCard
+              icon={Coins}
+              label="Outstanding"
+              value={formatNaira(postpaid.outstanding_ngn)}
+              hint="Current Postpaid balance"
+            />
+            <StatCard
+              icon={CalendarClock}
+              label="Saved prepaid credits"
+              value={String(summary.available_credits)}
+              hint="Not consumed while Postpaid is active"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={Coins}
+              label="Available credits"
+              value={String(summary.available_credits)}
+              hint="1 credit = 1 document"
+            />
+            <StatCard
+              icon={Clock3}
+              label="Reserved"
+              value={String(summary.reserved_credits)}
+              hint="Checks waiting for acceptance"
+            />
+            <StatCard
+              icon={CalendarClock}
+              label="Next expiry"
+              value={
+                summary.next_expiry_at
+                  ? new Date(summary.next_expiry_at).toLocaleDateString()
+                  : "—"
+              }
+              hint="Unused purchase credits expire after 7 days"
+            />
+            <StatCard
+              icon={ShoppingCart}
+              label="Price"
+              value={formatNaira(UNIT_PRICE_NGN)}
+              hint="per check"
+            />
+          </>
+        )}
       </section>
 
       ) : null}
@@ -594,9 +640,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
                 <ShoppingCart className="h-5 w-5" />
               </div>
-              <h2 className="mt-4 font-semibold">Buy checks</h2>
+              <h2 className="mt-4 font-semibold">
+                {isPostpaid ? "Postpaid account" : "Buy checks"}
+              </h2>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Add prepaid checks to your account through the verified payment flow.
+                {isPostpaid
+                  ? "Review your agreed rate and current outstanding balance."
+                  : "Add prepaid checks to your account through the verified payment flow."}
               </p>
             </Link>
             <Link
