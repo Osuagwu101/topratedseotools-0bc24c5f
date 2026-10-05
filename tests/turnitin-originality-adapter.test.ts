@@ -186,10 +186,14 @@ assert(
   "ambiguous network failures preserve the reservation for same-token retry",
 );
 
+const acceptanceWrite = jobs.indexOf("upstream_submission_id: result.submissionId");
+const consumeAfterAcceptance =
+  acceptanceWrite >= 0
+    ? jobs.indexOf("turnitin_consume_reserved_credit", acceptanceWrite)
+    : -1;
 assert(
-  jobs.includes("upstream_submission_id: result.submissionId") &&
-    jobs.indexOf("upstream_submission_id: result.submissionId") <
-      jobs.indexOf("turnitin_consume_reserved_credit"),
+  acceptanceWrite >= 0 &&
+    consumeAfterAcceptance > acceptanceWrite,
   "upstream acceptance ID is persisted before local credit finalisation",
 );
 
