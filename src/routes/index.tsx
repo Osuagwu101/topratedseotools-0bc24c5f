@@ -49,7 +49,7 @@ const FAQ = [
   { q: "How do renewals work?", a: "Eligible recurring plans renew automatically until renewal is disabled. You can disable renewal and keep access until the end of the paid billing period. Pay-per-use tools such as Turnitin do not renew." },
   { q: "How is Shared Access activated?", a: "A verified successful payment activates the order immediately. If login credentials are not active yet, your subscriptions page shows the Admin WhatsApp contact so access can be completed." },
   { q: "How is Private Access activated?", a: "A verified successful payment activates the order, while dedicated login fulfilment may remain pending. Contact Admin through WhatsApp if credentials have not yet been assigned." },
-  { q: "How does Turnitin work?", a: "Turnitin Checks are priced per check (₦2,300 each), paid once. There is no recurring billing and no automatic renewal. Message us with the number of checks you need and we'll send a payment link." },
+  { q: "How does Turnitin work?", a: "Turnitin Checks are self-service and priced per check (₦2,300 each). Buy the number of checks you need, submit documents from the dedicated Turnitin area, and download available similarity and AI reports from your check history. There is no recurring billing or automatic renewal." },
   { q: "How do I get support?", a: "Support is available through WhatsApp and email. Reach us any time via the Contact page." },
 ];
 
