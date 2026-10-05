@@ -4,13 +4,38 @@
 
 begin;
 
--- Allow the shared encrypted vault to store the Turnitin/Originality session.
-alter table public.tool_authorized_sessions
-  drop constraint if exists tool_authorized_sessions_supported_tools;
+-- Dedicated server-only Originality Reports session vault.
+-- Turnitin intentionally does NOT alter or share the existing
+-- StealthWriter/Phrasly/ChatGPT authorised-session table.
+create table if not exists public.turnitin_originality_authorized_session (
+  id text primary key default 'primary'
+    check (id = 'primary'),
+  encrypted_payload text not null,
+  session_format text not null default 'originality_cookie_json',
+  status text not null default 'stored'
+    check (status in ('stored', 'revoked')),
+  updated_by uuid null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-alter table public.tool_authorized_sessions
-  add constraint tool_authorized_sessions_supported_tools
-  check (tool_slug in ('stealthwriter', 'phrasly', 'chatgpt', 'turnitin'));
+alter table public.turnitin_originality_authorized_session enable row level security;
+
+revoke all on table public.turnitin_originality_authorized_session from anon;
+revoke all on table public.turnitin_originality_authorized_session from authenticated;
+grant all on table public.turnitin_originality_authorized_session to service_role;
+
+drop trigger if exists trg_turnitin_originality_authorized_session_updated
+  on public.turnitin_originality_authorized_session;
+create trigger trg_turnitin_originality_authorized_session_updated
+  before update on public.turnitin_originality_authorized_session
+  for each row execute function public.tg_touch_updated_at();
+
+comment on table public.turnitin_originality_authorized_session is
+  'Turnitin-only server-side encrypted Originality Reports authorised session; never exposed to anon/authenticated clients.';
+
+comment on column public.turnitin_originality_authorized_session.encrypted_payload is
+  'AES-GCM encrypted Originality Reports session state; never returned to customers or Admin after saving.';
 
 -- Adapter retry/sync metadata. The provider's upload_token is deliberately
 -- persisted so retries cannot accidentally create/charge a second submission.
