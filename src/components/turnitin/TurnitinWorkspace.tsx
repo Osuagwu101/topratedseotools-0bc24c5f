@@ -377,11 +377,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     }
 
     const summary = workspace.data?.summary;
+    const isPostpaid = workspace.data?.account.billing_mode === "postpaid";
     if (!workspace.data?.foundationReady) {
       setSubmitError("The Turnitin workspace is not ready in this environment.");
       return;
     }
-    if (!summary || summary.available_credits < 1) {
+    if (!summary || (!isPostpaid && summary.available_credits < 1)) {
       setSubmitError("You need at least one available Turnitin check credit.");
       return;
     }
@@ -522,6 +523,16 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     next_expiry_at: null,
   };
   const foundationReady = workspace.data?.foundationReady ?? true;
+  const account = workspace.data?.account ?? {
+    billing_mode: "prepaid" as const,
+    postpaid_rate_ngn: null,
+  };
+  const postpaid = workspace.data?.postpaid ?? {
+    total_charges: 0,
+    unpaid_checks: 0,
+    outstanding_ngn: 0,
+  };
+  const isPostpaid = account.billing_mode === "postpaid";
 
   return (
     <div className="space-y-6">
@@ -540,34 +551,69 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
 
       {(view === "all" || view === "overview") ? (
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={Coins}
-          label="Available credits"
-          value={String(summary.available_credits)}
-          hint="1 credit = 1 document"
-        />
-        <StatCard
-          icon={Clock3}
-          label="Reserved"
-          value={String(summary.reserved_credits)}
-          hint="Checks waiting for acceptance"
-        />
-        <StatCard
-          icon={CalendarClock}
-          label="Next expiry"
-          value={
-            summary.next_expiry_at
-              ? new Date(summary.next_expiry_at).toLocaleDateString()
-              : "—"
-          }
-          hint="Unused purchase credits expire after 7 days"
-        />
-        <StatCard
-          icon={ShoppingCart}
-          label="Price"
-          value={formatNaira(UNIT_PRICE_NGN)}
-          hint="per check"
-        />
+        {isPostpaid ? (
+          <>
+            <StatCard
+              icon={ShoppingCart}
+              label="Postpaid rate"
+              value={
+                account.postpaid_rate_ngn == null
+                  ? "—"
+                  : `${formatNaira(account.postpaid_rate_ngn)} / check`
+              }
+              hint="Agreed amount per accepted check"
+            />
+            <StatCard
+              icon={Clock3}
+              label="Unpaid checks"
+              value={String(postpaid.unpaid_checks)}
+              hint="Accepted checks awaiting settlement"
+            />
+            <StatCard
+              icon={Coins}
+              label="Outstanding"
+              value={formatNaira(postpaid.outstanding_ngn)}
+              hint="Current Postpaid balance"
+            />
+            <StatCard
+              icon={CalendarClock}
+              label="Saved prepaid credits"
+              value={String(summary.available_credits)}
+              hint="Not consumed while Postpaid is active"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={Coins}
+              label="Available credits"
+              value={String(summary.available_credits)}
+              hint="1 credit = 1 document"
+            />
+            <StatCard
+              icon={Clock3}
+              label="Reserved"
+              value={String(summary.reserved_credits)}
+              hint="Checks waiting for acceptance"
+            />
+            <StatCard
+              icon={CalendarClock}
+              label="Next expiry"
+              value={
+                summary.next_expiry_at
+                  ? new Date(summary.next_expiry_at).toLocaleDateString()
+                  : "—"
+              }
+              hint="Unused purchase credits expire after 7 days"
+            />
+            <StatCard
+              icon={ShoppingCart}
+              label="Price"
+              value={formatNaira(UNIT_PRICE_NGN)}
+              hint="per check"
+            />
+          </>
+        )}
       </section>
 
       ) : null}
@@ -594,9 +640,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
                 <ShoppingCart className="h-5 w-5" />
               </div>
-              <h2 className="mt-4 font-semibold">Buy checks</h2>
+              <h2 className="mt-4 font-semibold">
+                {isPostpaid ? "Postpaid account" : "Buy checks"}
+              </h2>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Add prepaid checks to your account through the verified payment flow.
+                {isPostpaid
+                  ? "Review your agreed rate and current outstanding balance."
+                  : "Add prepaid checks to your account through the verified payment flow."}
               </p>
             </Link>
             <Link
@@ -676,101 +726,155 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       {(view === "all" || view === "buy" || view === "submit") ? (
       <section className={view === "all" ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
         {(view === "all" || view === "buy") ? (
-        <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-              <Coins className="h-5 w-5" />
+        isPostpaid ? (
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Postpaid account</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  You do not need to buy prepaid checks while Postpaid is active.
+                  Each accepted document is billed at your agreed rate.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold">Buy check credits</h2>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Buy any quantity you need. Every paid batch remains valid for seven days.
-              </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={ShoppingCart}
+                label="Agreed rate"
+                value={
+                  account.postpaid_rate_ngn == null
+                    ? "—"
+                    : `${formatNaira(account.postpaid_rate_ngn)} / check`
+                }
+                hint="Applied when Originality accepts a new check"
+              />
+              <StatCard
+                icon={Clock3}
+                label="Unpaid checks"
+                value={String(postpaid.unpaid_checks)}
+                hint="Checks not fully settled"
+              />
+              <StatCard
+                icon={Coins}
+                label="Outstanding"
+                value={formatNaira(postpaid.outstanding_ngn)}
+                hint="Current Postpaid balance"
+              />
             </div>
+
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Your existing prepaid credits stay on the account and are not consumed
+              while Postpaid billing is active.
+            </p>
           </div>
-
-          <label className="mt-6 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Number of checks
-          </label>
-          <div className="mt-2 flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={500}
-              value={quantity}
-              onChange={(e) =>
-                setQuantity(
-                  Math.min(TURNITIN_CREDIT_MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value) || 1))),
-                )
-              }
-              className="w-28 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <div className="text-sm text-muted-foreground">
-              × {formatNaira(UNIT_PRICE_NGN)}
+        ) : (
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                <Coins className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Buy check credits</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Buy any quantity you need. Every paid batch remains valid for seven days.
+                </p>
+              </div>
             </div>
+
+            <label className="mt-6 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Number of checks
+            </label>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(
+                    Math.min(
+                      TURNITIN_CREDIT_MAX_QUANTITY,
+                      Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                    ),
+                  )
+                }
+                className="w-28 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <div className="text-sm text-muted-foreground">
+                × {formatNaira(UNIT_PRICE_NGN)}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Credits</span>
+                <strong>{quantity}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t pt-3">
+                <span className="font-semibold">Total</span>
+                <strong className="text-xl">
+                  {formatNaira(quantity * UNIT_PRICE_NGN)}
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void buyCredits()}
+              disabled={buyingCredits || verifyingPayment || !foundationReady}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {buyingCredits || verifyingPayment ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="h-4 w-4" />
+              )}
+              {buyingCredits
+                ? "Opening payment…"
+                : verifyingPayment
+                  ? "Confirming payment…"
+                  : `Pay ${formatNaira(quantity * UNIT_PRICE_NGN)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              One-time payment only. Credits are added after verified payment and remain
+              valid for seven days. Existing tool subscriptions are not used.
+            </p>
+            <button
+              type="button"
+              onClick={() => void reconcileLatestPayment()}
+              disabled={reconcilingPayment || buyingCredits || verifyingPayment}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {reconcilingPayment ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              {reconcilingPayment
+                ? "Checking Paystack…"
+                : "Retry last payment verification"}
+            </button>
+            {paymentMessage ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentMessage}
+              </div>
+            ) : null}
+            {paymentError ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentError}
+              </div>
+            ) : null}
           </div>
+        )
+      ) : null}
 
-          <div className="mt-5 rounded-xl border bg-muted/20 p-4">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Credits</span>
-              <strong>{quantity}</strong>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 border-t pt-3">
-              <span className="font-semibold">Total</span>
-              <strong className="text-xl">{formatNaira(quantity * UNIT_PRICE_NGN)}</strong>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void buyCredits()}
-            disabled={buyingCredits || verifyingPayment || !foundationReady}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {buyingCredits || verifyingPayment ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShoppingCart className="h-4 w-4" />
-            )}
-            {buyingCredits
-              ? "Opening payment…"
-              : verifyingPayment
-                ? "Confirming payment…"
-                : `Pay ${formatNaira(quantity * UNIT_PRICE_NGN)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
-          </button>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            One-time payment only. Credits are added after verified payment and remain valid
-            for seven days. Existing tool subscriptions are not used.
-          </p>
-          <button
-            type="button"
-            onClick={() => void reconcileLatestPayment()}
-            disabled={reconcilingPayment || buyingCredits || verifyingPayment}
-            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {reconcilingPayment ? (
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            )}
-            {reconcilingPayment ? "Checking Paystack…" : "Retry last payment verification"}
-          </button>
-          {paymentMessage ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
-              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {paymentMessage}
-            </div>
-          ) : null}
-          {paymentError ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {paymentError}
-            </div>
-          ) : null}
-        </div>
-        ) : null}
-
-        {(view === "all" || view === "submit") ? (
+      {(view === "all" || view === "submit") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -1013,10 +1117,26 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
           </div>
 
           <div className="mt-4 rounded-xl border bg-muted/20 p-4 text-sm">
-            <strong>This check will use 1 credit after Originality Reports accepts the document.</strong>
+            <strong>
+              {isPostpaid
+                ? `This check will add ${formatNaira(account.postpaid_rate_ngn ?? 0)} to your Postpaid balance after Originality Reports accepts the document.`
+                : "This check will use 1 credit after Originality Reports accepts the document."}
+            </strong>
             <div className="mt-1 text-xs text-muted-foreground">
-              You currently have {summary.available_credits} available credit{summary.available_credits === 1 ? "" : "s"}.
-              If AI detection is unavailable because a document does not meet the AI requirements, a completed similarity report is still a completed check.
+              {isPostpaid ? (
+                <>
+                  No prepaid credit is required. You currently have {postpaid.unpaid_checks} unpaid
+                  check{postpaid.unpaid_checks === 1 ? "" : "s"} with an outstanding balance of{" "}
+                  {formatNaira(postpaid.outstanding_ngn)}.
+                </>
+              ) : (
+                <>
+                  You currently have {summary.available_credits} available credit
+                  {summary.available_credits === 1 ? "" : "s"}.
+                </>
+              )}{" "}
+              If AI detection is unavailable because a document does not meet the AI requirements,
+              a completed similarity report is still a completed check.
             </div>
           </div>
 
@@ -1027,7 +1147,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               submitting ||
               !selectedFile ||
               !foundationReady ||
-              summary.available_credits < 1
+              (!isPostpaid && summary.available_credits < 1)
             }
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -1039,9 +1159,11 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             {submitting ? "Submitting…" : "Run Turnitin check"}
           </button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            {summary.available_credits < 1
-              ? "You need an available credit before submitting a document."
-              : "One credit is reserved first and charged only after Originality Reports accepts the document."}
+            {isPostpaid
+              ? `No credit required. Your agreed ${formatNaira(account.postpaid_rate_ngn ?? 0)} rate is charged only after Originality Reports accepts the document.`
+              : summary.available_credits < 1
+                ? "You need an available credit before submitting a document."
+                : "One credit is reserved first and charged only after Originality Reports accepts the document."}
           </p>
           {submitMessage ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
@@ -1317,7 +1439,7 @@ function HistoryRow({
             onDownload={onDownload}
           />
           {job.status === "uploading" &&
-          job.credit_state === "reserved" &&
+          (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
           job.upstream_last_error ? (
             <button
               type="button"

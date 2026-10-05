@@ -11,6 +11,7 @@ export type TurnitinJobStatus =
   | "failed";
 
 export type TurnitinReportType = "similarity" | "ai";
+export type TurnitinBillingMode = "prepaid" | "postpaid";
 export type TurnitinReportStatus = "pending" | "available" | "unavailable" | "failed";
 
 export interface TurnitinCreditSummary {
@@ -47,6 +48,7 @@ export interface TurnitinJobRow {
   failure_code: string | null;
   failure_message: string | null;
   credit_state: "none" | "reserved" | "consumed" | "refunded";
+  billing_mode: TurnitinBillingMode;
   upstream_submission_id: string | null;
   upstream_last_error: string | null;
   word_count: number | null;
@@ -73,6 +75,15 @@ function turnitinReportDownloadName(
 export interface TurnitinWorkspaceData {
   foundationReady: boolean;
   summary: TurnitinCreditSummary;
+  account: {
+    billing_mode: TurnitinBillingMode;
+    postpaid_rate_ngn: number | null;
+  };
+  postpaid: {
+    total_charges: number;
+    unpaid_checks: number;
+    outstanding_ngn: number;
+  };
   jobs: TurnitinJobRow[];
 }
 
@@ -93,12 +104,13 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<TurnitinWorkspaceData> => {
     const db = context.supabase as any;
 
-    const [summaryResult, jobsResult, reportsResult] = await Promise.all([
+    const [summaryResult, jobsResult, reportsResult, accountResult, chargesResult] =
+      await Promise.all([
       db.rpc("turnitin_my_credit_summary"),
       db
         .from("turnitin_jobs")
         .select(
-          "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, upstream_submission_id, upstream_last_error, word_count, created_at",
+          "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at",
         )
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
@@ -111,12 +123,23 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
         .limit(400),
+      db
+        .from("turnitin_account_settings")
+        .select("billing_mode, postpaid_rate_ngn")
+        .eq("user_id", context.userId)
+        .maybeSingle(),
+      db
+        .from("turnitin_postpaid_charges")
+        .select("status, amount_ngn, paid_amount_ngn")
+        .eq("user_id", context.userId),
     ]);
 
     const errors = [
       summaryResult.error,
       jobsResult.error,
       reportsResult.error,
+      accountResult.error,
+      chargesResult.error,
     ].filter(Boolean);
 
     if (errors.length) {
@@ -127,6 +150,15 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
             available_credits: 0,
             reserved_credits: 0,
             next_expiry_at: null,
+          },
+          account: {
+            billing_mode: "prepaid",
+            postpaid_rate_ngn: null,
+          },
+          postpaid: {
+            total_charges: 0,
+            unpaid_checks: 0,
+            outstanding_ngn: 0,
           },
           jobs: [],
         };
@@ -148,6 +180,43 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
       next_expiry_at: summaryRaw?.next_expiry_at ?? null,
     };
 
+    const accountRaw = accountResult.data as
+      | { billing_mode?: string; postpaid_rate_ngn?: number | null }
+      | null;
+
+    const account = {
+      billing_mode:
+        accountRaw?.billing_mode === "postpaid"
+          ? ("postpaid" as const)
+          : ("prepaid" as const),
+      postpaid_rate_ngn:
+        accountRaw?.postpaid_rate_ngn == null
+          ? null
+          : Number(accountRaw.postpaid_rate_ngn),
+    };
+
+    const chargeRows = (chargesResult.data ?? []) as Array<{
+      status?: string;
+      amount_ngn?: number | null;
+      paid_amount_ngn?: number | null;
+    }>;
+    const postpaid = {
+      total_charges: chargeRows.length,
+      unpaid_checks: chargeRows.filter(
+        (row) => row.status === "unpaid" || row.status === "partially_paid",
+      ).length,
+      outstanding_ngn: chargeRows.reduce((sum, row) => {
+        if (row.status === "void") return sum;
+        return (
+          sum +
+          Math.max(
+            0,
+            Number(row.amount_ngn ?? 0) - Number(row.paid_amount_ngn ?? 0),
+          )
+        );
+      }, 0),
+    };
+
     const reportsByJob = new Map<string, TurnitinReportRow[]>();
     for (const raw of reportsResult.data ?? []) {
       const report = raw as TurnitinReportRow;
@@ -164,7 +233,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
       };
     });
 
-    return { foundationReady: true, summary, jobs };
+    return { foundationReady: true, summary, account, postpaid, jobs };
   });
 
 export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
