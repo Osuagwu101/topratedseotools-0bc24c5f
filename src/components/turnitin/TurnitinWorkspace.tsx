@@ -104,11 +104,21 @@ const STATUS_STYLE: Record<TurnitinJobStatus, string> = {
   failed: "bg-red-500/10 text-red-700",
 };
 
+export type TurnitinWorkspaceView = "overview" | "submit" | "buy" | "history" | "all";
+
 type Props = {
   isAuthenticated: boolean;
+  view?: TurnitinWorkspaceView;
 };
 
-export function TurnitinWorkspace({ isAuthenticated }: Props) {
+const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> = {
+  overview: "/turnitin",
+  submit: "/turnitin/submit",
+  buy: "/turnitin/buy",
+  history: "/turnitin/history",
+};
+
+export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
   const qc = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -465,6 +475,9 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   };
 
   if (!isAuthenticated) {
+    const redirectTo =
+      view === "all" ? "/turnitin" : TURNITIN_VIEW_PATH[view];
+
     return (
       <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
         <div className="grid gap-0 lg:grid-cols-[1.25fr_.75fr]">
@@ -492,7 +505,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             </p>
             <Link
               to="/login"
-              search={{ redirect: "/tools/turnitin" }}
+              search={{ redirect: redirectTo }}
               className="mt-5 inline-flex items-center justify-center rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90"
             >
               Sign in to Turnitin Checks
