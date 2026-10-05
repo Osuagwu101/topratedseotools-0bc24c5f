@@ -564,6 +564,14 @@ async function syncOneJob(admin: any, userId: string, job: any) {
       return;
     }
 
+    const aiUnavailableReason =
+      upstream.aiUnavailableReason ||
+      (upstream.wordCount != null && upstream.wordCount > 30_000
+        ? "AI writing detection is unavailable for documents over 30,000 words."
+        : upstream.wordCount != null && upstream.wordCount < 300
+          ? "AI writing detection requires at least 300 words of prose."
+          : null);
+
     if (upstream.status === "failed") {
       const { error: refundError } = await admin.rpc(
         "turnitin_refund_consumed_credit",
@@ -600,14 +608,6 @@ async function syncOneJob(admin: any, userId: string, job: any) {
         .eq("id", job.id);
       return;
     }
-
-    const aiUnavailableReason =
-      upstream.aiUnavailableReason ||
-      (upstream.wordCount != null && upstream.wordCount > 30_000
-        ? "AI writing detection is unavailable for documents over 30,000 words."
-        : upstream.wordCount != null && upstream.wordCount < 300
-          ? "AI writing detection requires at least 300 words of prose."
-          : null);
 
     let similarityStored = false;
     let aiStored = false;
@@ -682,7 +682,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
         upstream_status: upstream.status,
         similarity_percentage: upstream.similarityPercentage,
         ai_percentage: upstream.aiPercentage,
-        ai_unavailable_reason: upstream.aiUnavailableReason,
+        ai_unavailable_reason: aiUnavailableReason,
         word_count: upstream.wordCount,
         completed_at: localStatus === "completed" ? now : null,
         upstream_last_checked_at: now,
