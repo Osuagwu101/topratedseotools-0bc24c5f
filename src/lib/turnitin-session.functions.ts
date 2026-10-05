@@ -17,8 +17,6 @@ import {
   validateOriginalitySessionState,
 } from "@/lib/turnitin-originality.server";
 
-const TOOL_SLUG = "turnitin";
-
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
     _user_id: ctx.userId,
@@ -51,9 +49,9 @@ export const adminGetTurnitinOriginalitySessionStatus = createServerFn({
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context);
     const { data: row, error } = await admin
-      .from("tool_authorized_sessions")
-      .select("tool_slug, status, session_format, updated_at")
-      .eq("tool_slug", TOOL_SLUG)
+      .from("turnitin_originality_authorized_session")
+      .select("id, status, session_format, updated_at")
+      .eq("id", "primary")
       .maybeSingle();
     if (error) throw new Error(error.message);
 
@@ -96,17 +94,17 @@ export const adminSaveTurnitinOriginalitySession = createServerFn({
     const now = new Date().toISOString();
 
     const { error } = await admin
-      .from("tool_authorized_sessions")
+      .from("turnitin_originality_authorized_session")
       .upsert(
         {
-          tool_slug: TOOL_SLUG,
+          id: "primary",
           encrypted_payload: encrypted,
           session_format: "originality_cookie_json",
           status: "stored",
           updated_by: context.userId,
           updated_at: now,
         },
-        { onConflict: "tool_slug" },
+        { onConflict: "id" },
       );
     if (error) throw new Error(error.message);
 
@@ -114,7 +112,7 @@ export const adminSaveTurnitinOriginalitySession = createServerFn({
       action: "turnitin.originality_session_replace",
       area: "tools",
       target_type: "tool_authorized_session",
-      target_id: TOOL_SLUG,
+      target_id: "turnitin",
       details:
         "Originality Reports authorised session validated and replaced; secret values were not logged.",
     });
@@ -148,14 +146,14 @@ export const adminRevokeTurnitinOriginalitySession = createServerFn({
     const admin = await assertSuperAdmin(context);
     const now = new Date().toISOString();
     const { data: row, error } = await admin
-      .from("tool_authorized_sessions")
+      .from("turnitin_originality_authorized_session")
       .update({
         status: "revoked",
         updated_by: context.userId,
         updated_at: now,
       })
-      .eq("tool_slug", TOOL_SLUG)
-      .select("tool_slug")
+      .eq("id", "primary")
+      .select("id")
       .maybeSingle();
 
     if (error) throw new Error(error.message);
