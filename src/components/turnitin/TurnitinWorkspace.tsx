@@ -114,6 +114,10 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [reportTitle, setReportTitle] = useState("");
+  const [authorFirstName, setAuthorFirstName] = useState("Top Rated");
+  const [authorLastName, setAuthorLastName] = useState("Writing Services");
+  const [reportView, setReportView] = useState<"sources" | "match_groups">("sources");
   const [excludeBibliography, setExcludeBibliography] = useState(false);
   const [excludeQuotes, setExcludeQuotes] = useState(false);
   const [excludeCitations, setExcludeCitations] = useState(false);
@@ -307,11 +311,17 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
     if (!file) return;
     const error = validateFile(file);
     setFileError(error);
-    setSelectedFile(error ? null : file);
+    if (error) {
+      setSelectedFile(null);
+      return;
+    }
+    setSelectedFile(file);
+    setReportTitle(file.name);
   };
 
   const removeFile = () => {
     setSelectedFile(null);
+    setReportTitle("");
     setFileError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -373,10 +383,10 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             excludeSmallMatches,
             smallMatchMode,
             smallMatchThreshold: excludeSmallMatches ? smallMatchThreshold : null,
-            reportView: "match_groups",
-            reportTitle: selectedFile.name,
-            authorFirstName: null,
-            authorLastName: null,
+            reportView,
+            reportTitle: reportTitle.trim() || selectedFile.name,
+            authorFirstName: authorFirstName.trim() || null,
+            authorLastName: authorLastName.trim() || null,
             reportFormat: null,
           },
         },
@@ -636,7 +646,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             <div>
               <h2 className="text-lg font-semibold">Upload document</h2>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                PDF, DOC or DOCX · maximum 100 MB · one accepted document uses one credit.
+                PDF, DOC or DOCX · file must be under 100 MB · one accepted document uses one credit.
               </p>
             </div>
           </div>
@@ -694,6 +704,90 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             </p>
           ) : null}
 
+          <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <FileText className="h-4 w-4 text-primary" />
+              Submission details
+            </div>
+            <div className="mt-4 grid gap-4">
+              <label className="block">
+                <span className="text-xs font-medium">Title</span>
+                <input
+                  type="text"
+                  value={reportTitle}
+                  maxLength={500}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  placeholder="Defaults to the file name"
+                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-medium">Author first name</span>
+                  <input
+                    type="text"
+                    value={authorFirstName}
+                    maxLength={200}
+                    onChange={(e) => setAuthorFirstName(e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium">Author last name</span>
+                  <input
+                    type="text"
+                    value={authorLastName}
+                    maxLength={200}
+                    onChange={(e) => setAuthorLastName(e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                The title and author name entered here are sent to Originality Reports and are used for the generated report. Default author: Top Rated Writing Services.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Similarity report view
+              </div>
+              <div className="text-[11px] text-muted-foreground">Choose how your report looks</div>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setReportView("sources")}
+                className={`rounded-xl border p-4 text-left transition ${
+                  reportView === "sources"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                    : "bg-background/50 hover:border-primary/40"
+                }`}
+              >
+                <div className="text-sm font-semibold">Sources</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Classic layout with numbered, colour-coded sources.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportView("match_groups")}
+                className={`rounded-xl border p-4 text-left transition ${
+                  reportView === "match_groups"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                    : "bg-background/50 hover:border-primary/40"
+                }`}
+              >
+                <div className="text-sm font-semibold">Match groups</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Highlights coloured by match group, with the group icon beside every source.
+                </p>
+              </button>
+            </div>
+          </div>
+
           <div className="mt-6">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Similarity exclusions
@@ -703,21 +797,25 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
                 checked={excludeBibliography}
                 onChange={setExcludeBibliography}
                 label="Exclude bibliography"
+                description="Reference lists and reference entries."
               />
               <OptionToggle
                 checked={excludeQuotes}
                 onChange={setExcludeQuotes}
                 label="Exclude quotes"
+                description="Text inside quotation marks."
               />
               <OptionToggle
                 checked={excludeCitations}
                 onChange={setExcludeCitations}
                 label="Exclude cited text"
+                description="In-text citations such as (Smith, 2019)."
               />
               <OptionToggle
                 checked={excludeSmallMatches}
                 onChange={setExcludeSmallMatches}
                 label="Exclude small matches"
+                description="Ignore matches below a word count, or sources below a percentage."
               />
             </div>
           </div>
@@ -764,6 +862,30 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
               </div>
             </div>
           ) : null}
+
+          <div className="mt-5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <ShieldCheck className="h-4 w-4 text-blue-700" />
+              Requirements for AI Detection
+            </div>
+            <ul className="mt-3 space-y-2 text-xs leading-5 text-muted-foreground">
+              <li><strong className="text-foreground">File size:</strong> must be below 100 MB.</li>
+              <li><strong className="text-foreground">Length:</strong> at least 300 words in paragraph format.</li>
+              <li><strong className="text-foreground">Maximum:</strong> 30,000 words for AI detection.</li>
+              <li><strong className="text-foreground">Language:</strong> English, Spanish, or Japanese.</li>
+            </ul>
+            <div className="mt-3 border-t pt-3 text-[11px] leading-5 text-muted-foreground">
+              <strong className="text-foreground">Privacy:</strong> your source file is kept private and removed from TRST storage after Originality Reports accepts the submission.
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border bg-muted/20 p-4 text-sm">
+            <strong>This check will use 1 credit after Originality Reports accepts the document.</strong>
+            <div className="mt-1 text-xs text-muted-foreground">
+              You currently have {summary.available_credits} available credit{summary.available_credits === 1 ? "" : "s"}.
+              If AI detection is unavailable because a document does not meet the AI requirements, a completed similarity report is still a completed check.
+            </div>
+          </div>
 
           <button
             type="button"
@@ -931,20 +1053,29 @@ function OptionToggle({
   checked,
   onChange,
   label,
+  description,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  description?: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-xl border bg-background/50 p-3 text-sm">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-background/50 p-3 text-sm">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-input accent-primary"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
       />
-      <span>{label}</span>
+      <span>
+        <span className="block">{label}</span>
+        {description ? (
+          <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+            {description}
+          </span>
+        ) : null}
+      </span>
     </label>
   );
 }
