@@ -680,8 +680,10 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     total_charges: 0,
     unpaid_checks: 0,
     outstanding_ngn: 0,
+    paid_ngn: 0,
   };
   const isPostpaid = account.billing_mode === "postpaid";
+  const settlements = postpaidSettlements.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -890,7 +892,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 icon={ShoppingCart}
                 label="Agreed rate"
@@ -913,6 +915,139 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
                 value={formatNaira(postpaid.outstanding_ngn)}
                 hint="Current Postpaid balance"
               />
+              <StatCard
+                icon={CheckCircle2}
+                label="Paid"
+                value={formatNaira(postpaid.paid_ngn)}
+                hint="Allocated to Postpaid checks"
+              />
+            </div>
+
+            {postpaid.outstanding_ngn > 0 ? (
+              <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+                <div className="text-sm font-semibold">Settle your balance</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Pay all or part of your outstanding balance through the active payment provider.
+                  Confirmed money is allocated to your oldest unpaid checks first.
+                </p>
+                <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Amount to pay
+                </label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="number"
+                    min={1}
+                    max={postpaid.outstanding_ngn}
+                    value={settlementAmount}
+                    onChange={(e) =>
+                      setSettlementAmount(
+                        Math.max(
+                          1,
+                          Math.min(
+                            postpaid.outstanding_ngn,
+                            Math.floor(Number(e.target.value) || 1),
+                          ),
+                        ),
+                      )
+                    }
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 sm:max-w-[220px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void settlePostpaidBalance()}
+                    disabled={
+                      settlingPostpaid ||
+                      verifyingPayment ||
+                      !foundationReady ||
+                      settlementAmount < 1
+                    }
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {settlingPostpaid || verifyingPayment ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )}
+                    {settlingPostpaid
+                      ? "Opening payment…"
+                      : `Pay ${formatNaira(settlementAmount)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void reconcileLatestPostpaidPayment()}
+                  disabled={reconcilingPayment || settlingPostpaid || verifyingPayment}
+                  className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                >
+                  {reconcilingPayment ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Retry last Postpaid payment verification
+                </button>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm text-emerald-700">
+                <div className="font-semibold">Your Postpaid balance is fully settled.</div>
+                <p className="mt-1 text-xs">
+                  New accepted checks will appear here automatically at your agreed rate.
+                </p>
+              </div>
+            )}
+
+            {paymentMessage ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentMessage}
+              </div>
+            ) : null}
+            {paymentError ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 overflow-hidden rounded-xl border">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                <div>
+                  <div className="text-sm font-semibold">Settlement history</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    Website and Admin-recorded settlements remain permanently visible.
+                  </div>
+                </div>
+              </div>
+              {settlements.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                  No Postpaid settlements recorded yet.
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {settlements.slice(0, 10).map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {formatNaira(row.amountNgn)}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {row.method.replaceAll("_", " ")} · {formatDate(row.confirmedAt || row.createdAt)}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-semibold capitalize text-foreground">
+                          {row.status}
+                        </span>
+                        {" · "}
+                        {formatNaira(row.allocatedAmountNgn)} allocated
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <p className="mt-4 text-xs leading-5 text-muted-foreground">
