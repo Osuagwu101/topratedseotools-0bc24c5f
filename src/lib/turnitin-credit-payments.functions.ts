@@ -450,3 +450,101 @@ export const verifyTurnitinCreditPurchase = createServerFn({ method: "POST" })
       alreadyPaid: false,
     };
   });
+
+
+export const reconcileLatestTurnitinCreditPurchase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const admin = await adminClient();
+
+    const { data: purchaseRaw, error } = await admin
+      .from("turnitin_credit_purchases")
+      .select(
+        "id, user_id, quantity, unit_amount_ngn, total_amount_ngn, status, payment_gateway, payment_reference, payment_currency, payment_amount, gateway_environment, gateway_reference, gateway_transaction_id, paid_at, expires_at",
+      )
+      .eq("user_id", context.userId)
+      .eq("status", "pending")
+      .not("payment_reference", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!purchaseRaw) {
+      return { ok: false, status: "none" as const };
+    }
+
+    const purchase = purchaseRaw as TurnitinPurchaseRow;
+    const reference = String(purchase.payment_reference ?? "");
+    if (!reference) {
+      throw new Error("Pending Turnitin purchase has no payment reference.");
+    }
+
+    const gateway = await loadPurchaseGateway(admin, purchase.payment_gateway);
+
+    if (
+      purchase.gateway_environment &&
+      gateway.environment &&
+      purchase.gateway_environment !== gateway.environment
+    ) {
+      throw new Error(
+        "The payment-provider environment no longer matches this purchase.",
+      );
+    }
+
+    const tx = await gateway.adapter.verify(reference);
+
+    if (tx.status === "pending") {
+      return {
+        ok: false,
+        status: "pending" as const,
+        purchaseId: purchase.id,
+      };
+    }
+
+    if (tx.status === "failed") {
+      await admin
+        .from("turnitin_credit_purchases")
+        .update({
+          status: "failed",
+          last_error: "Payment provider verification returned failed.",
+          verified_at: new Date().toISOString(),
+        })
+        .eq("id", purchase.id)
+        .neq("status", "paid");
+
+      return {
+        ok: false,
+        status: "failed" as const,
+        purchaseId: purchase.id,
+      };
+    }
+
+    validateVerifiedPayment(
+      {
+        status: tx.status,
+        reference: tx.reference,
+        amount: tx.amount,
+        requested_amount: tx.requested_amount ?? null,
+        currency: tx.currency,
+        metadata: metadataOf(tx.metadata),
+      },
+      purchase,
+    );
+
+    await finalizeVerifiedPurchase(admin, purchase, tx);
+
+    const { data: finalized } = await admin
+      .from("turnitin_credit_purchases")
+      .select("expires_at")
+      .eq("id", purchase.id)
+      .maybeSingle();
+
+    return {
+      ok: true,
+      status: "paid" as const,
+      purchaseId: purchase.id,
+      quantity: Number(purchase.quantity),
+      expiresAt: finalized?.expires_at ?? null,
+    };
+  });
