@@ -40,6 +40,10 @@ import {
   adminSetTurnitinPostpaidStatus,
   adminUpdateTurnitinPostpaidRate,
 } from "@/lib/turnitin-postpaid.functions";
+import {
+  adminGetTurnitinPostpaidLedger,
+  adminRecordTurnitinPostpaidSettlement,
+} from "@/lib/turnitin-postpaid-settlements.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
   Wallet,
