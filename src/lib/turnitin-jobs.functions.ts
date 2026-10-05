@@ -586,7 +586,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
           upstream_status: upstream.status,
           similarity_percentage: upstream.similarityPercentage,
           ai_percentage: upstream.aiPercentage,
-          ai_unavailable_reason: upstream.aiUnavailableReason,
+          ai_unavailable_reason: aiUnavailableReason,
           word_count: upstream.wordCount,
           failed_at: now,
           failure_code: "UPSTREAM_FAILED",
@@ -600,6 +600,14 @@ async function syncOneJob(admin: any, userId: string, job: any) {
         .eq("id", job.id);
       return;
     }
+
+    const aiUnavailableReason =
+      upstream.aiUnavailableReason ||
+      (upstream.wordCount != null && upstream.wordCount > 30_000
+        ? "AI writing detection is unavailable for documents over 30,000 words."
+        : upstream.wordCount != null && upstream.wordCount < 300
+          ? "AI writing detection requires at least 300 words of prose."
+          : null);
 
     let similarityStored = false;
     let aiStored = false;
@@ -629,7 +637,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
       );
     }
 
-    if (upstream.aiUnavailableReason) {
+    if (aiUnavailableReason) {
       const { error: aiUnavailableError } = await admin
         .from("turnitin_reports")
         .upsert(
@@ -641,7 +649,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
             score: null,
             storage_bucket: null,
             storage_path: null,
-            unavailable_reason: upstream.aiUnavailableReason,
+            unavailable_reason: aiUnavailableReason,
             available_at: null,
           },
           { onConflict: "job_id,report_type" },
