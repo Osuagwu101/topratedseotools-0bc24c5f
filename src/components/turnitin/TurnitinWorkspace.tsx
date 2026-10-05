@@ -538,6 +538,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
         </div>
       ) : null}
 
+      {(view === "all" || view === "overview") ? (
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={Coins}
@@ -569,7 +570,11 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+      ) : null}
+
+      {(view === "all" || view === "buy" || view === "submit") ? (
+      <section className={view === "all" ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
+        {(view === "all" || view === "buy") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -662,7 +667,9 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             </div>
           ) : null}
         </div>
+        ) : null}
 
+        {(view === "all" || view === "submit") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -948,8 +955,11 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             </div>
           ) : null}
         </div>
+        ) : null}
       </section>
+      ) : null}
 
+      {(view === "all" || view === "history") ? (
       <section className="rounded-2xl border bg-card shadow-card">
         <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1038,7 +1048,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             {downloadError}
           </div>
         ) : null}
-      </section>
+      </section>      ) : null}
+
     </div>
   );
 }
