@@ -186,11 +186,18 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
-  if (
-    tool.slug === "phrasly" ||
-    tool.slug === "chatgpt" ||
-    tool.slug === "turnitin"
-  ) {
+  if (tool.slug === "phrasly" || tool.slug === "chatgpt") {
+    for (let i = tabs.length - 1; i >= 0; i--) {
+      if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
+    }
+    const ordersIndex = tabs.findIndex((item) => item.id === "orders");
+    tabs.splice(ordersIndex < 0 ? tabs.length : ordersIndex, 0, {
+      id: "session",
+      label: "Authorised session",
+      icon: KeyRound,
+    });
+  }
+  if (tool.slug === "turnitin") {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
