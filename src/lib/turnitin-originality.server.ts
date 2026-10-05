@@ -365,29 +365,113 @@ function makeUploadForm(options: OriginalityUploadOptions): FormData {
   form.append("report_title", title);
   form.append(
     "author_first_name",
-    options.authorFirstName?.trim() || "Test",
+    options.authorFirstName?.trim() || "Top Rated",
   );
   form.append(
     "author_last_name",
-    options.authorLastName?.trim() || "Author",
+    options.authorLastName?.trim() || "Writing Services",
   );
   form.append("folder_id", options.folderId?.trim() || "");
   form.append("upload_token", options.uploadToken);
   return form;
 }
 
-async function uploadAttempt(
+async function fetchCsrfToken(
+  context: SessionContext,
+): Promise<string> {
+  const response = await sessionFetch(context, "/csrf-token", {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new OriginalityAdapterError(
+      "CSRF_FAILED",
+      `Originality Reports CSRF token request returned HTTP ${response.status}.`,
+      response.status,
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new OriginalityAdapterError(
+      "CSRF_FAILED",
+      "Originality Reports CSRF endpoint did not return JSON.",
+      response.status,
+    );
+  }
+
+  const json = (await response.json()) as { csrf_token?: string };
+  const token = String(json.csrf_token ?? "").trim();
+  if (!token) {
+    throw new OriginalityAdapterError(
+      "CSRF_FAILED",
+      "Originality Reports CSRF endpoint returned an empty token.",
+      response.status,
+    );
+  }
+  return token;
+}
+
+async function uploadWithCsrf(
   context: SessionContext,
   options: OriginalityUploadOptions,
+  csrfToken: string,
 ): Promise<Response> {
   return sessionFetch(context, "/user/upload", {
     method: "POST",
     body: makeUploadForm(options),
+    cache: "no-store",
     headers: {
+      "X-CSRFToken": csrfToken,
       "X-Requested-With": "XMLHttpRequest",
       Accept: "application/json",
     },
   });
+}
+
+async function uploadAttempt(
+  context: SessionContext,
+  options: OriginalityUploadOptions,
+): Promise<Response> {
+  let csrfToken = await fetchCsrfToken(context);
+
+  for (let csrfAttempt = 0; csrfAttempt < 2; csrfAttempt++) {
+    try {
+      const response = await uploadWithCsrf(context, options, csrfToken);
+
+      // Originality's browser helper refreshes the CSRF token and replays
+      // exactly once when a POST is redirected or rejected with 400/403.
+      if (
+        csrfAttempt === 0 &&
+        (response.status === 400 ||
+          (response.status >= 300 && response.status < 400))
+      ) {
+        csrfToken = await fetchCsrfToken(context);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      if (
+        csrfAttempt === 0 &&
+        error instanceof OriginalityAdapterError &&
+        error.code === "UPSTREAM_FORBIDDEN"
+      ) {
+        csrfToken = await fetchCsrfToken(context);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new OriginalityAdapterError(
+    "CSRF_FAILED",
+    "Originality Reports rejected the upload after one CSRF refresh.",
+  );
 }
 
 export async function submitOriginalityDocument(

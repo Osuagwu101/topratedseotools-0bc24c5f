@@ -100,6 +100,29 @@ assert(
   "adapter is limited to the mapped upload/status/report workflow",
 );
 
+
+assert(
+  adapter.includes('"/csrf-token"') &&
+    adapter.includes('"X-CSRFToken"') &&
+    adapter.includes('"X-Requested-With"') &&
+    adapter.includes('cache: "no-store"'),
+  "upload obtains Originality CSRF token and sends the same non-GET headers as the browser",
+);
+
+assert(
+  adapter.includes("for (let csrfAttempt = 0; csrfAttempt < 2; csrfAttempt++)") &&
+    adapter.includes("response.status === 400") &&
+    adapter.includes('error.code === "UPSTREAM_FORBIDDEN"') &&
+    adapter.includes("one CSRF refresh"),
+  "upload refreshes CSRF and replays at most once on browser-equivalent 400/403/redirect rejection",
+);
+
+assert(
+  adapter.includes('options.authorFirstName?.trim() || "Top Rated"') &&
+    adapter.includes('options.authorLastName?.trim() || "Writing Services"'),
+  "server fallback author matches the TRST default report identity",
+);
+
 for (const field of [
   '"file"',
   '"exclude_bibliography"',
