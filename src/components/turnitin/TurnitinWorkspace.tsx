@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
 import {
   initializeTurnitinCreditPurchase,
+  reconcileLatestTurnitinCreditPurchase,
   verifyTurnitinCreditPurchase,
 } from "@/lib/turnitin-credit-payments.functions";
 import {
@@ -127,6 +128,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   const [retryingJob, setRetryingJob] = useState<string | null>(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [reconcilingPayment, setReconcilingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -238,6 +240,39 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
           : "Could not start the Turnitin credit payment.",
       );
       setBuyingCredits(false);
+    }
+  };
+
+  const reconcileLatestPayment = async () => {
+    setReconcilingPayment(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const result = await reconcileLatestTurnitinCreditPurchase();
+      if (result.status === "paid") {
+        setPaymentMessage(
+          `${result.quantity} Turnitin credit${result.quantity === 1 ? "" : "s"} added successfully.`,
+        );
+        await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+      } else if (result.status === "pending") {
+        setPaymentMessage(
+          "Paystack still reports this payment as pending. Please wait a moment and retry.",
+        );
+      } else if (result.status === "failed") {
+        setPaymentError(
+          "Paystack reports the latest Turnitin credit payment as failed.",
+        );
+      } else {
+        setPaymentError("No pending Turnitin credit payment was found.");
+      }
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not reconcile the latest Turnitin credit payment.",
+      );
+    } finally {
+      setReconcilingPayment(false);
     }
   };
 
@@ -566,6 +601,19 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             One-time payment only. Credits are added after verified payment and remain valid
             for seven days. Existing tool subscriptions are not used.
           </p>
+          <button
+            type="button"
+            onClick={() => void reconcileLatestPayment()}
+            disabled={reconcilingPayment || buyingCredits || verifyingPayment}
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {reconcilingPayment ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )}
+            {reconcilingPayment ? "Checking Paystack…" : "Retry last payment verification"}
+          </button>
           {paymentMessage ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
