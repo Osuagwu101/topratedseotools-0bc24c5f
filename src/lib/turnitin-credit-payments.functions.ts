@@ -154,8 +154,8 @@ function validateVerifiedPayment(
   );
   const verifiedProductAmount =
     tx.requested_amount == null ? Number(tx.amount) : Number(tx.requested_amount);
-  if (verifiedProductAmount !== expectedMinor) {
-    throw new Error("Turnitin credit payment amount verification failed.");
+  if (verifiedProductAmount < expectedMinor) {
+    throw new Error("Turnitin credit payment amount is below the required purchase amount.");
   }
   if (String(tx.currency ?? "").toUpperCase() !== "NGN") {
     throw new Error("Turnitin credit payment currency verification failed.");
