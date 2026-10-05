@@ -60,12 +60,15 @@ for (const [section, path] of [
 }
 
 for (const tab of [
-  'to="/turnitin"',
-  'to="/turnitin/submit"',
-  'to="/turnitin/buy"',
-  'to="/turnitin/history"',
+  'to: "/turnitin"',
+  'to: "/turnitin/submit"',
+  'to: "/turnitin/buy"',
+  'to: "/turnitin/history"',
 ]) {
-  assert(product.includes(tab), `product shell includes navigation tab ${tab}`);
+  assert(
+    product.includes(tab) && product.includes("to={tab.to}"),
+    `product shell includes navigation tab ${tab}`,
+  );
 }
 
 assert(
