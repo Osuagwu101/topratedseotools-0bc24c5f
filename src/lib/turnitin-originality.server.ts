@@ -20,7 +20,6 @@ import {
 } from "@/lib/turnitin-originality-session.server";
 
 export const ORIGINALITY_ORIGIN = "https://www.originality.report";
-const TOOL_SLUG = "turnitin";
 const MAX_REPORT_BYTES = 100 * 1024 * 1024;
 
 type AdminClient = any;
@@ -166,9 +165,9 @@ function mergeKnownSessionCookies(
 
 async function loadSession(admin: AdminClient): Promise<SessionContext> {
   const { data: row, error } = await admin
-    .from("tool_authorized_sessions")
+    .from("turnitin_originality_authorized_session")
     .select("encrypted_payload, status")
-    .eq("tool_slug", TOOL_SLUG)
+    .eq("id", "primary")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -193,12 +192,12 @@ async function persistRotatedSession(
   if (!context.dirty) return;
   const encrypted = encryptOriginalitySession(JSON.stringify(context.state));
   const { error } = await admin
-    .from("tool_authorized_sessions")
+    .from("turnitin_originality_authorized_session")
     .update({
       encrypted_payload: encrypted,
       updated_at: new Date().toISOString(),
     })
-    .eq("tool_slug", TOOL_SLUG)
+    .eq("id", "primary")
     .eq("status", "stored");
   if (error) throw new Error(error.message);
   context.dirty = false;
