@@ -82,7 +82,7 @@ function validateFile(file: File): string | null {
     return "Use a PDF, DOC or DOCX file.";
   }
   if (file.size <= 0) return "The selected file is empty.";
-  if (file.size > MAX_FILE_BYTES) return "The maximum file size is 100 MB.";
+  if (file.size >= MAX_FILE_BYTES) return "The file must be below 100 MB.";
   return null;
 }
 
