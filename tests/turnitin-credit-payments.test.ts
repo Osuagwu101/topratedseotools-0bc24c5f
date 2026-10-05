@@ -133,15 +133,16 @@ assert(
 assert(
   functions.includes("requested_amount") &&
     functions.includes("verifiedProductAmount") &&
-    functions.includes("tx.requested_amount == null ? Number(tx.amount) : Number(tx.requested_amount)"),
+    functions.includes("tx.requested_amount == null ? Number(tx.amount) : Number(tx.requested_amount)") &&
+    functions.includes("verifiedProductAmount < expectedMinor"),
   "browser-return verification uses Paystack requested_amount when customer fees make the charged amount higher",
 );
 
 assert(
   webhook.includes("verified.requested_amount == null") &&
-    webhook.includes("verifiedProductAmount !== expectedMinor") &&
+    webhook.includes("verifiedProductAmount < expectedMinor") &&
     !webhook.includes("Number(normalized.data.amount) !== expectedMinor"),
-  "webhook defers fee-sensitive amount validation to authoritative verification and checks requested_amount",
+  "webhook rejects underpayment while allowing gateway fees above the requested Turnitin amount",
 );
 
 assert(
