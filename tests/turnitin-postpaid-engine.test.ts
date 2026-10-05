@@ -21,6 +21,10 @@ const migration = readFileSync(
   "supabase/migrations/20261005093000_turnitin_postpaid_engine.sql",
   "utf8",
 );
+const migrationSqlOnly = migration
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n");
 const adminFns = readFileSync(
   "src/lib/turnitin-postpaid.functions.ts",
   "utf8",
@@ -193,7 +197,7 @@ assert(
 
 for (const forbidden of ["tool_orders", "tool_payments", "subscription_status"]) {
   assert(
-    !migration.includes(forbidden) && !adminFns.includes(forbidden),
+    !migrationSqlOnly.includes(forbidden) && !adminFns.includes(forbidden),
     `Postpaid engine remains isolated from ordinary subscription/payment surface: ${forbidden}`,
   );
 }
