@@ -47,12 +47,19 @@ const adminTool = readFileSync(
 );
 
 assert(
-  migration.includes("'turnitin'") &&
+  migration.includes("create table if not exists public.turnitin_originality_authorized_session") &&
     migration.includes("'turnitin-source'") &&
     migration.includes("'turnitin-reports'") &&
     migration.includes("public,") &&
     migration.includes("false"),
-  "migration allows Turnitin session state and creates private source/report buckets",
+  "migration creates a Turnitin-only session vault and private source/report buckets",
+);
+
+assert(
+  !migration.includes("alter table public.tool_authorized_sessions") &&
+    !migration.includes("update public.tool_authorized_sessions") &&
+    !migration.includes("insert into public.tool_authorized_sessions"),
+  "Phase 5 does not alter the StealthWriter/Phrasly/ChatGPT shared session vault",
 );
 
 assert(
@@ -159,8 +166,9 @@ assert(
   sessionFns.includes("validateOriginalitySessionState") &&
     sessionFns.includes("available_slots") &&
     sessionFns.includes("encryptOriginalitySession") &&
-    sessionFns.includes("adminRevokeTurnitinOriginalitySession"),
-  "Admin Save validates the direct server session before encryption and supports Test/Revoke",
+    sessionFns.includes("adminRevokeTurnitinOriginalitySession") &&
+    sessionFns.includes("turnitin_originality_authorized_session"),
+  "Admin Save validates the direct server session and stores it only in the Turnitin vault",
 );
 
 assert(
