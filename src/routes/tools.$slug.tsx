@@ -37,6 +37,7 @@ import { listToolSettings } from "@/lib/access.functions";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewSection } from "@/components/reviews/ReviewSection";
+import { TurnitinWorkspace } from "@/components/turnitin/TurnitinWorkspace";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -197,7 +198,9 @@ function ToolPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        {tool.pricingModel === "per_use" ? (
+        {tool.slug === "turnitin" ? (
+          <TurnitinWorkspace isAuthenticated={session?.isAuthenticated ?? false} />
+        ) : tool.pricingModel === "per_use" ? (
           <PerUsePanel tool={tool} />
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
