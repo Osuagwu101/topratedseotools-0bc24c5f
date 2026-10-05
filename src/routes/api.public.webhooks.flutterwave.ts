@@ -13,7 +13,15 @@ export const Route = createFileRoute("/api/public/webhooks/flutterwave")({
         const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
         await loadGatewaySecrets(supabaseAdmin, true);
         const { flutterwaveAdapter } = await import("@/lib/gateways/flutterwave");
+        const { tryHandleTurnitinPostpaidSettlementWebhook } = await import("@/lib/turnitin-postpaid-settlements.webhook");
         const { tryHandleTurnitinCreditWebhook } = await import("@/lib/turnitin-credit-payments.webhook");
+        const turnitinPostpaid = await tryHandleTurnitinPostpaidSettlementWebhook(request.clone(), {
+          gateway: "flutterwave",
+          adapter: flutterwaveAdapter,
+          supabaseAdmin,
+        });
+        if (turnitinPostpaid) return turnitinPostpaid;
+
         const turnitinCredits = await tryHandleTurnitinCreditWebhook(request.clone(), {
           gateway: "flutterwave",
           adapter: flutterwaveAdapter,
