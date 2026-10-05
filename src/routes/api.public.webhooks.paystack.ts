@@ -13,7 +13,15 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
         const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
         await loadGatewaySecrets(supabaseAdmin, true);
         const { paystackAdapter } = await import("@/lib/gateways/paystack");
+        const { tryHandleTurnitinPostpaidSettlementWebhook } = await import("@/lib/turnitin-postpaid-settlements.webhook");
         const { tryHandleTurnitinCreditWebhook } = await import("@/lib/turnitin-credit-payments.webhook");
+        const turnitinPostpaid = await tryHandleTurnitinPostpaidSettlementWebhook(request.clone(), {
+          gateway: "paystack",
+          adapter: paystackAdapter,
+          supabaseAdmin,
+        });
+        if (turnitinPostpaid) return turnitinPostpaid;
+
         const turnitinCredits = await tryHandleTurnitinCreditWebhook(request.clone(), {
           gateway: "paystack",
           adapter: paystackAdapter,

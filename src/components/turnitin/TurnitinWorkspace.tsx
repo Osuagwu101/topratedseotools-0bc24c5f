@@ -42,6 +42,12 @@ import {
   TURNITIN_CREDIT_MAX_QUANTITY,
   TURNITIN_CREDIT_UNIT_PRICE_NGN,
 } from "@/lib/turnitin-pricing";
+import {
+  getMyTurnitinPostpaidSettlements,
+  initializeTurnitinPostpaidSettlement,
+  reconcileLatestTurnitinPostpaidSettlement,
+  verifyTurnitinPostpaidSettlement,
+} from "@/lib/turnitin-postpaid-settlements.functions";
 
 const UNIT_PRICE_NGN = TURNITIN_CREDIT_UNIT_PRICE_NGN;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -141,6 +147,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [retryingJob, setRetryingJob] = useState<string | null>(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
+  const [settlingPostpaid, setSettlingPostpaid] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState(0);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [reconcilingPayment, setReconcilingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
@@ -162,6 +170,14 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     },
   });
 
+  const postpaidSettlements = useQuery({
+    queryKey: ["turnitin-postpaid-settlements"],
+    queryFn: () => getMyTurnitinPostpaidSettlements(),
+    enabled:
+      isAuthenticated && workspace.data?.account.billing_mode === "postpaid",
+    staleTime: 10_000,
+  });
+
   const activeGateway = useQuery({
     queryKey: ["active-gateway"],
     queryFn: () => getActiveGatewayInfo(),
@@ -174,23 +190,67 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     if (!isAuthenticated || typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    const callbackReference =
+    const callbackFromUrl =
       params.get("reference") ||
       params.get("trxref") ||
-      params.get("tx_ref") ||
-      window.sessionStorage.getItem("turnitin-credit-reference");
+      params.get("tx_ref");
+    const storedSettlementReference = window.sessionStorage.getItem(
+      "turnitin-postpaid-settlement-reference",
+    );
+    const storedCreditReference = window.sessionStorage.getItem(
+      "turnitin-credit-reference",
+    );
+    const callbackReference =
+      callbackFromUrl || storedSettlementReference || storedCreditReference;
 
     if (!callbackReference) return;
+
+    const isSettlementReference =
+      callbackReference.startsWith("TRST-TP-") ||
+      callbackReference === storedSettlementReference;
 
     let cancelled = false;
     setVerifyingPayment(true);
     setPaymentError(null);
 
-    void verifyTurnitinCreditPurchase({
-      data: { reference: callbackReference },
-    })
-      .then(async (result) => {
+    void (async () => {
+      if (isSettlementReference) {
+        const result = await verifyTurnitinPostpaidSettlement({
+          data: { reference: callbackReference },
+        });
         if (cancelled) return;
+
+        if (result.status === "confirmed") {
+          window.sessionStorage.removeItem(
+            "turnitin-postpaid-settlement-reference",
+          );
+          setPaymentMessage(
+            `Postpaid settlement of ${formatNaira(result.amountNgn)} confirmed successfully.`,
+          );
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: ["turnitin-workspace"] }),
+            qc.invalidateQueries({
+              queryKey: ["turnitin-postpaid-settlements"],
+            }),
+          ]);
+        } else if (result.status === "pending") {
+          setPaymentMessage(
+            "Your Postpaid settlement is still being confirmed by the payment provider.",
+          );
+        } else {
+          window.sessionStorage.removeItem(
+            "turnitin-postpaid-settlement-reference",
+          );
+          setPaymentError(
+            "The payment provider did not confirm this Postpaid settlement.",
+          );
+        }
+      } else {
+        const result = await verifyTurnitinCreditPurchase({
+          data: { reference: callbackReference },
+        });
+        if (cancelled) return;
+
         if (result.status === "paid") {
           window.sessionStorage.removeItem("turnitin-credit-reference");
           setPaymentMessage(
@@ -207,17 +267,18 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             "The payment provider did not confirm this Turnitin credit purchase.",
           );
         }
+      }
 
-        if (params.toString()) {
-          window.history.replaceState({}, "", window.location.pathname);
-        }
-      })
+      if (params.toString()) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    })()
       .catch((error) => {
         if (cancelled) return;
         setPaymentError(
           error instanceof Error
             ? error.message
-            : "Could not verify the Turnitin credit payment.",
+            : "Could not verify this Turnitin payment.",
         );
       })
       .finally(() => {
@@ -228,6 +289,19 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       cancelled = true;
     };
   }, [isAuthenticated, qc]);
+
+  useEffect(() => {
+    if (workspace.data?.account.billing_mode !== "postpaid") return;
+    const outstanding = workspace.data.postpaid.outstanding_ngn;
+    setSettlementAmount((current) => {
+      if (outstanding <= 0) return 0;
+      if (current <= 0 || current > outstanding) return outstanding;
+      return current;
+    });
+  }, [
+    workspace.data?.account.billing_mode,
+    workspace.data?.postpaid.outstanding_ngn,
+  ]);
 
   const buyCredits = async () => {
     if (!workspace.data?.foundationReady) {
@@ -254,6 +328,81 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
           : "Could not start the Turnitin credit payment.",
       );
       setBuyingCredits(false);
+    }
+  };
+
+  const settlePostpaidBalance = async () => {
+    const outstanding = workspace.data?.postpaid.outstanding_ngn ?? 0;
+    if (outstanding <= 0) {
+      setPaymentError("There is no outstanding Postpaid balance to settle.");
+      return;
+    }
+    if (
+      !Number.isInteger(settlementAmount) ||
+      settlementAmount < 1 ||
+      settlementAmount > outstanding
+    ) {
+      setPaymentError("Enter a settlement amount within your outstanding balance.");
+      return;
+    }
+
+    setSettlingPostpaid(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const checkout = await initializeTurnitinPostpaidSettlement({
+        data: { amountNgn: settlementAmount },
+      });
+      window.sessionStorage.setItem(
+        "turnitin-postpaid-settlement-reference",
+        checkout.reference,
+      );
+      window.location.href = checkout.authorization_url;
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not start the Postpaid settlement.",
+      );
+      setSettlingPostpaid(false);
+    }
+  };
+
+  const reconcileLatestPostpaidPayment = async () => {
+    setReconcilingPayment(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const result = await reconcileLatestTurnitinPostpaidSettlement();
+      if (result.status === "confirmed") {
+        setPaymentMessage(
+          `Postpaid settlement of ${formatNaira(result.amountNgn)} confirmed successfully.`,
+        );
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["turnitin-workspace"] }),
+          qc.invalidateQueries({
+            queryKey: ["turnitin-postpaid-settlements"],
+          }),
+        ]);
+      } else if (result.status === "pending") {
+        setPaymentMessage(
+          "The payment provider still reports this Postpaid settlement as pending.",
+        );
+      } else if (result.status === "failed") {
+        setPaymentError(
+          "The payment provider reports the latest Postpaid settlement as failed.",
+        );
+      } else {
+        setPaymentError("No pending Postpaid settlement was found.");
+      }
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not reconcile the latest Postpaid settlement.",
+      );
+    } finally {
+      setReconcilingPayment(false);
     }
   };
 
@@ -531,8 +680,10 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     total_charges: 0,
     unpaid_checks: 0,
     outstanding_ngn: 0,
+    paid_ngn: 0,
   };
   const isPostpaid = account.billing_mode === "postpaid";
+  const settlements = postpaidSettlements.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -741,7 +892,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 icon={ShoppingCart}
                 label="Agreed rate"
@@ -764,6 +915,147 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
                 value={formatNaira(postpaid.outstanding_ngn)}
                 hint="Current Postpaid balance"
               />
+              <StatCard
+                icon={CheckCircle2}
+                label="Paid"
+                value={formatNaira(postpaid.paid_ngn)}
+                hint="Allocated to Postpaid checks"
+              />
+            </div>
+
+            {postpaid.outstanding_ngn > 0 ? (
+              <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+                <div className="text-sm font-semibold">Settle your balance</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Pay all or part of your outstanding balance through the active payment provider.
+                  Confirmed money is allocated to your oldest unpaid checks first.
+                </p>
+                <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Amount to pay
+                </label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="number"
+                    min={1}
+                    max={postpaid.outstanding_ngn}
+                    value={settlementAmount}
+                    onChange={(e) =>
+                      setSettlementAmount(
+                        Math.max(
+                          1,
+                          Math.min(
+                            postpaid.outstanding_ngn,
+                            Math.floor(Number(e.target.value) || 1),
+                          ),
+                        ),
+                      )
+                    }
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 sm:max-w-[220px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void settlePostpaidBalance()}
+                    disabled={
+                      settlingPostpaid ||
+                      verifyingPayment ||
+                      !foundationReady ||
+                      settlementAmount < 1
+                    }
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {settlingPostpaid || verifyingPayment ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )}
+                    {settlingPostpaid
+                      ? "Opening payment…"
+                      : `Pay ${formatNaira(settlementAmount)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void reconcileLatestPostpaidPayment()}
+                  disabled={reconcilingPayment || settlingPostpaid || verifyingPayment}
+                  className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                >
+                  {reconcilingPayment ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Retry last Postpaid payment verification
+                </button>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm text-emerald-700">
+                <div className="font-semibold">Your Postpaid balance is fully settled.</div>
+                <p className="mt-1 text-xs">
+                  New accepted checks will appear here automatically at your agreed rate.
+                </p>
+              </div>
+            )}
+
+            {paymentMessage ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentMessage}
+              </div>
+            ) : null}
+            {paymentError ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 overflow-hidden rounded-xl border">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                <div>
+                  <div className="text-sm font-semibold">Settlement history</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    Website and Admin-recorded settlements remain permanently visible.
+                  </div>
+                </div>
+              </div>
+              {settlements.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                  No Postpaid settlements recorded yet.
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {settlements.slice(0, 10).map((row: {
+                    id: string;
+                    amountNgn: number;
+                    allocatedAmountNgn: number;
+                    method: string;
+                    status: string;
+                    confirmedAt: string | null;
+                    createdAt: string;
+                  }) => (
+                    <div
+                      key={row.id}
+                      className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {formatNaira(row.amountNgn)}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {row.method.replaceAll("_", " ")} · {formatDate(row.confirmedAt || row.createdAt)}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-semibold capitalize text-foreground">
+                          {row.status}
+                        </span>
+                        {" · "}
+                        {formatNaira(row.allocatedAmountNgn)} allocated
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <p className="mt-4 text-xs leading-5 text-muted-foreground">

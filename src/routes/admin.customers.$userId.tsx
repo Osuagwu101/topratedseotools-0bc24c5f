@@ -40,6 +40,10 @@ import {
   adminSetTurnitinPostpaidStatus,
   adminUpdateTurnitinPostpaidRate,
 } from "@/lib/turnitin-postpaid.functions";
+import {
+  adminGetTurnitinPostpaidLedger,
+  adminRecordTurnitinPostpaidSettlement,
+} from "@/lib/turnitin-postpaid-settlements.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
   Wallet,
@@ -299,22 +303,45 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
     queryFn: () => adminGetTurnitinPostpaidControls({ data: { userId } }),
   });
 
+  const ledger = useQuery({
+    queryKey: ["admin-turnitin-postpaid-ledger", userId],
+    queryFn: () => adminGetTurnitinPostpaidLedger({ data: { userId } }),
+    enabled: data?.account.billingMode === "postpaid",
+  });
+
   const [enableRate, setEnableRate] = useState(2300);
   const [statusReason, setStatusReason] = useState("");
   const [rateInput, setRateInput] = useState(2300);
   const [rateReason, setRateReason] = useState("");
-  const [ratePrimed, setRatePrimed] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState(0);
+  const [settlementMethod, setSettlementMethod] = useState<
+    "bank_transfer" | "whatsapp" | "offline" | "other"
+  >("bank_transfer");
+  const [settlementNote, setSettlementNote] = useState("");
 
-  if (data && !ratePrimed) {
+  useEffect(() => {
+    if (!data) return;
     const current = data.account.postpaidRateNgn ?? 2300;
     setEnableRate(current);
     setRateInput(current);
-    setRatePrimed(true);
-  }
+  }, [data?.account.postpaidRateNgn, data?.account.billingMode]);
+
+  useEffect(() => {
+    const outstanding =
+      ledger.data?.summary.outstandingNgn ?? data?.summary.outstandingNgn ?? 0;
+    setSettlementAmount((current) => {
+      if (outstanding <= 0) return 0;
+      if (current <= 0 || current > outstanding) return outstanding;
+      return current;
+    });
+  }, [ledger.data?.summary.outstandingNgn, data?.summary.outstandingNgn]);
 
   const refresh = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["admin-turnitin-postpaid", userId] }),
+      qc.invalidateQueries({
+        queryKey: ["admin-turnitin-postpaid-ledger", userId],
+      }),
       qc.invalidateQueries({ queryKey: ["admin-customer", userId] }),
     ]);
   };
@@ -336,7 +363,6 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
           : "Customer returned to Prepaid",
       );
       setStatusReason("");
-      setRatePrimed(false);
       await refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -354,11 +380,31 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
     onSuccess: async (result) => {
       toast.success(`Postpaid rate updated to ${money(result.rateNgn)} per check`);
       setRateReason("");
-      setRatePrimed(false);
       await refresh();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const recordSettlement = useMutation({
+    mutationFn: () =>
+      adminRecordTurnitinPostpaidSettlement({
+        data: {
+          userId,
+          amountNgn: settlementAmount,
+          method: settlementMethod,
+          note: settlementNote.trim(),
+        },
+      }),
+    onSuccess: async (result) => {
+      toast.success(`${money(result.amountNgn)} Postpaid settlement recorded`);
+      setSettlementNote("");
+      await refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const outstanding =
+    ledger.data?.summary.outstandingNgn ?? data?.summary.outstandingNgn ?? 0;
 
   return (
     <div className="mt-6 rounded-2xl border bg-card p-4">
@@ -397,7 +443,7 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
         </div>
       ) : (
         <>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard
               label="Billing mode"
               value={data.account.billingMode === "postpaid" ? "Postpaid" : "Prepaid"}
@@ -412,11 +458,14 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
             />
             <StatCard
               label="Unpaid checks"
-              value={String(data.summary.unpaidChecks)}
+              value={String(
+                ledger.data?.summary.unpaidChecks ?? data.summary.unpaidChecks,
+              )}
             />
+            <StatCard label="Outstanding" value={money(outstanding)} />
             <StatCard
-              label="Outstanding"
-              value={money(data.summary.outstandingNgn)}
+              label="Paid"
+              value={money(ledger.data?.summary.paidNgn ?? 0)}
             />
           </div>
 
@@ -527,13 +576,215 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                 </Button>
               </div>
 
+              <div className="mt-4 rounded-xl border bg-muted/20 p-4">
+                <h3 className="text-sm font-semibold">Record settlement</h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Record money received by bank transfer, WhatsApp/offline arrangement,
+                  or another agreed method. The amount is allocated to the oldest unpaid
+                  Turnitin checks first and the history is never deleted.
+                </p>
+
+                {outstanding > 0 ? (
+                  <>
+                    <div className="mt-4 grid gap-3 md:grid-cols-[170px_180px_1fr]">
+                      <div>
+                        <Label>Amount received</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={outstanding}
+                          value={settlementAmount}
+                          onChange={(e) =>
+                            setSettlementAmount(
+                              Math.max(
+                                1,
+                                Math.min(
+                                  outstanding,
+                                  Math.floor(Number(e.target.value) || 1),
+                                ),
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Settlement method</Label>
+                        <select
+                          value={settlementMethod}
+                          onChange={(e) =>
+                            setSettlementMethod(
+                              e.target.value as
+                                | "bank_transfer"
+                                | "whatsapp"
+                                | "offline"
+                                | "other",
+                            )
+                          }
+                          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                        >
+                          <option value="bank_transfer">Bank transfer</option>
+                          <option value="whatsapp">WhatsApp settlement</option>
+                          <option value="offline">Offline settlement</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Settlement note</Label>
+                        <Textarea
+                          rows={2}
+                          maxLength={1000}
+                          value={settlementNote}
+                          onChange={(e) => setSettlementNote(e.target.value)}
+                          placeholder="Example: Transfer received and confirmed by Admin"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => recordSettlement.mutate()}
+                      disabled={
+                        recordSettlement.isPending ||
+                        settlementAmount < 1 ||
+                        settlementNote.trim().length < 3
+                      }
+                    >
+                      {recordSettlement.isPending
+                        ? "Recording…"
+                        : `Record ${money(settlementAmount)} settlement`}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+                    This Postpaid account currently has no outstanding balance.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-xl border">
+                <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+                  <div className="text-xs font-semibold">Postpaid check ledger</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Oldest charges are settled first
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">Document</th>
+                        <th className="px-3 py-2">Charged</th>
+                        <th className="px-3 py-2">Rate</th>
+                        <th className="px-3 py-2">Amount</th>
+                        <th className="px-3 py-2">Paid</th>
+                        <th className="px-3 py-2">Remaining</th>
+                        <th className="px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(ledger.data?.charges ?? []).map((row) => (
+                        <tr key={row.id}>
+                          <td className="max-w-[260px] truncate px-3 py-2 font-medium">
+                            {row.documentName}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {new Date(row.chargedAt).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{money(row.rateNgn)}</td>
+                          <td className="px-3 py-2 text-xs">{money(row.amountNgn)}</td>
+                          <td className="px-3 py-2 text-xs">{money(row.paidAmountNgn)}</td>
+                          <td className="px-3 py-2 text-xs font-semibold">
+                            {money(Math.max(0, row.amountNgn - row.paidAmountNgn))}
+                          </td>
+                          <td className="px-3 py-2 text-xs capitalize">
+                            {row.status.replaceAll("_", " ")}
+                          </td>
+                        </tr>
+                      ))}
+                      {(ledger.data?.charges ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="px-3 py-6 text-center text-xs text-muted-foreground"
+                          >
+                            No Postpaid charges yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-xl border">
+                <div className="border-b px-3 py-2 text-xs font-semibold">
+                  Settlement history
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">When</th>
+                        <th className="px-3 py-2">Method</th>
+                        <th className="px-3 py-2">Amount</th>
+                        <th className="px-3 py-2">Allocated</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Reference / note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(ledger.data?.settlements ?? []).map((row: {
+                        id: string;
+                        confirmedAt: string | null;
+                        createdAt: string;
+                        method: string;
+                        amountNgn: number;
+                        allocatedAmountNgn: number;
+                        status: string;
+                        reference: string | null;
+                        note: string | null;
+                      }) => (
+                        <tr key={row.id}>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {new Date(row.confirmedAt || row.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-xs capitalize">
+                            {row.method.replaceAll("_", " ")}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-semibold">
+                            {money(row.amountNgn)}
+                          </td>
+                          <td className="px-3 py-2 text-xs">
+                            {money(row.allocatedAmountNgn)}
+                          </td>
+                          <td className="px-3 py-2 text-xs capitalize">{row.status}</td>
+                          <td className="max-w-[320px] truncate px-3 py-2 text-xs text-muted-foreground">
+                            {row.reference || row.note || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                      {(ledger.data?.settlements ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-3 py-6 text-center text-xs text-muted-foreground"
+                          >
+                            No Postpaid settlements yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {data.caller.isSuperAdmin ? (
                 <div className="mt-4 rounded-xl border border-destructive/20 p-4">
                   <h3 className="text-sm font-semibold">Return to Prepaid</h3>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     This is blocked while the customer has active Postpaid checks or
-                    an outstanding balance. Historical charges and rate history are
-                    never erased.
+                    an outstanding balance. Historical charges, settlements and rate
+                    history are never erased.
                   </p>
                   <Textarea
                     rows={2}
