@@ -31,8 +31,21 @@ import {
   adminResetChatGptDevices,
   adminUpdateChatGptControls,
 } from "@/lib/chatgpt-controls.functions";
+import {
+  adminGetTurnitinCreditControls,
+  adminGrantTurnitinCredits,
+} from "@/lib/turnitin-admin-credits.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
-import { Wallet, XCircle, ShieldCheck, KeyRound, Mail } from "lucide-react";
+import {
+  Wallet,
+  XCircle,
+  ShieldCheck,
+  KeyRound,
+  Mail,
+  Coins,
+  CalendarClock,
+  PlusCircle,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin/customers/$userId")({
@@ -139,6 +152,7 @@ function CustomerPage() {
               </div>
             </div>
 
+            <TurnitinCreditsCard userId={userId} />
             <StealthWriterControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
 
@@ -267,6 +281,234 @@ function CustomerPage() {
         )}
       </section>
     </AdminShell>
+  );
+}
+
+function defaultTurnitinExpiryLocal() {
+  const target = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const local = new Date(
+    target.getTime() - target.getTimezoneOffset() * 60_000,
+  );
+  return local.toISOString().slice(0, 16);
+}
+
+function TurnitinCreditsCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-turnitin-credits", userId],
+    queryFn: () => adminGetTurnitinCreditControls({ data: { userId } }),
+  });
+
+  const [quantity, setQuantity] = useState(1);
+  const [expiresAt, setExpiresAt] = useState(defaultTurnitinExpiryLocal);
+  const [reason, setReason] = useState("");
+
+  const grant = useMutation({
+    mutationFn: async () => {
+      const expiry = new Date(expiresAt);
+      if (!Number.isFinite(expiry.getTime())) {
+        throw new Error("Choose a valid expiry date and time.");
+      }
+      if (reason.trim().length < 3) {
+        throw new Error("Add a short reason for this credit grant.");
+      }
+
+      return adminGrantTurnitinCredits({
+        data: {
+          userId,
+          quantity,
+          expiresAt: expiry.toISOString(),
+          reason: reason.trim(),
+        },
+      });
+    },
+    onSuccess: async (result) => {
+      toast.success(
+        `${result.quantity} Turnitin credit${result.quantity === 1 ? "" : "s"} granted`,
+      );
+      setQuantity(1);
+      setExpiresAt(defaultTurnitinExpiryLocal());
+      setReason("");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-turnitin-credits", userId] }),
+        qc.invalidateQueries({ queryKey: ["admin-customer", userId] }),
+      ]);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <Coins className="h-4 w-4" />
+            Turnitin prepaid credits
+          </h2>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
+            Grant Turnitin check credits directly to this customer. Manual grants use the
+            isolated Turnitin credit ledger and do not create a subscription, payment, or
+            normal tool order.
+          </p>
+        </div>
+        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-primary">
+          Admin grant
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 text-xs text-muted-foreground">
+          Loading Turnitin credits…
+        </div>
+      ) : error || !data ? (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+          {(error as Error | null)?.message ?? "Could not load Turnitin credits."}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Available credits"
+              value={String(data.summary.availableCredits)}
+            />
+            <StatCard
+              label="Reserved"
+              value={String(data.summary.reservedCredits)}
+            />
+            <StatCard
+              label="Consumed"
+              value={String(data.summary.consumedCredits)}
+            />
+            <StatCard
+              label="Next expiry"
+              value={
+                data.summary.nextExpiryAt
+                  ? new Date(data.summary.nextExpiryAt).toLocaleDateString()
+                  : "—"
+              }
+            />
+          </div>
+
+          <div className="mt-4 rounded-xl border bg-muted/20 p-4">
+            <div className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Grant credits manually</h3>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-[140px_1fr]">
+              <div>
+                <Label>Number of credits</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      Math.max(
+                        1,
+                        Math.min(10000, Math.floor(Number(e.target.value) || 1)),
+                      ),
+                    )
+                  }
+                />
+              </div>
+              <div>
+                <Label>Credit expiry</Label>
+                <div className="relative">
+                  <CalendarClock className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Defaults to seven days from now. Admin may choose a different future expiry.
+                </p>
+              </div>
+              <div className="md:col-span-2">
+                <Label>Reason / note</Label>
+                <Textarea
+                  rows={2}
+                  maxLength={1000}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Example: Complimentary 5 checks for customer support resolution"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Required. This note is permanently recorded with the grant.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              className="mt-3"
+              onClick={() => grant.mutate()}
+              disabled={grant.isPending || reason.trim().length < 3}
+            >
+              <PlusCircle className="mr-1 h-3.5 w-3.5" />
+              {grant.isPending
+                ? "Granting…"
+                : `Grant ${quantity} credit${quantity === 1 ? "" : "s"}`}
+            </Button>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border">
+            <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+              <div className="text-xs font-semibold">Manual grant history</div>
+              <div className="text-[11px] text-muted-foreground">
+                {data.summary.adminGrantCount} recorded
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Granted</th>
+                    <th className="px-3 py-2">Credits</th>
+                    <th className="px-3 py-2">Expires</th>
+                    <th className="px-3 py-2">Granted by</th>
+                    <th className="px-3 py-2">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.grants.map((g) => (
+                    <tr key={g.id}>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {new Date(g.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 font-semibold">{g.quantity}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {new Date(g.expiresAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {g.grantedByLabel ?? g.grantedBy ?? "Former Admin"}
+                      </td>
+                      <td className="max-w-[340px] px-3 py-2 text-xs text-muted-foreground">
+                        {g.reason}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.grants.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-6 text-center text-xs text-muted-foreground"
+                      >
+                        No manual Turnitin credit grants yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
