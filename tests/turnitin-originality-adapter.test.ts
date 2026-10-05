@@ -179,6 +179,23 @@ assert(
   "job orchestration uses the Phase 3 atomic credit lifecycle",
 );
 
+
+assert(
+  jobs.includes('reportView: z.enum(["sources", "match_groups"]).default("sources")') &&
+    jobs.includes("report_title: data.options.reportTitle?.trim() || originalFilename") &&
+    jobs.includes("author_first_name: data.options.authorFirstName?.trim() || null") &&
+    jobs.includes("author_last_name: data.options.authorLastName?.trim() || null"),
+  "job creation persists title, author names and Sources as the default report view",
+);
+
+assert(
+  jobs.includes("reportTitle: job.report_title || job.original_filename") &&
+    jobs.includes("authorFirstName: job.author_first_name") &&
+    jobs.includes("authorLastName: job.author_last_name") &&
+    jobs.includes('job.report_view === "sources" ? "sources" : "match_groups"'),
+  "persisted TRST submission details are passed unchanged into the Originality adapter",
+);
+
 assert(
   jobs.includes('error.code === "NETWORK_ERROR"') &&
     jobs.includes("same protected upload token") &&

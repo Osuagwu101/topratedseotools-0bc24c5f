@@ -41,7 +41,7 @@ const optionsSchema = z
     excludeSmallMatches: z.boolean().default(false),
     smallMatchMode: z.enum(["words", "percent"]).default("words"),
     smallMatchThreshold: z.number().int().nullable().optional(),
-    reportView: z.enum(["sources", "match_groups"]).default("match_groups"),
+    reportView: z.enum(["sources", "match_groups"]).default("sources"),
     reportFormat: z.string().trim().max(80).nullable().optional(),
     reportTitle: z.string().trim().max(500).nullable().optional(),
     authorFirstName: z.string().trim().max(200).nullable().optional(),
