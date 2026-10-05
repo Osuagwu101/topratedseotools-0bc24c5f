@@ -341,7 +341,9 @@ function validateSmallMatch(options: OriginalityUploadOptions): void {
 function makeUploadForm(options: OriginalityUploadOptions): FormData {
   validateSmallMatch(options);
   const form = new FormData();
-  const blob = new Blob([options.bytes], { type: options.mimeType });
+  const copiedBytes = new Uint8Array(options.bytes.byteLength);
+  copiedBytes.set(options.bytes);
+  const blob = new Blob([copiedBytes.buffer], { type: options.mimeType });
 
   form.append("file", blob, options.filename);
   form.append("exclude_bibliography", String(options.excludeBibliography));
