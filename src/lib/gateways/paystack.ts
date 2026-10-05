@@ -84,6 +84,7 @@ export const paystackAdapter: GatewayAdapter = {
       status: string;
       reference: string;
       amount: number;
+      requested_amount?: number;
       currency: string;
       metadata?: Record<string, unknown>;
       customer?: { customer_code?: string; email?: string };
@@ -95,6 +96,8 @@ export const paystackAdapter: GatewayAdapter = {
       status: mapStatus(tx.status),
       reference: tx.reference,
       amount: tx.amount,
+      requested_amount:
+        tx.requested_amount == null ? null : Number(tx.requested_amount),
       currency: (tx.currency ?? "NGN").toUpperCase(),
       metadata: tx.metadata as GatewayTransaction["metadata"],
       customer: tx.customer,
