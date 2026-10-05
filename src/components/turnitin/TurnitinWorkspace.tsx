@@ -333,7 +333,19 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
       const result = await getMyTurnitinReportDownload({
         data: { reportId: report.id },
       });
-      window.open(result.url, "_blank", "noopener,noreferrer");
+
+      // The signed storage URL is generated with Content-Disposition:
+      // attachment, so the browser downloads the PDF instead of opening its
+      // PDF viewer in a new tab. This avoids the Firefox "not responding"
+      // pause seen when large reports are opened inline.
+      const link = document.createElement("a");
+      link.href = result.url;
+      link.download = result.filename;
+      link.rel = "noopener";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
       setDownloadError(
         error instanceof Error ? error.message : "Could not download this report.",

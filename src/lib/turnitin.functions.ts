@@ -54,6 +54,22 @@ export interface TurnitinJobRow {
   reports: TurnitinReportRow[];
 }
 
+function turnitinReportDownloadName(
+  originalFilename: string,
+  reportType: TurnitinReportType,
+): string {
+  const leaf = String(originalFilename || "report")
+    .split(/[\\/]/)
+    .pop() || "report";
+  const stem = leaf
+    .replace(/\.[^.]+$/, "")
+    .replace(/[\u0000-\u001f\u007f"<>:|?*]/g, "_")
+    .trim()
+    .slice(0, 180) || "report";
+  const prefix = reportType === "ai" ? "AI_" : "si_";
+  return `${prefix}${stem}.pdf`;
+}
+
 export interface TurnitinWorkspaceData {
   foundationReady: boolean;
   summary: TurnitinCreditSummary;
@@ -176,13 +192,32 @@ export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
       throw new Error("The report file has not been stored yet.");
     }
 
+    const { data: job, error: jobError } = await db
+      .from("turnitin_jobs")
+      .select("original_filename")
+      .eq("id", report.job_id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (jobError) throw new Error(jobError.message);
+    if (!job?.original_filename) {
+      throw new Error("The original document name could not be found.");
+    }
+
+    const filename = turnitinReportDownloadName(
+      String(job.original_filename),
+      report.report_type as TurnitinReportType,
+    );
+
     const { supabaseAdmin } = await import(
       "@/integrations/supabase/client.server"
     );
     const admin = supabaseAdmin as any;
     const { data: signed, error: signedError } = await admin.storage
       .from(report.storage_bucket)
-      .createSignedUrl(report.storage_path, 60);
+      .createSignedUrl(report.storage_path, 60, {
+        download: filename,
+      });
 
     if (signedError || !signed?.signedUrl) {
       throw new Error(signedError?.message ?? "Could not prepare the report download.");
@@ -190,6 +225,7 @@ export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
 
     return {
       url: signed.signedUrl as string,
+      filename,
       reportType: report.report_type as TurnitinReportType,
     };
   });
