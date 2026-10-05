@@ -243,7 +243,11 @@ async function sessionFetch(
 
 export async function validateOriginalitySessionState(
   state: OriginalitySessionState,
-): Promise<{ ok: true; availableSlots: number | null }> {
+): Promise<{
+  ok: true;
+  availableSlots: number | null;
+  sessionState: OriginalitySessionState;
+}> {
   const context: SessionContext = {
     state: JSON.parse(JSON.stringify(state)) as OriginalitySessionState,
     dirty: false,
@@ -280,6 +284,7 @@ export async function validateOriginalitySessionState(
   return {
     ok: true,
     availableSlots: nullableInteger(json.available_slots),
+    sessionState: context.state,
   };
 }
 
