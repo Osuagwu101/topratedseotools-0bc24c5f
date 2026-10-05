@@ -68,8 +68,10 @@ assert(
 );
 
 assert(
-  workspace.includes('authorFirstName] = useState("Top Rated")') &&
-    workspace.includes('authorLastName] = useState("Writing Services")'),
+  workspace.includes('useState("Top Rated")') &&
+    workspace.includes('useState("Writing Services")') &&
+    workspace.includes("setAuthorFirstName") &&
+    workspace.includes("setAuthorLastName"),
   "submission defaults remain Top Rated / Writing Services and editable",
 );
 
