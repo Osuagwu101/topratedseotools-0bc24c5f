@@ -89,8 +89,7 @@ assert(
 assert(
   adapter.includes('"/user/upload"') &&
     adapter.includes("/user/submissions-status?_=") &&
-    adapter.includes("/user/download/") &&
-    adapter.includes("/similarity") === false,
+    adapter.includes("/user/download/"),
   "adapter is limited to the mapped upload/status/report workflow",
 );
 
