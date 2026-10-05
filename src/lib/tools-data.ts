@@ -222,7 +222,7 @@ export const TOOLS: Tool[] = [
     name: "Turnitin Checks",
     tagline: "Pay-per-check plagiarism & AI detection",
     description:
-      "Order individual Turnitin plagiarism and AI-writing detection checks — ₦2,300 per check, paid once. You tell us how many checks you need, pay for the total, and we return the official Turnitin similarity report and AI-content percentage for each document you submit.",
+      "A self-service Turnitin checking workspace for prepaid document checks. Buy any number of credits at ₦2,300 each, upload PDF, DOC or DOCX files, choose similarity exclusions, track processing, and keep AI and similarity reports in one searchable history.",
     icon: ShieldCheck,
     domain: "turnitin.com",
     category: "Plagiarism",
@@ -231,10 +231,10 @@ export const TOOLS: Tool[] = [
     pricingModel: "per_use",
     perUse: { unit: "check", amount: 2300, currency: "₦" },
     features: [
-      "Full Turnitin similarity report per document",
-      "AI-writing detection percentage included",
-      "Source-by-source matches with links",
-      "Priced per check — no subscription and no auto-renewal",
+      "Prepaid check credits at ₦2,300 per document",
+      "Upload PDF, DOC and DOCX files up to 100 MB",
+      "Bibliography, quotes, cited-text and small-match exclusions",
+      "Searchable check history with AI and similarity report downloads",
     ],
   },
   {
