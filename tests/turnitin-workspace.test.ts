@@ -36,7 +36,7 @@ assert(
   workspace.includes("Available credits") &&
     workspace.includes("Reserved") &&
     workspace.includes("Next expiry") &&
-    workspace.includes("₦2,300") === false &&
+    workspace.includes("₦2,300") &&
     workspace.includes("UNIT_PRICE_NGN = 2300"),
   "workspace exposes credit balance, reservation, expiry and the ₦2,300 unit-price model",
 );
