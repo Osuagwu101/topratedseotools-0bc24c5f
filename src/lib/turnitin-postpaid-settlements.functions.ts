@@ -668,3 +668,32 @@ export const adminGetTurnitinPostpaidLedger = createServerFn({ method: "POST" })
       })),
     };
   });
+
+
+export const getMyTurnitinPostpaidSettlements = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = context.supabase as any;
+    const { data, error } = await db
+      .from("turnitin_postpaid_settlements")
+      .select(
+        "id, amount_ngn, allocated_amount_ngn, method, status, payment_gateway, note, confirmed_at, created_at",
+      )
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw new Error(error.message);
+
+    return (data ?? []).map((row: any) => ({
+      id: String(row.id),
+      amountNgn: Number(row.amount_ngn),
+      allocatedAmountNgn: Number(row.allocated_amount_ngn),
+      method: String(row.method),
+      status: String(row.status),
+      gateway: row.payment_gateway ? String(row.payment_gateway) : null,
+      note: row.note ? String(row.note) : null,
+      confirmedAt: row.confirmed_at ? String(row.confirmed_at) : null,
+      createdAt: String(row.created_at),
+    }));
+  });
