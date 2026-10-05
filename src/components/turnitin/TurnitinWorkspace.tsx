@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CalendarClock,
@@ -25,6 +25,13 @@ import {
   type TurnitinJobStatus,
   type TurnitinReportRow,
 } from "@/lib/turnitin.functions";
+import {
+  cancelTurnitinUpload,
+  createTurnitinUploadIntent,
+  submitTurnitinJob,
+  syncMyTurnitinJobs,
+} from "@/lib/turnitin-jobs.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 const UNIT_PRICE_NGN = 2300;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -47,6 +54,16 @@ function formatDate(value: string | null | undefined) {
 
 function cleanName(file: File) {
   return file.name.trim() || "Untitled document";
+}
+
+function mimeForFile(file: File): string {
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (lower.endsWith(".doc")) return "application/msword";
+  return file.type || "application/octet-stream";
 }
 
 function validateFile(file: File): string | null {
@@ -82,6 +99,7 @@ type Props = {
 };
 
 export function TurnitinWorkspace({ isAuthenticated }: Props) {
+  const qc = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -94,6 +112,10 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   const [smallMatchThreshold, setSmallMatchThreshold] = useState(8);
   const [downloadingReport, setDownloadingReport] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [retryingJob, setRetryingJob] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const workspace = useQuery({
@@ -112,6 +134,23 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   });
 
   const jobs = workspace.data?.jobs ?? [];
+  const hasActiveJobs = jobs.some((job) =>
+    ["queued", "processing"].includes(job.status),
+  );
+
+  useQuery({
+    queryKey: ["turnitin-upstream-sync", hasActiveJobs],
+    queryFn: async () => {
+      const result = await syncMyTurnitinJobs();
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+      return result;
+    },
+    enabled: isAuthenticated && hasActiveJobs,
+    refetchInterval: hasActiveJobs ? 10_000 : false,
+    staleTime: 0,
+    retry: false,
+  });
+
   const visibleJobs = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return jobs;
@@ -148,6 +187,115 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
       );
     } finally {
       setDownloadingReport(null);
+    }
+  };
+
+  const runCheck = async () => {
+    if (!selectedFile) {
+      setSubmitError("Choose a PDF, DOC or DOCX file first.");
+      return;
+    }
+    const validation = validateFile(selectedFile);
+    if (validation) {
+      setSubmitError(validation);
+      return;
+    }
+
+    const summary = workspace.data?.summary;
+    if (!workspace.data?.foundationReady) {
+      setSubmitError("The Turnitin workspace is not ready in this environment.");
+      return;
+    }
+    if (!summary || summary.available_credits < 1) {
+      setSubmitError("You need at least one available Turnitin check credit.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitMessage(null);
+    let intent: Awaited<ReturnType<typeof createTurnitinUploadIntent>> | null = null;
+    let sourceUploaded = false;
+
+    try {
+      intent = await createTurnitinUploadIntent({
+        data: {
+          filename: selectedFile.name,
+          mimeType: mimeForFile(selectedFile),
+          sizeBytes: selectedFile.size,
+          options: {
+            excludeBibliography,
+            excludeQuotes,
+            excludeCitations,
+            excludeSmallMatches,
+            smallMatchMode,
+            smallMatchThreshold: excludeSmallMatches ? smallMatchThreshold : null,
+            reportView: "match_groups",
+            reportTitle: selectedFile.name,
+            authorFirstName: null,
+            authorLastName: null,
+            reportFormat: null,
+          },
+        },
+      });
+
+      const { error: uploadError } = await supabase.storage
+        .from(intent.bucket)
+        .uploadToSignedUrl(intent.path, intent.token, selectedFile, {
+          contentType: mimeForFile(selectedFile),
+        });
+
+      if (uploadError) {
+        throw new Error(`Private document upload failed: ${uploadError.message}`);
+      }
+      sourceUploaded = true;
+
+      await submitTurnitinJob({ data: { jobId: intent.jobId } });
+      setSubmitMessage(
+        "Document accepted. Processing continues automatically; you can remain on this page.",
+      );
+      removeFile();
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not submit this Turnitin check.";
+      setSubmitError(message);
+
+      // Only cancel/release when the file never reached our private storage.
+      // Once source upload succeeded, the server decides whether failure is
+      // explicit (release) or ambiguous (keep reservation + same upload_token).
+      if (intent && !sourceUploaded) {
+        try {
+          await cancelTurnitinUpload({
+            data: {
+              jobId: intent.jobId,
+              reason: "Private source upload failed before upstream submission.",
+            },
+          });
+        } catch {
+          /* server-side cleanup is best effort */
+        }
+      }
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const retrySubmission = async (jobId: string) => {
+    setRetryingJob(jobId);
+    setSubmitError(null);
+    try {
+      await submitTurnitinJob({ data: { jobId } });
+      setSubmitMessage("Submission retry accepted. Processing will continue automatically.");
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Could not retry this Turnitin check.",
+      );
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+    } finally {
+      setRetryingJob(null);
     }
   };
 
@@ -408,18 +556,29 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <input
                   type="number"
-                  min={1}
+                  min={smallMatchMode === "percent" ? 1 : 8}
+                  max={smallMatchMode === "percent" ? 50 : 200}
                   value={smallMatchThreshold}
-                  onChange={(e) =>
-                    setSmallMatchThreshold(Math.max(1, Math.floor(Number(e.target.value) || 1)))
-                  }
+                  onChange={(e) => {
+                    const min = smallMatchMode === "percent" ? 1 : 8;
+                    const max = smallMatchMode === "percent" ? 50 : 200;
+                    setSmallMatchThreshold(
+                      Math.min(max, Math.max(min, Math.floor(Number(e.target.value) || min))),
+                    );
+                  }}
                   className="min-w-0 rounded-md border border-input bg-background px-2 py-2 text-sm"
                 />
                 <select
                   value={smallMatchMode}
-                  onChange={(e) =>
-                    setSmallMatchMode(e.target.value === "percent" ? "percent" : "words")
-                  }
+                  onChange={(e) => {
+                    const mode = e.target.value === "percent" ? "percent" : "words";
+                    setSmallMatchMode(mode);
+                    setSmallMatchThreshold((current) =>
+                      mode === "percent"
+                        ? Math.min(50, Math.max(1, current))
+                        : Math.min(200, Math.max(8, current)),
+                    );
+                  }}
                   className="rounded-md border border-input bg-background px-2 py-2 text-xs"
                 >
                   <option value="words">words</option>
@@ -431,16 +590,39 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
 
           <button
             type="button"
-            disabled
-            className="mt-6 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground opacity-60"
+            onClick={() => void runCheck()}
+            disabled={
+              submitting ||
+              !selectedFile ||
+              !foundationReady ||
+              summary.available_credits < 1
+            }
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Sparkles className="h-4 w-4" />
-            Run Turnitin check
+            {submitting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {submitting ? "Submitting…" : "Run Turnitin check"}
           </button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Submission activates when the Originality Reports adapter is connected in the next
-            integration phase.
+            {summary.available_credits < 1
+              ? "You need an available credit before submitting a document."
+              : "One credit is reserved first and charged only after Originality Reports accepts the document."}
           </p>
+          {submitMessage ? (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {submitMessage}
+            </div>
+          ) : null}
+          {submitError ? (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {submitError}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -503,6 +685,8 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
                       job={job}
                       downloadingReport={downloadingReport}
                       onDownload={downloadReport}
+                      retryingJob={retryingJob}
+                      onRetry={retrySubmission}
                     />
                   ))}
                 </tbody>
@@ -516,6 +700,8 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
                   job={job}
                   downloadingReport={downloadingReport}
                   onDownload={downloadReport}
+                  retryingJob={retryingJob}
+                  onRetry={retrySubmission}
                 />
               ))}
             </div>
@@ -638,10 +824,14 @@ function HistoryRow({
   job,
   downloadingReport,
   onDownload,
+  retryingJob,
+  onRetry,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
+  retryingJob: string | null;
+  onRetry: (jobId: string) => void;
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
@@ -681,7 +871,23 @@ function HistoryRow({
             downloadingReport={downloadingReport}
             onDownload={onDownload}
           />
-          {!similarity && !ai ? (
+          {job.status === "uploading" &&
+          job.credit_state === "reserved" &&
+          job.upstream_last_error ? (
+            <button
+              type="button"
+              onClick={() => void onRetry(job.id)}
+              disabled={retryingJob === job.id}
+              className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+            >
+              {retryingJob === job.id ? (
+                <LoaderCircle className="h-3 w-3 animate-spin" />
+              ) : (
+                <UploadCloud className="h-3 w-3" />
+              )}
+              Retry
+            </button>
+          ) : !similarity && !ai ? (
             <span className="text-xs text-muted-foreground">
               {job.status === "completed" ? "Preparing" : "—"}
             </span>
@@ -696,10 +902,14 @@ function HistoryCard({
   job,
   downloadingReport,
   onDownload,
+  retryingJob,
+  onRetry,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
+  retryingJob: string | null;
+  onRetry: (jobId: string) => void;
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
@@ -737,9 +947,28 @@ function HistoryCard({
           downloadingReport={downloadingReport}
           onDownload={onDownload}
         />
+        {job.status === "uploading" &&
+        job.credit_state === "reserved" &&
+        job.upstream_last_error ? (
+          <button
+            type="button"
+            onClick={() => void onRetry(job.id)}
+            disabled={retryingJob === job.id}
+            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+          >
+            {retryingJob === job.id ? (
+              <LoaderCircle className="h-3 w-3 animate-spin" />
+            ) : (
+              <UploadCloud className="h-3 w-3" />
+            )}
+            Retry submission
+          </button>
+        ) : null}
       </div>
       {job.status === "failed" && job.failure_message ? (
         <p className="mt-3 text-xs text-destructive">{job.failure_message}</p>
+      ) : job.status === "uploading" && job.upstream_last_error ? (
+        <p className="mt-3 text-xs text-amber-700">{job.upstream_last_error}</p>
       ) : null}
     </div>
   );
