@@ -17,7 +17,11 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-const route = readFileSync("src/routes/tools.$slug.tsx", "utf8");
+const legacyRoute = readFileSync("src/routes/tools.$slug.tsx", "utf8");
+const productPage = readFileSync(
+  "src/components/turnitin/TurnitinProductPage.tsx",
+  "utf8",
+);
 const workspace = readFileSync(
   "src/components/turnitin/TurnitinWorkspace.tsx",
   "utf8",
@@ -26,10 +30,11 @@ const funcs = readFileSync("src/lib/turnitin.functions.ts", "utf8");
 const tools = readFileSync("src/lib/tools-data.ts", "utf8");
 
 assert(
-  route.includes('tool.slug === "turnitin"') &&
-    route.includes("<TurnitinWorkspace") &&
-    route.includes('tool.pricingModel === "per_use"'),
-  "Turnitin alone is routed to the new workspace while the generic per-use fallback remains intact",
+  legacyRoute.includes('params.slug === "turnitin"') &&
+    legacyRoute.includes('redirect({ to: "/turnitin" })') &&
+    productPage.includes("<TurnitinWorkspace") &&
+    legacyRoute.includes('tool.pricingModel === "per_use"'),
+  "legacy Turnitin tool URLs redirect to the dedicated product while generic per-use tools remain intact",
 );
 
 assert(
