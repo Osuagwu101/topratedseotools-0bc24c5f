@@ -35,6 +35,11 @@ import {
   adminGetTurnitinCreditControls,
   adminGrantTurnitinCredits,
 } from "@/lib/turnitin-admin-credits.functions";
+import {
+  adminGetTurnitinPostpaidControls,
+  adminSetTurnitinPostpaidStatus,
+  adminUpdateTurnitinPostpaidRate,
+} from "@/lib/turnitin-postpaid.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
   Wallet,
@@ -45,6 +50,8 @@ import {
   Coins,
   CalendarClock,
   PlusCircle,
+  BadgeDollarSign,
+  ReceiptText,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -152,6 +159,7 @@ function CustomerPage() {
               </div>
             </div>
 
+            <TurnitinPostpaidCard userId={userId} />
             <TurnitinCreditsCard userId={userId} />
             <StealthWriterControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
@@ -281,6 +289,326 @@ function CustomerPage() {
         )}
       </section>
     </AdminShell>
+  );
+}
+
+function TurnitinPostpaidCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-turnitin-postpaid", userId],
+    queryFn: () => adminGetTurnitinPostpaidControls({ data: { userId } }),
+  });
+
+  const [enableRate, setEnableRate] = useState(2300);
+  const [statusReason, setStatusReason] = useState("");
+  const [rateInput, setRateInput] = useState(2300);
+  const [rateReason, setRateReason] = useState("");
+  const [ratePrimed, setRatePrimed] = useState(false);
+
+  if (data && !ratePrimed) {
+    const current = data.account.postpaidRateNgn ?? 2300;
+    setEnableRate(current);
+    setRateInput(current);
+    setRatePrimed(true);
+  }
+
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["admin-turnitin-postpaid", userId] }),
+      qc.invalidateQueries({ queryKey: ["admin-customer", userId] }),
+    ]);
+  };
+
+  const changeStatus = useMutation({
+    mutationFn: (enabled: boolean) =>
+      adminSetTurnitinPostpaidStatus({
+        data: {
+          userId,
+          enabled,
+          rateNgn: enabled ? enableRate : null,
+          reason: statusReason.trim(),
+        },
+      }),
+    onSuccess: async (result) => {
+      toast.success(
+        result.billingMode === "postpaid"
+          ? "Postpaid account enabled"
+          : "Customer returned to Prepaid",
+      );
+      setStatusReason("");
+      setRatePrimed(false);
+      await refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateRate = useMutation({
+    mutationFn: () =>
+      adminUpdateTurnitinPostpaidRate({
+        data: {
+          userId,
+          rateNgn: rateInput,
+          reason: rateReason.trim(),
+        },
+      }),
+    onSuccess: async (result) => {
+      toast.success(`Postpaid rate updated to ${money(result.rateNgn)} per check`);
+      setRateReason("");
+      setRatePrimed(false);
+      await refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <BadgeDollarSign className="h-4 w-4" />
+            Turnitin billing account
+          </h2>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
+            Prepaid customers use credits. Postpaid customers can check with zero
+            credits and each accepted check is charged at the agreed rate active
+            at the time Originality Reports accepts that document.
+          </p>
+        </div>
+        {data ? (
+          <span
+            className={
+              data.account.billingMode === "postpaid"
+                ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-emerald-700"
+                : "rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase text-muted-foreground"
+            }
+          >
+            {data.account.billingMode}
+          </span>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 text-xs text-muted-foreground">
+          Loading Turnitin billing account…
+        </div>
+      ) : error || !data ? (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+          {(error as Error | null)?.message ?? "Could not load Turnitin billing account."}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Billing mode"
+              value={data.account.billingMode === "postpaid" ? "Postpaid" : "Prepaid"}
+            />
+            <StatCard
+              label="Agreed rate"
+              value={
+                data.account.postpaidRateNgn == null
+                  ? "—"
+                  : `${money(data.account.postpaidRateNgn)} / check`
+              }
+            />
+            <StatCard
+              label="Unpaid checks"
+              value={String(data.summary.unpaidChecks)}
+            />
+            <StatCard
+              label="Outstanding"
+              value={money(data.summary.outstandingNgn)}
+            />
+          </div>
+
+          {data.account.billingMode === "prepaid" ? (
+            <div className="mt-4 rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-center gap-2">
+                <ReceiptText className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Enable Postpaid account</h3>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Existing prepaid credits are kept untouched. While Postpaid is active,
+                new checks do not consume those credits.
+              </p>
+
+              {data.caller.isSuperAdmin ? (
+                <>
+                  <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
+                    <div>
+                      <Label>Agreed amount per check</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10000000}
+                        value={enableRate}
+                        onChange={(e) =>
+                          setEnableRate(
+                            Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Reason / agreement note</Label>
+                      <Textarea
+                        rows={2}
+                        maxLength={1000}
+                        value={statusReason}
+                        onChange={(e) => setStatusReason(e.target.value)}
+                        placeholder="Example: VIP client agreed at ₦2,000 per completed check"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => changeStatus.mutate(true)}
+                    disabled={
+                      changeStatus.isPending ||
+                      statusReason.trim().length < 3 ||
+                      enableRate < 1
+                    }
+                  >
+                    Enable Postpaid
+                  </Button>
+                </>
+              ) : (
+                <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-800">
+                  Only a Super Admin can convert a customer to Postpaid.
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 rounded-xl border bg-muted/20 p-4">
+                <h3 className="text-sm font-semibold">Update agreed rate</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Changing the rate affects only checks accepted after the change.
+                  Existing charges keep their original rate permanently.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
+                  <div>
+                    <Label>New amount per check</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10000000}
+                      value={rateInput}
+                      onChange={(e) =>
+                        setRateInput(
+                          Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Reason for rate change</Label>
+                    <Textarea
+                      rows={2}
+                      maxLength={1000}
+                      value={rateReason}
+                      onChange={(e) => setRateReason(e.target.value)}
+                      placeholder="Example: New price agreed with customer effective today"
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => updateRate.mutate()}
+                  disabled={
+                    updateRate.isPending ||
+                    rateReason.trim().length < 3 ||
+                    rateInput < 1 ||
+                    rateInput === data.account.postpaidRateNgn
+                  }
+                >
+                  {updateRate.isPending ? "Updating…" : "Update Postpaid rate"}
+                </Button>
+              </div>
+
+              {data.caller.isSuperAdmin ? (
+                <div className="mt-4 rounded-xl border border-destructive/20 p-4">
+                  <h3 className="text-sm font-semibold">Return to Prepaid</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    This is blocked while the customer has active Postpaid checks or
+                    an outstanding balance. Historical charges and rate history are
+                    never erased.
+                  </p>
+                  <Textarea
+                    rows={2}
+                    maxLength={1000}
+                    value={statusReason}
+                    onChange={(e) => setStatusReason(e.target.value)}
+                    placeholder="Reason for disabling Postpaid"
+                    className="mt-3"
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="mt-3"
+                    onClick={() => changeStatus.mutate(false)}
+                    disabled={
+                      changeStatus.isPending || statusReason.trim().length < 3
+                    }
+                  >
+                    Return customer to Prepaid
+                  </Button>
+                </div>
+              ) : null}
+
+              <div className="mt-4 overflow-hidden rounded-xl border">
+                <div className="border-b px-3 py-2 text-xs font-semibold">
+                  Rate history
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">Effective</th>
+                        <th className="px-3 py-2">Previous</th>
+                        <th className="px-3 py-2">New rate</th>
+                        <th className="px-3 py-2">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {data.rateHistory.map((row) => (
+                        <tr key={row.id}>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {new Date(row.effectiveAt).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-xs">
+                            {row.previousRateNgn == null
+                              ? "—"
+                              : money(row.previousRateNgn)}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-semibold">
+                            {money(row.newRateNgn)}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {row.reason}
+                          </td>
+                        </tr>
+                      ))}
+                      {data.rateHistory.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-3 py-6 text-center text-xs text-muted-foreground"
+                          >
+                            No Postpaid rate history yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
