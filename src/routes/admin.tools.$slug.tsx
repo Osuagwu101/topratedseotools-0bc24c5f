@@ -68,6 +68,12 @@ import {
   adminSaveChatGptSession,
   adminRevokeChatGptSession,
 } from "@/lib/chatgpt-session.functions";
+import {
+  adminGetTurnitinOriginalitySessionStatus,
+  adminSaveTurnitinOriginalitySession,
+  adminTestTurnitinOriginalitySession,
+  adminRevokeTurnitinOriginalitySession,
+} from "@/lib/turnitin-session.functions";
 
 const settingsQuery = queryOptions({
   queryKey: ["tool-settings"],
@@ -101,6 +107,10 @@ const chatGptSessionQuery = queryOptions({
   queryKey: ["admin-chatgpt-authorized-session"],
   queryFn: () => adminGetChatGptSessionStatus(),
 });
+const turnitinOriginalitySessionQuery = queryOptions({
+  queryKey: ["admin-turnitin-originality-session"],
+  queryFn: () => adminGetTurnitinOriginalitySessionStatus(),
+});
 
 export const Route = createFileRoute("/admin/tools/$slug")({
   ssr: false,
@@ -130,6 +140,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
         : []),
       ...(tool.slug === "chatgpt"
         ? [context.queryClient.ensureQueryData(chatGptSessionQuery)]
+        : []),
+      ...(tool.slug === "turnitin"
+        ? [context.queryClient.ensureQueryData(turnitinOriginalitySessionQuery)]
         : []),
     ]);
     return { slug: tool.slug };
@@ -173,7 +186,11 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
-  if (tool.slug === "phrasly" || tool.slug === "chatgpt") {
+  if (
+    tool.slug === "phrasly" ||
+    tool.slug === "chatgpt" ||
+    tool.slug === "turnitin"
+  ) {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
@@ -258,6 +275,9 @@ function AdminToolPage() {
           )}
           {tab === "session" && tool.slug === "stealthwriter" && (
             <StealthWriterSessionTab />
+          )}
+          {tab === "session" && tool.slug === "turnitin" && (
+            <TurnitinOriginalitySessionTab />
           )}
           {tab === "credentials" && <CredentialsTab tool={tool} />}
           {tab === "orders" && <OrdersTab slug={tool.slug} />}
@@ -593,6 +613,212 @@ function PhraslySessionTab() {
 }
 
 
+
+
+function formatTurnitinOriginalitySessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
+
+function TurnitinOriginalitySessionTab() {
+  const { data } = useSuspenseQuery(turnitinOriginalitySessionQuery);
+  const saveSession = useServerFn(adminSaveTurnitinOriginalitySession);
+  const testSession = useServerFn(adminTestTurnitinOriginalitySession);
+  const revokeSession = useServerFn(adminRevokeTurnitinOriginalitySession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<number | null>(null);
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error('Paste the "turnitin_admin_session" cookie Value first.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await saveSession({ data: { session_data: sessionData } });
+      setSessionData("");
+      setAvailableSlots(result.available_slots ?? null);
+      await qc.invalidateQueries({
+        queryKey: ["admin-turnitin-originality-session"],
+      });
+      toast.success("Originality Reports session validated and saved securely.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not validate/save the Originality Reports session.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const result = await testSession();
+      setAvailableSlots(result.available_slots ?? null);
+      toast.success(
+        result.available_slots == null
+          ? "Originality Reports session is working."
+          : `Originality Reports session is working · ${result.available_slots} upstream slot(s) available.`,
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Originality Reports session test failed.",
+      );
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function revoke() {
+    if (!confirm("Revoke the stored Originality Reports session?")) return;
+    setRevoking(true);
+    try {
+      await revokeSession();
+      setSessionData("");
+      setAvailableSlots(null);
+      await qc.invalidateQueries({
+        queryKey: ["admin-turnitin-originality-session"],
+      });
+      toast.success("Originality Reports session revoked.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not revoke the session.",
+      );
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">
+              Originality Reports authorised session
+            </h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Turnitin Checks uses your prepaid Originality Reports account only from
+              the server. Customers never receive the upstream cookie, password, or
+              direct account access.
+            </p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                data.configured
+                  ? "bg-success/15 text-success"
+                  : data.status === "revoked"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {data.configured
+                ? "Stored"
+                : data.status === "revoked"
+                  ? "Revoked"
+                  : "Not configured"}
+            </span>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Last changed: {formatTurnitinOriginalitySessionTime(data.updated_at)}
+            </div>
+            {availableSlots != null ? (
+              <div className="text-[11px] text-muted-foreground">
+                Upstream slots: {availableSlots}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          Saving performs a read-only authenticated status check from the application
+          server first. No Originality slot is consumed by Save or Test.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          turnitin_admin_session cookie
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={8}
+          autoComplete="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          disabled={!data.can_manage || saving || testing || revoking}
+          placeholder="Paste the turnitin_admin_session cookie Value here"
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          In Chrome while logged in to Originality Reports: Application → Cookies →
+          https://www.originality.report → find <strong>turnitin_admin_session</strong> →
+          copy its <strong>Value</strong> only and paste it above. Advanced first-party
+          cookie JSON is also accepted. Do not paste your password here or into chat.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {!data.can_manage ? (
+            <span className="text-xs text-muted-foreground">
+              Only a Super Admin can replace or revoke this session.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Stored data is write-only here and encrypted before database storage.
+            </span>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {data.configured ? (
+              <button
+                type="button"
+                onClick={test}
+                disabled={testing || saving || revoking}
+                className="rounded-full border border-input px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {testing ? "Testing…" : "Test session"}
+              </button>
+            ) : null}
+            {data.configured && data.can_manage ? (
+              <button
+                type="button"
+                onClick={revoke}
+                disabled={revoking || saving || testing}
+                className="rounded-full border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/5 disabled:opacity-50"
+              >
+                {revoking ? "Revoking…" : "Revoke"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={save}
+              disabled={
+                !data.can_manage ||
+                saving ||
+                testing ||
+                revoking ||
+                !sessionData.trim()
+              }
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Validating…" : data.configured ? "Replace session" : "Save session"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatChatGptSessionTime(value: string | null) {
   return value
