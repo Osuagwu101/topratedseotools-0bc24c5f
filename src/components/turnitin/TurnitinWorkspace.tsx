@@ -750,16 +750,19 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
                     ? "—"
                     : `${formatNaira(account.postpaid_rate_ngn)} / check`
                 }
+                hint="Applied when Originality accepts a new check"
               />
               <StatCard
                 icon={Clock3}
                 label="Unpaid checks"
                 value={String(postpaid.unpaid_checks)}
+                hint="Checks not fully settled"
               />
               <StatCard
                 icon={Coins}
                 label="Outstanding"
                 value={formatNaira(postpaid.outstanding_ngn)}
+                hint="Current Postpaid balance"
               />
             </div>
 
