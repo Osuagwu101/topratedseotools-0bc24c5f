@@ -149,6 +149,21 @@ assert(
 );
 
 assert(
+  funcs.includes("turnitinReportDownloadName") &&
+    funcs.includes('reportType === "ai" ? "AI_" : "si_"') &&
+    funcs.includes(".pdf"),
+  "report downloads preserve the uploaded filename stem with AI_ and si_ PDF prefixes",
+);
+
+assert(
+  funcs.includes("download: filename") &&
+    workspace.includes('document.createElement("a")') &&
+    workspace.includes("link.download = result.filename") &&
+    !workspace.includes('window.open(result.url'),
+  "report buttons use direct attachment downloads instead of opening the PDF viewer in a new tab",
+);
+
+assert(
   workspace.includes("Buy check credits") &&
     workspace.includes("Run Turnitin check") &&
     workspace.includes("Existing tool subscriptions are not used"),
