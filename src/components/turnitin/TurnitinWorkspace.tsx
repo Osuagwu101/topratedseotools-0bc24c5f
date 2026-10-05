@@ -726,101 +726,152 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       {(view === "all" || view === "buy" || view === "submit") ? (
       <section className={view === "all" ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
         {(view === "all" || view === "buy") ? (
-        <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-              <Coins className="h-5 w-5" />
+        isPostpaid ? (
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Postpaid account</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  You do not need to buy prepaid checks while Postpaid is active.
+                  Each accepted document is billed at your agreed rate.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold">Buy check credits</h2>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Buy any quantity you need. Every paid batch remains valid for seven days.
-              </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={ShoppingCart}
+                label="Agreed rate"
+                value={
+                  account.postpaid_rate_ngn == null
+                    ? "—"
+                    : `${formatNaira(account.postpaid_rate_ngn)} / check`
+                }
+              />
+              <StatCard
+                icon={Clock3}
+                label="Unpaid checks"
+                value={String(postpaid.unpaid_checks)}
+              />
+              <StatCard
+                icon={Coins}
+                label="Outstanding"
+                value={formatNaira(postpaid.outstanding_ngn)}
+              />
             </div>
+
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Your existing prepaid credits stay on the account and are not consumed
+              while Postpaid billing is active.
+            </p>
           </div>
-
-          <label className="mt-6 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Number of checks
-          </label>
-          <div className="mt-2 flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={500}
-              value={quantity}
-              onChange={(e) =>
-                setQuantity(
-                  Math.min(TURNITIN_CREDIT_MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value) || 1))),
-                )
-              }
-              className="w-28 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <div className="text-sm text-muted-foreground">
-              × {formatNaira(UNIT_PRICE_NGN)}
+        ) : (
+          <div className="rounded-2xl border bg-card p-6 shadow-card">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                <Coins className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Buy check credits</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Buy any quantity you need. Every paid batch remains valid for seven days.
+                </p>
+              </div>
             </div>
+
+            <label className="mt-6 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Number of checks
+            </label>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(
+                    Math.min(
+                      TURNITIN_CREDIT_MAX_QUANTITY,
+                      Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                    ),
+                  )
+                }
+                className="w-28 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <div className="text-sm text-muted-foreground">
+                × {formatNaira(UNIT_PRICE_NGN)}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Credits</span>
+                <strong>{quantity}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t pt-3">
+                <span className="font-semibold">Total</span>
+                <strong className="text-xl">
+                  {formatNaira(quantity * UNIT_PRICE_NGN)}
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void buyCredits()}
+              disabled={buyingCredits || verifyingPayment || !foundationReady}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {buyingCredits || verifyingPayment ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="h-4 w-4" />
+              )}
+              {buyingCredits
+                ? "Opening payment…"
+                : verifyingPayment
+                  ? "Confirming payment…"
+                  : `Pay ${formatNaira(quantity * UNIT_PRICE_NGN)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              One-time payment only. Credits are added after verified payment and remain
+              valid for seven days. Existing tool subscriptions are not used.
+            </p>
+            <button
+              type="button"
+              onClick={() => void reconcileLatestPayment()}
+              disabled={reconcilingPayment || buyingCredits || verifyingPayment}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {reconcilingPayment ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              {reconcilingPayment
+                ? "Checking Paystack…"
+                : "Retry last payment verification"}
+            </button>
+            {paymentMessage ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentMessage}
+              </div>
+            ) : null}
+            {paymentError ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {paymentError}
+              </div>
+            ) : null}
           </div>
+        )
+      ) : null}
 
-          <div className="mt-5 rounded-xl border bg-muted/20 p-4">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Credits</span>
-              <strong>{quantity}</strong>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 border-t pt-3">
-              <span className="font-semibold">Total</span>
-              <strong className="text-xl">{formatNaira(quantity * UNIT_PRICE_NGN)}</strong>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void buyCredits()}
-            disabled={buyingCredits || verifyingPayment || !foundationReady}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {buyingCredits || verifyingPayment ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShoppingCart className="h-4 w-4" />
-            )}
-            {buyingCredits
-              ? "Opening payment…"
-              : verifyingPayment
-                ? "Confirming payment…"
-                : `Pay ${formatNaira(quantity * UNIT_PRICE_NGN)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
-          </button>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            One-time payment only. Credits are added after verified payment and remain valid
-            for seven days. Existing tool subscriptions are not used.
-          </p>
-          <button
-            type="button"
-            onClick={() => void reconcileLatestPayment()}
-            disabled={reconcilingPayment || buyingCredits || verifyingPayment}
-            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {reconcilingPayment ? (
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            )}
-            {reconcilingPayment ? "Checking Paystack…" : "Retry last payment verification"}
-          </button>
-          {paymentMessage ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
-              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {paymentMessage}
-            </div>
-          ) : null}
-          {paymentError ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {paymentError}
-            </div>
-          ) : null}
-        </div>
-        ) : null}
-
-        {(view === "all" || view === "submit") ? (
+      {(view === "all" || view === "submit") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
