@@ -1,12 +1,14 @@
 /*
  * Turnitin Phase 5 customer job orchestration.
  *
- * Credit lifecycle:
- *   intent -> reserve 1 credit
- *   upstream accepts -> consume reserved credit
- *   explicit pre-acceptance rejection -> release reserved credit
- *   ambiguous network failure -> keep reservation + same upload_token for retry
- *   accepted job later fully fails -> refund one fresh credit
+ * Billing lifecycle:
+ *   prepaid intent -> reserve 1 credit
+ *   prepaid acceptance -> consume reserved credit
+ *   postpaid intent -> no credit reservation
+ *   postpaid acceptance -> snapshot current negotiated rate into one unpaid charge
+ *   explicit pre-acceptance rejection -> release prepaid reservation only
+ *   ambiguous network failure -> keep the same upload_token for retry
+ *   accepted full failure -> refund prepaid credit OR void unpaid postpaid charge
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash, randomUUID } from "node:crypto";
@@ -77,6 +79,29 @@ async function adminClient() {
   return supabaseAdmin as any;
 }
 
+async function getTurnitinBillingMode(
+  admin: any,
+  userId: string,
+): Promise<{ billingMode: "prepaid" | "postpaid"; postpaidRateNgn: number | null }> {
+  const { data, error } = await admin
+    .from("turnitin_account_settings")
+    .select("billing_mode, postpaid_rate_ngn")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  if (data?.billing_mode === "postpaid") {
+    const rate = Number(data.postpaid_rate_ngn ?? 0);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("This Postpaid Turnitin account does not have a valid agreed rate.");
+    }
+    return { billingMode: "postpaid", postpaidRateNgn: rate };
+  }
+
+  return { billingMode: "prepaid", postpaidRateNgn: null };
+}
+
 async function releaseReservation(
   admin: any,
   userId: string,
@@ -101,15 +126,18 @@ async function markExplicitPreAcceptanceFailure(
   userId: string,
   jobId: string,
   sourcePath: string | null,
+  releaseCredit: boolean,
   error: unknown,
 ) {
   try {
-    await releaseReservation(
-      admin,
-      userId,
-      jobId,
-      error instanceof Error ? error.message : "Upstream submission failed.",
-    );
+    if (releaseCredit) {
+      await releaseReservation(
+        admin,
+        userId,
+        jobId,
+        error instanceof Error ? error.message : "Upstream submission failed.",
+      );
+    }
   } finally {
     await admin
       .from("turnitin_jobs")
@@ -141,8 +169,9 @@ export const createTurnitinUploadIntent = createServerFn({ method: "POST" })
     }
 
     const admin = await adminClient();
+    const billing = await getTurnitinBillingMode(admin, context.userId);
 
-    // Fail before reserving a local credit when the provider session is stale
+    // Fail before reserving a prepaid credit or opening a Postpaid job when the provider session is stale
     // or the prepaid master account has no upstream slots.
     const upstream = await testStoredOriginalitySession(admin);
     if (upstream.availableSlots != null && upstream.availableSlots <= 0) {
@@ -180,19 +209,22 @@ export const createTurnitinUploadIntent = createServerFn({ method: "POST" })
       report_title: data.options.reportTitle?.trim() || originalFilename,
       author_first_name: data.options.authorFirstName?.trim() || null,
       author_last_name: data.options.authorLastName?.trim() || null,
+      billing_mode: billing.billingMode,
     });
     if (jobError) throw new Error(jobError.message);
 
-    const { error: reserveError } = await admin.rpc("turnitin_reserve_credit", {
-      _user_id: context.userId,
-      _job_id: jobId,
-    });
-    if (reserveError) {
-      await admin.from("turnitin_jobs").delete().eq("id", jobId);
-      if (/TURNITIN_NO_CREDIT/i.test(reserveError.message)) {
-        throw new Error("You do not have an available Turnitin check credit.");
+    if (billing.billingMode === "prepaid") {
+      const { error: reserveError } = await admin.rpc("turnitin_reserve_credit", {
+        _user_id: context.userId,
+        _job_id: jobId,
+      });
+      if (reserveError) {
+        await admin.from("turnitin_jobs").delete().eq("id", jobId);
+        if (/TURNITIN_NO_CREDIT/i.test(reserveError.message)) {
+          throw new Error("You do not have an available Turnitin check credit.");
+        }
+        throw new Error(reserveError.message);
       }
-      throw new Error(reserveError.message);
     }
 
     try {
@@ -212,12 +244,14 @@ export const createTurnitinUploadIntent = createServerFn({ method: "POST" })
         token: String(signed.token),
       };
     } catch (error) {
-      await releaseReservation(
-        admin,
-        context.userId,
-        jobId,
-        "Could not prepare the private source upload.",
-      );
+      if (billing.billingMode === "prepaid") {
+        await releaseReservation(
+          admin,
+          context.userId,
+          jobId,
+          "Could not prepare the private source upload.",
+        );
+      }
       await admin.from("turnitin_jobs").delete().eq("id", jobId);
       throw error;
     }
@@ -290,7 +324,17 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
     // If upstream acceptance happened but local finalisation previously failed,
     // never upload again. Finalise the same accepted submission instead.
     if (job.upstream_submission_id) {
-      if (job.credit_state === "reserved") {
+      if (job.billing_mode === "postpaid") {
+        const { error: chargeError } = await admin.rpc(
+          "turnitin_charge_postpaid_job",
+          {
+            _user_id: context.userId,
+            _job_id: job.id,
+            _upstream_submission_id: String(job.upstream_submission_id),
+          },
+        );
+        if (chargeError) throw new Error(chargeError.message);
+      } else if (job.credit_state === "reserved") {
         const { error: consumeError } = await admin.rpc(
           "turnitin_consume_reserved_credit",
           {
@@ -309,7 +353,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
       };
     }
 
-    if (job.credit_state !== "reserved") {
+    if (job.billing_mode !== "postpaid" && job.credit_state !== "reserved") {
       throw new Error("This Turnitin check does not have a reserved credit.");
     }
     if (!job.source_storage_path || !job.upstream_upload_token) {
@@ -318,6 +362,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
         context.userId,
         job.id,
         job.source_storage_path,
+        job.billing_mode !== "postpaid" && job.credit_state === "reserved",
         new Error("Turnitin job is missing its source file or upload token."),
       );
       throw new Error("Turnitin job is incomplete.");
@@ -335,6 +380,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
         context.userId,
         job.id,
         job.source_storage_path,
+        job.billing_mode !== "postpaid" && job.credit_state === "reserved",
         failure,
       );
       throw failure;
@@ -384,18 +430,34 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
         .eq("user_id", context.userId);
       if (acceptanceError) throw new Error(acceptanceError.message);
 
-      const { error: consumeError } = await admin.rpc(
-        "turnitin_consume_reserved_credit",
-        {
-          _user_id: context.userId,
-          _job_id: job.id,
-          _upstream_submission_id: result.submissionId,
-        },
-      );
-      if (consumeError) {
-        throw new Error(
-          `Upstream accepted the document but local credit finalisation failed: ${consumeError.message}`,
+      if (job.billing_mode === "postpaid") {
+        const { error: chargeError } = await admin.rpc(
+          "turnitin_charge_postpaid_job",
+          {
+            _user_id: context.userId,
+            _job_id: job.id,
+            _upstream_submission_id: result.submissionId,
+          },
         );
+        if (chargeError) {
+          throw new Error(
+            `Upstream accepted the document but Postpaid charge finalisation failed: ${chargeError.message}`,
+          );
+        }
+      } else {
+        const { error: consumeError } = await admin.rpc(
+          "turnitin_consume_reserved_credit",
+          {
+            _user_id: context.userId,
+            _job_id: job.id,
+            _upstream_submission_id: result.submissionId,
+          },
+        );
+        if (consumeError) {
+          throw new Error(
+            `Upstream accepted the document but local credit finalisation failed: ${consumeError.message}`,
+          );
+        }
       }
 
       // The provider now owns the accepted source; remove our private copy.
@@ -458,6 +520,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
         context.userId,
         job.id,
         job.source_storage_path,
+        job.billing_mode !== "postpaid" && job.credit_state === "reserved",
         error,
       );
       throw error;
@@ -542,7 +605,10 @@ async function storeReport(
 }
 
 async function syncOneJob(admin: any, userId: string, job: any) {
-  if (!job.upstream_submission_id || job.credit_state !== "consumed") {
+  if (
+    !job.upstream_submission_id ||
+    (job.billing_mode !== "postpaid" && job.credit_state !== "consumed")
+  ) {
     return;
   }
 
@@ -573,18 +639,32 @@ async function syncOneJob(admin: any, userId: string, job: any) {
           : null);
 
     if (upstream.status === "failed") {
-      const { error: refundError } = await admin.rpc(
-        "turnitin_refund_consumed_credit",
-        {
-          _user_id: userId,
-          _job_id: job.id,
-          _reason:
-            upstream.refundReason ||
-            "Originality Reports marked the accepted job as failed.",
-        },
-      );
-      if (refundError && !/ALREADY_REFUNDED/i.test(refundError.message)) {
-        throw new Error(refundError.message);
+      const failureReason =
+        upstream.refundReason ||
+        "Originality Reports marked the accepted job as failed.";
+
+      if (job.billing_mode === "postpaid") {
+        const { error: voidError } = await admin.rpc(
+          "turnitin_void_postpaid_charge",
+          {
+            _user_id: userId,
+            _job_id: job.id,
+            _reason: failureReason,
+          },
+        );
+        if (voidError) throw new Error(voidError.message);
+      } else {
+        const { error: refundError } = await admin.rpc(
+          "turnitin_refund_consumed_credit",
+          {
+            _user_id: userId,
+            _job_id: job.id,
+            _reason: failureReason,
+          },
+        );
+        if (refundError && !/ALREADY_REFUNDED/i.test(refundError.message)) {
+          throw new Error(refundError.message);
+        }
       }
 
       await admin
@@ -738,19 +818,22 @@ export const retryTurnitinJob = createServerFn({ method: "POST" })
     const admin = await adminClient();
     const { data: job, error } = await admin
       .from("turnitin_jobs")
-      .select("id, user_id, status, credit_state, upstream_submission_id")
+      .select("id, user_id, status, credit_state, billing_mode, upstream_submission_id")
       .eq("id", data.jobId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!job) throw new Error("Turnitin job not found.");
 
-    if (job.upstream_submission_id && job.credit_state === "consumed") {
+    if (
+      job.upstream_submission_id &&
+      (job.billing_mode === "postpaid" || job.credit_state === "consumed")
+    ) {
       await syncOneJob(admin, context.userId, job);
       return { ok: true, action: "synced" as const };
     }
 
-    if (job.credit_state !== "reserved") {
+    if (job.billing_mode !== "postpaid" && job.credit_state !== "reserved") {
       throw new Error("This check no longer has a reserved credit to retry.");
     }
 
