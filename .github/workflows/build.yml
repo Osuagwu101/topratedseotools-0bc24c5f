@@ -68,6 +68,9 @@ jobs:
       - name: Turnitin Phase 4 workspace
         run: bun tests/turnitin-workspace.test.ts
 
+      - name: Turnitin Phase 5 Originality adapter
+        run: bun tests/turnitin-originality-adapter.test.ts
+
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
 

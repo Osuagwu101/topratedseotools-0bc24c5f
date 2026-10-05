@@ -44,7 +44,11 @@ export interface TurnitinJobRow {
   accepted_at: string | null;
   completed_at: string | null;
   failed_at: string | null;
+  failure_code: string | null;
   failure_message: string | null;
+  credit_state: "none" | "reserved" | "consumed" | "refunded";
+  upstream_submission_id: string | null;
+  upstream_last_error: string | null;
   word_count: number | null;
   created_at: string;
   reports: TurnitinReportRow[];
@@ -78,7 +82,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
       db
         .from("turnitin_jobs")
         .select(
-          "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_message, word_count, created_at",
+          "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, upstream_submission_id, upstream_last_error, word_count, created_at",
         )
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })

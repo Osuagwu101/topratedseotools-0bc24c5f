@@ -105,10 +105,10 @@ assert(
 );
 
 assert(
-  workspace.includes("disabled") &&
-    workspace.includes("dedicated credit checkout is connected in the payment phase") &&
-    workspace.includes("Originality Reports adapter is connected in the next"),
-  "Phase 4 keeps checkout and upstream submission deliberately disabled",
+  workspace.includes("dedicated credit checkout is connected in the payment phase") &&
+    workspace.includes("Buy {quantity} credit") &&
+    workspace.includes("Run Turnitin check"),
+  "workspace keeps credit checkout disabled while allowing later phases to activate document submission",
 );
 
 for (const forbidden of [
