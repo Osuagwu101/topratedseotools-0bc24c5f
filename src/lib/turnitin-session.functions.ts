@@ -163,7 +163,7 @@ export const adminRevokeTurnitinOriginalitySession = createServerFn({
       action: "turnitin.originality_session_revoke",
       area: "tools",
       target_type: "tool_authorized_session",
-      target_id: TOOL_SLUG,
+      target_id: "turnitin",
       details:
         "Originality Reports authorised session revoked; secret values were not logged.",
     });
