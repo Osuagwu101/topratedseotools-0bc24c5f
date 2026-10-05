@@ -605,6 +605,24 @@ export const adminGetTurnitinPostpaidLedger = createServerFn({ method: "POST" })
     if (allocationsRes.error) throw new Error(allocationsRes.error.message);
 
     const charges = (chargesRes.data ?? []) as Array<any>;
+    const jobIds = Array.from(
+      new Set(charges.map((row) => String(row.job_id)).filter(Boolean)),
+    );
+    const jobNames = new Map<string, string>();
+    if (jobIds.length > 0) {
+      const { data: jobs, error: jobsError } = await admin
+        .from("turnitin_jobs")
+        .select("id, original_filename, display_name")
+        .in("id", jobIds);
+      if (jobsError) throw new Error(jobsError.message);
+      for (const job of jobs ?? []) {
+        jobNames.set(
+          String(job.id),
+          String(job.display_name || job.original_filename || "Turnitin check"),
+        );
+      }
+    }
+
     const chargeIds = new Set(charges.map((row) => String(row.id)));
     const allocations = (allocationsRes.data ?? []).filter((row: any) =>
       chargeIds.has(String(row.charge_id)),
@@ -638,6 +656,7 @@ export const adminGetTurnitinPostpaidLedger = createServerFn({ method: "POST" })
       charges: charges.map((row) => ({
         id: String(row.id),
         jobId: String(row.job_id),
+        documentName: jobNames.get(String(row.job_id)) ?? "Turnitin check",
         rateNgn: Number(row.rate_ngn),
         amountNgn: Number(row.amount_ngn),
         paidAmountNgn: Number(row.paid_amount_ngn),
