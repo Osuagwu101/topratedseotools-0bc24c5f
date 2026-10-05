@@ -42,6 +42,12 @@ import {
   TURNITIN_CREDIT_MAX_QUANTITY,
   TURNITIN_CREDIT_UNIT_PRICE_NGN,
 } from "@/lib/turnitin-pricing";
+import {
+  getMyTurnitinPostpaidSettlements,
+  initializeTurnitinPostpaidSettlement,
+  reconcileLatestTurnitinPostpaidSettlement,
+  verifyTurnitinPostpaidSettlement,
+} from "@/lib/turnitin-postpaid-settlements.functions";
 
 const UNIT_PRICE_NGN = TURNITIN_CREDIT_UNIT_PRICE_NGN;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -141,6 +147,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [retryingJob, setRetryingJob] = useState<string | null>(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
+  const [settlingPostpaid, setSettlingPostpaid] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState(0);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [reconcilingPayment, setReconcilingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
@@ -162,6 +170,14 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     },
   });
 
+  const postpaidSettlements = useQuery({
+    queryKey: ["turnitin-postpaid-settlements"],
+    queryFn: () => getMyTurnitinPostpaidSettlements(),
+    enabled:
+      isAuthenticated && workspace.data?.account.billing_mode === "postpaid",
+    staleTime: 10_000,
+  });
+
   const activeGateway = useQuery({
     queryKey: ["active-gateway"],
     queryFn: () => getActiveGatewayInfo(),
@@ -174,23 +190,67 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
     if (!isAuthenticated || typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    const callbackReference =
+    const callbackFromUrl =
       params.get("reference") ||
       params.get("trxref") ||
-      params.get("tx_ref") ||
-      window.sessionStorage.getItem("turnitin-credit-reference");
+      params.get("tx_ref");
+    const storedSettlementReference = window.sessionStorage.getItem(
+      "turnitin-postpaid-settlement-reference",
+    );
+    const storedCreditReference = window.sessionStorage.getItem(
+      "turnitin-credit-reference",
+    );
+    const callbackReference =
+      callbackFromUrl || storedSettlementReference || storedCreditReference;
 
     if (!callbackReference) return;
+
+    const isSettlementReference =
+      callbackReference.startsWith("TRST-TP-") ||
+      callbackReference === storedSettlementReference;
 
     let cancelled = false;
     setVerifyingPayment(true);
     setPaymentError(null);
 
-    void verifyTurnitinCreditPurchase({
-      data: { reference: callbackReference },
-    })
-      .then(async (result) => {
+    void (async () => {
+      if (isSettlementReference) {
+        const result = await verifyTurnitinPostpaidSettlement({
+          data: { reference: callbackReference },
+        });
         if (cancelled) return;
+
+        if (result.status === "confirmed") {
+          window.sessionStorage.removeItem(
+            "turnitin-postpaid-settlement-reference",
+          );
+          setPaymentMessage(
+            `Postpaid settlement of ${formatNaira(result.amountNgn)} confirmed successfully.`,
+          );
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: ["turnitin-workspace"] }),
+            qc.invalidateQueries({
+              queryKey: ["turnitin-postpaid-settlements"],
+            }),
+          ]);
+        } else if (result.status === "pending") {
+          setPaymentMessage(
+            "Your Postpaid settlement is still being confirmed by the payment provider.",
+          );
+        } else {
+          window.sessionStorage.removeItem(
+            "turnitin-postpaid-settlement-reference",
+          );
+          setPaymentError(
+            "The payment provider did not confirm this Postpaid settlement.",
+          );
+        }
+      } else {
+        const result = await verifyTurnitinCreditPurchase({
+          data: { reference: callbackReference },
+        });
+        if (cancelled) return;
+
         if (result.status === "paid") {
           window.sessionStorage.removeItem("turnitin-credit-reference");
           setPaymentMessage(
@@ -207,17 +267,18 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             "The payment provider did not confirm this Turnitin credit purchase.",
           );
         }
+      }
 
-        if (params.toString()) {
-          window.history.replaceState({}, "", window.location.pathname);
-        }
-      })
+      if (params.toString()) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    })()
       .catch((error) => {
         if (cancelled) return;
         setPaymentError(
           error instanceof Error
             ? error.message
-            : "Could not verify the Turnitin credit payment.",
+            : "Could not verify this Turnitin payment.",
         );
       })
       .finally(() => {
@@ -228,6 +289,19 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       cancelled = true;
     };
   }, [isAuthenticated, qc]);
+
+  useEffect(() => {
+    if (workspace.data?.account.billing_mode !== "postpaid") return;
+    const outstanding = workspace.data.postpaid.outstanding_ngn;
+    setSettlementAmount((current) => {
+      if (outstanding <= 0) return 0;
+      if (current <= 0 || current > outstanding) return outstanding;
+      return current;
+    });
+  }, [
+    workspace.data?.account.billing_mode,
+    workspace.data?.postpaid.outstanding_ngn,
+  ]);
 
   const buyCredits = async () => {
     if (!workspace.data?.foundationReady) {
@@ -254,6 +328,81 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
           : "Could not start the Turnitin credit payment.",
       );
       setBuyingCredits(false);
+    }
+  };
+
+  const settlePostpaidBalance = async () => {
+    const outstanding = workspace.data?.postpaid.outstanding_ngn ?? 0;
+    if (outstanding <= 0) {
+      setPaymentError("There is no outstanding Postpaid balance to settle.");
+      return;
+    }
+    if (
+      !Number.isInteger(settlementAmount) ||
+      settlementAmount < 1 ||
+      settlementAmount > outstanding
+    ) {
+      setPaymentError("Enter a settlement amount within your outstanding balance.");
+      return;
+    }
+
+    setSettlingPostpaid(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const checkout = await initializeTurnitinPostpaidSettlement({
+        data: { amountNgn: settlementAmount },
+      });
+      window.sessionStorage.setItem(
+        "turnitin-postpaid-settlement-reference",
+        checkout.reference,
+      );
+      window.location.href = checkout.authorization_url;
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not start the Postpaid settlement.",
+      );
+      setSettlingPostpaid(false);
+    }
+  };
+
+  const reconcileLatestPostpaidPayment = async () => {
+    setReconcilingPayment(true);
+    setPaymentError(null);
+    setPaymentMessage(null);
+    try {
+      const result = await reconcileLatestTurnitinPostpaidSettlement();
+      if (result.status === "confirmed") {
+        setPaymentMessage(
+          `Postpaid settlement of ${formatNaira(result.amountNgn)} confirmed successfully.`,
+        );
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["turnitin-workspace"] }),
+          qc.invalidateQueries({
+            queryKey: ["turnitin-postpaid-settlements"],
+          }),
+        ]);
+      } else if (result.status === "pending") {
+        setPaymentMessage(
+          "The payment provider still reports this Postpaid settlement as pending.",
+        );
+      } else if (result.status === "failed") {
+        setPaymentError(
+          "The payment provider reports the latest Postpaid settlement as failed.",
+        );
+      } else {
+        setPaymentError("No pending Postpaid settlement was found.");
+      }
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Could not reconcile the latest Postpaid settlement.",
+      );
+    } finally {
+      setReconcilingPayment(false);
     }
   };
 
