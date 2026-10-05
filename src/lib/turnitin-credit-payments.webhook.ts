@@ -130,7 +130,7 @@ export async function tryHandleTurnitinCreditWebhook(
     Number(verifiedMetadata.quantity) !== Number(purchase.quantity) ||
     Number(verifiedMetadata.unit_amount_ngn) !==
       TURNITIN_CREDIT_UNIT_PRICE_NGN ||
-    verifiedProductAmount !== expectedMinor ||
+    verifiedProductAmount < expectedMinor ||
     String(verified.currency ?? "").toUpperCase() !== "NGN"
   ) {
     await admin
