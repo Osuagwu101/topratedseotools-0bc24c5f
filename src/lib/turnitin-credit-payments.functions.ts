@@ -19,7 +19,7 @@ import {
   type GatewaySlug,
 } from "@/lib/gateways/types";
 
-const TURNITIN_CALLBACK_URL = "https://topratedseotools.com/tools/turnitin";
+const TURNITIN_CALLBACK_URL = "https://topratedseotools.com/turnitin/buy";
 
 type AdminClient = any;
 

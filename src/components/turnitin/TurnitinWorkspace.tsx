@@ -104,11 +104,21 @@ const STATUS_STYLE: Record<TurnitinJobStatus, string> = {
   failed: "bg-red-500/10 text-red-700",
 };
 
+export type TurnitinWorkspaceView = "overview" | "submit" | "buy" | "history" | "all";
+
 type Props = {
   isAuthenticated: boolean;
+  view?: TurnitinWorkspaceView;
 };
 
-export function TurnitinWorkspace({ isAuthenticated }: Props) {
+const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> = {
+  overview: "/turnitin",
+  submit: "/turnitin/submit",
+  buy: "/turnitin/buy",
+  history: "/turnitin/history",
+};
+
+export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
   const qc = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -465,6 +475,9 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
   };
 
   if (!isAuthenticated) {
+    const redirectTo =
+      view === "all" ? "/turnitin" : TURNITIN_VIEW_PATH[view];
+
     return (
       <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
         <div className="grid gap-0 lg:grid-cols-[1.25fr_.75fr]">
@@ -492,7 +505,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             </p>
             <Link
               to="/login"
-              search={{ redirect: "/tools/turnitin" }}
+              search={{ redirect: redirectTo }}
               className="mt-5 inline-flex items-center justify-center rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90"
             >
               Sign in to Turnitin Checks
@@ -525,6 +538,7 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
         </div>
       ) : null}
 
+      {(view === "all" || view === "overview") ? (
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={Coins}
@@ -556,7 +570,112 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+      ) : null}
+
+      {view === "overview" ? (
+        <>
+          <section className="grid gap-4 md:grid-cols-3">
+            <Link
+              to="/turnitin/submit"
+              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
+            >
+              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
+                <UploadCloud className="h-5 w-5" />
+              </div>
+              <h2 className="mt-4 font-semibold">Submit file</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Upload a document, set the report options and run a check.
+              </p>
+            </Link>
+            <Link
+              to="/turnitin/buy"
+              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
+            >
+              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+              <h2 className="mt-4 font-semibold">Buy checks</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Add prepaid checks to your account through the verified payment flow.
+              </p>
+            </Link>
+            <Link
+              to="/turnitin/history"
+              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
+            >
+              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
+                <FileCheck2 className="h-5 w-5" />
+              </div>
+              <h2 className="mt-4 font-semibold">Check history</h2>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Review processing status, scores and available reports.
+              </p>
+            </Link>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border bg-card shadow-card">
+            <div className="flex items-center justify-between gap-4 border-b p-5">
+              <div>
+                <h2 className="font-semibold">Recent checks</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Your latest Turnitin submissions and results.
+                </p>
+              </div>
+              <Link
+                to="/turnitin/history"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            {jobs.length === 0 ? (
+              <div className="p-8 text-center">
+                <FileCheck2 className="mx-auto h-6 w-6 text-muted-foreground" />
+                <p className="mt-2 text-sm font-medium">No checks yet.</p>
+                <Link
+                  to="/turnitin/submit"
+                  className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
+                >
+                  Submit your first document
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {jobs.slice(0, 5).map((job) => (
+                  <div
+                    key={job.id}
+                    className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {job.display_name || job.original_filename}
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {formatDate(job.submitted_at || job.created_at)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <StatusBadge status={job.status} />
+                      <div className="text-xs text-muted-foreground">
+                        Similarity{" "}
+                        <span className="font-semibold text-foreground">
+                          {job.similarity_percentage == null
+                            ? "—"
+                            : `${Number(job.similarity_percentage).toFixed(0)}%`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      ) : null}
+
+      {(view === "all" || view === "buy" || view === "submit") ? (
+      <section className={view === "all" ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
+        {(view === "all" || view === "buy") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -649,7 +768,9 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             </div>
           ) : null}
         </div>
+        ) : null}
 
+        {(view === "all" || view === "submit") ? (
         <div className="rounded-2xl border bg-card p-6 shadow-card">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -935,8 +1056,11 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             </div>
           ) : null}
         </div>
+        ) : null}
       </section>
+      ) : null}
 
+      {(view === "all" || view === "history") ? (
       <section className="rounded-2xl border bg-card shadow-card">
         <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1025,7 +1149,8 @@ export function TurnitinWorkspace({ isAuthenticated }: Props) {
             {downloadError}
           </div>
         ) : null}
-      </section>
+      </section>      ) : null}
+
     </div>
   );
 }

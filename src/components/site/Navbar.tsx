@@ -10,6 +10,7 @@ import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
 
 const NAV_LINKS = [
   { to: "/tools", label: "Tools" },
+  { to: "/turnitin", label: "Turnitin Checks" },
   { to: "/pricing", label: "Pricing" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },

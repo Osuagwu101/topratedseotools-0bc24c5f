@@ -157,7 +157,11 @@ function ToolsDirectory() {
                 <div className="mt-4 text-lg font-semibold">{t.name}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t.category}</div>
                 <div className="mt-4 space-y-1 text-xs">
-                  {(baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
+                  {t.pricingModel === "per_use" && t.perUse ? (
+                    <div className="font-semibold text-foreground">
+                      {money.fmt(t.perUse.amount)} / {t.perUse.unit}
+                    </div>
+                  ) : (baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
                     (baseLinesByTool.get(t.slug) ?? []).map((line) => (
                       <div key={line.access} className="font-semibold text-foreground">
                         {`${line.title} from ${money.fmt(line.amount)}/month`}
