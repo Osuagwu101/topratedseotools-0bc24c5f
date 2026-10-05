@@ -76,6 +76,7 @@ export const adminGetTurnitinCreditControls = createServerFn({ method: "POST" })
         .from("turnitin_admin_credit_grants")
         .select(
           "id, user_id, batch_id, quantity, expires_at, reason, granted_by, created_at",
+          { count: "exact" },
         )
         .eq("user_id", data.userId)
         .order("created_at", { ascending: false })
@@ -146,7 +147,7 @@ export const adminGetTurnitinCreditControls = createServerFn({ method: "POST" })
         consumedCredits,
         expiredCredits,
         nextExpiryAt,
-        adminGrantCount: grants.length,
+        adminGrantCount: Number(grantsRes.count ?? grants.length),
       },
       grants: grants.map((grant) => ({
         id: grant.id as string,
