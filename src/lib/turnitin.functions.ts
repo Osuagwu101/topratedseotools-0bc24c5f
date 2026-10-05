@@ -83,6 +83,7 @@ export interface TurnitinWorkspaceData {
     total_charges: number;
     unpaid_checks: number;
     outstanding_ngn: number;
+    paid_ngn: number;
   };
   jobs: TurnitinJobRow[];
 }
@@ -159,6 +160,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
             total_charges: 0,
             unpaid_checks: 0,
             outstanding_ngn: 0,
+            paid_ngn: 0,
           },
           jobs: [],
         };
@@ -215,6 +217,10 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
           )
         );
       }, 0),
+      paid_ngn: chargeRows.reduce(
+        (sum, row) => sum + Number(row.paid_amount_ngn ?? 0),
+        0,
+      ),
     };
 
     const reportsByJob = new Map<string, TurnitinReportRow[]>();
