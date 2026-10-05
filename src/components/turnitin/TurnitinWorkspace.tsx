@@ -1114,10 +1114,26 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
           </div>
 
           <div className="mt-4 rounded-xl border bg-muted/20 p-4 text-sm">
-            <strong>This check will use 1 credit after Originality Reports accepts the document.</strong>
+            <strong>
+              {isPostpaid
+                ? `This check will add ${formatNaira(account.postpaid_rate_ngn ?? 0)} to your Postpaid balance after Originality Reports accepts the document.`
+                : "This check will use 1 credit after Originality Reports accepts the document."}
+            </strong>
             <div className="mt-1 text-xs text-muted-foreground">
-              You currently have {summary.available_credits} available credit{summary.available_credits === 1 ? "" : "s"}.
-              If AI detection is unavailable because a document does not meet the AI requirements, a completed similarity report is still a completed check.
+              {isPostpaid ? (
+                <>
+                  No prepaid credit is required. You currently have {postpaid.unpaid_checks} unpaid
+                  check{postpaid.unpaid_checks === 1 ? "" : "s"} with an outstanding balance of{" "}
+                  {formatNaira(postpaid.outstanding_ngn)}.
+                </>
+              ) : (
+                <>
+                  You currently have {summary.available_credits} available credit
+                  {summary.available_credits === 1 ? "" : "s"}.
+                </>
+              )}{" "}
+              If AI detection is unavailable because a document does not meet the AI requirements,
+              a completed similarity report is still a completed check.
             </div>
           </div>
 
@@ -1128,7 +1144,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
               submitting ||
               !selectedFile ||
               !foundationReady ||
-              summary.available_credits < 1
+              (!isPostpaid && summary.available_credits < 1)
             }
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -1140,9 +1156,11 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             {submitting ? "Submitting…" : "Run Turnitin check"}
           </button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            {summary.available_credits < 1
-              ? "You need an available credit before submitting a document."
-              : "One credit is reserved first and charged only after Originality Reports accepts the document."}
+            {isPostpaid
+              ? `No credit required. Your agreed ${formatNaira(account.postpaid_rate_ngn ?? 0)} rate is charged only after Originality Reports accepts the document.`
+              : summary.available_credits < 1
+                ? "You need an available credit before submitting a document."
+                : "One credit is reserved first and charged only after Originality Reports accepts the document."}
           </p>
           {submitMessage ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
@@ -1418,7 +1436,7 @@ function HistoryRow({
             onDownload={onDownload}
           />
           {job.status === "uploading" &&
-          job.credit_state === "reserved" &&
+          (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
           job.upstream_last_error ? (
             <button
               type="button"
