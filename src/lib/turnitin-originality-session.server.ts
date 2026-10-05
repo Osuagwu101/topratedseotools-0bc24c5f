@@ -16,6 +16,8 @@ const AAD = Buffer.from(
   "utf8",
 );
 
+export const TURNITIN_ORIGINALITY_AUTH_COOKIE = "turnitin_admin_session";
+
 export type OriginalityStoredCookie = {
   name: string;
   value: string;
@@ -128,6 +130,11 @@ function cleanCookieArray(value: unknown): OriginalityStoredCookie[] {
       "No reusable first-party Originality Reports cookies remained after validation.",
     );
   }
+  if (!out.some((cookie) => cookie.name === TURNITIN_ORIGINALITY_AUTH_COOKIE)) {
+    throw new Error(
+      'The Originality Reports login cookie "turnitin_admin_session" was not found.',
+    );
+  }
   return out;
 }
 
@@ -165,7 +172,34 @@ function objectMapToCookies(value: Record<string, unknown>): OriginalityStoredCo
 export function normaliseOriginalitySession(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
-    throw new Error("Paste the authorised Originality Reports session JSON first.");
+    throw new Error('Paste the Originality Reports "turnitin_admin_session" cookie value first.');
+  }
+
+  // Quick paste: Chrome DevTools exposes the authenticated session as the
+  // HttpOnly cookie named turnitin_admin_session. Accept its bare Value or
+  // turnitin_admin_session=<value> and wrap it into the canonical shape.
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    const prefix = `${TURNITIN_ORIGINALITY_AUTH_COOKIE}=`;
+    const cookieValue = trimmed.startsWith(prefix)
+      ? trimmed.slice(prefix.length)
+      : trimmed;
+    if (!cookieValue || cookieValue.length > 128000 || /[\r\n;]/.test(cookieValue)) {
+      throw new Error('The "turnitin_admin_session" cookie value is invalid.');
+    }
+    return JSON.stringify({
+      version: 1,
+      cookies: [
+        {
+          name: TURNITIN_ORIGINALITY_AUTH_COOKIE,
+          value: cookieValue,
+          domain: ".originality.report",
+          path: "/",
+          secure: true,
+          httpOnly: true,
+          sameSite: "Lax",
+        },
+      ],
+    } satisfies OriginalitySessionState);
   }
 
   let parsed: unknown;
@@ -173,7 +207,7 @@ export function normaliseOriginalitySession(raw: string): string {
     parsed = JSON.parse(trimmed);
   } catch {
     throw new Error(
-      "Originality Reports session data must be valid JSON; do not paste a password here.",
+      'Paste either the "turnitin_admin_session" cookie Value or valid cookie JSON.',
     );
   }
 
