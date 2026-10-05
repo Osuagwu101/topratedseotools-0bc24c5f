@@ -37,13 +37,13 @@ assert(
     workspace.includes("Reserved") &&
     workspace.includes("Next expiry") &&
     workspace.includes("₦2,300") &&
-    workspace.includes("UNIT_PRICE_NGN = 2300"),
+    workspace.includes("TURNITIN_CREDIT_UNIT_PRICE_NGN"),
   "workspace exposes credit balance, reservation, expiry and the ₦2,300 unit-price model",
 );
 
 assert(
   workspace.includes("Number of checks") &&
-    workspace.includes("Math.min(500") &&
+    workspace.includes("TURNITIN_CREDIT_MAX_QUANTITY") &&
     workspace.includes("quantity * UNIT_PRICE_NGN"),
   "credit purchase UI accepts arbitrary quantities and calculates the total",
 );
@@ -105,10 +105,10 @@ assert(
 );
 
 assert(
-  workspace.includes("dedicated credit checkout is connected in the payment phase") &&
-    workspace.includes("Buy {quantity} credit") &&
-    workspace.includes("Run Turnitin check"),
-  "workspace keeps credit checkout disabled while allowing later phases to activate document submission",
+  workspace.includes("Buy check credits") &&
+    workspace.includes("Run Turnitin check") &&
+    workspace.includes("Existing tool subscriptions are not used"),
+  "workspace keeps Turnitin credit purchase and document submission isolated from subscriptions",
 );
 
 for (const forbidden of [
