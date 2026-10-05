@@ -90,14 +90,11 @@ export async function tryHandleTurnitinCreditWebhook(
   const expectedMinor = majorToMinor(
     turnitinCreditTotalNgn(Number(purchase.quantity)),
   );
-  if (
-    Number(normalized.data.amount) !== expectedMinor ||
-    String(normalized.data.currency ?? "").toUpperCase() !== "NGN"
-  ) {
+  if (String(normalized.data.currency ?? "").toUpperCase() !== "NGN") {
     await admin
       .from("turnitin_credit_purchases")
       .update({
-        last_error: "Webhook amount or currency mismatch.",
+        last_error: "Webhook currency mismatch.",
         verified_at: new Date().toISOString(),
       })
       .eq("id", purchase.id)
@@ -122,6 +119,10 @@ export async function tryHandleTurnitinCreditWebhook(
   }
 
   const verifiedMetadata = metadataOf(verified.metadata);
+  const verifiedProductAmount =
+    verified.requested_amount == null
+      ? Number(verified.amount)
+      : Number(verified.requested_amount);
   if (
     !isTurnitinCreditMetadata(verifiedMetadata) ||
     String(verifiedMetadata.turnitin_purchase_id) !== String(purchase.id) ||
@@ -129,7 +130,7 @@ export async function tryHandleTurnitinCreditWebhook(
     Number(verifiedMetadata.quantity) !== Number(purchase.quantity) ||
     Number(verifiedMetadata.unit_amount_ngn) !==
       TURNITIN_CREDIT_UNIT_PRICE_NGN ||
-    Number(verified.amount) !== expectedMinor ||
+    verifiedProductAmount !== expectedMinor ||
     String(verified.currency ?? "").toUpperCase() !== "NGN"
   ) {
     await admin

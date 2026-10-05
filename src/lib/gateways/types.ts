@@ -52,6 +52,12 @@ export interface GatewayTransaction {
   status: "success" | "failed" | "pending";
   reference: string;
   amount: number;
+  /** Merchant-requested amount in minor units when the gateway returns it.
+   * Paystack may charge the customer more than this when transaction fees
+   * are passed to the customer, while requested_amount remains the product
+   * amount we originally initialized.
+   */
+  requested_amount?: number | null;
   currency: string;
   metadata?: { order_id?: string; user_id?: string } & Record<string, unknown>;
   customer?: { customer_code?: string; email?: string } | undefined;

@@ -129,6 +129,21 @@ assert(
   "both browser return and signed webhook converge on the same atomic finalizer",
 );
 
+
+assert(
+  functions.includes("requested_amount") &&
+    functions.includes("verifiedProductAmount") &&
+    functions.includes("tx.requested_amount == null ? Number(tx.amount) : Number(tx.requested_amount)"),
+  "browser-return verification uses Paystack requested_amount when customer fees make the charged amount higher",
+);
+
+assert(
+  webhook.includes("verified.requested_amount == null") &&
+    webhook.includes("verifiedProductAmount !== expectedMinor") &&
+    !webhook.includes("Number(normalized.data.amount) !== expectedMinor"),
+  "webhook defers fee-sensitive amount validation to authoritative verification and checks requested_amount",
+);
+
 assert(
   webhook.includes("verifyWebhook") &&
     webhook.includes("adapter.verify(") &&

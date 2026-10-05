@@ -139,6 +139,7 @@ function validateVerifiedPayment(
     status: string;
     reference: string;
     amount: number;
+    requested_amount?: number | null;
     currency: string;
     metadata?: Record<string, unknown>;
   },
@@ -151,7 +152,9 @@ function validateVerifiedPayment(
   const expectedMinor = majorToMinor(
     turnitinCreditTotalNgn(Number(purchase.quantity)),
   );
-  if (Number(tx.amount) !== expectedMinor) {
+  const verifiedProductAmount =
+    tx.requested_amount == null ? Number(tx.amount) : Number(tx.requested_amount);
+  if (verifiedProductAmount !== expectedMinor) {
     throw new Error("Turnitin credit payment amount verification failed.");
   }
   if (String(tx.currency ?? "").toUpperCase() !== "NGN") {
@@ -423,6 +426,7 @@ export const verifyTurnitinCreditPurchase = createServerFn({ method: "POST" })
         status: tx.status,
         reference: tx.reference,
         amount: tx.amount,
+        requested_amount: tx.requested_amount ?? null,
         currency: tx.currency,
         metadata: metadataOf(tx.metadata),
       },
