@@ -733,7 +733,17 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {(ledger.data?.settlements ?? []).map((row) => (
+                      {(ledger.data?.settlements ?? []).map((row: {
+                        id: string;
+                        confirmedAt: string | null;
+                        createdAt: string;
+                        method: string;
+                        amountNgn: number;
+                        allocatedAmountNgn: number;
+                        status: string;
+                        reference: string | null;
+                        note: string | null;
+                      }) => (
                         <tr key={row.id}>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
                             {new Date(row.confirmedAt || row.createdAt).toLocaleString()}
