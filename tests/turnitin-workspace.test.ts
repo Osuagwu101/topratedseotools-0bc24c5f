@@ -134,9 +134,10 @@ for (const state of ["Uploading", "Queued", "Processing", "Completed", "Failed"]
 assert(
   workspace.includes("Similarity") &&
     workspace.includes("AI") &&
-    workspace.includes("Similarity report") &&
-    workspace.includes("AI report"),
-  "history exposes similarity/AI scores and separate report downloads",
+    workspace.includes("<Score value={job.similarity_percentage}") &&
+    workspace.includes("<Score value={job.ai_percentage}") &&
+    (workspace.match(/label="Download"/g) ?? []).length === 4,
+  "history shows separate similarity/AI scores and downloads on desktop and mobile",
 );
 
 assert(
