@@ -1611,11 +1611,7 @@ function ReportButton({
 }
 
 function HistoryRow({
-  job,
-  downloadingReport,
-  onDownload,
-  retryingJob,
-  onRetry,
+  job, downloadingReport, onDownload, retryingJob, onRetry,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
@@ -1625,75 +1621,53 @@ function HistoryRow({
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
+  const canRetry = job.status === "uploading" &&
+    (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
+    !!job.upstream_last_error;
   return (
     <tr className="border-t">
       <td className="max-w-[300px] px-4 py-3">
-        <div className="truncate font-medium">{job.display_name || job.original_filename}</div>
+        <div className="truncate font-medium" title={job.display_name || job.original_filename}>
+          {job.display_name || job.original_filename}
+        </div>
         {job.word_count != null ? (
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {job.word_count.toLocaleString()} words
-          </div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">{job.word_count.toLocaleString()} words</div>
         ) : null}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {formatDate(job.submitted_at || job.created_at)}
       </td>
+      <td className="px-4 py-3"><StatusBadge status={job.status} /></td>
       <td className="px-4 py-3">
-        <StatusBadge status={job.status} />
-      </td>
-      <td className="px-4 py-3">
-        <Score value={job.similarity_percentage} />
-      </td>
-      <td className="px-4 py-3">
-        <Score value={job.ai_percentage} unavailable={job.ai_unavailable_reason} />
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex justify-end gap-2">
-          <ReportButton
-            report={similarity}
-            label="Similarity"
-            downloadingReport={downloadingReport}
-            onDownload={onDownload}
-          />
-          <ReportButton
-            report={ai}
-            label="AI"
-            downloadingReport={downloadingReport}
-            onDownload={onDownload}
-          />
-          {job.status === "uploading" &&
-          (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
-          job.upstream_last_error ? (
-            <button
-              type="button"
-              onClick={() => void onRetry(job.id)}
-              disabled={retryingJob === job.id}
-              className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
-            >
-              {retryingJob === job.id ? (
-                <LoaderCircle className="h-3 w-3 animate-spin" />
-              ) : (
-                <UploadCloud className="h-3 w-3" />
-              )}
-              Retry
-            </button>
-          ) : !similarity && !ai ? (
-            <span className="text-xs text-muted-foreground">
-              {job.status === "completed" ? "Preparing" : "—"}
-            </span>
-          ) : null}
+        <div className="flex flex-col items-start gap-1.5">
+          <Score value={job.similarity_percentage} />
+          <ReportButton report={similarity} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex flex-col items-start gap-1.5">
+          <Score value={job.ai_percentage} unavailable={job.ai_unavailable_reason} />
+          <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
+        </div>
+      </td>
+      <td className="px-4 py-3 text-right">
+        {canRetry ? (
+          <button type="button" onClick={() => void onRetry(job.id)}
+            disabled={retryingJob === job.id}
+            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50">
+            {retryingJob === job.id ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <UploadCloud className="h-3 w-3" />}
+            Retry
+          </button>
+        ) : (
+          <span className="text-xs text-muted-foreground">{job.status === "completed" && !similarity && !ai ? "Preparing" : "—"}</span>
+        )}
       </td>
     </tr>
   );
 }
 
 function HistoryCard({
-  job,
-  downloadingReport,
-  onDownload,
-  retryingJob,
-  onRetry,
+  job, downloadingReport, onDownload, retryingJob, onRetry,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
@@ -1703,58 +1677,43 @@ function HistoryCard({
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
+  const canRetry = job.status === "uploading" &&
+    (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
+    !!job.upstream_last_error;
   return (
-    <div className="p-5">
+    <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate font-medium">{job.display_name || job.original_filename}</div>
+          <div className="break-words text-sm font-medium">{job.display_name || job.original_filename}</div>
+          {job.word_count != null ? (
+            <div className="text-[11px] text-muted-foreground">{job.word_count.toLocaleString()} words</div>
+          ) : null}
           <div className="mt-1 text-[11px] text-muted-foreground">
             {formatDate(job.submitted_at || job.created_at)}
           </div>
         </div>
         <StatusBadge status={job.status} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-muted/20 p-3 text-sm">
-        <div>
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-muted/20 p-3 text-sm">
+        <div className="flex flex-col items-start gap-1.5">
           <div className="text-[11px] uppercase text-muted-foreground">Similarity</div>
           <Score value={job.similarity_percentage} />
+          <ReportButton report={similarity} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
-        <div>
+        <div className="flex flex-col items-start gap-1.5">
           <div className="text-[11px] uppercase text-muted-foreground">AI</div>
           <Score value={job.ai_percentage} unavailable={job.ai_unavailable_reason} />
+          <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <ReportButton
-          report={similarity}
-          label="Similarity report"
-          downloadingReport={downloadingReport}
-          onDownload={onDownload}
-        />
-        <ReportButton
-          report={ai}
-          label="AI report"
-          downloadingReport={downloadingReport}
-          onDownload={onDownload}
-        />
-        {job.status === "uploading" &&
-        job.credit_state === "reserved" &&
-        job.upstream_last_error ? (
-          <button
-            type="button"
-            onClick={() => void onRetry(job.id)}
-            disabled={retryingJob === job.id}
-            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
-          >
-            {retryingJob === job.id ? (
-              <LoaderCircle className="h-3 w-3 animate-spin" />
-            ) : (
-              <UploadCloud className="h-3 w-3" />
-            )}
-            Retry submission
-          </button>
-        ) : null}
-      </div>
+      {canRetry ? (
+        <button type="button" onClick={() => void onRetry(job.id)}
+          disabled={retryingJob === job.id}
+          className="mt-3 inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50">
+          {retryingJob === job.id ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <UploadCloud className="h-3 w-3" />}
+          Retry submission
+        </button>
+      ) : null}
       {job.status === "failed" && job.failure_message ? (
         <p className="mt-3 text-xs text-destructive">{job.failure_message}</p>
       ) : job.status === "uploading" && job.upstream_last_error ? (
