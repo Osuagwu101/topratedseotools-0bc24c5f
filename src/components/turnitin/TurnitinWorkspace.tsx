@@ -115,6 +115,8 @@ export type TurnitinWorkspaceView = "overview" | "submit" | "buy" | "history" | 
 type Props = {
   isAuthenticated: boolean;
   view?: TurnitinWorkspaceView;
+  onOpenSubmit?: () => void;
+  onSubmitSuccess?: () => void;
 };
 
 const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> = {
@@ -124,7 +126,7 @@ const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> 
   history: "/turnitin/history",
 };
 
-export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
+export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit, onSubmitSuccess }: Props) {
   const qc = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -134,8 +136,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
   const [authorFirstName, setAuthorFirstName] = useState("Top Rated");
   const [authorLastName, setAuthorLastName] = useState("Writing Services");
   const [reportView, setReportView] = useState<"sources" | "match_groups">("sources");
-  const [excludeBibliography, setExcludeBibliography] = useState(false);
-  const [excludeQuotes, setExcludeQuotes] = useState(false);
+  const [excludeBibliography, setExcludeBibliography] = useState(true);
+  const [excludeQuotes, setExcludeQuotes] = useState(true);
   const [excludeCitations, setExcludeCitations] = useState(false);
   const [excludeSmallMatches, setExcludeSmallMatches] = useState(false);
   const [smallMatchMode, setSmallMatchMode] = useState<"words" | "percent">("words");
@@ -581,6 +583,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       );
       removeFile();
       await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+      onSubmitSuccess?.();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not submit this Turnitin check.";
@@ -701,7 +704,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       ) : null}
 
       {(view === "all" || view === "overview") ? (
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {isPostpaid ? (
           <>
             <StatCard
@@ -771,106 +774,33 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
 
       {view === "overview" ? (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
-            <Link
-              to="/turnitin/submit"
-              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
-            >
-              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
-                <UploadCloud className="h-5 w-5" />
+          <section className="grid gap-2 sm:grid-cols-3" aria-label="Quick actions">
+            <button type="button" onClick={() => onOpenSubmit?.()}
+              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
+              <UploadCloud className="h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold">Submit file</h2>
+                <p className="text-[11px] text-muted-foreground">Upload and run a check</p>
               </div>
-              <h2 className="mt-4 font-semibold">Submit file</h2>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Upload a document, set the report options and run a check.
-              </p>
-            </Link>
-            <Link
-              to="/turnitin/buy"
-              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
-            >
-              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
-                <ShoppingCart className="h-5 w-5" />
+            </button>
+            <Link to="/turnitin/buy"
+              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
+              <ShoppingCart className="h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold">{isPostpaid ? "Postpaid account" : "Buy checks"}</h2>
+                <p className="text-[11px] text-muted-foreground">{isPostpaid ? "View your balance" : "Add check credits"}</p>
               </div>
-              <h2 className="mt-4 font-semibold">
-                {isPostpaid ? "Postpaid account" : "Buy checks"}
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {isPostpaid
-                  ? "Review your agreed rate and current outstanding balance."
-                  : "Add prepaid checks to your account through the verified payment flow."}
-              </p>
             </Link>
-            <Link
-              to="/turnitin/history"
-              className="group rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40"
-            >
-              <div className="inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">
-                <FileCheck2 className="h-5 w-5" />
+            <a href="#turnitin-check-history"
+              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
+              <FileCheck2 className="h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold">Check history</h2>
+                <p className="text-[11px] text-muted-foreground">Scores and reports</p>
               </div>
-              <h2 className="mt-4 font-semibold">Check history</h2>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Review processing status, scores and available reports.
-              </p>
-            </Link>
+            </a>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border bg-card shadow-card">
-            <div className="flex items-center justify-between gap-4 border-b p-5">
-              <div>
-                <h2 className="font-semibold">Recent checks</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Your latest Turnitin submissions and results.
-                </p>
-              </div>
-              <Link
-                to="/turnitin/history"
-                className="shrink-0 text-xs font-semibold text-primary hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-            {jobs.length === 0 ? (
-              <div className="p-8 text-center">
-                <FileCheck2 className="mx-auto h-6 w-6 text-muted-foreground" />
-                <p className="mt-2 text-sm font-medium">No checks yet.</p>
-                <Link
-                  to="/turnitin/submit"
-                  className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
-                >
-                  Submit your first document
-                </Link>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {jobs.slice(0, 5).map((job) => (
-                  <div
-                    key={job.id}
-                    className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {job.display_name || job.original_filename}
-                      </div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        {formatDate(job.submitted_at || job.created_at)}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <StatusBadge status={job.status} />
-                      <div className="text-xs text-muted-foreground">
-                        Similarity{" "}
-                        <span className="font-semibold text-foreground">
-                          {job.similarity_percentage == null
-                            ? "—"
-                            : `${Number(job.similarity_percentage).toFixed(0)}%`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
         </>
       ) : null}
 
@@ -1450,13 +1380,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             )}
             {submitting ? "Submitting…" : "Run Turnitin check"}
           </button>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            {isPostpaid
-              ? `No credit required. Your agreed ${formatNaira(account.postpaid_rate_ngn ?? 0)} rate is charged only after Originality Reports accepts the document.`
-              : summary.available_credits < 1
-                ? "You need an available credit before submitting a document."
-                : "One credit is reserved first and charged only after Originality Reports accepts the document."}
-          </p>
           {submitMessage ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -1474,8 +1397,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
       </section>
       ) : null}
 
-      {(view === "all" || view === "history") ? (
-      <section className="rounded-2xl border bg-card shadow-card">
+      {(view === "all" || view === "history" || view === "overview") ? (
+      <section id="turnitin-check-history" className="scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-card">
         <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Check history</h2>
@@ -1512,6 +1435,11 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
             <p className="mt-1 text-xs text-muted-foreground">
               Completed and processing documents will appear here.
             </p>
+            {!search && onOpenSubmit ? (
+              <button type="button" onClick={onOpenSubmit} className="mt-3 text-xs font-semibold text-primary hover:underline">
+                Submit your first document
+              </button>
+            ) : null}
           </div>
         ) : (
           <>
@@ -1524,7 +1452,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all" }: Props) {
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Similarity</th>
                     <th className="px-4 py-3">AI</th>
-                    <th className="px-4 py-3 text-right">Reports</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1590,12 +1518,12 @@ function StatCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-card">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="h-4 w-4" /> {label}
+    <div className="rounded-xl border bg-card px-3 py-3 shadow-sm sm:px-4">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className="mt-2 text-2xl font-bold tracking-tight">{value}</div>
-      <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
+      <div className="mt-1 text-xl font-bold leading-tight tracking-tight text-primary">{value}</div>
+      <div className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{hint}</div>
     </div>
   );
 }
@@ -1638,7 +1566,10 @@ function Score({
   value: number | null;
   unavailable?: string | null;
 }) {
-  if (value != null) return <span className="font-semibold">{Number(value).toFixed(0)}%</span>;
+  if (value != null) {
+    const scoreColour = value >= 50 ? "text-red-700" : value >= 30 ? "text-amber-700" : "text-emerald-700";
+    return <span className={`font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
+  }
   if (unavailable) {
     return <span className="text-xs text-muted-foreground">Unavailable</span>;
   }
@@ -1667,7 +1598,7 @@ function ReportButton({
       type="button"
       disabled={pending}
       onClick={() => void onDownload(report)}
-      className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
     >
       {pending ? (
         <LoaderCircle className="h-3 w-3 animate-spin" />
