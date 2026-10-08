@@ -264,8 +264,8 @@ assert(
 
 assert(
   workspace.includes("summary.available_credits < 1") &&
-    workspace.includes("One credit is reserved first and charged only after"),
-  "workspace blocks no-credit submissions and explains reserve-then-charge behavior",
+    workspace.includes("This check will use 1 credit after Originality Reports accepts the document"),
+  "workspace blocks no-credit submissions and explains the one-credit acceptance rule above the action button",
 );
 
 assert(
