@@ -88,9 +88,11 @@ assert(
 
 assert(
   workspace.includes("Submit your first document") &&
-    workspace.includes("Your latest Turnitin submissions and results.") &&
-    workspace.includes("Buy checks"),
-  "Overview provides quick actions and recent activity without restoring the old clutter",
+    workspace.includes('id="turnitin-check-history"') &&
+    workspace.includes('view === "history" || view === "overview"') &&
+    workspace.includes("Buy checks") &&
+    !workspace.includes("Recent checks"),
+  "Overview shows compact quick actions and the complete searchable history instead of duplicate recent checks",
 );
 
 assert(
