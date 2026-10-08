@@ -1,4 +1,7 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardCheck,
@@ -64,8 +67,21 @@ export function TurnitinProductPage({ section }: { section: Section }) {
     staleTime: 30_000,
   });
 
-  const meta = SECTION_META[section];
+  const navigate = useNavigate();
+  const [submitOpen, setSubmitOpen] = useState(section === "submit");
+  const [submissionNotice, setSubmissionNotice] = useState(false);
+  const activeSection = section === "submit" ? "overview" : section;
+  const meta = SECTION_META[activeSection];
   const PageIcon = meta.icon;
+
+  useEffect(() => {
+    if (section === "submit") setSubmitOpen(true);
+  }, [section]);
+
+  const closeSubmit = () => {
+    setSubmitOpen(false);
+    if (section === "submit") void navigate({ to: "/turnitin" });
+  };
 
   return (
     <SiteLayout>
@@ -99,18 +115,30 @@ export function TurnitinProductPage({ section }: { section: Section }) {
           >
             {TABS.map((tab) => {
               const Icon = tab.icon;
-              const active = tab.section === section;
+              const active = submitOpen ? tab.section === "submit" : tab.section === activeSection;
+              const tabClass = cn(
+                "inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
+                active
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+              );
+              if (tab.section === "submit") {
+                return (
+                  <button
+                    key={tab.section}
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded={submitOpen}
+                    onClick={() => setSubmitOpen(true)}
+                    className={tabClass}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              }
               return (
-                <Link
-                  key={tab.section}
-                  to={tab.to}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
-                    active
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
-                  )}
-                >
+                <Link key={tab.section} to={tab.to} className={tabClass}>
                   <Icon className="h-4 w-4" />
                   {tab.label}
                 </Link>
@@ -120,12 +148,37 @@ export function TurnitinProductPage({ section }: { section: Section }) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+        {submissionNotice ? (
+          <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Document submitted. Track its status and download your reports in Check History below.
+          </div>
+        ) : null}
         <TurnitinWorkspace
           isAuthenticated={session.data?.isAuthenticated ?? false}
-          view={section}
+          view={activeSection}
+          onOpenSubmit={() => setSubmitOpen(true)}
         />
       </section>
+      <Dialog open={submitOpen} onOpenChange={(open) => { if (!open) closeSubmit(); else setSubmitOpen(true); }}>
+        <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-4xl overflow-y-auto p-3 sm:p-5">
+          <DialogHeader className="px-2 pt-2">
+            <DialogTitle>Submit File</DialogTitle>
+            <DialogDescription>
+              Upload your document, choose report options and submit without leaving your dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <TurnitinWorkspace
+            isAuthenticated={session.data?.isAuthenticated ?? false}
+            view="submit"
+            onSubmitSuccess={() => {
+              setSubmissionNotice(true);
+              closeSubmit();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </SiteLayout>
   );
 }

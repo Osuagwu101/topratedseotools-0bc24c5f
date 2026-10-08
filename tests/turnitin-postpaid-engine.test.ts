@@ -160,7 +160,7 @@ assert(
 assert(
   workspace.includes('const isPostpaid = account.billing_mode === "postpaid"') &&
     workspace.includes("!isPostpaid && summary.available_credits < 1") &&
-    workspace.includes("No credit required."),
+    workspace.includes("No prepaid credit is required."),
   "Postpaid users may submit at zero credits while prepaid zero-credit blocking remains intact",
 );
 
