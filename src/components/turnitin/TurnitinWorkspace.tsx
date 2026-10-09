@@ -33,6 +33,7 @@ import {
 } from "@/lib/turnitin-jobs.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
+import { shouldShowOriginalityAsteriskPercent } from "@/lib/turnitin-ai-score";
 import {
   initializeTurnitinCreditPurchase,
   reconcileLatestTurnitinCreditPurchase,
@@ -1562,13 +1563,18 @@ function OptionToggle({
 function Score({
   value,
   unavailable,
+  asterisk = false,
 }: {
   value: number | null;
   unavailable?: string | null;
+  asterisk?: boolean;
 }) {
   if (value != null) {
     const scoreColour = value >= 50 ? "text-red-700" : value >= 30 ? "text-amber-700" : "text-emerald-700";
     return <span className={`font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
+  }
+  if (asterisk) {
+    return <span className="font-bold text-foreground" aria-label="Originality AI score: asterisk percent">*%</span>;
   }
   if (unavailable) {
     return <span className="text-xs text-muted-foreground">Unavailable</span>;
@@ -1646,7 +1652,16 @@ function HistoryRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-col items-start gap-1.5">
-          <Score value={job.ai_percentage} unavailable={job.ai_unavailable_reason} />
+          <Score
+            value={job.ai_percentage}
+            unavailable={job.ai_unavailable_reason}
+            asterisk={shouldShowOriginalityAsteriskPercent({
+              aiPercentage: job.ai_percentage,
+              aiUnavailableReason: job.ai_unavailable_reason,
+              jobStatus: job.status,
+              aiReportAvailable: ai?.status === "available",
+            })}
+          />
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </td>
@@ -1702,7 +1717,16 @@ function HistoryCard({
         </div>
         <div className="flex flex-col items-start gap-1.5">
           <div className="text-[11px] uppercase text-muted-foreground">AI</div>
-          <Score value={job.ai_percentage} unavailable={job.ai_unavailable_reason} />
+          <Score
+            value={job.ai_percentage}
+            unavailable={job.ai_unavailable_reason}
+            asterisk={shouldShowOriginalityAsteriskPercent({
+              aiPercentage: job.ai_percentage,
+              aiUnavailableReason: job.ai_unavailable_reason,
+              jobStatus: job.status,
+              aiReportAvailable: ai?.status === "available",
+            })}
+          />
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </div>

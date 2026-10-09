@@ -10,6 +10,7 @@
  * It does not automate login, bypass challenges, or expose upstream session
  * state to customers.
  */
+import { isOriginalityAsteriskPercent } from "@/lib/turnitin-ai-score";
 import {
   decryptOriginalitySession,
   encryptOriginalitySession,
@@ -69,6 +70,7 @@ export type OriginalitySubmission = {
   id: string;
   status: string;
   aiPercentage: number | null;
+  aiScoreIsAsterisk: boolean;
   similarityPercentage: number | null;
   aiReportExists: boolean;
   similarityReportExists: boolean;
@@ -549,6 +551,9 @@ function mapSubmission(raw: Record<string, unknown>): OriginalitySubmission {
     id: String(raw.id ?? raw.submission_id ?? ""),
     status: String(raw.status ?? "pending").trim().toLowerCase(),
     aiPercentage: nullablePercent(raw.ai_percentage ?? raw.ai_detection),
+    aiScoreIsAsterisk:
+      isOriginalityAsteriskPercent(raw.ai_percentage ?? raw.ai_detection) ||
+      isOriginalityAsteriskPercent(raw.ai_unavailable_reason),
     similarityPercentage: nullablePercent(
       raw.plag_percentage ?? raw.similarity_percentage,
     ),
@@ -557,7 +562,8 @@ function mapSubmission(raw: Record<string, unknown>): OriginalitySubmission {
       raw.plag_report_exists ?? raw.similarity_report_exists,
     ),
     aiUnavailableReason:
-      raw.ai_unavailable_reason == null
+      raw.ai_unavailable_reason == null ||
+      isOriginalityAsteriskPercent(raw.ai_unavailable_reason)
         ? null
         : String(raw.ai_unavailable_reason),
     wordCount: nullableInteger(raw.word_count),

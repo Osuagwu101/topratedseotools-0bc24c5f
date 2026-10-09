@@ -74,6 +74,9 @@ jobs:
       - name: Turnitin Phase 6 credit payments
         run: bun tests/turnitin-credit-payments.test.ts
 
+      - name: Turnitin masked AI score regression
+        run: bun tests/turnitin-ai-asterisk.test.ts
+
       - name: Turnitin Overview and submission dialog
         run: bun tests/turnitin-overview-dialog.test.ts
 
