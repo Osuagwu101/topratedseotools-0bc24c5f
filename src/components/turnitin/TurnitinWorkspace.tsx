@@ -114,7 +114,7 @@ const STATUS_STYLE: Record<TurnitinJobStatus, string> = {
   draft: "bg-muted text-muted-foreground",
   uploading: "bg-blue-500/10 text-blue-700",
   queued: "bg-amber-500/10 text-amber-700",
-  processing: "bg-violet-500/10 text-violet-700",
+  processing: "bg-turnitin-violet-soft text-turnitin-violet",
   completed: "bg-emerald-500/10 text-emerald-700",
   failed: "bg-red-500/10 text-red-700",
 };
@@ -144,6 +144,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const [reportTitle, setReportTitle] = useState("");
   const [authorFirstName, setAuthorFirstName] = useState("Top Rated");
   const [authorLastName, setAuthorLastName] = useState("Writing Services");
@@ -503,12 +504,15 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
   const visibleJobs = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return jobs;
     return jobs.filter((job) => {
       const name = (job.display_name || job.original_filename || "").toLowerCase();
-      return name.includes(q);
+      const matchesStatus = statusFilter === "all" ||
+        (statusFilter === "processing"
+          ? ["draft", "uploading", "queued", "processing"].includes(job.status)
+          : job.status === statusFilter);
+      return name.includes(q) && matchesStatus;
     });
-  }, [jobs, search]);
+  }, [jobs, search, statusFilter]);
 
   const onFile = (file: File | null) => {
     if (!file) return;
@@ -801,6 +805,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               label="Available credits"
               value={String(summary.available_credits)}
               hint="1 credit = 1 document"
+              emphasized
             />
             <StatCard
               icon={Clock3}
@@ -1428,29 +1433,39 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       ) : null}
 
       {(view === "all" || view === "history" || view === "overview") ? (
-      <section id="turnitin-check-history" className="scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-card">
-        <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Check history</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Search previous checks by the document name you uploaded.
-            </p>
+      <section id="turnitin-check-history" className="scroll-mt-24 overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 pt-5 sm:px-5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-primary">Check history</h2>
+            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{jobs.length}</span>
           </div>
-          <div className="flex w-full flex-col items-end gap-2 sm:w-72">
-            {view === "overview" && isAuthenticated ? (
-              <TurnitinReportSettingsButton isAuthenticated={isAuthenticated} />
-            ) : null}
-            <label className="relative block w-full">
+          {view === "overview" && isAuthenticated ? (
+            <TurnitinReportSettingsButton isAuthenticated={isAuthenticated} />
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 px-4 pb-4 sm:px-5">
+            <label className="relative block w-full sm:max-w-sm sm:flex-1">
+              <span className="sr-only">Search document name</span>
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search document name"
-                className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-turnitin-violet focus:ring-2 focus:ring-turnitin-violet/20"
               />
             </label>
-          </div>
+            <label className="flex-1 sm:flex-none">
+              <span className="sr-only">Filter checks by status</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-turnitin-violet focus:ring-2 focus:ring-turnitin-violet/20">
+                <option value="all">All statuses</option>
+                <option value="completed">Completed</option>
+                <option value="processing">In progress</option>
+                <option value="failed">Failed</option>
+              </select>
+            </label>
+            <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">{visibleJobs.length} of {jobs.length} checks</span>
         </div>
 
         {workspace.isLoading ? (
@@ -1465,12 +1480,14 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
           <div className="p-10 text-center">
             <FileCheck2 className="mx-auto h-7 w-7 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium">
-              {search ? "No document matches your search." : "No checks yet."}
+              {search || statusFilter !== "all" ? "No checks match your filters." : "No checks yet."}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Completed and processing documents will appear here.
             </p>
-            {!search && onOpenSubmit ? (
+            {search || statusFilter !== "all" ? (
+              <button type="button" onClick={() => { setSearch(""); setStatusFilter("all"); }} className="mt-3 text-sm font-semibold text-turnitin-violet hover:underline">Clear filters</button>
+            ) : onOpenSubmit ? (
               <button type="button" onClick={onOpenSubmit} className="mt-3 text-xs font-semibold text-primary hover:underline">
                 Submit your first document
               </button>
@@ -1481,21 +1498,21 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[900px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[36%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[8%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
                 </colgroup>
-                <thead className="bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <thead className="border-t bg-turnitin-violet-soft/50 text-left text-sm font-medium text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Document</th>
-                    <th className="px-4 py-3">Similarity</th>
-                    <th className="px-4 py-3">AI</th>
-                    <th className="px-4 py-3">Status</th>
+                    <th className="px-2 py-3">Similarity</th>
+                    <th className="px-2 py-3">AI</th>
+                    <th className="px-2 py-3">Status</th>
                     <th className="px-2 py-3 text-right">Submitted</th>
-                    <th className="px-2 py-3 text-right">Actions</th>
+                    <th className="px-2 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1578,19 +1595,22 @@ function StatCard({
   label,
   value,
   hint,
+  emphasized = false,
 }: {
   icon: typeof Coins;
   label: string;
   value: string;
   hint: string;
+  emphasized?: boolean;
 }) {
   return (
-    <div className="rounded-xl border bg-card px-3 py-3 shadow-sm sm:px-4">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" /> {label}
+    <div className={`rounded-xl border bg-card px-3 py-3 shadow-sm sm:px-4 ${emphasized ? "border-t-[3px] border-t-turnitin-violet" : ""}`}>
+      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+        <span>{label}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-turnitin-violet-soft text-turnitin-violet"><Icon className="h-4 w-4" /></span>
       </div>
-      <div className="mt-1 text-xl font-bold leading-tight tracking-tight text-primary">{value}</div>
-      <div className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{hint}</div>
+      <div className={`mt-1 text-xl font-bold leading-tight tracking-tight ${emphasized ? "text-turnitin-violet" : "text-primary"}`}>{value}</div>
+      <div className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</div>
     </div>
   );
 }
@@ -1636,8 +1656,8 @@ function Score({
   asterisk?: boolean;
 }) {
   if (value != null) {
-    const scoreColour = value >= 50 ? "text-red-700" : value >= 30 ? "text-amber-700" : "text-emerald-700";
-    return <span className={`font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
+    const scoreColour = value >= 60 ? "text-red-700" : value >= 30 ? "text-amber-700" : "text-emerald-700";
+    return <span className={`text-base font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
   }
   if (asterisk) {
     return <span className="font-bold text-emerald-600 dark:text-emerald-400" aria-label="Originality AI score: asterisk percent">*%</span>;
@@ -1670,7 +1690,7 @@ function ReportButton({
       type="button"
       disabled={pending}
       onClick={() => void onDownload(report)}
-      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-turnitin-violet-border bg-background px-1.5 py-1 text-xs font-semibold text-turnitin-violet transition hover:bg-turnitin-violet-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-turnitin-violet disabled:opacity-50"
     >
       {pending ? (
         <LoaderCircle className="h-3 w-3 animate-spin" />
@@ -1687,9 +1707,9 @@ function HistorySubmittedDate({ value }: { value: string | null | undefined }) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return <span className="text-xs text-muted-foreground">—</span>;
   return (
-    <time dateTime={value} className="block whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
-      <span className="block">{date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span>
-      <span className="block">{date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+    <time dateTime={value} className="block whitespace-nowrap text-sm leading-5 text-muted-foreground">
+      <span className="block text-foreground">{date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span>
+      <span className="block text-xs">{date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
     </time>
   );
 }
@@ -1710,22 +1730,22 @@ function HistoryRow({
     (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
     !!job.upstream_last_error;
   return (
-    <tr className="border-t">
+    <tr className="border-t transition-colors hover:bg-turnitin-violet-soft/40">
       <td className="max-w-[300px] px-4 py-3">
-        <div className="truncate font-medium" title={job.display_name || job.original_filename}>
+        <div className="break-words font-medium" title={job.display_name || job.original_filename}>
           {job.display_name || job.original_filename}
         </div>
         {job.word_count != null ? (
           <div className="mt-0.5 text-[11px] text-muted-foreground">{job.word_count.toLocaleString()} words</div>
         ) : null}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-2 py-3">
         <div className="flex flex-col items-start gap-1.5">
           <Score value={job.similarity_percentage} />
           <ReportButton report={similarity} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-2 py-3">
         <div className="flex flex-col items-start gap-1.5">
           <Score
             value={job.ai_percentage}
@@ -1740,21 +1760,20 @@ function HistoryRow({
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-col items-start gap-1.5">
-          <StatusBadge status={job.status} />
-          {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
-            <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-blue-700">
-              <Eye className="h-3 w-3" /> View report
-            </Link>
-          ) : null}
-        </div>
+      <td className="px-2 py-3">
+        <StatusBadge status={job.status} />
       </td>
       <td className="px-2 py-3 text-right">
         <HistorySubmittedDate value={job.submitted_at || job.created_at} />
       </td>
-      <td className="px-2 py-3 text-right">
+      <td className="px-2 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+        {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
+          <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
+            className="inline-flex items-center gap-1 rounded-md bg-turnitin-violet px-2.5 py-1.5 text-sm font-semibold text-turnitin-violet-foreground transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-turnitin-violet">
+            <Eye className="h-3 w-3" /> View report
+          </Link>
+        ) : null}
         {canRetry ? (
           <button type="button" onClick={() => void onRetry(job.id)}
             disabled={retryingJob === job.id}
@@ -1771,6 +1790,7 @@ function HistoryRow({
             <Trash2 className="h-4 w-4" />
           </button>
         ) : null}
+        </div>
       </td>
     </tr>
   );
@@ -1792,7 +1812,7 @@ function HistoryCard({
     (job.billing_mode === "postpaid" || job.credit_state === "reserved") &&
     !!job.upstream_last_error;
   return (
-    <div className="p-4">
+    <div className="p-4 transition-colors hover:bg-turnitin-violet-soft/30">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="break-words text-sm font-medium">{job.display_name || job.original_filename}</div>
@@ -1807,13 +1827,13 @@ function HistoryCard({
           <StatusBadge status={job.status} />
           {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
             <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700">
+              className="inline-flex items-center gap-1 rounded-md bg-turnitin-violet px-2.5 py-1.5 text-sm font-semibold text-turnitin-violet-foreground hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-turnitin-violet">
               <Eye className="h-3 w-3" /> View report
             </Link>
           ) : null}
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-muted/20 p-3 text-sm">
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-turnitin-violet-soft/40 p-3 text-sm">
         <div className="flex flex-col items-start gap-1.5">
           <div className="text-[11px] uppercase text-muted-foreground">Similarity</div>
           <Score value={job.similarity_percentage} />
@@ -1874,7 +1894,7 @@ function StatusBadge({ status }: { status: TurnitinJobStatus }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_STYLE[status]}`}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold ${STATUS_STYLE[status]}`}
     >
       {icon}
       {STATUS_LABEL[status]}

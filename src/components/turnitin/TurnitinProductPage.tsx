@@ -4,7 +4,6 @@ import { CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ClipboardCheck,
   FileClock,
   LayoutDashboard,
   ShoppingCart,
@@ -86,20 +85,16 @@ export function TurnitinProductPage({ section }: { section: Section }) {
 
   return (
     <SiteLayout>
-      <section className="border-b bg-gradient-hero">
-        <div className="mx-auto max-w-6xl px-4 pb-0 pt-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-5 pb-8 sm:flex-row sm:items-start sm:justify-between">
+      <section className="border-b bg-background">
+        <div className="mx-auto max-w-6xl px-4 pb-0 pt-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-5 pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
-                <ClipboardCheck className="h-3.5 w-3.5" />
-                Self-service document checking
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-primary/10 p-3 text-primary">
                   <PageIcon className="h-6 w-6" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  <h1 className="text-3xl font-bold tracking-tight text-primary">
                     {meta.title}
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -124,7 +119,7 @@ export function TurnitinProductPage({ section }: { section: Section }) {
                   : cn(
                       "border-b-2 px-2 py-3 sm:px-4",
                       active
-                        ? "border-primary text-foreground"
+                        ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                     ),
               );
