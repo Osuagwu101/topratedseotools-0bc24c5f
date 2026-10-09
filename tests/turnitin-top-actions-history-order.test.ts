@@ -36,18 +36,19 @@ assert(
   workspace.includes('id="turnitin-check-history"'),
   "no duplicate Submit File card, while complete Overview history stays visible");
 
-const headerNames = ["Document", "Status", "Similarity", "AI", "Submitted", "Actions"];
+const headerNames = ["Document", "Similarity", "AI", "Status", "Submitted", "Actions"];
 const headerIndexes = headerNames.map(name => headings.indexOf(">" + name + "</th>"));
 assert(
   headerIndexes.every(index => index >= 0) &&
   headerIndexes.every((index, i) => i === 0 || index > headerIndexes[i - 1]),
-  "desktop history column order: Document, Status, Similarity, AI, Submitted, Actions");
+  "desktop history column order: Document, Similarity, AI, Status, Submitted, Actions");
 
 assert(
   row.indexOf('const ai = reportFor(job, "ai")') >= 0 &&
-  row.indexOf('job.ai_percentage') < row.indexOf("<HistorySubmittedDate") &&
+  row.indexOf('job.ai_percentage') < row.indexOf("<StatusBadge") &&
+  row.indexOf("<StatusBadge") < row.indexOf("<HistorySubmittedDate") &&
   row.indexOf("<HistorySubmittedDate") < row.indexOf('title="Delete check"'),
-  "Submitted date cell is immediately after AI scores and before action icons");
+  "Status follows AI scores, with Submitted between Status and action icons");
 
 assert(
   workspace.includes('function HistorySubmittedDate') &&

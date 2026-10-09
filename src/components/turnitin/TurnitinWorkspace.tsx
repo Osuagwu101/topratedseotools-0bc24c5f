@@ -1482,19 +1482,19 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               <table className="w-full min-w-[900px] table-fixed text-sm">
                 <colgroup>
                   <col className="w-[36%]" />
-                  <col className="w-[14%]" />
                   <col className="w-[13%]" />
                   <col className="w-[13%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[12%]" />
                   <col className="w-[8%]" />
                 </colgroup>
                 <thead className="bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Document</th>
-                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Similarity</th>
                     <th className="px-4 py-3">AI</th>
-                    <th className="px-2 py-3">Submitted</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-2 py-3 text-right">Submitted</th>
                     <th className="px-2 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1721,17 +1721,6 @@ function HistoryRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-col items-start gap-1.5">
-          <StatusBadge status={job.status} />
-          {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
-            <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-blue-700">
-              <Eye className="h-3 w-3" /> View report
-            </Link>
-          ) : null}
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-col items-start gap-1.5">
           <Score value={job.similarity_percentage} />
           <ReportButton report={similarity} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
@@ -1751,7 +1740,18 @@ function HistoryRow({
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </td>
-      <td className="px-2 py-3">
+      <td className="px-4 py-3">
+        <div className="flex flex-col items-start gap-1.5">
+          <StatusBadge status={job.status} />
+          {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
+            <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-blue-700">
+              <Eye className="h-3 w-3" /> View report
+            </Link>
+          ) : null}
+        </div>
+      </td>
+      <td className="px-2 py-3 text-right">
         <HistorySubmittedDate value={job.submitted_at || job.created_at} />
       </td>
       <td className="px-2 py-3 text-right">
