@@ -61,10 +61,11 @@ const settlementMigration = readFileSync(
 
 assert(
   navbar.includes('{ to: "/turnitin", label: "Turnitin Checks" }') &&
-    product.includes('to: "/turnitin/submit"') &&
-    product.includes('to: "/turnitin/buy"') &&
-    product.includes('to: "/turnitin/history"'),
-  "Turnitin is a first-class product with Overview, Submit, Buy and History",
+    product.includes('to: "/turnitin", label: "Overview"') &&
+    product.includes('to: "/turnitin/buy", label: "Buy Checks"') &&
+    !product.includes('to: "/turnitin/submit", label: "Submit File"') &&
+    !product.includes('to: "/turnitin/history", label: "History"'),
+  "Turnitin is a first-class product with Overview, Buy and an inline Submit dialog",
 );
 
 assert(
