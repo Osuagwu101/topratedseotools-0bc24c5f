@@ -724,3 +724,90 @@ export async function downloadOriginalityReport(
   }
   return bytes;
 }
+
+
+/**
+ * Interactive report viewing uses narrowly scoped, upstream read/filter endpoints.
+ * The shared upstream session is never serialized to the client.
+ * Callers must first verify the TRST job is owned by the authenticated customer.
+ */
+export async function getOriginalityViewerData(
+  admin: AdminClient,
+  submissionId: string,
+): Promise<Record<string, any>> {
+  if (!/^\d{1,20}$/.test(submissionId)) throw new Error("Invalid report identifier.");
+  const context = await loadSession(admin);
+  const response = await sessionFetch(context, `/user/viewer/${submissionId}/data`, {
+    method: "GET",
+    cache: "no-store",
+    headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+  });
+  await persistRotatedSession(admin, context);
+  if (!response.ok) throw new OriginalityAdapterError("VIEWER_DATA_FAILED", "The interactive report is temporarily unavailable.", response.status);
+  const size = Number(response.headers.get("content-length") ?? 0);
+  if (size > 16 * 1024 * 1024) throw new OriginalityAdapterError("VIEWER_DATA_TOO_LARGE", "The report exceeds the interactive viewer limit.");
+  const body = await response.text();
+  if (body.length > 16 * 1024 * 1024) throw new OriginalityAdapterError("VIEWER_DATA_TOO_LARGE", "The report exceeds the interactive viewer limit.");
+  const data = JSON.parse(body);
+  if (!data || data.success !== true || !data.similarity) throw new OriginalityAdapterError("VIEWER_DATA_INVALID", "Originality.report did not return valid interactive report data.");
+  return data;
+}
+
+export type OriginalityViewerFilters = {
+  collections: Array<"internet" | "publication" | "submitted_work">;
+  exclude_bibliography: boolean;
+  exclude_quotes: boolean;
+  exclude_citations: boolean;
+  small_matches: { enabled: boolean; mode: "words" | "percent"; threshold: number };
+};
+
+export async function setOriginalityViewerFilters(
+  admin: AdminClient,
+  submissionId: string,
+  payload: { sources: number[]; matches: string[]; filters: OriginalityViewerFilters },
+): Promise<void> {
+  if (!/^\d{1,20}$/.test(submissionId)) throw new Error("Invalid report identifier.");
+  const context = await loadSession(admin);
+  const token = await fetchCsrfToken(context);
+  const response = await sessionFetch(context, `/user/viewer/${submissionId}/exclusions`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      "X-CSRFToken": token,
+    },
+    body: JSON.stringify(payload),
+  });
+  await persistRotatedSession(admin, context);
+  if (!response.ok) throw new OriginalityAdapterError("VIEWER_FILTER_FAILED", "Originality.report could not apply your filters.", response.status);
+  const result = await response.json().catch(() => ({})) as { success?: boolean; error?: string };
+  if (result.success === false) throw new OriginalityAdapterError("VIEWER_FILTER_FAILED", "Originality.report rejected the selected filters.");
+}
+
+export async function getOriginalityViewerPage(
+  admin: AdminClient,
+  submissionId: string,
+  pageIndex: number,
+): Promise<{ bytes: Uint8Array; contentType: string }> {
+  if (!/^\d{1,20}$/.test(submissionId) || !Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex > 400) {
+    throw new Error("Invalid report page.");
+  }
+  const context = await loadSession(admin);
+  let response = await sessionFetch(context, `/user/viewer/${submissionId}/page/${pageIndex}.svg`, {
+    method: "GET", headers: { Accept: "image/svg+xml" },
+  });
+  if (!response.ok) response = await sessionFetch(context, `/user/viewer/${submissionId}/page/${pageIndex}.png`, {
+    method: "GET", headers: { Accept: "image/png" },
+  });
+  await persistRotatedSession(admin, context);
+  if (!response.ok) throw new OriginalityAdapterError("VIEWER_PAGE_FAILED", "Could not load report page.", response.status);
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.includes("image/svg+xml") && !type.includes("image/png")) {
+    throw new OriginalityAdapterError("VIEWER_PAGE_INVALID", "The report page did not contain an image.");
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.length > 4 * 1024 * 1024) throw new OriginalityAdapterError("VIEWER_PAGE_TOO_LARGE", "This report page is too large.");
+  return { bytes, contentType: type.includes("image/png") ? "image/png" : "image/svg+xml" };
+}
