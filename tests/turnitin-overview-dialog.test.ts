@@ -25,11 +25,11 @@ check(
   "only Overview and Buy Checks remain in top navigation",
 );
 check(
-  workspace.includes('className="grid gap-2 sm:grid-cols-2" aria-label="Quick actions"') &&
-  workspace.includes('<h2 className="text-sm font-semibold">Submit file</h2>') &&
-  workspace.includes('<h2 className="text-sm font-semibold">{isPostpaid ? "Postpaid account" : "Buy checks"}</h2>') &&
-  !workspace.includes('<a href="#turnitin-check-history"'),
-  "Overview retains Submit File and Buy Checks action cards without redundant history card",
+  workspace.includes('className="flex flex-wrap gap-2" aria-label="Quick actions"') &&
+  workspace.includes('<span className="block text-sm font-semibold">Submit file</span>') &&
+  !workspace.includes('<a href="#turnitin-check-history"') &&
+  !workspace.includes('<Link to="/turnitin/buy"'),
+  "Overview shows only one compact Submit File action; Buy Checks stays in the top-right navigation",
 );
 check(workspace.includes('id="turnitin-check-history"') &&
   workspace.includes('view === "history" || view === "overview"') &&
