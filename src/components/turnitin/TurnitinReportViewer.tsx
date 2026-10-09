@@ -221,13 +221,17 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
   const previewMatches = useMemo(() => data && panel === "filters" && draft
     ? selectedMatches(data, draft) : active, [data, draft, panel, active]);
 
-  const baseCoverage = useMemo(() => data ? matchingCoverage(active) : 0, [data, active]);
+  const activeCoverage = useMemo(() => matchingCoverage(active), [active]);
   const previewCoverage = useMemo(() => matchingCoverage(previewMatches), [previewMatches]);
-  const sourceRatio = baseCoverage > 0 ? previewCoverage / baseCoverage : 1;
   const baseSimilarity = Number(data?.similarity.overallPercent ?? 0);
-  const previewScore = Math.min(100, Math.max(0, baseSimilarity * sourceRatio));
+  const totalWords = Number(data?.similarity.totalWords ?? 0);
+  // The provider supplies a word count for each match and the report's total
+  // word count. Deduplicating match character spans avoids double counting
+  // identical source matches while exclusions change the visible total.
+  const activeSimilarity = totalWords > 0 ? Math.min(100, activeCoverage / totalWords * 100) : baseSimilarity;
+  const previewScore = totalWords > 0 ? Math.min(100, previewCoverage / totalWords * 100) : activeSimilarity;
   const previewDiffers = panel === "filters" && draft && JSON.stringify(draft) !== JSON.stringify(savedFilters);
-  const scoreText = previewDiffers ? `≈${Math.round(previewScore)}%` : `${Math.round(baseSimilarity)}%`;
+  const scoreText = previewDiffers ? `≈${Math.round(previewScore)}%` : `${Math.round(activeSimilarity)}%`;
 
   const download = async () => {
     if (!data?.similarityReportId) return;
@@ -294,7 +298,7 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
       <div className="flex flex-wrap items-center justify-center gap-5 border-b bg-white px-4 py-3 text-sm">
         <button type="button" onClick={() => setTab("similarity")}
           className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "similarity" ? "border-primary font-semibold text-blue-800" : "border-transparent text-slate-600"}`}>
-          Similarity <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{Math.round(baseSimilarity)}%</span>
+          Similarity <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{Math.round(activeSimilarity)}%</span>
         </button>
         <button type="button" onClick={() => setTab("ai")}
           className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "ai" ? "border-primary font-semibold text-blue-800" : "border-transparent text-slate-600"}`}>
