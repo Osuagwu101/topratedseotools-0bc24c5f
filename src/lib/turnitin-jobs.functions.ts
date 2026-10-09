@@ -13,6 +13,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash, randomUUID } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
+import { ORIGINALITY_ASTERISK_PERCENT } from "@/lib/turnitin-ai-score";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -638,6 +639,14 @@ async function syncOneJob(admin: any, userId: string, job: any) {
           ? "AI writing detection requires at least 300 words of prose."
           : null);
 
+    // Keep Originality's masked AI display value without treating it as an
+    // unavailable/failed AI report. The existing text field preserves the
+    // marker without altering the numeric AI score or database schema.
+    const aiDisplayReason =
+      !aiUnavailableReason && upstream.aiScoreIsAsterisk
+        ? ORIGINALITY_ASTERISK_PERCENT
+        : aiUnavailableReason;
+
     if (upstream.status === "failed") {
       const failureReason =
         upstream.refundReason ||
@@ -674,7 +683,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
           upstream_status: upstream.status,
           similarity_percentage: upstream.similarityPercentage,
           ai_percentage: upstream.aiPercentage,
-          ai_unavailable_reason: aiUnavailableReason,
+          ai_unavailable_reason: aiDisplayReason,
           word_count: upstream.wordCount,
           failed_at: now,
           failure_code: "UPSTREAM_FAILED",
@@ -762,7 +771,7 @@ async function syncOneJob(admin: any, userId: string, job: any) {
         upstream_status: upstream.status,
         similarity_percentage: upstream.similarityPercentage,
         ai_percentage: upstream.aiPercentage,
-        ai_unavailable_reason: aiUnavailableReason,
+        ai_unavailable_reason: aiDisplayReason,
         word_count: upstream.wordCount,
         completed_at: localStatus === "completed" ? now : null,
         upstream_last_checked_at: now,
