@@ -10,7 +10,7 @@ import {
 export const getMyTurnitinReportPreferences = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.from("turnitin_report_preferences")
+    const { data, error } = await (context.supabase as any).from("turnitin_report_preferences")
       .select("*").eq("user_id", context.userId).maybeSingle();
     if (error) throw new Error("Could not load your report settings.");
     return prefsFromRow(data as Record<string, unknown> | null);
@@ -22,7 +22,7 @@ export const saveMyTurnitinReportPreferences = createServerFn({ method: "POST" }
   .handler(async ({ data, context }) => {
     // Caller-controlled user IDs are not accepted. A trusted server validates the account.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("turnitin_report_preferences").upsert({
+    const { error } = await (supabaseAdmin as any).from("turnitin_report_preferences").upsert({
       ...prefsToRow(data),
       user_id: context.userId,
       updated_at: new Date().toISOString(),
@@ -35,7 +35,7 @@ export const resetMyTurnitinReportPreferences = createServerFn({ method: "POST" 
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("turnitin_report_preferences")
+    const { error } = await (supabaseAdmin as any).from("turnitin_report_preferences")
       .delete().eq("user_id", context.userId);
     if (error) throw new Error("Could not reset your report settings.");
     return { ...DEFAULT_TURNITIN_REPORT_PREFERENCES };
