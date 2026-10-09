@@ -141,7 +141,7 @@ function CheckOption({ checked, onChange, title, subtitle }: {
   return (
     <label className="flex cursor-pointer items-start gap-3 py-2 text-sm">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 h-4 w-4 accent-teal-700" />
+        className="mt-1 h-4 w-4 accent-turnitin-violet" />
       <span className="min-w-0"><span className="block text-slate-800">{title}</span>
         {subtitle ? <span className="block text-xs text-slate-500">{subtitle}</span> : null}</span>
     </label>
@@ -282,7 +282,7 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
 
   const filtersChanged = draft && JSON.stringify(draft) !== JSON.stringify(savedFilters);
   return (
-    <div className="min-h-screen bg-[#f3f4f7] text-slate-900">
+    <div className="turnitin-report-viewer min-h-screen bg-[#f6f8fb] text-slate-900">
       <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 shadow-sm sm:px-7">
         <Link to="/turnitin" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-800 hover:underline">
           <ArrowLeft className="h-4 w-4" /> Check History
@@ -290,19 +290,19 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
         <div className="min-w-0 max-w-[55vw] truncate text-sm font-semibold" title={data.title}>{data.title}</div>
         <button type="button" disabled={downloading || !data.similarityReportId}
           onClick={() => void download()}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-lg border border-turnitin-violet-border bg-white px-3 py-2 text-sm font-semibold text-turnitin-violet hover:bg-turnitin-violet-soft disabled:opacity-50">
           {downloading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           Download
         </button>
       </header>
       <div className="flex flex-wrap items-center justify-center gap-5 border-b bg-white px-4 py-3 text-sm">
         <button type="button" onClick={() => setTab("similarity")}
-          className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "similarity" ? "border-primary font-semibold text-blue-800" : "border-transparent text-slate-600"}`}>
+          className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "similarity" ? "border-turnitin-violet font-semibold text-turnitin-violet" : "border-transparent text-slate-600"}`}>
           Similarity <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{Math.round(activeSimilarity)}%</span>
         </button>
         <button type="button" onClick={() => setTab("ai")}
-          className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "ai" ? "border-primary font-semibold text-blue-800" : "border-transparent text-slate-600"}`}>
-          AI Writing <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs">{data.aiPercentage == null ? "—" : Math.round(data.aiPercentage) + "%"}</span>
+          className={`inline-flex items-center gap-2 border-b-2 px-2 py-1.5 ${tab === "ai" ? "border-turnitin-violet font-semibold text-turnitin-violet" : "border-transparent text-slate-600"}`}>
+          AI Writing <span className="rounded-full bg-turnitin-violet-soft px-2 py-0.5 text-xs">{data.aiPercentage == null ? "—" : Math.round(data.aiPercentage) + "%"}</span>
         </button>
       </div>
       {problem ? <div role="alert" className="mx-auto mt-3 max-w-6xl rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{problem}</div> : null}
@@ -330,7 +330,7 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
               <h2 className="text-lg font-semibold">{panel === "filters" ? "Filters" : tab === "ai" ? "AI Writing" : `${scoreText} Overall Similarity`}</h2>
               {panel !== "filters" && tab === "similarity" ? (
                 <button type="button" onClick={() => { setDraft(cleanFilters(savedFilters)); setPanel("filters"); }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium hover:bg-slate-200">
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-turnitin-violet-border bg-white px-3 py-2 text-sm font-medium text-turnitin-violet hover:bg-turnitin-violet-soft">
                   <Filter className="h-3.5 w-3.5" /> Filters
                 </button>
               ) : null}
@@ -348,12 +348,12 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
             <>
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                 <FilterControls filters={draft} setFilters={setDraft} />
-                {filtersChanged ? <p className="mt-4 text-xs text-teal-700">Changes are previewed; click Apply Filters to save.</p> : null}
+                {filtersChanged ? <p className="mt-4 text-xs text-turnitin-violet">Changes are previewed; click Apply Filters to save.</p> : null}
               </div>
               <div className="flex shrink-0 items-center justify-end gap-2 border-t bg-white p-3">
                 <button type="button" onClick={() => { setPanel("sources"); setDraft(null); }} disabled={updating} className="rounded-lg bg-slate-100 px-3 py-2 text-sm">Cancel</button>
                 <button type="button" onClick={() => void saveFilters()} disabled={!filtersChanged || !draft.collections.length || updating}
-                  className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  className="rounded-lg bg-turnitin-violet px-3 py-2 text-sm font-semibold text-turnitin-violet-foreground hover:brightness-95 disabled:opacity-50">
                   {updating ? "Applying…" : "Apply Filters"}
                 </button>
               </div>
@@ -363,14 +363,14 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2 border-b p-3">
-                <button type="button" onClick={() => setPanel("match_groups")} className={`rounded-lg px-2 py-2 text-sm ${panel === "match_groups" ? "bg-blue-100 font-semibold text-blue-800" : "border"}`}>Match groups</button>
-                <button type="button" onClick={() => setPanel("sources")} className={`rounded-lg px-2 py-2 text-sm ${panel === "sources" ? "bg-blue-100 font-semibold text-blue-800" : "border"}`}>Sources</button>
+                <button type="button" onClick={() => setPanel("match_groups")} className={`rounded-lg px-2 py-2 text-sm ${panel === "match_groups" ? "bg-turnitin-violet-soft font-semibold text-turnitin-violet" : "border"}`}>Match groups</button>
+                <button type="button" onClick={() => setPanel("sources")} className={`rounded-lg px-2 py-2 text-sm ${panel === "sources" ? "bg-turnitin-violet-soft font-semibold text-turnitin-violet" : "border"}`}>Sources</button>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 {panel === "sources" ? data.similarity.sources.filter((s: Source) => previewMatches.some(m => m.source.index === s.index)).map((source: Source) => {
                   const matches = previewMatches.filter(m => m.source.index === source.index);
                   return <button key={source.index} type="button" onClick={() => document.getElementById(`turnitin-page-${matches[0]?.match.page ?? 0}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                    className="w-full rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-primary/50">
+                    className="w-full rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-turnitin-violet/50 hover:bg-turnitin-violet-soft/30">
                     <div className="flex items-center gap-2 text-xs font-semibold">
                       <span className="rounded px-2 py-1 text-white" style={{backgroundColor:palette[Math.max(0,source.index)%palette.length]}}>{source.number || source.index + 1}</span>
                       <span className="rounded bg-slate-100 px-2 py-1 font-normal capitalize text-slate-700">{source.collection.replace("_", " ")}</span>

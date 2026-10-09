@@ -76,7 +76,7 @@ for (const tab of [
 
 assert(
   product.includes("Turnitin Checks sections") &&
-    product.includes("Self-service document checking") &&
+    product.includes('to: "/turnitin", label: "Overview"') &&
     !product.includes('to: "/turnitin/submit", label: "Submit File"') &&
     !product.includes('to: "/turnitin/history", label: "History"'),
   "Turnitin top navigation keeps Overview plus filled Buy Checks and Submit File actions",

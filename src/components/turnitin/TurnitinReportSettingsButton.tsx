@@ -30,11 +30,11 @@ function OptionRow({
   value, title, hint, onChange, disabled = false,
 }: { value: boolean; title: string; hint: string; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-muted/10 p-3 hover:bg-muted/20">
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-muted/10 p-3 hover:bg-turnitin-violet-soft/50">
       <input
         type="checkbox" checked={value} disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-4 w-4 accent-primary"
+        className="mt-1 h-4 w-4 accent-turnitin-violet"
       />
       <span>
         <span className="block text-sm font-medium">{title}</span>
@@ -106,14 +106,14 @@ export function TurnitinReportSettingsButton({ isAuthenticated }: { isAuthentica
     <>
       <button
         type="button" onClick={() => { setError(null); setNotice(null); setOpen(true); }}
-        className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
+        className="inline-flex items-center gap-2 rounded-lg border border-turnitin-violet-border bg-background px-3 py-2 text-sm font-semibold text-turnitin-violet transition hover:bg-turnitin-violet-soft"
       >
         <Settings2 className="h-4 w-4" /> Report settings
       </button>
       <Dialog open={open} onOpenChange={(next) => { if (!pending) setOpen(next); }}>
         <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
-            <DialogTitle>Similarity Report Settings</DialogTitle>
+            <DialogTitle className="text-primary">Similarity Report Settings</DialogTitle>
             <DialogDescription>
               Choose your saved upload defaults and the names of downloaded reports.
             </DialogDescription>
@@ -184,7 +184,7 @@ export function TurnitinReportSettingsButton({ isAuthenticated }: { isAuthentica
                     ] as const).map(([value, title, detail]) => (
                       <button key={value} type="button" aria-pressed={form.reportView === value}
                         onClick={() => setForm((p) => ({ ...p, reportView: value }))}
-                        className={`rounded-lg border p-4 text-left text-sm transition ${form.reportView === value ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "hover:border-primary/40"}`}>
+                        className={`rounded-lg border p-4 text-left text-sm transition ${form.reportView === value ? "border-turnitin-violet bg-turnitin-violet-soft text-turnitin-violet ring-1 ring-turnitin-violet/30" : "hover:border-turnitin-violet/40"}`}>
                         <span className="block font-semibold">{title}</span>
                         <span className="mt-1 block text-xs text-muted-foreground">{detail}</span>
                       </button>
@@ -197,24 +197,24 @@ export function TurnitinReportSettingsButton({ isAuthenticated }: { isAuthentica
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button type="button" aria-pressed={form.useFilenamePrefixes}
                       onClick={() => setForm((p) => ({ ...p, useFilenamePrefixes: true }))}
-                      className={`rounded-lg border p-3 text-left text-sm ${form.useFilenamePrefixes ? "border-primary bg-primary/10 font-semibold text-primary" : ""}`}>
+                      className={`rounded-lg border p-3 text-left text-sm ${form.useFilenamePrefixes ? "border-turnitin-violet bg-turnitin-violet-soft font-semibold text-turnitin-violet" : ""}`}>
                       With prefix
                     </button>
                     <button type="button" aria-pressed={!form.useFilenamePrefixes}
                       onClick={() => setForm((p) => ({ ...p, useFilenamePrefixes: false }))}
-                      className={`rounded-lg border p-3 text-left text-sm ${!form.useFilenamePrefixes ? "border-primary bg-primary/10 font-semibold text-primary" : ""}`}>
+                      className={`rounded-lg border p-3 text-left text-sm ${!form.useFilenamePrefixes ? "border-turnitin-violet bg-turnitin-violet-soft font-semibold text-turnitin-violet" : ""}`}>
                       Original file name
                     </button>
                   </div>
                   {form.useFilenamePrefixes ? (
-                    <div className="grid gap-3 rounded-lg border bg-primary/5 p-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-primary">
+                    <div className="grid gap-3 rounded-lg border border-turnitin-violet-border bg-turnitin-violet-soft p-3 sm:grid-cols-2">
+                      <label className="text-sm font-semibold text-turnitin-violet">
                         AI report prefix
                         <input value={form.aiReportPrefix} maxLength={40} aria-label="AI report prefix"
                           onChange={(e) => setForm((p) => ({ ...p, aiReportPrefix: e.target.value }))}
                           className="mt-1.5 block w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal text-foreground" />
                       </label>
-                      <label className="text-xs font-semibold text-primary">
+                      <label className="text-sm font-semibold text-turnitin-violet">
                         Similarity report prefix
                         <input value={form.similarityReportPrefix} maxLength={40} aria-label="Similarity report prefix"
                           onChange={(e) => setForm((p) => ({ ...p, similarityReportPrefix: e.target.value }))}
@@ -237,7 +237,7 @@ export function TurnitinReportSettingsButton({ isAuthenticated }: { isAuthentica
               <RotateCcw className="h-4 w-4" /> Reset
             </button>
             <button type="button" disabled={pending || settings.isLoading || settings.isError}
-              onClick={() => void save()} className="rounded-lg bg-gradient-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+              onClick={() => void save()} className="rounded-lg bg-turnitin-violet px-5 py-2 text-sm font-semibold text-turnitin-violet-foreground hover:brightness-95 disabled:opacity-50">
               {pending ? "Saving…" : "Save settings"}
             </button>
           </div>

@@ -22,6 +22,10 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-glow: var(--primary-glow);
+  --color-turnitin-violet: var(--turnitin-violet);
+  --color-turnitin-violet-foreground: var(--turnitin-violet-foreground);
+  --color-turnitin-violet-soft: var(--turnitin-violet-soft);
+  --color-turnitin-violet-border: var(--turnitin-violet-border);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -71,6 +75,11 @@
   --primary-foreground: oklch(0.99 0.005 250);
   --primary-glow: oklch(0.71 0.13 235);
 
+  --turnitin-violet: #7445c4;
+  --turnitin-violet-foreground: #ffffff;
+  --turnitin-violet-soft: #f2edfc;
+  --turnitin-violet-border: #d3c4ed;
+
   --secondary: oklch(0.96 0.01 260);
   --secondary-foreground: oklch(0.22 0.04 265);
 
@@ -117,6 +126,11 @@
   --primary: oklch(0.7 0.13 238);
   --primary-foreground: oklch(0.14 0.02 258);
   --primary-glow: oklch(0.8 0.1 228);
+
+  --turnitin-violet: #b79aef;
+  --turnitin-violet-foreground: #211133;
+  --turnitin-violet-soft: #302240;
+  --turnitin-violet-border: #594573;
 
   --secondary: oklch(0.24 0.03 265);
   --secondary-foreground: oklch(0.97 0.005 260);
@@ -175,6 +189,14 @@
 
 @utility bg-gradient-primary {
   background-image: linear-gradient(135deg, var(--primary), var(--primary-glow));
+}
+
+/* The document viewer retains its existing light paper and control surfaces. */
+.turnitin-report-viewer {
+  --turnitin-violet: #7445c4;
+  --turnitin-violet-foreground: #ffffff;
+  --turnitin-violet-soft: #f2edfc;
+  --turnitin-violet-border: #d3c4ed;
 }
 
 @utility bg-gradient-hero {

@@ -89,7 +89,7 @@ export function Navbar() {
               key={l.to}
               to={l.to}
               className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              activeProps={{ className: "text-foreground" }}
+              activeProps={{ className: "rounded-lg bg-primary/10 font-semibold text-primary" }}
             >
               {l.label}
             </Link>
