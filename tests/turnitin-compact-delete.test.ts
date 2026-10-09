@@ -7,7 +7,7 @@ const migration = readFileSync("supabase/migrations/20261009104000_turnitin_cust
 let failures=0;
 function ok(v:boolean,msg:string){ if(!v){failures++;console.error("FAIL",msg);}else console.log("PASS",msg); }
 ok(page.includes('max-w-[520px]') && page.includes('onClick={() => submitButtonRef.current?.click()}') &&
-  page.includes('min-h-0 flex-1 overflow-y-auto') && page.includes('shrink-0 border-t'),
+  page.includes('min-h-0 flex-1 overflow-y-auto') && page.includes('border-t bg-background px-5 py-3'),
   "compact modal uses a fixed footer with actionable Submit File button");
 ok(page.includes('className="-mb-px flex items-center justify-between gap-3"') &&
   page.includes('tab.section === "buy" && "ml-auto"'),
