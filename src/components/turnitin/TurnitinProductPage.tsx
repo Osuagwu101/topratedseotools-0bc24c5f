@@ -52,9 +52,7 @@ const SECTION_META: Record<
 
 const TABS = [
   { section: "overview" as const, to: "/turnitin", label: "Overview", icon: LayoutDashboard },
-  { section: "submit" as const, to: "/turnitin/submit", label: "Submit File", icon: UploadCloud },
   { section: "buy" as const, to: "/turnitin/buy", label: "Buy Checks", icon: ShoppingCart },
-  { section: "history" as const, to: "/turnitin/history", label: "History", icon: FileClock },
 ];
 
 export function TurnitinProductPage({ section }: { section: Section }) {
@@ -115,28 +113,13 @@ export function TurnitinProductPage({ section }: { section: Section }) {
           >
             {TABS.map((tab) => {
               const Icon = tab.icon;
-              const active = submitOpen ? tab.section === "submit" : tab.section === activeSection;
+              const active = tab.section === activeSection;
               const tabClass = cn(
                 "inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
                 active
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
               );
-              if (tab.section === "submit") {
-                return (
-                  <button
-                    key={tab.section}
-                    type="button"
-                    aria-haspopup="dialog"
-                    aria-expanded={submitOpen}
-                    onClick={() => setSubmitOpen(true)}
-                    className={tabClass}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              }
               return (
                 <Link key={tab.section} to={tab.to} className={tabClass}>
                   <Icon className="h-4 w-4" />
