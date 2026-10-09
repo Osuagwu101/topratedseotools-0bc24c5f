@@ -111,18 +111,22 @@ export function TurnitinProductPage({ section }: { section: Section }) {
           </div>
 
           <nav
-            className="-mb-px flex items-center justify-between gap-3"
+            className="-mb-px flex items-center gap-2 pb-1"
             aria-label="Turnitin Checks sections"
           >
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const active = tab.section === activeSection;
               const tabClass = cn(
-                "inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
-                tab.section === "buy" && "ml-auto",
-                active
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                "inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs font-semibold transition sm:text-sm",
+                tab.section === "buy"
+                  ? "ml-auto rounded-lg bg-gradient-primary px-3 py-2.5 text-white shadow-glow hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4"
+                  : cn(
+                      "border-b-2 px-2 py-3 sm:px-4",
+                      active
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                    ),
               );
               return (
                 <Link key={tab.section} to={tab.to} className={tabClass}>
@@ -131,6 +135,16 @@ export function TurnitinProductPage({ section }: { section: Section }) {
                 </Link>
               );
             })}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={submitOpen}
+              onClick={() => setSubmitOpen(true)}
+              className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-gradient-primary px-3 py-2.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4 sm:text-sm"
+            >
+              <UploadCloud className="h-4 w-4" />
+              Submit File
+            </button>
           </nav>
         </div>
       </section>
