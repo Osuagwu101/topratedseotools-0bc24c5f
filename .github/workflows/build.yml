@@ -80,6 +80,9 @@ jobs:
       - name: Turnitin compact modal and customer deletion
         run: bun tests/turnitin-compact-delete.test.ts
 
+      - name: Turnitin owned interactive report viewer
+        run: bun tests/turnitin-interactive-viewer.test.ts
+
       - name: Turnitin customer report settings
         run: bun tests/turnitin-report-preferences.test.ts
 
