@@ -811,3 +811,20 @@ export async function getOriginalityViewerPage(
   if (bytes.length > 4 * 1024 * 1024) throw new OriginalityAdapterError("VIEWER_PAGE_TOO_LARGE", "This report page is too large.");
   return { bytes, contentType: type.includes("image/png") ? "image/png" : "image/svg+xml" };
 }
+
+
+export async function downloadOriginalityViewerSimilarityPdf(
+  admin: AdminClient,
+  submissionId: string,
+): Promise<Uint8Array> {
+  if (!/^\d{1,20}$/.test(submissionId)) throw new Error("Invalid report identifier.");
+  const context = await loadSession(admin);
+  const response = await fetchReportResponse(context, `/user/viewer/${submissionId}/download/similarity`);
+  await persistRotatedSession(admin, context);
+  if (!response.ok || !(response.headers.get("content-type") ?? "").toLowerCase().includes("application/pdf")) {
+    throw new OriginalityAdapterError("VIEWER_PDF_FAILED", "The filtered PDF is not available yet.", response.status);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > MAX_REPORT_BYTES) throw new OriginalityAdapterError("VIEWER_PDF_INVALID", "Invalid filtered similarity PDF.");
+  return bytes;
+}
