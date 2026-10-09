@@ -15,12 +15,17 @@ import {
   ShoppingCart,
   Sparkles,
   UploadCloud,
+  Trash2,
+  SlidersHorizontal,
+  ChevronDown,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   getMyTurnitinReportDownload,
   getMyTurnitinWorkspace,
+  deleteMyTurnitinCheck,
   type TurnitinJobRow,
   type TurnitinJobStatus,
   type TurnitinReportRow,
@@ -118,6 +123,9 @@ type Props = {
   view?: TurnitinWorkspaceView;
   onOpenSubmit?: () => void;
   onSubmitSuccess?: () => void;
+  compactSubmit?: boolean;
+  submitButtonRef?: RefObject<HTMLButtonElement | null>;
+  onSubmitStateChange?: (ready: boolean, pending: boolean) => void;
 };
 
 const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> = {
@@ -127,7 +135,7 @@ const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> 
   history: "/turnitin/history",
 };
 
-export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit, onSubmitSuccess }: Props) {
+export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit, onSubmitSuccess, compactSubmit = false, submitButtonRef, onSubmitStateChange }: Props) {
   const qc = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -149,6 +157,9 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [retryingJob, setRetryingJob] = useState<string | null>(null);
+  const [deletingJob, setDeletingJob] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TurnitinJobRow | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [settlingPostpaid, setSettlingPostpaid] = useState(false);
   const [settlementAmount, setSettlementAmount] = useState(0);
@@ -172,6 +183,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         : false;
     },
   });
+
+  const canSubmitNow = !!selectedFile && !!workspace.data?.foundationReady &&
+    (workspace.data.account.billing_mode === "postpaid" ||
+      workspace.data.summary.available_credits > 0) && !submitting;
+  useEffect(() => {
+    onSubmitStateChange?.(canSubmitNow, submitting);
+  }, [canSubmitNow, submitting, onSubmitStateChange]);
 
   const postpaidSettlements = useQuery({
     queryKey: ["turnitin-postpaid-settlements"],
@@ -517,6 +535,22 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     }
   };
 
+  const deleteCheck = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeletingJob(target.id);
+    setDeleteError(null);
+    try {
+      await deleteMyTurnitinCheck({ data: { jobId: target.id } });
+      setDeleteTarget(null);
+      await qc.invalidateQueries({ queryKey: ["turnitin-workspace"] });
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete this check.");
+    } finally {
+      setDeletingJob(null);
+    }
+  };
+
   const runCheck = async () => {
     if (!selectedFile) {
       setSubmitError("Choose a PDF, DOC or DOCX file first.");
@@ -775,23 +809,15 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
       {view === "overview" ? (
         <>
-          <section className="grid gap-2 sm:grid-cols-2" aria-label="Quick actions">
+          <section className="flex flex-wrap gap-2" aria-label="Quick actions">
             <button type="button" onClick={() => onOpenSubmit?.()}
-              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
-              <UploadCloud className="h-5 w-5 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold">Submit file</h2>
-                <p className="text-[11px] text-muted-foreground">Upload and run a check</p>
-              </div>
+              className="inline-flex w-auto max-w-full items-center gap-2.5 rounded-xl border bg-card px-4 py-2.5 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
+              <UploadCloud className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">Submit file</span>
+                <span className="block text-[11px] text-muted-foreground">Upload and run a check</span>
+              </span>
             </button>
-            <Link to="/turnitin/buy"
-              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
-              <ShoppingCart className="h-5 w-5 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold">{isPostpaid ? "Postpaid account" : "Buy checks"}</h2>
-                <p className="text-[11px] text-muted-foreground">{isPostpaid ? "View your balance" : "Add check credits"}</p>
-              </div>
-            </Link>
           </section>
 
         </>
@@ -1090,7 +1116,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       ) : null}
 
       {(view === "all" || view === "submit") ? (
-        <div className="rounded-2xl border bg-card p-6 shadow-card">
+        <div className={compactSubmit ? "rounded-xl border bg-card p-3 sm:p-4" : "rounded-2xl border bg-card p-6 shadow-card"}>
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
               <UploadCloud className="h-5 w-5" />
@@ -1140,7 +1166,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                 e.preventDefault();
                 onFile(e.dataTransfer.files?.[0] ?? null);
               }}
-              className="mt-5 flex w-full flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center transition hover:border-primary/50 hover:bg-primary/[0.02]"
+              className={`mt-4 flex w-full flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center transition hover:border-primary/50 hover:bg-primary/[0.02] ${compactSubmit ? "py-6" : "py-10"}`}
             >
               <UploadCloud className="h-7 w-7 text-primary" />
               <span className="mt-3 text-sm font-semibold">Choose a document</span>
@@ -1240,11 +1266,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             </div>
           </div>
 
-          <div className="mt-6">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Similarity exclusions
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <details className="group mt-4 rounded-xl border bg-muted/20">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-primary" /> Advanced Options</span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="grid gap-2 border-t p-3">
               <OptionToggle
                 checked={excludeBibliography}
                 onChange={setExcludeBibliography}
@@ -1270,7 +1297,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                 description="Ignore matches below a word count, or sources below a percentage."
               />
             </div>
-          </div>
 
           {excludeSmallMatches ? (
             <div className="mt-4 grid gap-3 rounded-xl border bg-muted/20 p-4 sm:grid-cols-[1fr_140px]">
@@ -1314,6 +1340,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               </div>
             </div>
           ) : null}
+          </details>
 
           <div className="mt-5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold">
@@ -1357,6 +1384,9 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
           <button
             type="button"
+            ref={submitButtonRef}
+            tabIndex={compactSubmit ? -1 : undefined}
+            aria-hidden={compactSubmit || undefined}
             onClick={() => void runCheck()}
             disabled={
               submitting ||
@@ -1364,7 +1394,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               !foundationReady ||
               (!isPostpaid && summary.available_credits < 1)
             }
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={compactSubmit ? "sr-only" : "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"}
           >
             {submitting ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -1457,6 +1487,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                       onDownload={downloadReport}
                       retryingJob={retryingJob}
                       onRetry={retrySubmission}
+                      onDelete={(row) => { setDeleteError(null); setDeleteTarget(row); }}
                     />
                   ))}
                 </tbody>
@@ -1472,11 +1503,34 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                   onDownload={downloadReport}
                   retryingJob={retryingJob}
                   onRetry={retrySubmission}
+                  onDelete={(row) => { setDeleteError(null); setDeleteTarget(row); }}
                 />
               ))}
             </div>
           </>
         )}
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deletingJob) { setDeleteTarget(null); setDeleteError(null); } }}>
+          <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this check?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Remove "{deleteTarget?.display_name || deleteTarget?.original_filename}" from your check history and stop future report downloads. This cannot be undone. Credit and Postpaid billing records will remain.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {deleteError ? <p role="alert" className="text-sm text-destructive">{deleteError}</p> : null}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={!!deletingJob}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!!deletingJob}
+                className="bg-red-600 text-white hover:bg-red-700"
+                onClick={(e) => { e.preventDefault(); void deleteCheck(); }}
+              >
+                {deletingJob ? "Deleting…" : "Delete check"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {downloadError ? (
           <div className="m-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
@@ -1609,13 +1663,14 @@ function ReportButton({
 }
 
 function HistoryRow({
-  job, downloadingReport, onDownload, retryingJob, onRetry,
+  job, downloadingReport, onDownload, retryingJob, onRetry, onDelete,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
   retryingJob: string | null;
   onRetry: (jobId: string) => void;
+  onDelete: (job: TurnitinJobRow) => void;
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
@@ -1666,21 +1721,28 @@ function HistoryRow({
             Retry
           </button>
         ) : (
-          <span className="text-xs text-muted-foreground">{job.status === "completed" && !similarity && !ai ? "Preparing" : "—"}</span>
+          <span className="text-xs text-muted-foreground">{job.status === "completed" && !similarity && !ai ? "Preparing" : ""}</span>
         )}
+        {["completed", "failed"].includes(job.status) ? (
+          <button type="button" onClick={() => onDelete(job)} aria-label={"Delete " + (job.display_name || job.original_filename)}
+            title="Delete check" className="ml-2 inline-flex rounded-md p-1.5 text-red-600 transition hover:bg-red-50 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
       </td>
     </tr>
   );
 }
 
 function HistoryCard({
-  job, downloadingReport, onDownload, retryingJob, onRetry,
+  job, downloadingReport, onDownload, retryingJob, onRetry, onDelete,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
   retryingJob: string | null;
   onRetry: (jobId: string) => void;
+  onDelete: (job: TurnitinJobRow) => void;
 }) {
   const similarity = reportFor(job, "similarity");
   const ai = reportFor(job, "ai");
@@ -1721,6 +1783,15 @@ function HistoryCard({
           />
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
+      </div>
+      <div className="mt-3 flex justify-end">
+        {["completed", "failed"].includes(job.status) ? (
+          <button type="button" onClick={() => onDelete(job)} title="Delete check"
+            aria-label={"Delete " + (job.display_name || job.original_filename)}
+            className="inline-flex items-center gap-1 rounded-md p-1.5 text-xs text-red-600 hover:bg-red-50">
+            <Trash2 className="h-4 w-4" /> Delete
+          </button>
+        ) : null}
       </div>
       {canRetry ? (
         <button type="button" onClick={() => void onRetry(job.id)}
