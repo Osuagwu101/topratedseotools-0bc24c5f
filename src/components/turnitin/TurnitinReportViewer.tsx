@@ -314,7 +314,7 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
             </div>
           </div>
           <div className="mx-auto max-w-4xl overflow-x-auto">
-            {data.pages.map((page) => (
+            {data.pages.map((page: Report["pages"][number]) => (
               <PageImage key={page.index} jobId={jobId} page={page}
                 highlights={tab === "similarity" ? previewMatches.filter(m => m.match.page === page.index) : []} zoom={zoom} />
             ))}
@@ -363,7 +363,7 @@ export function TurnitinReportViewer({ jobId }: { jobId: string }) {
                 <button type="button" onClick={() => setPanel("sources")} className={`rounded-lg px-2 py-2 text-sm ${panel === "sources" ? "bg-blue-100 font-semibold text-blue-800" : "border"}`}>Sources</button>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-                {panel === "sources" ? data.similarity.sources.filter(s => previewMatches.some(m => m.source.index === s.index)).map((source) => {
+                {panel === "sources" ? data.similarity.sources.filter((s: Source) => previewMatches.some(m => m.source.index === s.index)).map((source: Source) => {
                   const matches = previewMatches.filter(m => m.source.index === source.index);
                   return <button key={source.index} type="button" onClick={() => document.getElementById(`turnitin-page-${matches[0]?.match.page ?? 0}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
                     className="w-full rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-primary/50">
