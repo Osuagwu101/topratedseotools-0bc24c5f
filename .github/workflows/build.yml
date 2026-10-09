@@ -80,6 +80,9 @@ jobs:
       - name: Turnitin compact modal and customer deletion
         run: bun tests/turnitin-compact-delete.test.ts
 
+      - name: Turnitin top actions and Submitted column
+        run: bun tests/turnitin-top-actions-history-order.test.ts
+
       - name: Turnitin Overview and submission dialog
         run: bun tests/turnitin-overview-dialog.test.ts
 
