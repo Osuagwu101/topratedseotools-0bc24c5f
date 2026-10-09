@@ -156,10 +156,10 @@ assert(
 );
 
 assert(
-  funcs.includes("turnitinReportDownloadName") &&
-    funcs.includes('reportType === "ai" ? "AI_" : "si_"') &&
-    funcs.includes(".pdf"),
-  "report downloads preserve the uploaded filename stem with AI_ and si_ PDF prefixes",
+  funcs.includes("reportDownloadFilename(") &&
+    funcs.includes('.from("turnitin_report_preferences")') &&
+    funcs.includes('.eq("user_id", context.userId)'),
+  "report downloads use owner-bound saved prefixes with unchanged AI_ / si_ defaults",
 );
 
 assert(
