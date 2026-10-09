@@ -37,7 +37,7 @@ export const DEFAULT_TURNITIN_REPORT_PREFERENCES: TurnitinReportPreferences = {
   reportView: "sources",
   useFilenamePrefixes: true,
   aiReportPrefix: "AI_",
-  similarityReportPrefix: "si_",
+  similarityReportPrefix: "SI_",
 };
 
 export function prefsFromRow(row: Record<string, unknown> | null | undefined): TurnitinReportPreferences {
