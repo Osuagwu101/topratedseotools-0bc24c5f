@@ -1570,7 +1570,7 @@ function Score({
   asterisk?: boolean;
 }) {
   if (value != null) {
-    const scoreColour = value >= 50 ? "text-red-700" : value >= 30 ? "text-amber-700" : "text-emerald-700";
+    const scoreColour = value >= 60 ? "text-red-700" : value >= 30 ? "text-yellow-700" : "text-emerald-700";
     return <span className={`font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
   }
   if (asterisk) {

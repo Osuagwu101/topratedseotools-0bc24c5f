@@ -65,7 +65,7 @@ assert(
   "both mobile and desktop history render *% literally",
 );
 assert(
-  ui.includes("const scoreColour = value >= 50") &&
+  ui.includes("const scoreColour = value >= 60") &&
   ui.includes('return <span className="text-xs text-muted-foreground">Unavailable</span>') &&
   ui.includes("ReportButton"),
   "existing numeric/real-unavailable score and report-download paths remain",
