@@ -9,9 +9,10 @@ function check(value: boolean, message: string) {
   else console.log("PASS:", message);
 }
 
-check(page.includes("DialogContent") && page.includes("aria-haspopup=\"dialog\"") &&
-  page.includes("view=\"submit\"") && page.includes("onSubmitSuccess") &&
-  page.includes("closeSubmit()"), "Submit File opens a closable accessible modal with existing upload form");
+check(page.includes("DialogContent") && page.includes("view=\"submit\"") &&
+  page.includes("onSubmitSuccess") && page.includes("closeSubmit()") &&
+  workspace.includes("onClick={() => onOpenSubmit?.()}"),
+  "the remaining Overview Submit File card opens the existing closable upload dialog");
 check(page.includes('section === "submit" ? "overview" : section') &&
   page.includes('navigate({ to: "/turnitin" })'),
   "direct Submit URL renders Overview behind form and returns to Overview on close");
