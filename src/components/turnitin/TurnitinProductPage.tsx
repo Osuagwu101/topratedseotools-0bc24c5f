@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
@@ -68,6 +68,9 @@ export function TurnitinProductPage({ section }: { section: Section }) {
   const navigate = useNavigate();
   const [submitOpen, setSubmitOpen] = useState(section === "submit");
   const [submissionNotice, setSubmissionNotice] = useState(false);
+  const submitButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [submittingFile, setSubmittingFile] = useState(false);
   const activeSection = section === "submit" ? "overview" : section;
   const meta = SECTION_META[activeSection];
   const PageIcon = meta.icon;
@@ -108,7 +111,7 @@ export function TurnitinProductPage({ section }: { section: Section }) {
           </div>
 
           <nav
-            className="-mb-px flex gap-1 overflow-x-auto"
+            className="-mb-px flex items-center justify-between gap-3"
             aria-label="Turnitin Checks sections"
           >
             {TABS.map((tab) => {
@@ -116,6 +119,7 @@ export function TurnitinProductPage({ section }: { section: Section }) {
               const active = tab.section === activeSection;
               const tabClass = cn(
                 "inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
+                tab.section === "buy" && "ml-auto",
                 active
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
@@ -145,21 +149,42 @@ export function TurnitinProductPage({ section }: { section: Section }) {
         />
       </section>
       <Dialog open={submitOpen} onOpenChange={(open) => { if (!open) closeSubmit(); else setSubmitOpen(true); }}>
-        <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-4xl overflow-y-auto p-3 sm:p-5">
-          <DialogHeader className="px-2 pt-2">
-            <DialogTitle>Submit File</DialogTitle>
-            <DialogDescription>
-              Upload your document, choose report options and submit without leaving your dashboard.
+        <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-[520px] flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-5 py-4 text-left">
+            <DialogTitle>Submit New File</DialogTitle>
+            <DialogDescription className="sr-only">
+              Upload a document and choose your report preferences.
             </DialogDescription>
           </DialogHeader>
-          <TurnitinWorkspace
-            isAuthenticated={session.data?.isAuthenticated ?? false}
-            view="submit"
-            onSubmitSuccess={() => {
-              setSubmissionNotice(true);
-              closeSubmit();
-            }}
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+            <TurnitinWorkspace
+              isAuthenticated={session.data?.isAuthenticated ?? false}
+              view="submit"
+              compactSubmit
+              submitButtonRef={submitButtonRef}
+              onSubmitStateChange={(ready, pending) => {
+                setCanSubmit(ready);
+                setSubmittingFile(pending);
+              }}
+              onSubmitSuccess={() => {
+                setSubmissionNotice(true);
+                closeSubmit();
+              }}
+            />
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t bg-background px-5 py-3">
+            <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted" onClick={closeSubmit}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!canSubmit || submittingFile}
+              onClick={() => submitButtonRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submittingFile ? "Submitting…" : "Submit File"}
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </SiteLayout>
