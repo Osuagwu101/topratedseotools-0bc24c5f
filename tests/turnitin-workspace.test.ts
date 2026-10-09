@@ -135,7 +135,8 @@ assert(
   workspace.includes("Similarity") &&
     workspace.includes("AI") &&
     workspace.includes("<Score value={job.similarity_percentage}") &&
-    workspace.includes("<Score value={job.ai_percentage}") &&
+    workspace.includes("value={job.ai_percentage}") &&
+    workspace.includes("asterisk={shouldShowOriginalityAsteriskPercent({") &&
     (workspace.match(/label="Download"/g) ?? []).length === 4,
   "history shows separate similarity/AI scores and downloads on desktop and mobile",
 );
