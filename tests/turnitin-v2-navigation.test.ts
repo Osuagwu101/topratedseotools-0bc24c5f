@@ -95,7 +95,7 @@ assert(
   workspace.includes("Submit your first document") &&
     workspace.includes('id="turnitin-check-history"') &&
     workspace.includes('view === "history" || view === "overview"') &&
-    workspace.includes("Buy checks") &&
+    product.includes('to: "/turnitin/buy"') &&
     !workspace.includes("Recent checks"),
   "Overview shows compact quick actions and the complete searchable history instead of duplicate recent checks",
 );
