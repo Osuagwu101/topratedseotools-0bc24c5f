@@ -775,7 +775,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
       {view === "overview" ? (
         <>
-          <section className="grid gap-2 sm:grid-cols-3" aria-label="Quick actions">
+          <section className="grid gap-2 sm:grid-cols-2" aria-label="Quick actions">
             <button type="button" onClick={() => onOpenSubmit?.()}
               className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
               <UploadCloud className="h-5 w-5 shrink-0 text-primary" />
@@ -792,14 +792,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                 <p className="text-[11px] text-muted-foreground">{isPostpaid ? "View your balance" : "Add check credits"}</p>
               </div>
             </Link>
-            <a href="#turnitin-check-history"
-              className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
-              <FileCheck2 className="h-5 w-5 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold">Check history</h2>
-                <p className="text-[11px] text-muted-foreground">Scores and reports</p>
-              </div>
-            </a>
           </section>
 
         </>
@@ -1574,7 +1566,7 @@ function Score({
     return <span className={`font-bold ${scoreColour}`}>{Number(value).toFixed(0)}%</span>;
   }
   if (asterisk) {
-    return <span className="font-bold text-foreground" aria-label="Originality AI score: asterisk percent">*%</span>;
+    return <span className="font-bold text-emerald-600 dark:text-emerald-400" aria-label="Originality AI score: asterisk percent">*%</span>;
   }
   if (unavailable) {
     return <span className="text-xs text-muted-foreground">Unavailable</span>;

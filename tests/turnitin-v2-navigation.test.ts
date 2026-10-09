@@ -50,7 +50,6 @@ for (const [section, path] of [
   ["overview", "/turnitin/"],
   ["submit", "/turnitin/submit"],
   ["buy", "/turnitin/buy"],
-  ["history", "/turnitin/history"],
 ] as const) {
   assert(
     routes[section].includes(`createFileRoute("${path}")`) &&
@@ -59,11 +58,15 @@ for (const [section, path] of [
   );
 }
 
+assert(
+  routes.history.includes('createFileRoute("/turnitin/history")') &&
+    routes.history.includes('redirect({ to: "/turnitin", replace: true })'),
+  "existing History deep links redirect into Overview",
+);
+
 for (const tab of [
   'to: "/turnitin"',
-  'to: "/turnitin/submit"',
   'to: "/turnitin/buy"',
-  'to: "/turnitin/history"',
 ]) {
   assert(
     product.includes(tab) && product.includes("to={tab.to}"),
@@ -73,8 +76,10 @@ for (const tab of [
 
 assert(
   product.includes("Turnitin Checks sections") &&
-    product.includes("Self-service document checking"),
-  "dedicated Turnitin pages share one professional product shell",
+    product.includes("Self-service document checking") &&
+    !product.includes('to: "/turnitin/submit", label: "Submit File"') &&
+    !product.includes('to: "/turnitin/history", label: "History"'),
+  "Turnitin top navigation shows only Overview and Buy Checks",
 );
 
 assert(
