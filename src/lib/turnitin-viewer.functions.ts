@@ -56,11 +56,20 @@ export const getMyTurnitinInteractiveReport = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getOriginalityViewerData } = await import("@/lib/turnitin-originality.server");
     const upstream = await getOriginalityViewerData(supabaseAdmin as any, String(job.upstream_submission_id));
+    const { data: storedPdf } = await (context.supabase as any)
+      .from("turnitin_reports")
+      .select("id")
+      .eq("job_id", job.id)
+      .eq("user_id", context.userId)
+      .eq("report_type", "similarity")
+      .eq("status", "available")
+      .maybeSingle();
     const raw = upstream as any;
     const similarity = raw.similarity ?? {};
     const exclusions = raw.exclusions ?? {};
     return {
       jobId: job.id as string,
+      similarityReportId: storedPdf?.id ? String(storedPdf.id) : null,
       title: String(job.display_name || job.original_filename),
       filename: String(job.original_filename),
       wordCount: Number(raw.wordCount ?? 0),
