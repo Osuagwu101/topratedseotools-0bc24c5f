@@ -807,22 +807,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
       ) : null}
 
-      {view === "overview" ? (
-        <>
-          <section className="flex flex-wrap gap-2" aria-label="Quick actions">
-            <button type="button" onClick={() => onOpenSubmit?.()}
-              className="inline-flex w-auto max-w-full items-center gap-2.5 rounded-xl border bg-card px-4 py-2.5 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/[0.03]">
-              <UploadCloud className="h-4 w-4 shrink-0 text-primary" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">Submit file</span>
-                <span className="block text-[11px] text-muted-foreground">Upload and run a check</span>
-              </span>
-            </button>
-          </section>
-
-        </>
-      ) : null}
-
       {(view === "all" || view === "buy" || view === "submit") ? (
       <section className={view === "all" ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
         {(view === "all" || view === "buy") ? (
@@ -1467,15 +1451,23 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[860px] text-sm">
+              <table className="w-full min-w-[900px] table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[36%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
                 <thead className="bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Document</th>
-                    <th className="px-4 py-3">Submitted</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Similarity</th>
                     <th className="px-4 py-3">AI</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-2 py-3">Submitted</th>
+                    <th className="px-2 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1662,6 +1654,18 @@ function ReportButton({
   );
 }
 
+function HistorySubmittedDate({ value }: { value: string | null | undefined }) {
+  if (!value) return <span className="text-xs text-muted-foreground">—</span>;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <time dateTime={value} className="block whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+      <span className="block">{date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span>
+      <span className="block">{date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+    </time>
+  );
+}
+
 function HistoryRow({
   job, downloadingReport, onDownload, retryingJob, onRetry, onDelete,
 }: {
@@ -1687,9 +1691,6 @@ function HistoryRow({
           <div className="mt-0.5 text-[11px] text-muted-foreground">{job.word_count.toLocaleString()} words</div>
         ) : null}
       </td>
-      <td className="px-4 py-3 text-xs text-muted-foreground">
-        {formatDate(job.submitted_at || job.created_at)}
-      </td>
       <td className="px-4 py-3"><StatusBadge status={job.status} /></td>
       <td className="px-4 py-3">
         <div className="flex flex-col items-start gap-1.5">
@@ -1712,7 +1713,10 @@ function HistoryRow({
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-2 py-3">
+        <HistorySubmittedDate value={job.submitted_at || job.created_at} />
+      </td>
+      <td className="px-2 py-3 text-right">
         {canRetry ? (
           <button type="button" onClick={() => void onRetry(job.id)}
             disabled={retryingJob === job.id}
