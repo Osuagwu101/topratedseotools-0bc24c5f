@@ -11,8 +11,8 @@ function check(value: boolean, message: string) {
 
 check(page.includes("DialogContent") && page.includes("view=\"submit\"") &&
   page.includes("onSubmitSuccess") && page.includes("closeSubmit()") &&
-  workspace.includes("onClick={() => onOpenSubmit?.()}"),
-  "the remaining Overview Submit File card opens the existing closable upload dialog");
+  page.includes('aria-haspopup="dialog"') && page.includes('onClick={() => setSubmitOpen(true)}'),
+  "top-right Submit File button opens the existing closable upload dialog");
 check(page.includes('section === "submit" ? "overview" : section') &&
   page.includes('navigate({ to: "/turnitin" })'),
   "direct Submit URL renders Overview behind form and returns to Overview on close");
@@ -25,21 +25,22 @@ check(
   "only Overview and Buy Checks remain in top navigation",
 );
 check(
-  workspace.includes('className="flex flex-wrap gap-2" aria-label="Quick actions"') &&
-  workspace.includes('<span className="block text-sm font-semibold">Submit file</span>') &&
-  !workspace.includes('<a href="#turnitin-check-history"') &&
+  !workspace.includes('aria-label="Quick actions"') &&
+  page.includes('tab.section === "buy"') &&
+  page.includes('Submit File\n            </button>') &&
+  page.includes("ml-auto rounded-lg bg-gradient-primary") &&
   !workspace.includes('<Link to="/turnitin/buy"'),
-  "Overview shows only one compact Submit File action; Buy Checks stays in the top-right navigation",
+  "only top-right Buy Checks and Submit File buttons remain; lower action card is removed",
 );
 check(workspace.includes('id="turnitin-check-history"') &&
   workspace.includes('view === "history" || view === "overview"') &&
   !workspace.includes("Recent checks") &&
   workspace.includes("Search document name"),
   "full searchable history replaces Recent Checks on Overview");
-check(workspace.includes('aria-label="Quick actions"') &&
+check(!workspace.includes('aria-label="Quick actions"') &&
   workspace.includes("px-3 py-3 shadow-sm") &&
   workspace.includes("text-xl font-bold leading-tight"),
-  "Overview statistic and action cards use compact styles");
+  "Overview keeps compact statistic cards without a duplicate action-card row");
 check(workspace.includes("setExcludeBibliography] = useState(true)") &&
   workspace.includes("setExcludeQuotes] = useState(true)") &&
   workspace.includes("setExcludeCitations] = useState(false)") &&
