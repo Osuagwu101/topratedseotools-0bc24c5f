@@ -114,6 +114,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
           "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at",
         )
         .eq("user_id", context.userId)
+        .is("history_deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200),
       db
@@ -269,12 +270,13 @@ export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
 
     const { data: job, error: jobError } = await db
       .from("turnitin_jobs")
-      .select("original_filename")
+      .select("original_filename, history_deleted_at")
       .eq("id", report.job_id)
       .eq("user_id", context.userId)
       .maybeSingle();
 
     if (jobError) throw new Error(jobError.message);
+    if (job?.history_deleted_at) throw new Error("This check has been deleted.");
     if (!job?.original_filename) {
       throw new Error("The original document name could not be found.");
     }
@@ -303,4 +305,62 @@ export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
       filename,
       reportType: report.report_type as TurnitinReportType,
     };
+  });
+
+
+/**
+ * Delete a finished check from the customer's account without modifying
+ * credit consumption, postpaid charges or provider-side records.
+ * Only its owner can request the change. Running checks are protected.
+ */
+export const deleteMyTurnitinCheck = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ jobId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const { data: job, error } = await admin.from("turnitin_jobs")
+      .select("id, user_id, status, history_deleted_at")
+      .eq("id", data.jobId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error("Could not find this check.");
+    if (!job || job.history_deleted_at) throw new Error("This check is no longer available.");
+    if (!["completed", "failed"].includes(job.status)) {
+      throw new Error("Please wait until processing finishes before deleting this check.");
+    }
+
+    // Hide first, under ownership and status guards; billing history is retained.
+    const { data: deleted, error: updateError } = await admin.from("turnitin_jobs")
+      .update({ history_deleted_at: new Date().toISOString() })
+      .eq("id", data.jobId)
+      .eq("user_id", context.userId)
+      .is("history_deleted_at", null)
+      .in("status", ["completed", "failed"])
+      .select("id")
+      .maybeSingle();
+    if (updateError || !deleted) throw new Error("Could not delete this check. Please retry.");
+
+    // Revoke the customer's future report downloads and clean stored PDF
+    // copies without touching the financial ledger or upstream provider.
+    const { data: reports, error: reportError } = await admin.from("turnitin_reports")
+      .select("id, storage_bucket, storage_path")
+      .eq("job_id", data.jobId)
+      .eq("user_id", context.userId);
+    if (reportError) {
+      console.error("[Turnitin] Report cleanup lookup failed after history deletion", reportError.message);
+      return { deleted: true };
+    }
+    for (const report of reports ?? []) {
+      if (!report.storage_bucket || !report.storage_path) continue;
+      const { error: storageError } = await admin.storage
+        .from(report.storage_bucket)
+        .remove([report.storage_path]);
+      if (storageError) {
+        console.error("[Turnitin] Stored report cleanup failed", storageError.message);
+      }
+    }
+    return { deleted: true };
   });
