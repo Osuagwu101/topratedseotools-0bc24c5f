@@ -39,6 +39,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
 import { shouldShowOriginalityAsteriskPercent } from "@/lib/turnitin-ai-score";
+import { TurnitinReportSettingsButton } from "@/components/turnitin/TurnitinReportSettingsButton";
+import { getMyTurnitinReportPreferences } from "@/lib/turnitin-report-preferences.functions";
 import {
   initializeTurnitinCreditPurchase,
   reconcileLatestTurnitinCreditPurchase,
@@ -168,6 +170,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const settingsApplied = useRef(false);
 
   const workspace = useQuery({
     queryKey: ["turnitin-workspace"],
@@ -183,6 +186,25 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         : false;
     },
   });
+
+  const reportPreferences = useQuery({
+    queryKey: ["turnitin-report-preferences"],
+    queryFn: getMyTurnitinReportPreferences,
+    enabled: isAuthenticated && (view === "submit" || view === "all"),
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (!reportPreferences.data || settingsApplied.current || selectedFile || submitting) return;
+    const p = reportPreferences.data;
+    setReportView(p.reportView);
+    setExcludeBibliography(p.excludeBibliography);
+    setExcludeQuotes(p.excludeQuotes);
+    setExcludeCitations(p.excludeCitations);
+    setExcludeSmallMatches(p.excludeSmallMatches);
+    setSmallMatchMode(p.smallMatchMode);
+    setSmallMatchThreshold(p.smallMatchThreshold);
+    settingsApplied.current = true;
+  }, [reportPreferences.data, selectedFile, submitting]);
 
   const canSubmitNow = !!selectedFile && !!workspace.data?.foundationReady &&
     (workspace.data.account.billing_mode === "postpaid" ||
@@ -1413,16 +1435,21 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               Search previous checks by the document name you uploaded.
             </p>
           </div>
-          <label className="relative block w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search document name"
-              className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </label>
+          <div className="flex w-full flex-col items-end gap-2 sm:w-72">
+            {view === "overview" && isAuthenticated ? (
+              <TurnitinReportSettingsButton isAuthenticated={isAuthenticated} />
+            ) : null}
+            <label className="relative block w-full">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search document name"
+                className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </label>
+          </div>
         </div>
 
         {workspace.isLoading ? (

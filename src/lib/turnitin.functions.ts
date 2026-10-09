@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEFAULT_TURNITIN_REPORT_PREFERENCES, prefsFromRow, reportDownloadFilename } from "@/lib/turnitin-report-preferences";
 
 export type TurnitinJobStatus =
   | "draft"
@@ -54,22 +55,6 @@ export interface TurnitinJobRow {
   word_count: number | null;
   created_at: string;
   reports: TurnitinReportRow[];
-}
-
-function turnitinReportDownloadName(
-  originalFilename: string,
-  reportType: TurnitinReportType,
-): string {
-  const leaf = String(originalFilename || "report")
-    .split(/[\\/]/)
-    .pop() || "report";
-  const stem = leaf
-    .replace(/\.[^.]+$/, "")
-    .replace(/[\u0000-\u001f\u007f"<>:|?*]/g, "_")
-    .trim()
-    .slice(0, 180) || "report";
-  const prefix = reportType === "ai" ? "AI_" : "si_";
-  return `${prefix}${stem}.pdf`;
 }
 
 export interface TurnitinWorkspaceData {
@@ -281,9 +266,20 @@ export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
       throw new Error("The original document name could not be found.");
     }
 
-    const filename = turnitinReportDownloadName(
+    // Defaults are per customer and evaluated at download time, not at submission.
+    const { data: storedPrefs, error: prefsError } = await db
+      .from("turnitin_report_preferences")
+      .select("*")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (prefsError) throw new Error("Could not read your report naming settings.");
+    const prefs = storedPrefs
+      ? prefsFromRow(storedPrefs as Record<string, unknown>)
+      : DEFAULT_TURNITIN_REPORT_PREFERENCES;
+    const filename = reportDownloadFilename(
       String(job.original_filename),
       report.report_type as TurnitinReportType,
+      prefs,
     );
 
     const { supabaseAdmin } = await import(

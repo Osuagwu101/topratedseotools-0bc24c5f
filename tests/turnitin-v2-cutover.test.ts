@@ -160,9 +160,10 @@ assert(
 
 const reportFns = readFileSync("src/lib/turnitin.functions.ts", "utf8");
 assert(
-  reportFns.includes('reportType === "ai" ? "AI_" : "si_"') &&
+  reportFns.includes("reportDownloadFilename(") &&
+    reportFns.includes('.from("turnitin_report_preferences")') &&
     reportFns.includes("download: filename"),
-  "report downloads preserve uploaded filename stem with AI_/si_ attachment names",
+  "report downloads use per-user prefixes while the shared helper preserves AI_/si_ defaults",
 );
 
 for (const source of [
