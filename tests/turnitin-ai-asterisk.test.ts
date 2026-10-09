@@ -59,7 +59,7 @@ assert(
 );
 assert(
   (ui.match(/asterisk=\{shouldShowOriginalityAsteriskPercent\(/g) ?? []).length === 2 &&
-  ui.includes('aria-label="Originality AI score: asterisk percent"') &&
+  ui.includes('className="font-bold text-emerald-600 dark:text-emerald-400" aria-label="Originality AI score: asterisk percent"') &&
   ui.includes("> *%</span>") === false &&
   ui.includes(">*%</span>"),
   "both mobile and desktop history render *% literally",
