@@ -1,16 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { TurnitinProductPage } from "@/components/turnitin/TurnitinProductPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/turnitin/history")({
-  head: () => ({
-    meta: [
-      { title: "Check History — Turnitin Checks — Top Rated SEO Tools" },
-      {
-        name: "description",
-        content:
-          "Review Turnitin check status, similarity and AI results, and download available reports.",
-      },
-    ],
-  }),
-  component: () => <TurnitinProductPage section="history" />,
+  // Keep old bookmarks functional without maintaining a duplicate History page.
+  beforeLoad: () => {
+    throw redirect({ to: "/turnitin", replace: true });
+  },
 });
