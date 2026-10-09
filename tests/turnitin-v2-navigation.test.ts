@@ -79,7 +79,7 @@ assert(
     product.includes("Self-service document checking") &&
     !product.includes('to: "/turnitin/submit", label: "Submit File"') &&
     !product.includes('to: "/turnitin/history", label: "History"'),
-  "Turnitin top navigation shows only Overview and Buy Checks",
+  "Turnitin top navigation keeps Overview plus filled Buy Checks and Submit File actions",
 );
 
 assert(

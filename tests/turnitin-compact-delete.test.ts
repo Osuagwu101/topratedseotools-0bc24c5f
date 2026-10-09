@@ -9,9 +9,11 @@ function ok(v:boolean,msg:string){ if(!v){failures++;console.error("FAIL",msg);}
 ok(page.includes('max-w-[520px]') && page.includes('onClick={() => submitButtonRef.current?.click()}') &&
   page.includes('min-h-0 flex-1 overflow-y-auto') && page.includes('border-t bg-background px-5 py-3'),
   "compact modal uses a fixed footer with actionable Submit File button");
-ok(page.includes('className="-mb-px flex items-center justify-between gap-3"') &&
-  page.includes('tab.section === "buy" && "ml-auto"'),
-  "Buy Checks navigates at the right end of the top bar");
+ok(page.includes('className="-mb-px flex items-center gap-2 pb-1"') &&
+  page.includes('ml-auto rounded-lg bg-gradient-primary') &&
+  page.includes('aria-expanded={submitOpen}') &&
+  page.includes('Submit File\n            </button>'),
+  "matching brand-colour Buy Checks and Submit File actions appear at the right end of the top bar");
 ok(ui.includes('<details className="group mt-4') && ui.includes("Advanced Options") &&
   !ui.includes("Similarity exclusions") && ui.includes('checked={excludeBibliography}') &&
   ui.includes('checked={excludeQuotes}'), "Advanced Options hides but preserves four report settings");
@@ -20,9 +22,9 @@ ok(ui.includes('setExcludeBibliography] = useState(true)') &&
   ui.includes('setExcludeCitations] = useState(false)') &&
   ui.includes('setExcludeSmallMatches] = useState(false)'),
   "default exclusions still apply when Advanced Options is collapsed");
-ok(ui.includes('aria-label="Quick actions"') &&
-  ui.includes('<span className="block text-sm font-semibold">Submit file</span>') &&
-  !ui.includes('<Link to="/turnitin/buy"'), "only compact Submit File action remains below stat cards");
+ok(!ui.includes('aria-label="Quick actions"') &&
+  !ui.includes('<span className="block text-sm font-semibold">Submit file</span>') &&
+  !ui.includes('<Link to="/turnitin/buy"'), "no duplicate Submit File or Buy Checks action remains below the statistic cards");
 ok(ui.includes('aria-label={"Delete " + (job.display_name || job.original_filename)}') &&
   (ui.match(/onDelete=\{\(row\)/g)??[]).length === 2 &&
   ui.includes("Delete this check?") && ui.includes("AlertDialogAction"),
