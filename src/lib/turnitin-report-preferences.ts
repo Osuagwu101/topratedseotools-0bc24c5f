@@ -12,8 +12,8 @@ export const turnitinReportPreferencesSchema = z.object({
   smallMatchThreshold: z.number().int(),
   reportView: z.enum(["sources", "match_groups"]),
   useFilenamePrefixes: z.boolean(),
-  aiReportPrefix: z.string().max(40).regex(/^[^\\/<>:"|?*\\u0000-\\u001f\\u007f]*$/u, "Invalid file name prefix."),
-  similarityReportPrefix: z.string().max(40).regex(/^[^\\/<>:"|?*\\u0000-\\u001f\\u007f]*$/u, "Invalid file name prefix."),
+  aiReportPrefix: z.string().max(40).regex(/^[^\/\\<>:"|?*\u0000-\u001f\u007f]*$/u, "Invalid file name prefix."),
+  similarityReportPrefix: z.string().max(40).regex(/^[^\/\\<>:"|?*\u0000-\u001f\u007f]*$/u, "Invalid file name prefix."),
 }).superRefine((v, ctx) => {
   if (!v.compareInternet && !v.comparePublications && !v.compareSubmittedWorks) {
     ctx.addIssue({ code: "custom", message: "Select at least one comparison collection.", path: ["compareInternet"] });
@@ -81,8 +81,8 @@ export function reportDownloadFilename(
   reportType: "ai" | "similarity",
   prefs: Pick<TurnitinReportPreferences, "useFilenamePrefixes" | "aiReportPrefix" | "similarityReportPrefix">,
 ): string {
-  const leaf = String(originalFilename || "report").split(/[\\/]/).pop() || "report";
-  const stem = leaf.replace(/\\.[^.]+$/, "").replace(/[\\u0000-\\u001f\\u007f"<>:|?*]/g, "_").trim().slice(0, 180) || "report";
+  const leaf = String(originalFilename || "report").split(/[\/\\]/).pop() || "report";
+  const stem = leaf.replace(/\.[^.]+$/, "").replace(/[\u0000-\u001f\u007f"<>:|?*]/g, "_").trim().slice(0, 180) || "report";
   const prefix = !prefs.useFilenamePrefixes ? "" : reportType === "ai" ? prefs.aiReportPrefix : prefs.similarityReportPrefix;
   return `${prefix}${stem}.pdf`;
 }
