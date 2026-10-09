@@ -16,6 +16,21 @@ check(page.includes("DialogContent") && page.includes("view=\"submit\"") &&
 check(page.includes('section === "submit" ? "overview" : section') &&
   page.includes('navigate({ to: "/turnitin" })'),
   "direct Submit URL renders Overview behind form and returns to Overview on close");
+
+check(
+  page.includes('to: "/turnitin", label: "Overview"') &&
+  page.includes('to: "/turnitin/buy", label: "Buy Checks"') &&
+  !page.includes('to: "/turnitin/submit", label: "Submit File"') &&
+  !page.includes('to: "/turnitin/history", label: "History"'),
+  "only Overview and Buy Checks remain in top navigation",
+);
+check(
+  workspace.includes('className="grid gap-2 sm:grid-cols-2" aria-label="Quick actions"') &&
+  workspace.includes('<h2 className="text-sm font-semibold">Submit file</h2>') &&
+  workspace.includes('<h2 className="text-sm font-semibold">{isPostpaid ? "Postpaid account" : "Buy checks"}</h2>') &&
+  !workspace.includes('<a href="#turnitin-check-history"'),
+  "Overview retains Submit File and Buy Checks action cards without redundant history card",
+);
 check(workspace.includes('id="turnitin-check-history"') &&
   workspace.includes('view === "history" || view === "overview"') &&
   !workspace.includes("Recent checks") &&
@@ -47,5 +62,5 @@ check((workspace.match(/label="Download"/g) || []).length === 4 &&
   workspace.includes('value >= 30 ? "text-amber-700"'),
   "desktop/mobile history place color-coded scores over their report download actions");
 
-console.log(`turnitin-overview-dialog: ${9 - failures} passed, ${failures} failed`);
+console.log(`turnitin-overview-dialog: ${11 - failures} passed, ${failures} failed`);
 if (failures) process.exit(1);
