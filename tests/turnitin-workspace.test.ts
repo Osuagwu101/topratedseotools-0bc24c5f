@@ -192,12 +192,18 @@ for (const forbidden of [
   );
 }
 
+const readOnlyHandlers = funcs.split("export const deleteMyTurnitinCheck =")[0];
 for (const mutation of [".insert(", ".update(", ".delete(", ".upsert("]) {
   assert(
-    !funcs.includes(mutation),
-    `Phase 4 server functions remain read/download-only: no ${mutation}`,
+    !readOnlyHandlers.includes(mutation),
+    `Phase 4 workspace and download handlers stay read-only: no ${mutation}`,
   );
 }
+assert(
+  funcs.includes("deleteMyTurnitinCheck = createServerFn") &&
+    funcs.includes('.eq("user_id", context.userId)'),
+  "new deletion action separately enforces authenticated job ownership",
+);
 
 assert(
   tools.includes("self-service Turnitin checking workspace") &&
