@@ -77,6 +77,9 @@ jobs:
       - name: Turnitin masked AI score regression
         run: bun tests/turnitin-ai-asterisk.test.ts
 
+      - name: Turnitin compact modal and customer deletion
+        run: bun tests/turnitin-compact-delete.test.ts
+
       - name: Turnitin Overview and submission dialog
         run: bun tests/turnitin-overview-dialog.test.ts
 
