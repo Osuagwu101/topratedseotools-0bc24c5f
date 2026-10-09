@@ -68,7 +68,7 @@ function turnitinReportDownloadName(
     .replace(/[\u0000-\u001f\u007f"<>:|?*]/g, "_")
     .trim()
     .slice(0, 180) || "report";
-  const prefix = reportType === "ai" ? "AI_" : "si_";
+  const prefix = reportType === "ai" ? "AI_" : "SI_";
   return `${prefix}${stem}.pdf`;
 }
 

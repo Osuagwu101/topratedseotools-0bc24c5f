@@ -157,9 +157,9 @@ assert(
 
 assert(
   funcs.includes("turnitinReportDownloadName") &&
-    funcs.includes('reportType === "ai" ? "AI_" : "si_"') &&
+    funcs.includes('reportType === "ai" ? "AI_" : "SI_"') &&
     funcs.includes(".pdf"),
-  "report downloads preserve the uploaded filename stem with AI_ and si_ PDF prefixes",
+  "report downloads preserve the uploaded filename stem with AI_ and SI_ PDF prefixes",
 );
 
 assert(

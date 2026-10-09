@@ -159,9 +159,9 @@ assert(
 
 const reportFns = readFileSync("src/lib/turnitin.functions.ts", "utf8");
 assert(
-  reportFns.includes('reportType === "ai" ? "AI_" : "si_"') &&
+  reportFns.includes('reportType === "ai" ? "AI_" : "SI_"') &&
     reportFns.includes("download: filename"),
-  "report downloads preserve uploaded filename stem with AI_/si_ attachment names",
+  "report downloads preserve uploaded filename stem with AI_/SI_ attachment names",
 );
 
 for (const source of [

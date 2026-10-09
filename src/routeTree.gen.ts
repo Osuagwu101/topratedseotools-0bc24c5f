@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TurnitinRouteImport } from './routes/turnitin'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -23,9 +24,13 @@ import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TurnitinIndexRouteImport } from './routes/turnitin.index'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as TurnitinSubmitRouteImport } from './routes/turnitin.submit'
+import { Route as TurnitinHistoryRouteImport } from './routes/turnitin.history'
+import { Route as TurnitinBuyRouteImport } from './routes/turnitin.buy'
 import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
 import { Route as PayTokenRouteImport } from './routes/pay.$token'
 import { Route as BlogSearchRouteImport } from './routes/blog.search'
@@ -114,6 +119,11 @@ import { Route as ApiPublicHooksEmailDispatcherRouteImport } from './routes/api.
 import { Route as ApiPublicHooksAutoFulfilPrivateRouteImport } from './routes/api.public.hooks.auto-fulfil-private'
 import { Route as AdminBlogIdEditRouteImport } from './routes/admin.blog.$id.edit'
 
+const TurnitinRoute = TurnitinRouteImport.update({
+  id: '/turnitin',
+  path: '/turnitin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
@@ -183,6 +193,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TurnitinIndexRoute = TurnitinIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TurnitinRoute,
+} as any)
 const ToolsIndexRoute = ToolsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -197,6 +212,21 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TurnitinSubmitRoute = TurnitinSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => TurnitinRoute,
+} as any)
+const TurnitinHistoryRoute = TurnitinHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => TurnitinRoute,
+} as any)
+const TurnitinBuyRoute = TurnitinBuyRouteImport.update({
+  id: '/buy',
+  path: '/buy',
+  getParentRoute: () => TurnitinRoute,
 } as any)
 const ToolsSlugRoute = ToolsSlugRouteImport.update({
   id: '/$slug',
@@ -674,6 +704,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
+  '/turnitin': typeof TurnitinRouteWithChildren
   '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/change-password': typeof AuthenticatedChangePasswordRoute
@@ -701,9 +732,13 @@ export interface FileRoutesByFullPath {
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/turnitin/buy': typeof TurnitinBuyRoute
+  '/turnitin/history': typeof TurnitinHistoryRoute
+  '/turnitin/submit': typeof TurnitinSubmitRoute
   '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
+  '/turnitin/': typeof TurnitinIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
@@ -799,9 +834,13 @@ export interface FileRoutesByTo {
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/turnitin/buy': typeof TurnitinBuyRoute
+  '/turnitin/history': typeof TurnitinHistoryRoute
+  '/turnitin/submit': typeof TurnitinSubmitRoute
   '/admin': typeof AdminIndexRoute
   '/blog': typeof BlogIndexRoute
   '/tools': typeof ToolsIndexRoute
+  '/turnitin': typeof TurnitinIndexRoute
   '/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
@@ -879,6 +918,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tools': typeof ToolsRouteWithChildren
+  '/turnitin': typeof TurnitinRouteWithChildren
   '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/change-password': typeof AuthenticatedChangePasswordRoute
@@ -906,9 +946,13 @@ export interface FileRoutesById {
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
   '/tools/$slug': typeof ToolsSlugRoute
+  '/turnitin/buy': typeof TurnitinBuyRoute
+  '/turnitin/history': typeof TurnitinHistoryRoute
+  '/turnitin/submit': typeof TurnitinSubmitRoute
   '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/tools/': typeof ToolsIndexRoute
+  '/turnitin/': typeof TurnitinIndexRoute
   '/_authenticated/order/$slug': typeof AuthenticatedOrderSlugRoute
   '/_authenticated/receipt/$reference': typeof AuthenticatedReceiptReferenceRoute
   '/admin/blog/ai-generator': typeof AdminBlogAiGeneratorRoute
@@ -986,6 +1030,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tools'
+    | '/turnitin'
     | '/.well-known/apple-developer-merchantid-domain-association'
     | '/billing'
     | '/change-password'
@@ -1013,9 +1058,13 @@ export interface FileRouteTypes {
     | '/blog/search'
     | '/pay/$token'
     | '/tools/$slug'
+    | '/turnitin/buy'
+    | '/turnitin/history'
+    | '/turnitin/submit'
     | '/admin/'
     | '/blog/'
     | '/tools/'
+    | '/turnitin/'
     | '/order/$slug'
     | '/receipt/$reference'
     | '/admin/blog/ai-generator'
@@ -1111,9 +1160,13 @@ export interface FileRouteTypes {
     | '/blog/search'
     | '/pay/$token'
     | '/tools/$slug'
+    | '/turnitin/buy'
+    | '/turnitin/history'
+    | '/turnitin/submit'
     | '/admin'
     | '/blog'
     | '/tools'
+    | '/turnitin'
     | '/order/$slug'
     | '/receipt/$reference'
     | '/admin/blog/ai-generator'
@@ -1190,6 +1243,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tools'
+    | '/turnitin'
     | '/.well-known/apple-developer-merchantid-domain-association'
     | '/_authenticated/billing'
     | '/_authenticated/change-password'
@@ -1217,9 +1271,13 @@ export interface FileRouteTypes {
     | '/blog/search'
     | '/pay/$token'
     | '/tools/$slug'
+    | '/turnitin/buy'
+    | '/turnitin/history'
+    | '/turnitin/submit'
     | '/admin/'
     | '/blog/'
     | '/tools/'
+    | '/turnitin/'
     | '/_authenticated/order/$slug'
     | '/_authenticated/receipt/$reference'
     | '/admin/blog/ai-generator'
@@ -1297,6 +1355,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRouteWithChildren
+  TurnitinRoute: typeof TurnitinRouteWithChildren
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   AdminAccessHealthRoute: typeof AdminAccessHealthRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
@@ -1331,6 +1390,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/turnitin': {
+      id: '/turnitin'
+      path: '/turnitin'
+      fullPath: '/turnitin'
+      preLoaderRoute: typeof TurnitinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools': {
       id: '/tools'
       path: '/tools'
@@ -1429,6 +1495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/turnitin/': {
+      id: '/turnitin/'
+      path: '/'
+      fullPath: '/turnitin/'
+      preLoaderRoute: typeof TurnitinIndexRouteImport
+      parentRoute: typeof TurnitinRoute
+    }
     '/tools/': {
       id: '/tools/'
       path: '/'
@@ -1449,6 +1522,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/turnitin/submit': {
+      id: '/turnitin/submit'
+      path: '/submit'
+      fullPath: '/turnitin/submit'
+      preLoaderRoute: typeof TurnitinSubmitRouteImport
+      parentRoute: typeof TurnitinRoute
+    }
+    '/turnitin/history': {
+      id: '/turnitin/history'
+      path: '/history'
+      fullPath: '/turnitin/history'
+      preLoaderRoute: typeof TurnitinHistoryRouteImport
+      parentRoute: typeof TurnitinRoute
+    }
+    '/turnitin/buy': {
+      id: '/turnitin/buy'
+      path: '/buy'
+      fullPath: '/turnitin/buy'
+      preLoaderRoute: typeof TurnitinBuyRouteImport
+      parentRoute: typeof TurnitinRoute
     }
     '/tools/$slug': {
       id: '/tools/$slug'
@@ -2122,6 +2216,24 @@ const ToolsRouteChildren: ToolsRouteChildren = {
 
 const ToolsRouteWithChildren = ToolsRoute._addFileChildren(ToolsRouteChildren)
 
+interface TurnitinRouteChildren {
+  TurnitinBuyRoute: typeof TurnitinBuyRoute
+  TurnitinHistoryRoute: typeof TurnitinHistoryRoute
+  TurnitinSubmitRoute: typeof TurnitinSubmitRoute
+  TurnitinIndexRoute: typeof TurnitinIndexRoute
+}
+
+const TurnitinRouteChildren: TurnitinRouteChildren = {
+  TurnitinBuyRoute: TurnitinBuyRoute,
+  TurnitinHistoryRoute: TurnitinHistoryRoute,
+  TurnitinSubmitRoute: TurnitinSubmitRoute,
+  TurnitinIndexRoute: TurnitinIndexRoute,
+}
+
+const TurnitinRouteWithChildren = TurnitinRoute._addFileChildren(
+  TurnitinRouteChildren,
+)
+
 interface AdminBlogRouteChildren {
   AdminBlogAiGeneratorRoute: typeof AdminBlogAiGeneratorRoute
   AdminBlogCategoriesRoute: typeof AdminBlogCategoriesRoute
@@ -2273,6 +2385,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRouteWithChildren,
+  TurnitinRoute: TurnitinRouteWithChildren,
   DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
     DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   AdminAccessHealthRoute: AdminAccessHealthRoute,

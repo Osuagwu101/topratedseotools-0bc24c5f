@@ -42,8 +42,8 @@ check(workspace.includes("await submitTurnitinJob") &&
   workspace.includes("onSubmitSuccess?.()"),
   "confirmed submission refreshes workspace and returns to Overview");
 check((workspace.match(/label="Download"/g) || []).length === 4 &&
-  workspace.includes('value >= 50 ? "text-red-700"') &&
-  workspace.includes('value >= 30 ? "text-amber-700"'),
+  workspace.includes('value >= 60 ? "text-red-700"') &&
+  workspace.includes('value >= 30 ? "text-yellow-700"'),
   "desktop/mobile history place color-coded scores over their report download actions");
 
 console.log(`turnitin-overview-dialog: ${9 - failures} passed, ${failures} failed`);
