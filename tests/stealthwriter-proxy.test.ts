@@ -7,6 +7,7 @@ import {
   extractStealthWriterCookieRotations,
   hashStealthWriterProxyToken,
   isBlockedStealthWriterPath,
+  isStealthWriterAuthRedirect,
   proxySessionDays,
   rewriteStealthWriterBody,
   rewriteStealthWriterLocation,
@@ -143,6 +144,12 @@ assert(
   rewriteStealthWriterLocation("https://evil.example/login") === null,
   "blocks redirects to unrelated hosts",
 );
+
+assert(isStealthWriterAuthRedirect(302, "/sign-in"), "expired upstream login redirect triggers SW-07");
+assert(isStealthWriterAuthRedirect(307, "https://stealthwriter.ai/sign-in?callbackUrl=%2Fdashboard"), "absolute upstream sign-in redirect triggers SW-07");
+assert(!isStealthWriterAuthRedirect(302, "/dashboard/humanizer"), "legitimate dashboard redirect does not trigger SW-07");
+assert(!isStealthWriterAuthRedirect(302, "https://other.example/sign-in"), "external redirect does not trigger SW-07");
+assert(!isStealthWriterAuthRedirect(200, "/sign-in"), "successful response does not trigger SW-07");
 
 console.log(`stealthwriter-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
