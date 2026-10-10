@@ -802,6 +802,30 @@ function forbidden(message = "StealthWriter access is not available.") {
   return new Response(message, { status: 403, headers: standardHeaders("text/plain; charset=utf-8") });
 }
 
+/** Identify only the upstream sign-in redirects that signal an expired provider login. */
+export function isStealthWriterAuthRedirect(
+  status: number,
+  location: string,
+  upstreamOrigin = STEALTHWRITER_UPSTREAM_ORIGIN,
+) {
+  if (status < 300 || status >= 400 || !location) return false;
+  try {
+    const url = new URL(location, upstreamOrigin);
+    if (url.origin !== upstreamOrigin) return false;
+    return /^\/(?:sign-in|sign-up|login|auth\/sign-in)\/?$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function stealthWriterAccessNotice(request: Request) {
+  const headers = standardHeaders("text/html; charset=utf-8");
+  headers.set("X-TRST-Access-Reference", "SW-07");
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>StealthWriter Access Needs Attention</title></head><body style="margin:0;background:#f6f8fc;color:#172b4d;font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh;display:grid;place-items:center"><main style="max-width:510px;margin:24px;padding:32px;background:white;border:1px solid #e1e7f0;border-radius:16px;box-shadow:0 14px 35px #172b4d12;text-align:center"><h1 style="font-size:24px;margin:0 0 16px;color:#1e4e8c">StealthWriter Access Needs Attention</h1><p style="line-height:1.7">StealthWriter is temporarily unavailable through your dashboard.</p><p style="line-height:1.7">Please contact Admin on WhatsApp for a quick access refresh. Your subscription remains active.</p><section style="background:#f1f3f9;border-radius:12px;padding:19px;margin-top:22px"><div style="font-size:12px;font-weight:700;letter-spacing:.08em">PLEASE MENTION THIS REFERENCE</div><div style="font-size:48px;font-weight:900;letter-spacing:.05em;color:#332580;margin:8px 0">SW-07</div><div style="font-size:13px">Include this code when contacting Admin.</div></section></main></body></html>`;
+  if (request.method === "HEAD") return new Response(null, { status: 503, headers });
+  return new Response(html, { status: 503, headers });
+}
+
 function unauthorized() {
   return new Response("Open StealthWriter from your Top Rated SEO Tools account.", {
     status: 401,
@@ -1025,6 +1049,9 @@ export async function handleStealthWriterProxyRequest(request: Request) {
     const location = upstream.headers.get("location") ?? "/";
     const rewritten = rewriteStealthWriterLocation(location, targetOrigin, proxyBase);
     if (!rewritten) return unavailable();
+    if (!isSecondaryHost && isStealthWriterAuthRedirect(upstream.status, location, targetOrigin)) {
+      return stealthWriterAccessNotice(request);
+    }
     const h = standardHeaders();
     h.set("Location", rewritten);
     return new Response(null, { status: upstream.status, headers: h });
