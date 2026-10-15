@@ -53,9 +53,9 @@ export const Route = createFileRoute("/blog/")({
       { property: "og:title", content: "Blog — Top Rated SEO Tools" },
       { property: "og:description", content: "Insights on AI SEO tools and content strategy." },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://topratedseotools.lovable.app/blog" },
+      { property: "og:url", content: "https://topratedseotools.com/blog" },
     ],
-    links: [{ rel: "canonical", href: "https://topratedseotools.lovable.app/blog" }],
+    links: [{ rel: "canonical", href: "https://topratedseotools.com/blog" }],
   }),
   component: BlogHome,
 });
