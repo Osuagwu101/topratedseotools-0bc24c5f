@@ -91,9 +91,9 @@ export const Route = createFileRoute("/tools/$slug")({
     }
     return {
       meta: [
-        { title: `${loaderData.name} — Top Rated SEO Tools` },
+        { title: `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
         { name: "description", content: loaderData.description },
-        { property: "og:title", content: `${loaderData.name} — Top Rated SEO Tools` },
+        { property: "og:title", content: `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
         { property: "og:description", content: loaderData.description },
       ],
     };
