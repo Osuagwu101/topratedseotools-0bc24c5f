@@ -5,7 +5,6 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 
 import { APP_NAME } from "@/lib/site-config";
-import { getIsAdmin } from "@/lib/site-settings.functions";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -48,6 +47,7 @@ function LoginPage() {
     }
 
     const userId = signInData.user?.id;
+    if (!userId) return toast.error("Sign-in was incomplete. Please try again.");
     if (userId) {
       const { data: accountState } = await (supabase as any)
         .from("profiles")
@@ -61,8 +61,19 @@ function LoginPage() {
       }
     }
 
-    const { isAdmin } = await getIsAdmin();
-    if (isAdmin) {
+    // Read the signed-in user's role through the same authenticated Supabase client.
+    // The server-only getIsAdmin() middleware expects an Authorization header that
+    // this page's server-function transport does not supply after password sign-in.
+    const { data: adminRole, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (roleError) {
+      return toast.error("Could not verify your account. Please try again.");
+    }
+    if (adminRole) {
       await supabase.auth.signOut();
       return toast.error("Admin accounts must sign in from the Admin login page.");
     }
