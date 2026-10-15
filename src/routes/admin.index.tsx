@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getIsAdmin } from "@/lib/site-settings.functions";
+
 import { APP_NAME } from "@/lib/site-config";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -21,12 +21,13 @@ export const Route = createFileRoute("/admin/")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
-    try {
-      const { isAdmin } = await getIsAdmin();
-      if (isAdmin) throw redirect({ to: "/admin/dashboard" });
-    } catch (e) {
-      if (e && typeof e === "object" && "to" in (e as Record<string, unknown>)) throw e;
-    }
+    const { data: adminRole } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.session.user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (adminRole) throw redirect({ to: "/admin/dashboard" });
   },
   component: AdminLoginPage,
 });
@@ -46,8 +47,14 @@ function AdminLoginPage() {
       return toast.error(error.message);
     }
     try {
-      const { isAdmin } = await getIsAdmin();
-      if (!isAdmin) {
+      const { data: currentUser } = await supabase.auth.getUser();
+      const { data: adminRole, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", currentUser.user?.id ?? "")
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleError || !adminRole) {
         await supabase.auth.signOut();
         setLoading(false);
         return toast.error("This account is not an administrator.");
