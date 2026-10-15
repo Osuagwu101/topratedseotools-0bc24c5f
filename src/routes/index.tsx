@@ -31,6 +31,7 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "https://topratedseotools.com/" }],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pricingQuery),
   component: Home,
