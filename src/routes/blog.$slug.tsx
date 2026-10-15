@@ -57,7 +57,7 @@ export const Route = createFileRoute("/blog/$slug")({
     };
   },
   head: ({ params, loaderData }) => {
-    const fallback = `https://topratedseotools.lovable.app/blog/${params.slug}`;
+    const fallback = `https://topratedseotools.com/blog/${params.slug}`;
     if (!loaderData) {
       return {
         meta: [
@@ -113,7 +113,7 @@ export const Route = createFileRoute("/blog/$slug")({
         name: "Top Rated SEO Tools",
         logo: {
           "@type": "ImageObject",
-          url: "https://topratedseotools.lovable.app/favicon.ico",
+          url: "https://topratedseotools.com/favicon.ico",
         },
       },
       mainEntityOfPage: url,
@@ -122,15 +122,15 @@ export const Route = createFileRoute("/blog/$slug")({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "https://topratedseotools.lovable.app/" },
-        { "@type": "ListItem", position: 2, name: "Blog", item: "https://topratedseotools.lovable.app/blog" },
+        { "@type": "ListItem", position: 1, name: "Home", item: "https://topratedseotools.com/" },
+        { "@type": "ListItem", position: 2, name: "Blog", item: "https://topratedseotools.com/blog" },
         ...(loaderData.category_slug
           ? [
               {
                 "@type": "ListItem",
                 position: 3,
                 name: loaderData.category_name,
-                item: `https://topratedseotools.lovable.app/blog/category/${loaderData.category_slug}`,
+                item: `https://topratedseotools.com/blog/category/${loaderData.category_slug}`,
               },
             ]
           : []),
@@ -203,7 +203,7 @@ function BlogPost() {
   const html = useMemo(() => renderMarkdown(post.content ?? ""), [post.content]);
   const toc = useMemo(() => extractToc(post.content ?? ""), [post.content]);
 
-  const url = `https://topratedseotools.lovable.app/blog/${post.slug}`;
+  const url = `https://topratedseotools.com/blog/${post.slug}`;
   const share = (net: "twitter" | "facebook" | "linkedin") => {
     const enc = encodeURIComponent(url);
     const t = encodeURIComponent(post.title);
