@@ -47,6 +47,7 @@ function LoginPage() {
     }
 
     const userId = signInData.user?.id;
+    if (!userId) return toast.error("Sign-in was incomplete. Please try again.");
     if (userId) {
       const { data: accountState } = await (supabase as any)
         .from("profiles")
