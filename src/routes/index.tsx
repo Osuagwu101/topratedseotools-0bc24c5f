@@ -110,6 +110,23 @@ function Home() {
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-2xl text-center"><h2 className="text-3xl font-bold tracking-tight">Loved by creators & agencies</h2><p className="mt-3 text-muted-foreground">Real feedback from members using our tools every day.</p></div><div className="mt-10 grid gap-6 md:grid-cols-3">{TESTIMONIALS.map((t) => <div key={t.name} className="rounded-2xl border bg-card p-6 shadow-card"><div className="flex gap-0.5 text-warning">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div><p className="mt-3 text-sm text-foreground/90">"{t.quote}"</p><div className="mt-4 text-xs"><div className="font-semibold">{t.name}</div><div className="text-muted-foreground">{t.role}</div></div></div>)}</div></div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="home-blog-heading">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Guides & insights</p>
+            <h2 id="home-blog-heading" className="mt-2 text-3xl font-bold tracking-tight">Explore our SEO & AI writing guides</h2>
+            <p className="mt-3 max-w-2xl text-muted-foreground">Practical advice to compare tool features, understand plans, and choose subscriptions for your workflow.</p>
+          </div>
+          <Link to="/blog" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">Browse all articles <ArrowRight className="h-4 w-4" /></Link>
+        </div>
+        <Link to="/blog/$slug" params={{ slug: "how-to-choose-seo-ai-writing-tool-subscriptions" }} className="group mt-8 block rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow">
+          <span className="text-xs font-semibold uppercase tracking-wide text-primary">Getting started</span>
+          <h3 className="mt-2 text-xl font-bold group-hover:text-primary">How to Choose SEO & AI Writing Tool Subscriptions</h3>
+          <p className="mt-2 text-sm text-muted-foreground">A practical guide to comparing features, pricing, usage limits, and the right tools for customers worldwide.</p>
+          <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">Read the guide <ArrowRight className="h-4 w-4" /></span>
+        </Link>
+      </section>
+
       <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="text-center"><div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow"><HelpCircle className="h-5 w-5" /></div><h2 className="mt-4 text-3xl font-bold tracking-tight">Frequently asked questions</h2></div>
         <div className="mt-10 space-y-3">{FAQ.map((item) => <details key={item.q} className="group rounded-2xl border bg-card p-5 shadow-card open:shadow-glow"><summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">{item.q}<span className="text-lg text-muted-foreground transition group-open:rotate-45">+</span></summary><p className="mt-3 text-sm text-muted-foreground">{item.a}</p></details>)}</div>
