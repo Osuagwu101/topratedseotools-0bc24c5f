@@ -95,7 +95,10 @@ export const Route = createFileRoute("/tools/$slug")({
         { name: "description", content: loaderData.description },
         { property: "og:title", content: `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
         { property: "og:description", content: loaderData.description },
+        { property: "og:url", content: `https://topratedseotools.com/tools/${loaderData.slug}` },
+        { property: "og:type", content: "product" },
       ],
+      links: [{ rel: "canonical", href: `https://topratedseotools.com/tools/${loaderData.slug}` }],
     };
   },
   errorComponent: () => (
