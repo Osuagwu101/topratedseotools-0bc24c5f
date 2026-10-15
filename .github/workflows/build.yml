@@ -114,3 +114,14 @@ jobs:
         run: bunx tsc --noEmit
       - name: Production build
         run: bun run build
+
+      - name: Validate release health gate scripts
+        run: python3 -m py_compile scripts/check_public_asset_health.py scripts/check_nginx_release.py
+
+      - name: Reject incomplete production asset builds
+        run: |
+          test -d .output/public/assets
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.js' | wc -l)" -ge 20
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.css' | wc -l)" -ge 1
+          test -f .output/server/index.mjs
+          echo "Asset build preflight passed"
