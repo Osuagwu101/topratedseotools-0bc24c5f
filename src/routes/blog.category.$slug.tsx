@@ -23,7 +23,7 @@ export const Route = createFileRoute("/blog/category/$slug")({
     return null;
   },
   head: ({ params }) => {
-    const url = `https://topratedseotools.lovable.app/blog/category/${params.slug}`;
+    const url = `https://topratedseotools.com/blog/category/${params.slug}`;
     return {
       meta: [
         { title: `${params.slug} — Blog — Top Rated SEO Tools` },
