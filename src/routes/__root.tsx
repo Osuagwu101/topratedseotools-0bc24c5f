@@ -116,6 +116,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: APP_DESCRIPTION },
       { name: "twitter:image", content: BRAND_LOGO_URL },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: APP_NAME,
+          url: "https://topratedseotools.com",
+          logo: "https://topratedseotools.com/api/public/brand-logo",
+          description: APP_DESCRIPTION,
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: APP_NAME,
+          url: "https://topratedseotools.com",
+        }),
+      },
+    ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: BRAND_FAVICON_PNG_PATH, type: "image/png", sizes: "any" },
