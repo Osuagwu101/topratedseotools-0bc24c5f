@@ -25,6 +25,7 @@ export const Route = createFileRoute("/pricing")({
       { property: "og:title", content: "Individual Plans for Every Tool" },
       { property: "og:description", content: "Choose from the access types and billing periods available for each tool, or contact Admin where pricing is custom." },
     ],
+    links: [{ rel: "canonical", href: "https://topratedseotools.com/pricing" }],
   }),
   component: PricingPage,
 });
