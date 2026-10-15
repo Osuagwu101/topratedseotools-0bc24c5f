@@ -34,6 +34,7 @@ export const Route = createFileRoute("/tools/")({
       { property: "og:title", content: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
       { property: "og:description", content: "Every tool is subscribed to separately — pay only for the tools you need." },
     ],
+    links: [{ rel: "canonical", href: "https://topratedseotools.com/tools" }],
   }),
   component: ToolsDirectory,
 });
