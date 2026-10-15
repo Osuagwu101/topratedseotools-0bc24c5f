@@ -17,6 +17,8 @@ const COLS = [
     links: [
       { to: "/about", label: "About" },
       { to: "/contact", label: "Contact" },
+      { to: "/ng", label: "Nigeria" },
+      { to: "/gh", label: "Ghana" },
     ],
   },
   {
