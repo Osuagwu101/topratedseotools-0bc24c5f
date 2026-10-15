@@ -69,9 +69,9 @@ function Home() {
       <section className="bg-gradient-hero relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8 lg:pt-32">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-primary" /> Premium software subscriptions, priced individually</div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-primary" /> Premium software subscriptions, priced individually for Nigeria & Ghana</div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.</h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">Choose from leading SEO, AI, writing, research, design, and productivity tools. Access types and billing periods vary by product, with clear pricing and fast activation after verified payment.</p>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">Choose from leading SEO, AI, writing, research, design, and productivity tools. Access types and billing periods vary by product, with clear pricing in Naira or Cedis and fast activation after verified payment.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/pricing" className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90">Browse Individual Plans <ArrowRight className="h-4 w-4" /></Link>
               <Link to="/tools" className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted">See How It Works</Link>
