@@ -12,5 +12,8 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    // Admin build only: keep server-function calls under /admin/ so nginx routes them
+    // to this build instead of the storefront (which does not contain admin functions).
+    serverFns: { base: "/admin/_serverFn" },
   },
 });
