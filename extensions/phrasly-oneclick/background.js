@@ -54,7 +54,9 @@ async function usage(sender, message) {
   if (!globalThis.TRST_EXTENSION.enabled || !sender.tab || sender.frameId !== 0 || !nativeOrigin(sender.url) || !FEATURES.includes(message.feature)) return { allowed: false };
   const all = await chrome.storage.session.get(KEY);
   const tracked = (all[KEY] || {})[sender.tab.id];
-  if (!tracked || typeof message.action_id !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(message.action_id)) return { allowed: false };
+  // Unmanaged native use belongs to the user's provider account, not TopRated.
+  if (!tracked) return { allowed: true, managed: false };
+  if (typeof message.action_id !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(message.action_id)) return { allowed: false };
   const { status, data } = await post("/ext-check-usage.php", { record_token: tracked.recordToken, feature: message.feature, action_id: message.action_id });
   if (status !== 200 || data.ok !== true || data.allowed !== true) {
     if (data.error === "limit_reached" || (data.ok === true && data.allowed === false)) {

@@ -1,5 +1,6 @@
 // Preserve the AWS browser-native action boundary; no server-side processing.
 (() => {
+  if (!globalThis.TRST_EXTENSION?.enabled) return;
   const features = new Map([["/api/ai/rewrite", "humanizer"], ["/api/ai/detect", "ai_detector"]]);
   const original = window.fetch.bind(window);
   function selected(input) {

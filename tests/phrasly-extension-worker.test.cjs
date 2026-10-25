@@ -65,9 +65,10 @@ test('opening a native page does not increment usage; action dispatch uses the r
   const fields = new URLSearchParams(w.calls[1].init.body);
   assert.equal(fields.get('record_token'), 'fixture-record'); assert.equal(fields.get('feature'), 'humanizer'); assert.ok(fields.get('action_id'));
 });
-test('untracked tab, subframe and unsupported feature cannot consume usage', async () => {
+test('unmanaged native use is untouched; subframes and unknown features cannot consume quota', async () => {
   const w = worker();
-  assert.equal((await w.usage()).allowed, false);
+  const unmanaged = await w.usage();
+  assert.equal(unmanaged.allowed, true); assert.equal(unmanaged.managed, false); assert.equal(w.calls.length, 0);
   await w.access();
   assert.equal((await w.usage('humanizer', { tab: { id: 1 }, frameId: 1, url: 'https://phrasly.ai/' })).allowed, false);
   assert.equal((await w.usage('unsupported')).allowed, false); assert.equal(w.calls.length, 1);
@@ -99,7 +100,7 @@ for (const allowed of [true, false]) test(`combined MAIN-world/content/worker/qu
   const chrome = { runtime: { lastError: null, sendMessage(message, reply) {
     w.dispatch(message, { tab: { id: 1 }, frameId: 0, url: win.location.href }, reply);
   } } };
-  const context = vm.createContext({ window: win, chrome, URL, Response, Map, crypto: { randomUUID }, setTimeout, clearTimeout });
+  const context = vm.createContext({ window: win, chrome, URL, Response, Map, crypto: { randomUUID }, setTimeout, clearTimeout, TRST_EXTENSION: { enabled: true } });
   vm.runInContext(fs.readFileSync(path.join(root, 'content.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(root, 'interceptor.js'), 'utf8'), context);
   const response = await win.fetch('/api/ai/rewrite', { method: 'POST' });
@@ -107,14 +108,14 @@ for (const allowed of [true, false]) test(`combined MAIN-world/content/worker/qu
   assert.equal(w.calls.filter(x => x.url.endsWith('/ext-check-usage.php')).length, 1);
 });
 
-function interceptor(reply) {
+function interceptor(reply, enabled = true) {
   const listeners = new Set(); const calls = []; let timeout; let originalCalls = 0;
   const win = { location: { href: 'https://phrasly.ai/dashboard', origin: 'https://phrasly.ai' },
     async fetch() { originalCalls++; return new Response('native fixture'); },
     addEventListener(_type, fn) { listeners.add(fn); }, removeEventListener(_type, fn) { listeners.delete(fn); },
     postMessage(message) { calls.push(message); if (reply !== undefined) for (const fn of [...listeners]) fn({ source: win, origin: win.location.origin, data: { source: 'trst-interceptor-reply', requestId: message.requestId, allowed: reply } }); },
   };
-  const ctx = vm.createContext({ window: win, URL, Response, Map, crypto: { randomUUID },
+  const ctx = vm.createContext({ window: win, URL, Response, Map, crypto: { randomUUID }, TRST_EXTENSION: { enabled },
     setTimeout(fn) { timeout = fn; return 1; }, clearTimeout() {} });
   vm.runInContext(fs.readFileSync(path.join(root, 'interceptor.js'), 'utf8'), ctx);
   return { win, calls, expire: () => timeout(), originalCalls: () => originalCalls };
@@ -129,6 +130,11 @@ test('only the recovered exact native POST action paths ask for quota', async ()
 });
 test('denial suppresses the native request', async () => {
   const c = interceptor(false); assert.equal((await c.win.fetch('/api/ai/rewrite', { method: 'POST' })).status, 429); assert.equal(c.originalCalls(), 0);
+});
+test('disabled extension leaves native provider requests untouched', async () => {
+  const c = interceptor(undefined, false);
+  assert.equal((await c.win.fetch('/api/ai/rewrite', { method: 'POST' })).status, 200);
+  assert.equal(c.calls.length, 0); assert.equal(c.originalCalls(), 1);
 });
 test('relay timeout fails closed instead of the AWS fail-open behavior', async () => {
   const c = interceptor(); const pending = c.win.fetch('/api/ai/rewrite', { method: 'POST' }); c.expire();

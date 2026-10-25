@@ -1,4 +1,5 @@
 // AWS page-to-worker relay, without account-menu hiding or session access.
+if (globalThis.TRST_EXTENSION?.enabled) {
 window.addEventListener("message", event => {
   if (event.source !== window || event.origin !== window.location.origin) return;
   const message = event.data;
@@ -9,3 +10,4 @@ window.addEventListener("message", event => {
       allowed: !chrome.runtime.lastError && response?.allowed === true }, window.location.origin);
   });
 });
+}

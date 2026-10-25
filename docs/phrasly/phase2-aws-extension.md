@@ -81,6 +81,7 @@ The recovered token format alone does not prevent replay. Phase 3 must add trans
 - External callers are restricted to the configured TopRated origin. Usage calls require a tracked top-level native tab and known feature.
 - The original four-second timeout allowed requests to proceed. The port denies on timeout instead.
 - Native action matching is origin/exact-path/POST-specific rather than a substring match on arbitrary URLs.
+- A disabled extension leaves normal Phrasly requests untouched. Enabled quota checks apply only to TopRated-managed tabs; independent use of the user's provider account is not restricted or metered by TopRated.
 - Provider authentication/account controls and cookies are not modified. Only first-party allowance metadata is relayed.
 
 Client-side interception cannot stop someone from using their own provider account outside the extension, and page-origin messages are not a provider authorization boundary. The provider remains responsible for its own login, subscription and quota enforcement. These tests do not establish otherwise.
