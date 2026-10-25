@@ -22,6 +22,8 @@ def build(origin, destination, enabled=False):
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     config = "globalThis.TRST_EXTENSION = Object.freeze(" + json.dumps({"origin": origin, "enabled": enabled}) + ");\n"
     (destination / "config.js").write_text(config)
+    page = destination / "limit-reached.html"
+    page.write_text(page.read_text().replace("https://topratedseotools.com/dashboard", origin + "/dashboard"))
     return {"directory": str(destination), "origin": origin, "enabled": enabled}
 
 if __name__ == "__main__":

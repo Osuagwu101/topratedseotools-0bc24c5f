@@ -7,6 +7,8 @@ on:
       - "src/lib/phrasly-extension/**"
       - "extensions/phrasly-oneclick/**"
       - "tests/phrasly-extension*"
+      - "scripts/phrasly/build-native-extension.py"
+      - "config/phrasly-extension.env.example"
       - ".github/workflows/phrasly-phase2-extension.yml"
 
 permissions:

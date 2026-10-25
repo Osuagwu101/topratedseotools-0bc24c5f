@@ -19,6 +19,7 @@ class ExtensionBuildTests(unittest.TestCase):
             self.assertEqual(manifest["host_permissions"], ["https://staging.example.com/*"])
             self.assertEqual(manifest["externally_connectable"]["matches"], ["https://staging.example.com/*"])
             self.assertIn('"enabled": false', (out / "config.js").read_text())
+            self.assertIn('https://staging.example.com/dashboard', (out / "limit-reached.html").read_text())
             self.assertNotIn("key", manifest)
 
     def test_existing_directory_is_not_overwritten(self):
