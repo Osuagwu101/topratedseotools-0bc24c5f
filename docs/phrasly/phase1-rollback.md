@@ -1,16 +1,16 @@
 # Phase 1 backup and rollback procedure
 
-Status: prepared procedure; the actual VPS backup and restore rehearsal are not yet verified. No production deployment or rollback was executed.
+Status: backup extraction, checksum/ownership comparison and isolated runtime smoke checks verified on 25 October 2026. No production deployment or route-switch rollback was executed. See [closeout evidence](phase1-closeout.md).
 
-## Resume safely
+## Verified recovery point
 
-The backup driver was started from the authorized Windows operations directory. Its intended destination is a new host-local directory:
+The backup is `/home/ubuntu/backups/phrasly-phase1-20261025T151022Z` on the original VPS. It contains five mode-0600 archives inside a mode-0700 directory. The first interrupted attempt left no host backup; this replacement has been independently read back and verified.
 
-`/home/ubuntu/backups/phrasly-phase1-<UTC-timestamp>`
+Inspect `verification.private.json`, `phase1-final.private.json`, `files.private.json`, `processes.private.json`, `runtime-process-config.private.json`, the runtime-isolation evidence and `SHA256SUMS` on that host. Keep the protected archives and configuration on the original host.
 
-After the SSH bridge reconnects, inspect the existing process result and any partial backup first. A missing tool response does not prove that the SSH operation never ran. Do not repeat the driver blindly or overwrite partial evidence.
+The active application processes use Node's `--env-file=<release>/.env` argument in PM2 fork mode. Preserve that startup argument during a future same-host recovery, updating it to the new recovery directory. Production environment files were excluded from the namespace smoke tests, which used explicit dummy values.
 
-Keep original releases, Nginx configuration, source checkouts and permissions intact. Any permission correction needed for recovery applies only to newly created private backup files or restore-test directories.
+Keep original releases, Nginx configuration, source checkouts and permissions intact. Future recovery must use a new directory and account for intervening changes.
 
 ## Required contents
 
@@ -47,6 +47,14 @@ Its seven fixture tests run with:
 ```sh
 python3 -m unittest discover -s scripts/phrasly -p 'test_*.py' -v
 ```
+
+The reproducible runtime rehearsal is:
+
+```sh
+python3 scripts/phrasly/rehearse_phase1_runtime.py "$PHRASLY_BACKUP_DIR"
+```
+
+It requires Linux namespaces, Node, Nginx, iproute2 and authorized passwordless sudo. It verifies the backup first, copies only compiled runtimes, hides the original release directory inside a private mount namespace and enables only loopback in a private network namespace. It uses temporary unprivileged Node/Nginx processes and dummy configuration. It checks declared dependencies, static asset bytes, the first-party method gate and the retired route blocks, then stops those processes. It does not exercise authenticated pages, customer data, provider processing, TLS or a production route switch.
 
 7. Compare production hashes/process counters and HTTP results after rehearsal. Investigate any live change/restart before recording production integrity.
 8. Keep the retired Phrasly 410 blocks and provider-session configuration unchanged.

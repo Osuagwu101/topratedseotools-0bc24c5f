@@ -1,6 +1,6 @@
 # Phrasly Phase 1: baseline and remaining gate
 
-Status on 25 October 2026: **source baseline and isolated compilation verified; VPS backup/restore verification blocked by the offline SSH bridge**. Phase 1 is not complete. No production release was deployed, service restarted/reloaded, or database mutation issued.
+Status on 25 October 2026: **Phase 1 complete: source baseline, isolated compilation, backup restoration and runtime smoke checks verified**. See the [closeout evidence](phase1-closeout.md). No production release was deployed, service restarted/reloaded, or database mutation issued.
 
 ## Source and Git baseline
 
@@ -45,7 +45,7 @@ Node `22.23.2`, npm `10.9.8`, Git `2.43.0` and Nginx syntax were verified throug
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Admin source comparison | PASS | 376 matching build files, 3 changed, 5 extra, 0 missing |
+| Admin source comparison | PASS | 384/384 build inputs now match the dedicated branch after preserving the eight deployed differences |
 | Eight recovered source files reviewed | PASS for snapshot scope | No private keys, server secrets, provider credentials or customer records |
 | GitHub readback | PASS | All eight files and provenance matched |
 | Clean npm installation | FAIL, baseline limitation | Existing package-lock.json is stale; no dependencies changed |
@@ -54,8 +54,8 @@ Node `22.23.2`, npm `10.9.8`, Git `2.43.0` and Nginx syntax were verified throug
 | Backup helper fixture tests | PASS, 7/7 | Intact fixture accepted; truncation, content/link changes, incomplete metadata, public permissions and path traversal rejected |
 | Public endpoint checks | PASS, 6/6 | Rechecked 2026-10-25T12:25:48Z |
 | Phrasly database counts | PASS, unchanged | Read-only settings/session counts zero before and after |
-| Actual host-local backup and restore rehearsal | UNVERIFIED | Backup driver started; completion unavailable after SSH bridge went offline |
-| Final host file hashes and process comparison | BLOCKED | Requires the SSH bridge |
+| Actual host-local backup and restore rehearsal | PASS | Five protected archives; 5,721 files and two symlinks verified after extraction |
+| Final host file hashes and process comparison | PASS | All 5,826 filesystem entries and all 60 PM2 process records unchanged |
 
 The npm failure is [run 40192659061](https://github.com/Osuagwu101/topratedseotools-0bc24c5f/actions/runs/40192659061). Its log reports an outdated Lovable Vite config version and missing dependencies in package-lock.json. The corrected workflow uses the existing Bun lock, pinning Bun `1.4.4` and Node `22.23.2`. Neither lockfile nor production dependencies changed.
 
@@ -86,8 +86,12 @@ It uses dummy configuration and checks the generated Node entry, browser JS and 
 
 The existing production-hostname client pin is preserved. Dummy configuration makes non-production compilation independent of live credentials; it does not remove that pin or authorize provider access.
 
-## Remaining gate
+## Phase 1 closeout
 
-Follow [backup and rollback procedure](phase1-rollback.md). Inspect the already-started operation before repeating it. Mark backup success only after checksums, isolated extraction, file/link/mode comparisons and runtime dependency checks pass. Recheck live source/configuration hashes, process identity/restart counts and HTTP results.
+The interrupted SSH bridge was restored. The earlier attempt left no backup directory. A new protected snapshot was created, extracted and verified, then three copied runtimes were exercised in private network and mount namespaces. The original release directory was hidden inside those namespaces; only loopback networking was available. Real credentials and provider access were not used.
 
-Remote Commander stopped receiving responses from the authorized Windows SSH bridge and later reported no online device. This is a transport blocker, not evidence of an invalid SSH key. Complete the backup gate before integration implementation. Provider cookies, sessions and access-control workarounds are excluded.
+The [full source inventory](phase1-source-inventory.json) records the 384 build inputs, hashes, sizes, ownership and modes. [Closeout evidence](phase1-closeout.md) records archive hashes, runtime checks and final production integrity. The [rollback procedure](phase1-rollback.md) now points to the verified backup.
+
+Public, login and admin runtimes each started with dummy configuration, served an exact browser asset through a temporary Nginx instance, returned a first-party method denial (405), and preserved retired Phrasly route denials (410). Test processes were stopped. Authenticated HTML/data flows and provider processing require the later authorized staging integration; these smoke checks do not establish end-to-end Phrasly operation.
+
+Main and the original admin branch remain unchanged. Phase 2 has not started.

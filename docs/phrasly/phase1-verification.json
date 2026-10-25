@@ -1,7 +1,7 @@
 {
   "phase": 1,
-  "status": "BLOCKED_BACKUP_VERIFICATION",
-  "recorded_at": "2026-10-25T12:26:17Z",
+  "status": "COMPLETE",
+  "recorded_at": "2026-10-25T15:29:01.222887Z",
   "branch": "phrasly/phase1-baseline-20261025",
   "base_commit": "663f59675300183fa738f7f5eb43841f536d2bb9",
   "main_unchanged": "28c9e1d1058b73be11056af94522b2758fe66de8",
@@ -55,10 +55,12 @@
     }
   ],
   "admin_source_comparison": {
-    "matching": 376,
-    "changed": 3,
-    "extra": 5,
-    "missing": 0
+    "expected": 384,
+    "matched": 384,
+    "missing": 0,
+    "different": 0,
+    "extra": 0,
+    "inventory": "phase1-source-inventory.json"
   },
   "compile": {
     "status": "PASS",
@@ -82,45 +84,39 @@
     "status": "PASS",
     "passed": 7,
     "failed": 0,
-    "actual_vps_restore": false
+    "scope": "synthetic fixtures; actual VPS restore is recorded separately under backup"
   },
   "public_http": {
-    "utc": "2026-10-25T12:25:48Z",
+    "utc": "2026-10-25T15:28:17Z",
     "results": [
       {
         "path": "/",
         "status": 200,
-        "rc": 0,
         "expected": 200
       },
       {
         "path": "/login",
         "status": 200,
-        "rc": 0,
         "expected": 200
       },
       {
         "path": "/tools/phrasly",
         "status": 200,
-        "rc": 0,
         "expected": 200
       },
       {
         "path": "/admin/turnitin-billing",
         "status": 200,
-        "rc": 0,
         "expected": 200
       },
       {
         "path": "/api/phrasly-proxy",
         "status": 410,
-        "rc": 0,
         "expected": 410
       },
       {
         "path": "/api/phrasly-proxy-bootstrap",
         "status": 410,
-        "rc": 0,
         "expected": 410
       }
     ],
@@ -138,22 +134,226 @@
       "settings_rows": 0,
       "stored_session_rows": 0,
       "proxy_session_rows": 0
+    },
+    {
+      "at": "2026-10-25T15:29:01.222887Z",
+      "settings_rows": 0,
+      "stored_session_rows": 0,
+      "proxy_session_rows": 0
     }
   ],
   "backup": {
-    "status": "UNVERIFIED",
-    "reason": "Authorized Windows SSH bridge went offline after backup driver started; completion unavailable",
-    "next": "Inspect prior process output/partial host backup; finish checksums, restore and dependency verification"
+    "status": "PASS",
+    "host_path": "/home/ubuntu/backups/phrasly-phase1-20261025T151022Z",
+    "directory_mode": "0700",
+    "archive_mode": "0600",
+    "archives": [
+      {
+        "name": "storefront-runtime.tar.gz",
+        "sha256": "ac7f83c700b982e9d65faf79826eb78dd857a54cf950d3517a316798da9e1165",
+        "bytes": 5217454,
+        "entries": 1293,
+        "files": 1279,
+        "restore": "PASS"
+      },
+      {
+        "name": "login-runtime.tar.gz",
+        "sha256": "fbefc3bcf4e90c779f910f59fd834ffc85faeece67b7197d2c2f70eff0969c98",
+        "bytes": 3153408,
+        "entries": 1042,
+        "files": 1004,
+        "restore": "PASS"
+      },
+      {
+        "name": "admin-runtime-source.tar.gz",
+        "sha256": "ab22fc1ec7526dab35e290b9820a33593d803149db945fdbf9b6b1a7c127840e",
+        "bytes": 3223106,
+        "entries": 1075,
+        "files": 1037,
+        "restore": "PASS"
+      },
+      {
+        "name": "assets.tar.gz",
+        "sha256": "d1e0160e92c9b8b2bb8a493558e9bd45822bc2a48cb54f5766e8fd8782342587",
+        "bytes": 9208835,
+        "entries": 2347,
+        "files": 2344,
+        "restore": "PASS"
+      },
+      {
+        "name": "nginx-configuration.tar.gz",
+        "sha256": "ea6386260be8f68266098a455cc4d5fce9024e77462d95a92765accff90069e6",
+        "bytes": 11959,
+        "entries": 69,
+        "files": 57,
+        "restore": "PASS"
+      }
+    ],
+    "archive_ownership": {
+      "status": "PASS",
+      "archive_entries": 5826,
+      "ownership_mismatches": []
+    },
+    "verifier": {
+      "status": "PASS",
+      "archives": 5,
+      "restored_files": 5721,
+      "restored_symlinks": 2
+    },
+    "secret_configuration_exported": false
   },
   "production": {
     "application_writes": false,
     "nginx_writes": false,
     "service_restart_or_reload": false,
     "database_writes": false,
-    "final_host_hashes_and_processes": "BLOCKED",
-    "initial_nginx_test": "PASS",
-    "initial_observed_pm2_processes": 5,
-    "initial_restart_counts_all_zero": true
+    "final_host_files": {
+      "unchanged": true,
+      "entries": 5826,
+      "files": 5721,
+      "mismatches": []
+    },
+    "pm2_process_records_unchanged": true,
+    "observed_processes": 60,
+    "nginx_test": "PASS",
+    "remaining_test_node_processes": [],
+    "remaining_test_nginx_processes": [],
+    "original_branches_unchanged": true
   },
-  "phase2_started": false
+  "phase2_started": false,
+  "verification_parent_commit": "3bd0e011a9480d7da5f9247e175c10216d40ccc3",
+  "runtime_versions": {
+    "node": {
+      "rc": 0,
+      "version": "v22.23.2"
+    },
+    "npm": {
+      "rc": 0,
+      "version": "10.9.8"
+    },
+    "nginx": {
+      "rc": 0,
+      "version": "nginx version: nginx/1.24.0 (Ubuntu)"
+    },
+    "pm2": {
+      "rc": 0,
+      "version": "7.0.4"
+    },
+    "python3": {
+      "rc": 0,
+      "version": "Python 3.12.3"
+    }
+  },
+  "runtime_rehearsal": {
+    "status": "PASS",
+    "runtimes": [
+      {
+        "role": "storefront-runtime",
+        "dependencies": [
+          {
+            "name": "tslib",
+            "version": "2.8.1"
+          }
+        ],
+        "dummy_config": true,
+        "live_releases_masked": true,
+        "status": "PASS",
+        "asset_status": 200,
+        "asset_sha256": "d67826b21b0bddd3a10cf798474b292f01e2a420600562d168fed5d16be13ac3",
+        "retired_routes": [
+          {
+            "path": "/api/phrasly-proxy",
+            "status": 410
+          },
+          {
+            "path": "/api/phrasly-proxy-bootstrap",
+            "status": 410
+          }
+        ],
+        "test_nginx_stopped": true,
+        "node_method_gate_status": 405,
+        "html_status": "NOT_TESTED_REQUIRES_STAGING_DATABASE",
+        "test_process_stopped": true
+      },
+      {
+        "role": "login-runtime",
+        "dependencies": [
+          {
+            "name": "tslib",
+            "version": "2.8.1"
+          }
+        ],
+        "dummy_config": true,
+        "live_releases_masked": true,
+        "status": "PASS",
+        "asset_status": 200,
+        "asset_sha256": "d67826b21b0bddd3a10cf798474b292f01e2a420600562d168fed5d16be13ac3",
+        "retired_routes": [
+          {
+            "path": "/api/phrasly-proxy",
+            "status": 410
+          },
+          {
+            "path": "/api/phrasly-proxy-bootstrap",
+            "status": 410
+          }
+        ],
+        "test_nginx_stopped": true,
+        "node_method_gate_status": 405,
+        "html_status": "NOT_TESTED_REQUIRES_STAGING_DATABASE",
+        "test_process_stopped": true
+      },
+      {
+        "role": "admin-runtime-source",
+        "dependencies": [
+          {
+            "name": "tslib",
+            "version": "2.8.1"
+          }
+        ],
+        "dummy_config": true,
+        "live_releases_masked": true,
+        "status": "PASS",
+        "asset_status": 200,
+        "asset_sha256": "3b908af1c17ae688e68a1f62ce48397028cb648de388368c38e18c970a5cc821",
+        "retired_routes": [
+          {
+            "path": "/api/phrasly-proxy",
+            "status": 410
+          },
+          {
+            "path": "/api/phrasly-proxy-bootstrap",
+            "status": 410
+          }
+        ],
+        "test_nginx_stopped": true,
+        "node_method_gate_status": 405,
+        "html_status": "NOT_TESTED_REQUIRES_STAGING_DATABASE",
+        "test_process_stopped": true
+      }
+    ],
+    "network_interfaces": [
+      "lo"
+    ],
+    "external_network": false,
+    "live_release_directory_hidden": true,
+    "production_environment_loaded": false,
+    "utc": "2026-10-25T15:26:25Z"
+  },
+  "earlier_interruption": {
+    "status": "RESOLVED",
+    "prior_record_commit": "3bd0e011a9480d7da5f9247e175c10216d40ccc3",
+    "prior_backup_found": false
+  },
+  "rehearsal_probe_adjustment": {
+    "initial_result": "Node asset request timed out",
+    "correction": "Rehearse the actual static-file boundary through temporary Nginx; Node method-denial checks separately returned 405",
+    "production_changed": false
+  },
+  "limitations": [
+    "Authenticated staging flows and provider processing are outside Phase 1",
+    "npm ci remains unusable with the existing stale npm lock; the unchanged Bun lock was verified",
+    "The public runtime is bundle-only; its source equivalence to the admin branch is not asserted",
+    "No production route switch or production rollback was executed"
+  ]
 }
