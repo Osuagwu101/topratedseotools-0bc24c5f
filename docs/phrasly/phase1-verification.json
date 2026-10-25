@@ -1,0 +1,159 @@
+{
+  "phase": 1,
+  "status": "BLOCKED_BACKUP_VERIFICATION",
+  "recorded_at": "2026-10-25T12:26:17Z",
+  "branch": "phrasly/phase1-baseline-20261025",
+  "base_commit": "663f59675300183fa738f7f5eb43841f536d2bb9",
+  "main_unchanged": "28c9e1d1058b73be11056af94522b2758fe66de8",
+  "source_snapshot_commit": "f3dbde3fab0994f999e9e2a0e464128dba79075f",
+  "compile_commit": "0930385f42593d9274858e66356c34986a3378e8",
+  "source_readback": [
+    {
+      "path": "src/integrations/supabase/client.ts",
+      "ok": true,
+      "sha": "7cf25e9b86dc8224d37e4c55e985bdaf56c4f346"
+    },
+    {
+      "path": "src/lib/brand-assets.ts",
+      "ok": true,
+      "sha": "d4dcda4ae0d4d3bc34f406c6d508610c5fe4e712"
+    },
+    {
+      "path": "src/routeTree.gen.ts",
+      "ok": true,
+      "sha": "74ee513c45bdf276c2c119c6032bac7e3425f3fb"
+    },
+    {
+      "path": "src/lib/turnitin-admin-purchases.functions.ts",
+      "ok": true,
+      "sha": "9eb23aa124c0169b5a2fbe899cc18adf2f4f1075"
+    },
+    {
+      "path": "src/lib/turnitin-admin-phase2.functions.ts",
+      "ok": true,
+      "sha": "f026e25410a1ce6b923d290d4a7199733b32ddb3"
+    },
+    {
+      "path": "src/lib/turnitin-admin-credit-overview.functions.ts",
+      "ok": true,
+      "sha": "a4325fe266fc9c826af2a0fd6c22bd4fe314537b"
+    },
+    {
+      "path": "src/routes/admin.turnitin.tsx",
+      "ok": true,
+      "sha": "0c668d58eb2bb23de843c0ee968f632710545918"
+    },
+    {
+      "path": "src/routes/admin.turnitin-credits.tsx",
+      "ok": true,
+      "sha": "cf747f40b3ab10cae967a62f2cd2bc6acf6140ab"
+    },
+    {
+      "path": "docs/phrasly/phase1-source-baseline.md",
+      "ok": true,
+      "sha": "90ebbe168fb7de8c99b1bfd24ab92bf0e8a51ba0"
+    }
+  ],
+  "admin_source_comparison": {
+    "matching": 376,
+    "changed": 3,
+    "extra": 5,
+    "missing": 0
+  },
+  "compile": {
+    "status": "PASS",
+    "run_id": 40192768445,
+    "node": "22.23.2",
+    "npm": "10.9.8",
+    "bun": "1.4.4",
+    "install": "bun install --frozen-lockfile --ignore-scripts",
+    "build": "npm run build",
+    "configuration": "dummy",
+    "server_started": false,
+    "deployment": false
+  },
+  "npm_ci": {
+    "status": "FAIL",
+    "run_id": 40192659061,
+    "reason": "Existing package-lock.json out of sync with package.json",
+    "resolution": "Used existing matching bun.lock without changing dependencies"
+  },
+  "backup_helper_fixture_tests": {
+    "status": "PASS",
+    "passed": 7,
+    "failed": 0,
+    "actual_vps_restore": false
+  },
+  "public_http": {
+    "utc": "2026-10-25T12:25:48Z",
+    "results": [
+      {
+        "path": "/",
+        "status": 200,
+        "rc": 0,
+        "expected": 200
+      },
+      {
+        "path": "/login",
+        "status": 200,
+        "rc": 0,
+        "expected": 200
+      },
+      {
+        "path": "/tools/phrasly",
+        "status": 200,
+        "rc": 0,
+        "expected": 200
+      },
+      {
+        "path": "/admin/turnitin-billing",
+        "status": 200,
+        "rc": 0,
+        "expected": 200
+      },
+      {
+        "path": "/api/phrasly-proxy",
+        "status": 410,
+        "rc": 0,
+        "expected": 410
+      },
+      {
+        "path": "/api/phrasly-proxy-bootstrap",
+        "status": 410,
+        "rc": 0,
+        "expected": 410
+      }
+    ],
+    "all_expected": true
+  },
+  "database_checks": [
+    {
+      "at": "2026-10-25T12:02:33.114856Z",
+      "settings_rows": 0,
+      "stored_session_rows": 0,
+      "proxy_session_rows": 0
+    },
+    {
+      "at": "2026-10-25T12:19:10.245822Z",
+      "settings_rows": 0,
+      "stored_session_rows": 0,
+      "proxy_session_rows": 0
+    }
+  ],
+  "backup": {
+    "status": "UNVERIFIED",
+    "reason": "Authorized Windows SSH bridge went offline after backup driver started; completion unavailable",
+    "next": "Inspect prior process output/partial host backup; finish checksums, restore and dependency verification"
+  },
+  "production": {
+    "application_writes": false,
+    "nginx_writes": false,
+    "service_restart_or_reload": false,
+    "database_writes": false,
+    "final_host_hashes_and_processes": "BLOCKED",
+    "initial_nginx_test": "PASS",
+    "initial_observed_pm2_processes": 5,
+    "initial_restart_counts_all_zero": true
+  },
+  "phase2_started": false
+}
