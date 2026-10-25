@@ -16,7 +16,9 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as NgRouteImport } from './routes/ng'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GhRouteImport } from './routes/gh'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -35,6 +37,10 @@ import { Route as ToolsSlugRouteImport } from './routes/tools.$slug'
 import { Route as PayTokenRouteImport } from './routes/pay.$token'
 import { Route as BlogSearchRouteImport } from './routes/blog.search'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AdminTurnitinPurchasesRouteImport } from './routes/admin.turnitin-purchases'
+import { Route as AdminTurnitinCreditsRouteImport } from './routes/admin.turnitin-credits'
+import { Route as AdminTurnitinBillingRouteImport } from './routes/admin.turnitin-billing'
+import { Route as AdminTurnitinRouteImport } from './routes/admin.turnitin'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
@@ -155,9 +161,19 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NgRoute = NgRouteImport.update({
+  id: '/ng',
+  path: '/ng',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GhRoute = GhRouteImport.update({
+  id: '/gh',
+  path: '/gh',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -248,6 +264,26 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => BlogRoute,
+} as any)
+const AdminTurnitinPurchasesRoute = AdminTurnitinPurchasesRouteImport.update({
+  id: '/admin/turnitin-purchases',
+  path: '/admin/turnitin-purchases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTurnitinCreditsRoute = AdminTurnitinCreditsRouteImport.update({
+  id: '/admin/turnitin-credits',
+  path: '/admin/turnitin-credits',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTurnitinBillingRoute = AdminTurnitinBillingRouteImport.update({
+  id: '/admin/turnitin-billing',
+  path: '/admin/turnitin-billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTurnitinRoute = AdminTurnitinRouteImport.update({
+  id: '/admin/turnitin',
+  path: '/admin/turnitin',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTransactionsRoute = AdminTransactionsRouteImport.update({
   id: '/admin/transactions',
@@ -703,7 +739,9 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gh': typeof GhRoute
   '/login': typeof LoginRoute
+  '/ng': typeof NgRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -734,6 +772,10 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
+  '/admin/turnitin': typeof AdminTurnitinRoute
+  '/admin/turnitin-billing': typeof AdminTurnitinBillingRoute
+  '/admin/turnitin-credits': typeof AdminTurnitinCreditsRoute
+  '/admin/turnitin-purchases': typeof AdminTurnitinPurchasesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
@@ -813,7 +855,9 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gh': typeof GhRoute
   '/login': typeof LoginRoute
+  '/ng': typeof NgRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -837,6 +881,10 @@ export interface FileRoutesByTo {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/transactions': typeof AdminTransactionsRoute
+  '/admin/turnitin': typeof AdminTurnitinRoute
+  '/admin/turnitin-billing': typeof AdminTurnitinBillingRoute
+  '/admin/turnitin-credits': typeof AdminTurnitinCreditsRoute
+  '/admin/turnitin-purchases': typeof AdminTurnitinPurchasesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
@@ -919,7 +967,9 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gh': typeof GhRoute
   '/login': typeof LoginRoute
+  '/ng': typeof NgRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -950,6 +1000,10 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRouteWithChildren
   '/admin/tools': typeof AdminToolsRouteWithChildren
   '/admin/transactions': typeof AdminTransactionsRoute
+  '/admin/turnitin': typeof AdminTurnitinRoute
+  '/admin/turnitin-billing': typeof AdminTurnitinBillingRoute
+  '/admin/turnitin-credits': typeof AdminTurnitinCreditsRoute
+  '/admin/turnitin-purchases': typeof AdminTurnitinPurchasesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/search': typeof BlogSearchRoute
   '/pay/$token': typeof PayTokenRoute
@@ -1032,7 +1086,9 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/gh'
     | '/login'
+    | '/ng'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1063,6 +1119,10 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
+    | '/admin/turnitin'
+    | '/admin/turnitin-billing'
+    | '/admin/turnitin-credits'
+    | '/admin/turnitin-purchases'
     | '/blog/$slug'
     | '/blog/search'
     | '/pay/$token'
@@ -1142,7 +1202,9 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/gh'
     | '/login'
+    | '/ng'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1166,6 +1228,10 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/reviews'
     | '/admin/transactions'
+    | '/admin/turnitin'
+    | '/admin/turnitin-billing'
+    | '/admin/turnitin-credits'
+    | '/admin/turnitin-purchases'
     | '/blog/$slug'
     | '/blog/search'
     | '/pay/$token'
@@ -1247,7 +1313,9 @@ export interface FileRouteTypes {
     | '/contact'
     | '/cookies'
     | '/forgot-password'
+    | '/gh'
     | '/login'
+    | '/ng'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1278,6 +1346,10 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/tools'
     | '/admin/transactions'
+    | '/admin/turnitin'
+    | '/admin/turnitin-billing'
+    | '/admin/turnitin-credits'
+    | '/admin/turnitin-purchases'
     | '/blog/$slug'
     | '/blog/search'
     | '/pay/$token'
@@ -1360,7 +1432,9 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  GhRoute: typeof GhRoute
   LoginRoute: typeof LoginRoute
+  NgRoute: typeof NgRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
@@ -1384,6 +1458,10 @@ export interface RootRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
   AdminToolsRoute: typeof AdminToolsRouteWithChildren
   AdminTransactionsRoute: typeof AdminTransactionsRoute
+  AdminTurnitinRoute: typeof AdminTurnitinRoute
+  AdminTurnitinBillingRoute: typeof AdminTurnitinBillingRoute
+  AdminTurnitinCreditsRoute: typeof AdminTurnitinCreditsRoute
+  AdminTurnitinPurchasesRoute: typeof AdminTurnitinPurchasesRoute
   PayTokenRoute: typeof PayTokenRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute: typeof ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute
@@ -1451,11 +1529,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ng': {
+      id: '/ng'
+      path: '/ng'
+      fullPath: '/ng'
+      preLoaderRoute: typeof NgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gh': {
+      id: '/gh'
+      path: '/gh'
+      fullPath: '/gh'
+      preLoaderRoute: typeof GhRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -1583,6 +1675,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/admin/turnitin-purchases': {
+      id: '/admin/turnitin-purchases'
+      path: '/admin/turnitin-purchases'
+      fullPath: '/admin/turnitin-purchases'
+      preLoaderRoute: typeof AdminTurnitinPurchasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/turnitin-credits': {
+      id: '/admin/turnitin-credits'
+      path: '/admin/turnitin-credits'
+      fullPath: '/admin/turnitin-credits'
+      preLoaderRoute: typeof AdminTurnitinCreditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/turnitin-billing': {
+      id: '/admin/turnitin-billing'
+      path: '/admin/turnitin-billing'
+      fullPath: '/admin/turnitin-billing'
+      preLoaderRoute: typeof AdminTurnitinBillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/turnitin': {
+      id: '/admin/turnitin'
+      path: '/admin/turnitin'
+      fullPath: '/admin/turnitin'
+      preLoaderRoute: typeof AdminTurnitinRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/transactions': {
       id: '/admin/transactions'
@@ -2399,7 +2519,9 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  GhRoute: GhRoute,
   LoginRoute: LoginRoute,
+  NgRoute: NgRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
@@ -2424,6 +2546,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSettingsRoute: AdminSettingsRouteWithChildren,
   AdminToolsRoute: AdminToolsRouteWithChildren,
   AdminTransactionsRoute: AdminTransactionsRoute,
+  AdminTurnitinRoute: AdminTurnitinRoute,
+  AdminTurnitinBillingRoute: AdminTurnitinBillingRoute,
+  AdminTurnitinCreditsRoute: AdminTurnitinCreditsRoute,
+  AdminTurnitinPurchasesRoute: AdminTurnitinPurchasesRoute,
   PayTokenRoute: PayTokenRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiDiagOneClickE2e8c54e3bf2a704b8cb468db34d36a1c7aRoute:

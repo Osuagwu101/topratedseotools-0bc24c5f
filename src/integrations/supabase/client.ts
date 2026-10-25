@@ -43,7 +43,7 @@ function productionBrowserConfig() {
   return null;
 }
 
-function createSupabaseClient() {
+function createSupabaseClient(adminMode = false) {
   // Production hostname is pinned to the production Supabase project so
   // preview/stale VITE_* variables cannot issue tokens from another project.
   // Non-production environments keep using their configured Vite/server values.
@@ -71,20 +71,27 @@ function createSupabaseClient() {
     },
     auth: {
       storage: brokeredPreviewStorage(),
+      ...(adminMode ? { storageKey: "trst-admin-auth-v1" } : {}),
       persistSession: true,
       autoRefreshToken: true,
     }
   });
 }
 
-let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+let _customerSupabase: ReturnType<typeof createSupabaseClient> | undefined;
+let _adminSupabase: ReturnType<typeof createSupabaseClient> | undefined;
+function activeSupabase() {
+  // Separate stored sessions without changing customer login storage.
+  const admin = typeof window !== "undefined" && /^\/admin(?:\/|$)/.test(window.location.pathname);
+  if (admin) return _adminSupabase ??= createSupabaseClient(true);
+  return _customerSupabase ??= createSupabaseClient(false);
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(_, prop, receiver) {
-    if (!_supabase) _supabase = createSupabaseClient();
-    return Reflect.get(_supabase, prop, receiver);
+    return Reflect.get(activeSupabase(), prop, receiver);
   },
 });
 

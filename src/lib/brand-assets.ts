@@ -9,7 +9,7 @@ export const BRAND_ASSET_VERSION = "20260818c";
  */
 export const BRAND_LOGO_PATH = `/api/public/brand-logo?v=${BRAND_ASSET_VERSION}`;
 export const BRAND_LOGO_URL = `https://topratedseotools.com/api/public/brand-logo?v=${BRAND_ASSET_VERSION}`;
-export const BRAND_FAVICON_PNG_PATH = BRAND_LOGO_PATH;
-export const BRAND_FAVICON_ICO_PATH = BRAND_LOGO_PATH;
-export const BRAND_APPLE_TOUCH_ICON_PATH = BRAND_LOGO_PATH;
+export const BRAND_FAVICON_PNG_PATH = "/favicon.png?v=20261016-admin";
+export const BRAND_FAVICON_ICO_PATH = "/favicon.ico?v=20261016-admin";
+export const BRAND_APPLE_TOUCH_ICON_PATH = "/apple-touch-icon.png?v=20261016-admin";
 export const BRAND_MANIFEST_PATH = `/site.webmanifest?v=${BRAND_ASSET_VERSION}`;
