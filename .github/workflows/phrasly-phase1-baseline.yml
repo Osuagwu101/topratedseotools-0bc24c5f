@@ -1,0 +1,58 @@
+name: Phrasly Phase 1 isolated baseline
+
+on:
+  push:
+    branches:
+      - phrasly/phase1-baseline-20261025
+    paths:
+      - ".github/workflows/phrasly-phase1-baseline.yml"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "tsconfig.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phrasly-phase1-baseline
+  cancel-in-progress: false
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: http://127.0.0.1:9
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase1_offline_dummy
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_phase1_offline_dummy
+      VITE_SUPABASE_URL: http://127.0.0.1:9
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase1_offline_dummy
+      VITE_SUPABASE_PROJECT_ID: phase1-offline
+      NODE_ENV: production
+    steps:
+      - name: Check out isolated branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use the observed production Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.2"
+          cache: npm
+      - name: Remove inherited environment files in this runner only
+        run: find . -maxdepth 1 -type f -name '.env*' -delete
+      - name: Install locked dependencies without package lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile the baseline with dummy configuration
+        run: npm run build
+      - name: Check generated runtime and browser assets
+        shell: bash
+        run: |
+          test -s .output/server/index.mjs
+          test -d .output/public/assets
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.js' | wc -l)" -ge 20
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.css' | wc -l)" -ge 1
+          printf '%s\n' "Compile and runtime artifact checks passed; no server was started or deployed."
