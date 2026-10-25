@@ -31,7 +31,6 @@ jobs:
       VITE_SUPABASE_URL: http://127.0.0.1:9
       VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase1_offline_dummy
       VITE_SUPABASE_PROJECT_ID: phase1-offline
-      NODE_ENV: production
     steps:
       - name: Check out isolated branch
         uses: actions/checkout@v4
@@ -41,11 +40,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.23.2"
-          cache: npm
+      - name: Use a pinned Bun release for the repository's current lockfile
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
       - name: Remove inherited environment files in this runner only
         run: find . -maxdepth 1 -type f -name '.env*' -delete
-      - name: Install locked dependencies without package lifecycle scripts
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install the existing Bun lock without package lifecycle scripts
+        run: bun install --frozen-lockfile --ignore-scripts
       - name: Compile the baseline with dummy configuration
         run: npm run build
       - name: Check generated runtime and browser assets
