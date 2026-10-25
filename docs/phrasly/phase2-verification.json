@@ -1,0 +1,177 @@
+{
+  "phase": 2,
+  "approach": "Recovered AWS native extension flow",
+  "status": "FIRST_PARTY_PORT_VERIFIED_EXACT_PROVIDER_LOGIN_PARITY_BLOCKED",
+  "phase2_complete": false,
+  "branch": "phrasly/phase2-integration-20261025",
+  "phase1_base": "61933ad20de2692b544611d95af7811090291dec",
+  "implementation_commit": "6c42b000a4150e3cce9cc83577184701d08ed9df",
+  "verified_code_commit": "5eac141ee50bd0df4d40cc2bbe32aa15dc5d26a3",
+  "verified_at": "2026-10-25T16:32:45Z",
+  "source_basis": {
+    "snapshot": "previously recovered AWS source",
+    "source_map": "phase2-aws-source-map.json",
+    "files_verified": 9,
+    "inspection_normalization": "one inspection-added final LF removed for comparison"
+  },
+  "tests": {
+    "node": {
+      "version": "22.23.2",
+      "passed": 43,
+      "failed": 0
+    },
+    "packaging": {
+      "passed": 4,
+      "failed": 0
+    },
+    "javascript_syntax": "PASS",
+    "typescript": "PASS",
+    "application_build": "PASS",
+    "artifact_checks": "PASS",
+    "fixture_only": true,
+    "provider_login_tested": false,
+    "real_browser_install_tested": false,
+    "live_endpoint_wiring_tested": false,
+    "ci_run": 40211861413,
+    "ci_job": 121224592824,
+    "ci_url": "https://github.com/Osuagwu101/topratedseotools-0bc24c5f/actions/runs/40211861413"
+  },
+  "github_readback": [
+    {
+      "path": "src/lib/phrasly-extension/protocol.server.ts",
+      "pass": true,
+      "sha": "a2292df1a42eba5e8976702c4faba84818ea3645"
+    },
+    {
+      "path": "config/phrasly-extension.env.example",
+      "pass": true,
+      "sha": "dad3f69f350a4e06872b65ef49712b05e9b50d88"
+    },
+    {
+      "path": ".github/workflows/phrasly-phase2-extension.yml",
+      "pass": true,
+      "sha": "7b8dbb736d7250f1407cdd571448574ad931f47c"
+    },
+    {
+      "path": "scripts/phrasly/build-native-extension.py",
+      "pass": true,
+      "sha": "e89ce933a7687b6119649c10fb852ce3ca6e9482"
+    },
+    {
+      "path": "tests/phrasly-extension-protocol.test.ts",
+      "pass": true,
+      "sha": "2d7c404edaed73574f8e99582ab303a4fd7f6ff5"
+    },
+    {
+      "path": "tests/phrasly-extension-worker.test.cjs",
+      "pass": true,
+      "sha": "52a2a7ae8d3641bb25f1a26437ed0d687be92052"
+    },
+    {
+      "path": "tests/phrasly-extension-build.test.py",
+      "pass": true,
+      "sha": "893f74946c20eb909f9f53c89bda3a27f73f4a10"
+    },
+    {
+      "path": "docs/phrasly/phase2-aws-extension.md",
+      "pass": true,
+      "sha": "254b953a42c356f1903f4505c2d5e20f835a8c93"
+    },
+    {
+      "path": "docs/phrasly/phase2-aws-source-map.json",
+      "pass": true,
+      "sha": "415e0f7c5619d1ac5b533ebdf78346dd009c5816"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/background.js",
+      "pass": true,
+      "sha": "4a1ce03d9ddff595b1db6c007ca2e5de5196dbba"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/config.js",
+      "pass": true,
+      "sha": "a766686a8c3f230fd6f03b128ff3cec3f267528f"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/content.js",
+      "pass": true,
+      "sha": "eeea3a5ec1251ac10dd38b5bd2fa2db0e7c74285"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/interceptor.js",
+      "pass": true,
+      "sha": "1f755048ef898be8329dcc800ad5dc4cf4fc6d9f"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/limit-reached.html",
+      "pass": true,
+      "sha": "1c887bd5f7584cd60e17e83aa91b51078dde1422"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/limit-reached.js",
+      "pass": true,
+      "sha": "52a6685ea386addc3f6b238de768c1c714307c24"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/manifest.json",
+      "pass": true,
+      "sha": "f4c50a0652a1eb70b5ab1340408da89f55522207"
+    }
+  ],
+  "production": {
+    "deployment": false,
+    "application_writes": false,
+    "configuration_writes": false,
+    "database_writes": false,
+    "service_restart_or_reload": false,
+    "public_http": {
+      "utc": "2026-10-25T16:24:10Z",
+      "passed": 6,
+      "failed": 0,
+      "results": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/login",
+          "status": 200
+        },
+        {
+          "path": "/tools/phrasly",
+          "status": 200
+        },
+        {
+          "path": "/admin/turnitin-billing",
+          "status": 200
+        },
+        {
+          "path": "/api/phrasly-proxy",
+          "status": 410
+        },
+        {
+          "path": "/api/phrasly-proxy-bootstrap",
+          "status": 410
+        }
+      ]
+    },
+    "final_ssh_integrity_recheck": "BLOCKED_REMOTE_DEVICE_UNRESPONSIVE",
+    "last_read_only_ssh_snapshot": "2026-10-25T15:45:29Z",
+    "last_observed_pm2_processes": 60,
+    "phase1_branch_unchanged": true,
+    "main_unchanged": "28c9e1d1058b73be11056af94522b2758fe66de8"
+  },
+  "excluded_provider_component": {
+    "mechanism": "Shared provider-account session/cookie distribution and browser injection",
+    "reason": "Original user instruction excludes active-session transfer and mechanisms bypassing third-party access restrictions",
+    "ported": false
+  },
+  "remaining": [
+    "Resolve the provider-login component within the user's session-transfer constraint; exact automatic login is not implemented",
+    "Phase 3: authenticated handlers, current entitlement checks, atomic counters, deduplication and token revocation",
+    "Phase 4: real extension ID, browser installation and website/popup onboarding",
+    "Phase 5: authorized real-browser/native processing tests",
+    "Phase 6: separately authorized production rollout"
+  ],
+  "alternate_processing_service_implemented": false
+}
