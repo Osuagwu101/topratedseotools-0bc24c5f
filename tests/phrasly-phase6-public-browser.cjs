@@ -13,20 +13,22 @@ let context;const evidence={utc:new Date().toISOString(),checks:{},errors:[],pro
  context=await chromium.launchPersistentContext(path.join(temp,"profile"),{channel:"chromium",headless:false,acceptDownloads:true,args:["--disable-extensions-except="+extension,"--load-extension="+extension]});
  const worker=context.serviceWorkers()[0]||await context.waitForEvent("serviceworker",{timeout:15000});assert.equal(new URL(worker.url()).host,id);
  const signedOut=await context.newPage();await signedOut.goto(site+"/phrasly");
- await signedOut.getByRole("heading",{name:"Sign in to TopRated",exact:true}).waitFor({timeout:30000});
+ await signedOut.getByRole("heading",{name:"Sign in to open Phrasly",exact:true}).waitFor({timeout:30000});
  evidence.checks.signed_out_page=true;await signedOut.close();
  await context.addInitScript(({site,qa,owner})=>{if(location.origin===site){localStorage.setItem("sb-vuhnvsejdszfvwicflbb-auth-token",JSON.stringify(qa));localStorage.setItem("trst-admin-auth-v1",JSON.stringify(owner));}},{site,qa,owner});
  const writer=await context.newPage();writer.on("pageerror",e=>evidence.errors.push(e.message.slice(0,160)));
- await writer.goto(site+"/phrasly");
- await writer.getByRole("button",{name:"Open Humanizer",exact:true}).waitFor({timeout:30000});evidence.checks.assigned_writer_page=true;
- const dl=writer.waitForEvent("download",{timeout:20000});await writer.getByRole("button",{name:"Download extension",exact:true}).click();
- const download=await dl;assert.equal(createHash("sha256").update(fs.readFileSync(await download.path())).digest("hex"),createHash("sha256").update(fs.readFileSync(path.join(dir,"TopRated-Phrasly-Access.zip"))).digest("hex"));evidence.checks.exact_package_download=true;
- for(const [label,route,feature]of [["Open Humanizer","/dashboard/humanizer","humanizer"],["Open AI Detector","/dashboard/ai-detector","ai_detector"]]){
-  const opened=context.waitForEvent("page",{timeout:25000});await writer.getByRole("button",{name:label,exact:true}).click();
-  const native=await opened;await native.waitForURL("https://phrasly.ai"+route,{timeout:60000});
-  await native.locator("textarea").first().waitFor({timeout:60000});evidence.checks[feature+"_native_authenticated"]=true;
+ for(const [route,feature]of [["/phrasly","humanizer"],["/phrasly?feature=ai_detector","ai_detector"]]){
+  const opened=context.waitForEvent("page",{timeout:30000});
+  await writer.goto(site+route);
+  const native=await opened;
+  await native.waitForURL("https://phrasly.ai/dashboard/"+(feature==="humanizer"?"humanizer":"ai-detector"),{timeout:60000});
+  await native.locator("textarea").first().waitFor({timeout:60000});
+  evidence.checks[feature+"_native_direct_launch"]=true;
+  assert.equal(await writer.getByRole("heading",{name:"Your writer workspace",exact:true}).count(),0);
+  assert.equal(await writer.locator("iframe").count(),0);
   if(feature==="humanizer")evidence.provider_plan=await native.evaluate(()=>{const t=document.body.innerText;return {free_plan:/Free plan/.test(t),remaining_words:t.match(/\b[\d,]+ words left\b/)?.[0]||null};});
  }
+ evidence.checks.no_extra_writer_dashboard=true;
  const popup=await context.newPage();await popup.goto("chrome-extension://"+id+"/popup.html");
  await popup.locator("#signedIn:not(.hidden)").waitFor({timeout:20000});assert.equal(await popup.locator(".tool").count(),2);evidence.checks.public_popup_identity=true;
  const admin=await context.newPage();admin.on("pageerror",e=>evidence.errors.push(e.message.slice(0,160)));
