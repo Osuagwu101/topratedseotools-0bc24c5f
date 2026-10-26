@@ -3,19 +3,26 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import shutil
 from urllib.parse import urlsplit
 
+FILES = ("manifest.json", "config.js", "background.js", "content.js", "interceptor.js", "limit-reached.html", "limit-reached.js")
+
 def build(origin, destination, enabled=False):
     url = urlsplit(origin)
-    if url.scheme != "https" or not url.hostname or url.username or url.password or url.port not in (None, 443) or url.path not in ("", "/") or url.query or url.fragment:
+    if any(c.isspace() or ord(c) < 32 for c in origin) or url.scheme != "https" or not url.hostname or url.username or url.password or url.port not in (None, 443) or url.path not in ("", "/") or url.query or url.fragment:
         raise ValueError("Use a plain HTTPS origin on port 443")
+    if len(url.hostname) > 253 or not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", url.hostname):
+        raise ValueError("Use an ASCII DNS hostname")
     origin = "https://" + url.hostname
     source = Path(__file__).resolve().parents[2] / "extensions/phrasly-oneclick"
+    if any(not (source / name).is_file() or (source / name).is_symlink() for name in FILES):
+        raise ValueError("Extension source is incomplete or contains a symlink")
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
-    for file in source.iterdir():
-        if file.is_file(): shutil.copy2(file, destination / file.name)
+    for name in FILES:
+        shutil.copy2(source / name, destination / name)
     manifest = json.loads((destination / "manifest.json").read_text())
     manifest["host_permissions"] = [origin + "/*"]
     manifest["externally_connectable"] = {"matches": [origin + "/*"]}

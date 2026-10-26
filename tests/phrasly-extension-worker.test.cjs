@@ -6,12 +6,18 @@ const vm = require('node:vm');
 const { randomUUID } = require('node:crypto');
 const root = path.join(__dirname, '../extensions/phrasly-oneclick');
 
-function worker({ enabled = true, fulfill = {}, quota = { ok: true, allowed: true, used: 1, limit: 20 }, sharedStorage = {} } = {}) {
-  const storage = sharedStorage; const calls = []; const tabs = []; const updates = [];
+function worker({ enabled = true, fulfill = {}, quota = { ok: true, allowed: true, used: 1, limit: 20 }, sharedStorage = {}, failNavigation = false } = {}) {
+  const storage = sharedStorage; const calls = []; const tabs = []; const updates = []; const closed = [];
   let external, internal, removed;
   const chrome = {
     storage: { session: { async get() { return structuredClone(storage); }, async set(data) { Object.assign(storage, structuredClone(data)); } } },
-    tabs: { async create(tab) { tabs.push(tab); return { id: tabs.length }; }, async update(id, data) { updates.push({ id, ...data }); }, async remove() {}, onRemoved: { addListener(fn) { removed = fn; } } },
+    tabs: { async create(tab) { tabs.push(tab); return { id: tabs.length }; }, async update(id, data) {
+      if (data.url.startsWith('https://phrasly.ai/')) {
+        assert.ok(storage.trst_tracked_tabs[id], 'record token must exist before native navigation');
+        if (failNavigation) throw new Error('fixture navigation failure');
+      }
+      updates.push({ id, ...data });
+    }, async remove(id) { closed.push(id); }, onRemoved: { addListener(fn) { removed = fn; } } },
     runtime: { getURL: p => 'chrome-extension://fixture/' + p, onMessageExternal: { addListener(fn) { external = fn; } }, onMessage: { addListener(fn) { internal = fn; } } },
   };
   const context = vm.createContext({ chrome, URL, URLSearchParams, AbortSignal, Object, Promise,
@@ -26,7 +32,8 @@ function worker({ enabled = true, fulfill = {}, quota = { ok: true, allowed: tru
   const usage = (feature = 'humanizer', sender = { tab: { id: 1 }, frameId: 0, url: 'https://phrasly.ai/dashboard?tab=humanizer' }) => new Promise(resolve => {
     internal({ type: 'trst_check_usage', feature, action_id: randomUUID() }, sender, resolve);
   });
-  return { access, usage, calls, tabs, updates, storage, context, removed, dispatch: (m, s, reply) => internal(m, s, reply) };
+  return { access, usage, calls, tabs, updates, storage, context, removed, closed,
+    external: (m, s, reply) => external(m, s, reply), dispatch: (m, s, reply) => internal(m, s, reply) };
 }
 
 test('manifest has no cookie, all-host or webNavigation permission', () => {
@@ -49,7 +56,24 @@ test('redemption opens a native page without transferring or asserting provider 
   assert.equal(result.ok, true); assert.equal(result.provider_login, 'not_performed');
   assert.equal(w.calls.length, 1); assert.equal(w.calls[0].url, 'https://topratedseotools.com/ext-fulfill.php');
   assert.equal(w.calls[0].init.method, 'POST'); assert.equal(w.calls[0].init.credentials, 'omit');
-  assert.equal(w.tabs[0].url, 'https://phrasly.ai/');
+  assert.equal(w.tabs[0].url, 'about:blank');
+  assert.equal(w.updates[0].url, 'https://phrasly.ai/');
+});
+test('failed native navigation closes the new tab and removes its capability', async () => {
+  const w = worker({ failNavigation: true });
+  assert.equal((await w.access()).error, 'access_unavailable');
+  assert.deepEqual(w.closed, [1]);
+  assert.equal(Object.keys(w.storage.trst_tracked_tabs).length, 0);
+});
+test('first-party readiness works without tokens or backend requests', () => {
+  for (const enabled of [true, false]) {
+    const w = worker({ enabled }); let result;
+    w.external({ type: 'trst_ping' }, { url: 'https://topratedseotools.com/dashboard' }, value => { result = value; });
+    assert.equal(result.ok, true); assert.equal(result.protocol, 2); assert.equal(result.enabled, enabled);
+    assert.deepEqual(Object.keys(result).sort(), ['enabled', 'ok', 'protocol']);
+    assert.equal(w.calls.length, 0);
+    assert.equal(w.external({ type: 'trst_ping' }, { url: 'https://foreign.invalid' }, () => assert.fail('foreign reply')), false);
+  }
 });
 test('original shared-cookie fulfillment is explicitly rejected', async () => {
   const w = worker({ fulfill: { cookies: [{ name: 'fixture', value: 'not-live' }] } });
@@ -76,7 +100,7 @@ test('unmanaged native use is untouched; subframes and unknown features cannot c
 test('daily denial opens the countdown and removes tracked capability, without changing provider cookies', async () => {
   const w = worker({ quota: { ok: true, allowed: false, used: 20, limit: 20, resets_in: 120 } });
   await w.access(); assert.equal((await w.usage()).allowed, false);
-  assert.match(w.updates[0].url, /limit-reached.html\?resets_in=120$/);
+  assert.match(w.updates.at(-1).url, /limit-reached.html\?resets_in=120$/);
   assert.equal(Object.keys(w.storage.trst_tracked_tabs).length, 0);
 });
 test('tracked capability survives a service-worker restart', async () => {

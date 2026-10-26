@@ -45,9 +45,16 @@ async function redeem(payload, signature) {
     return { ok: false, error: "provider_session_transfer_excluded" };
   }
   if (!nativePage(data.url) || typeof data.record_token !== "string" || data.record_token.length > 4096) return { ok: false, error: "bad_fulfill_response" };
-  const tab = await chrome.tabs.create({ url: data.url });
-  try { await updateTabs(tabs => { tabs[tab.id] = { recordToken: data.record_token }; }); }
-  catch (error) { await chrome.tabs.remove(tab.id); throw error; }
+  // Store the capability before native scripts can run in the new tab.
+  const tab = await chrome.tabs.create({ url: "about:blank" });
+  try {
+    await updateTabs(tabs => { tabs[tab.id] = { recordToken: data.record_token }; });
+    await chrome.tabs.update(tab.id, { url: data.url });
+  } catch (error) {
+    await updateTabs(tabs => { delete tabs[tab.id]; }).catch(() => undefined);
+    await chrome.tabs.remove(tab.id);
+    throw error;
+  }
   return { ok: true, used: data.used, limit: data.limit, provider_login: "not_performed" };
 }
 async function usage(sender, message) {
@@ -70,7 +77,12 @@ async function usage(sender, message) {
 }
 chrome.tabs.onRemoved.addListener(id => { void updateTabs(tabs => { delete tabs[id]; }); });
 chrome.runtime.onMessageExternal.addListener((message, sender, reply) => {
-  if (!siteSender(sender) || message?.type !== "trst_access") return false;
+  if (!siteSender(sender)) return false;
+  if (message?.type === "trst_ping") {
+    reply({ ok: true, protocol: 2, enabled: globalThis.TRST_EXTENSION.enabled === true });
+    return false;
+  }
+  if (message?.type !== "trst_access") return false;
   redeem(message.payload, message.signature).then(reply, () => reply({ ok: false, error: "access_unavailable" }));
   return true;
 });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TopRated Phrasly OneClick — Staging",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "First-party handoff and usage relay. Does not distribute provider sessions.",
   "permissions": ["storage"],
   "host_permissions": ["https://topratedseotools.com/*"],
