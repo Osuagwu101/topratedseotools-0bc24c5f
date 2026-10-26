@@ -1,6 +1,7 @@
-import React,{useEffect,useState} from "react";
+import React,{useEffect,useRef,useState} from "react";
 import {createRoot} from "react-dom/client";
 import {supabase} from "@/integrations/supabase/client";
+import {launchPhraslyAwsFeature} from "@/lib/phrasly-extension/launch-from-website";
 import {PhraslyOneClickActions} from "@/components/tools/PhraslyOneClickActions";
 
 const ADMIN=location.pathname.startsWith("/admin/");
@@ -27,6 +28,19 @@ function App(){
  const [email,setEmail]=useState(""),[password,setPassword]=useState("");
  const [writerEmail,setWriterEmail]=useState(""),[humanizer,setHumanizer]=useState(20),[detector,setDetector]=useState(20),[expiry,setExpiry]=useState("");
  const [accountId,setAccountId]=useState(""),[label,setLabel]=useState(""),[capacity,setCapacity]=useState(""),[cookies,setCookies]=useState(""),[enabled,setEnabled]=useState(true);
+ const [nativeState,setNativeState]=useState("opening");
+ const nativeRequested=useRef(false);
+ useEffect(()=>{
+  if(ADMIN)return;
+  document.title="Opening Phrasly";
+  if(!status||nativeRequested.current)return;
+  nativeRequested.current=true;
+  const selected=new URLSearchParams(location.search).get("feature")==="ai_detector"?"ai_detector":"humanizer";
+  void launchPhraslyAwsFeature(selected).then(result=>{
+   if(result.ok)setNativeState("opened");
+   else setNativeState(result.error||"failed");
+  }).catch(()=>setNativeState("failed"));
+ },[status]);
  const displayError=(e:any)=>setError(messages[e.message]||"The request could not be completed. Please try again.");
  async function load(){
   try{
@@ -73,6 +87,21 @@ function App(){
    setCookies("");setNotice("Account session updated.");await load();
   });
  }
+ if(!ADMIN)return <main className="signin">
+  <section>
+   <h1>{!ready?"Opening Phrasly…":!session?"Sign in to open Phrasly":nativeState==="opened"?"Phrasly is open":nativeState==="opening"&&status?"Opening Phrasly…":"Open native Phrasly"}</h1>
+   <p>{nativeState==="opened"?"Continue in the Phrasly tab that just opened.":session?"Your writing takes place on phrasly.ai.":"Use your existing TopRated writer account to continue to phrasly.ai."}</p>
+   {error&&<div role="alert" className="message error">{error}</div>}
+   {!session&&ready&&<form onSubmit={login}><label>Email<input required type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} /></label><label>Password<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in and open Phrasly</button></form>}
+   {status&&nativeState!=="opening"&&nativeState!=="opened"&&<>
+    <p>{nativeState==="extension_unavailable"||nativeState==="extension_disabled"?"Install or reload the TopRated access extension, then continue.":"Phrasly could not be opened. Check your access with your administrator."}</p>
+    <button onClick={()=>{nativeRequested.current=false;setNativeState("opening");void load();}}>Open Phrasly</button>
+    <button className="secondary" disabled={busy} onClick={()=>void download()}>Download extension</button>
+    {notice&&<p role="status">{notice}</p>}
+    <ol><li>Extract the downloaded ZIP.</li><li>Open chrome://extensions or edge://extensions, enable Developer mode, and choose Load unpacked.</li><li>Select the extracted folder, then choose Open Phrasly above.</li></ol>
+   </>}
+  </section>
+ </main>;
  return <><header><a href="/"><img src="/api/public/brand-logo" alt="" />TopRated</a><span>IN-HOUSE WRITERS</span><a href={ADMIN?"/admin":"/dashboard"}>{ADMIN?"Back to Admin":"Dashboard"}</a></header>
  <main><div className="intro"><p className="eyebrow">PHRASLY ACCESS</p><h1>{ADMIN?"Phrasly administration":"Your writer workspace"}</h1><p>{ADMIN?"Assign writer allowances and update the shared Phrasly account session.":"Open your assigned Humanizer or AI Detector from this browser."}</p></div>
  {error&&<div className="message error" role="alert">{error}</div>}
