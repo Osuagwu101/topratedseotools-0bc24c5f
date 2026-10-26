@@ -4,7 +4,6 @@ import argparse
 import json
 from pathlib import Path
 import re
-import shutil
 from urllib.parse import urlsplit
 
 FILES = ("manifest.json", "config.js", "background.js", "content.js", "interceptor.js", "limit-reached.html", "limit-reached.js")
@@ -22,15 +21,16 @@ def build(origin, destination, enabled=False):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     for name in FILES:
-        shutil.copy2(source / name, destination / name)
-    manifest = json.loads((destination / "manifest.json").read_text())
+        # All shipped files are UTF-8 text; normalize checkout line endings.
+        (destination / name).write_bytes((source / name).read_text(encoding="utf-8").encode("utf-8"))
+    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
     manifest["host_permissions"] = [origin + "/*"]
     manifest["externally_connectable"] = {"matches": [origin + "/*"]}
-    (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (destination / "manifest.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
     config = "globalThis.TRST_EXTENSION = Object.freeze(" + json.dumps({"origin": origin, "enabled": enabled}) + ");\n"
-    (destination / "config.js").write_text(config)
+    (destination / "config.js").write_bytes(config.encode("utf-8"))
     page = destination / "limit-reached.html"
-    page.write_text(page.read_text().replace("https://topratedseotools.com/dashboard", origin + "/dashboard"))
+    page.write_bytes(page.read_text(encoding="utf-8").replace("https://topratedseotools.com/dashboard", origin + "/dashboard").encode("utf-8"))
     return {"directory": str(destination), "origin": origin, "enabled": enabled}
 
 if __name__ == "__main__":

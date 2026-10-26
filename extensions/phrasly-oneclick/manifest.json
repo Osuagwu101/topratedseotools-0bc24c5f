@@ -8,7 +8,7 @@
   "background": { "service_worker": "background.js" },
   "externally_connectable": { "matches": ["https://topratedseotools.com/*"] },
   "content_scripts": [
-    { "matches": ["https://phrasly.ai/*"], "js": ["config.js", "content.js"], "run_at": "document_start" },
+    { "matches": ["https://phrasly.ai/*"], "js": ["content.js"], "run_at": "document_start" },
     { "matches": ["https://phrasly.ai/*"], "js": ["config.js", "interceptor.js"], "run_at": "document_start", "world": "MAIN" }
   ]
 }

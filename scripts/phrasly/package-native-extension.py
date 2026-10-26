@@ -27,13 +27,14 @@ def package(origin, output, enabled=False):
         }
         files["BUILD-MANIFEST.json"] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
         # Exclusive creation also protects existing archives from accidental replacement.
-        with output.open("xb") as handle, zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        # Stored entries avoid zlib-version differences for this small package.
+        with output.open("xb") as handle, zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_STORED) as archive:
             for name, data in sorted(files.items()):
                 info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
                 info.create_system = 3
                 info.external_attr = 0o100644 << 16
-                info.compress_type = zipfile.ZIP_DEFLATED
-                archive.writestr(info, data, compresslevel=9)
+                info.compress_type = zipfile.ZIP_STORED
+                archive.writestr(info, data)
     return {"path": str(output), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(), "files": len(files), "origin": config["origin"], "enabled": enabled}
 
 if __name__ == "__main__":

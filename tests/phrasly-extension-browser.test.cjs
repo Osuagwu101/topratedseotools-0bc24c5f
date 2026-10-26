@@ -159,6 +159,7 @@ test('real MV3: first-party launch, both native actions, revocation, quota count
     assert.deepEqual(await f.page.evaluate(() => globalThis.launcher.launch('humanizer')), { ok: true, provider_login: 'not_performed' });
     const native = await opened;
     await native.waitForURL(NATIVE + '/dashboard');
+    await native.locator('#humanizer').waitFor();
     const injection = await native.evaluate(() => ({ configuration: globalThis.TRST_EXTENSION || null, wrappedFetch: window.fetch.toString().includes('permission') }));
     console.log(JSON.stringify({ nativeInjection: injection, grantedPermissions: await f.context.serviceWorkers()[0].evaluate(() => chrome.permissions.getAll()) }));
     assert.equal(injection.configuration?.enabled, true, 'manifest content scripts must execute in the native page');

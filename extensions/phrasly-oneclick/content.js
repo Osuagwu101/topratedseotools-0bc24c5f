@@ -1,5 +1,6 @@
 // AWS page-to-worker relay, without account-menu hiding or session access.
-if (globalThis.TRST_EXTENSION?.enabled) {
+// MAIN-world interception and the worker enforce the enabled flag. This isolated
+// relay needs no copy of MAIN-world configuration and never wraps native fetch.
 window.addEventListener("message", event => {
   if (event.source !== window || event.origin !== window.location.origin) return;
   const message = event.data;
@@ -10,4 +11,3 @@ window.addEventListener("message", event => {
       allowed: !chrome.runtime.lastError && response?.allowed === true }, window.location.origin);
   });
 });
-}
