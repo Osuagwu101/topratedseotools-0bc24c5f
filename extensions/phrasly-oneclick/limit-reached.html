@@ -1,4 +1,24 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>TopRated daily limit</title>
-<style>body{font-family:system-ui;background:#f8fafc;color:#1e293b;display:grid;place-content:center;min-height:90vh;text-align:center}main{max-width:380px;padding:24px}a{color:#2563eb}</style></head>
-<body><main><h1>Daily limit reached</h1><p>Your TopRated allowance resets in <strong id="resetsIn">—</strong>.</p><a href="https://topratedseotools.com/dashboard">Back to TopRated</a></main><script src="limit-reached.js"></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #1e293b; display: flex; align-items: center; justify-content: center; height: 100vh; }
+  .box { max-width: 380px; text-align: center; padding: 32px; }
+  img { width: 48px; height: 48px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: #64748b; font-size: 14px; margin: 0 0 20px; }
+  .reset { font-weight: 700; color: #1e293b; }
+  a.btn { display: inline-block; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <img src="icons/icon128.png" alt="">
+    <h1>Daily limit reached</h1>
+    <p>You've used all your access for today. It resets in <span class="reset" id="resetsIn">—</span>.</p>
+    <a class="btn" href="https://topratedseotools.com/dashboard">Back to dashboard</a>
+  </div>
+  <script src="limit-reached.js"></script>
+</body>
+</html>

@@ -14,18 +14,22 @@ packager = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(packager)
 
 class ExtensionBuildTests(unittest.TestCase):
-    def test_build_restricts_origin_and_defaults_disabled(self):
+    def test_build_maps_first_party_origin_and_defaults_disabled(self):
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "extension"
             report = builder.build("https://staging.example.com", out)
             self.assertFalse(report["enabled"])
             manifest = json.loads((out / "manifest.json").read_text())
-            self.assertEqual(manifest["permissions"], ["storage"])
-            self.assertEqual(manifest["host_permissions"], ["https://staging.example.com/*"])
+            self.assertEqual(manifest["permissions"], ["cookies", "tabs", "webNavigation", "storage"])
+            self.assertEqual(manifest["host_permissions"], ["https://staging.example.com/*", "*://*/*"])
             self.assertEqual(manifest["externally_connectable"]["matches"], ["https://staging.example.com/*"])
             self.assertIn('"enabled": false', (out / "config.js").read_text())
             self.assertIn('https://staging.example.com/dashboard', (out / "limit-reached.html").read_text())
-            self.assertNotIn("key", manifest)
+            self.assertEqual(manifest["content_scripts"], [])
+            self.assertTrue(manifest["key"])
+            self.assertIn('https://staging.example.com/login', (out / "popup.html").read_text())
+            for size in [16, 32, 48, 128]:
+                self.assertTrue((out / f"icons/icon{size}.png").is_file())
 
     def test_existing_directory_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -40,6 +44,9 @@ class ExtensionBuildTests(unittest.TestCase):
             out = Path(temp) / "extension"
             builder.build("https://staging.example.com", out, True)
             self.assertIn('"enabled": true', (out / "config.js").read_text())
+            manifest = json.loads((out / "manifest.json").read_text())
+            self.assertEqual(manifest["content_scripts"][1]["js"], ["interceptor.js"])
+            self.assertEqual(manifest["content_scripts"][1]["world"], "MAIN")
 
     def test_invalid_origin_rejected_before_creating_output(self):
         with tempfile.TemporaryDirectory() as temp:

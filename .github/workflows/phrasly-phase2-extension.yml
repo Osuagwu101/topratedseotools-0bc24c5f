@@ -9,6 +9,8 @@ on:
       - "tests/phrasly-extension*"
       - "scripts/phrasly/build-native-extension.py"
       - "scripts/phrasly/package-native-extension.py"
+      - "scripts/phrasly/verify-aws-extension-source.py"
+      - "config/phrasly-aws-extension-provenance.json"
       - "config/phrasly-extension.env.example"
       - ".github/workflows/phrasly-phase2-extension.yml"
 
@@ -37,6 +39,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
+      - name: Verify original AWS source bodies and binary assets
+        run: python3 scripts/phrasly/verify-aws-extension-source.py
       - name: Test the recovered token and extension contracts
         run: node --experimental-strip-types --test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-worker.test.cjs tests/phrasly-extension-launcher.test.ts
       - name: Check extension JavaScript syntax

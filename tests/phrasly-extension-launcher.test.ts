@@ -4,12 +4,12 @@ import { createPhraslyLauncher, type ExtensionRuntime } from "../src/lib/phrasly
 
 const id = "a".repeat(32);
 const token = { payload: "fixture", signature: "a".repeat(64) };
-function setup({ enabled = true, outcome = { ok: true, provider_login: "not_performed" }, noReply = "", handoff = async () => token } = {}) {
+function setup({ enabled = true, outcome = { ok: true }, noReply = "", handoff = async () => token } = {}) {
   const messages: Record<string, unknown>[] = []; let issued = 0;
   const runtime: ExtensionRuntime = { sendMessage(_id, message, reply) {
     const data = message as Record<string, unknown>; messages.push(data);
     if (data.type === noReply) return;
-    reply(data.type === "trst_ping" ? { ok: true, protocol: 2, enabled } : outcome);
+    reply(data.type === "trst_ping" ? { ok: true, protocol: 3, enabled } : outcome);
   } };
   const bridge = createPhraslyLauncher({ extensionId: id, runtime, timeoutMs: 20,
     requestHandoff: async () => { issued++; return handoff(); } });
@@ -17,7 +17,7 @@ function setup({ enabled = true, outcome = { ok: true, provider_login: "not_perf
 }
 test("installed enabled bridge requests one handoff and preserves the AWS message", async () => {
   const fixture = setup();
-  assert.deepEqual(await fixture.bridge.launch("humanizer"), { ok: true, provider_login: "not_performed" });
+  assert.deepEqual(await fixture.bridge.launch("humanizer"), { ok: true });
   assert.equal(fixture.issued(), 1);
   assert.deepEqual(fixture.messages, [{ type: "trst_ping" }, { type: "trst_access", ...token }]);
 });
@@ -56,7 +56,7 @@ test("invalid extension IDs fail before any external messaging", () => {
     assert.throws(() => createPhraslyLauncher({ extensionId, requestHandoff: async () => token }), /invalid_extension_configuration/);
   }
 });
-test("a provider-login assertion cannot be reported as a successful launch", async () => {
-  const fixture = setup({ outcome: { ok: true, provider_login: "authenticated" } });
+test("a backend failure is not reported as a successful AWS launch", async () => {
+  const fixture = setup({ outcome: { ok: false } });
   assert.deepEqual(await fixture.bridge.launch("humanizer"), { ok: false, error: "launch_failed" });
 });

@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-FILES = ("manifest.json", "config.js", "background.js", "content.js", "interceptor.js", "limit-reached.html", "limit-reached.js")
+FILES = ("manifest.json", "config.js", "background.js", "content.js", "interceptor.js", "limit-reached.html", "limit-reached.js", "popup.html", "popup.js", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png")
 
 def build(origin, destination, enabled=False):
     url = urlsplit(origin)
@@ -21,16 +21,21 @@ def build(origin, destination, enabled=False):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     for name in FILES:
-        # All shipped files are UTF-8 text; normalize checkout line endings.
-        (destination / name).write_bytes((source / name).read_text(encoding="utf-8").encode("utf-8"))
+        target = destination / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        data = (source / name).read_bytes() if name.endswith(".png") else (source / name).read_text(encoding="utf-8").encode("utf-8")
+        target.write_bytes(data)
     manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
-    manifest["host_permissions"] = [origin + "/*"]
+    manifest["host_permissions"] = [origin + "/*", "*://*/*"]
     manifest["externally_connectable"] = {"matches": [origin + "/*"]}
+    if not enabled:
+        manifest["content_scripts"] = []
     (destination / "manifest.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
     config = "globalThis.TRST_EXTENSION = Object.freeze(" + json.dumps({"origin": origin, "enabled": enabled}) + ");\n"
     (destination / "config.js").write_bytes(config.encode("utf-8"))
-    page = destination / "limit-reached.html"
-    page.write_bytes(page.read_text(encoding="utf-8").replace("https://topratedseotools.com/dashboard", origin + "/dashboard").encode("utf-8"))
+    for name, route in [("limit-reached.html", "/dashboard"), ("popup.html", "/login")]:
+        page = destination / name
+        page.write_bytes(page.read_text(encoding="utf-8").replace("https://topratedseotools.com" + route, origin + route).encode("utf-8"))
     return {"directory": str(destination), "origin": origin, "enabled": enabled}
 
 if __name__ == "__main__":

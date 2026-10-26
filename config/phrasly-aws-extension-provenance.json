@@ -1,0 +1,140 @@
+{
+  "authority": "Original AWS extension archive, not the earlier reduced port",
+  "archive_sha256": "312603cdda37eaa37bb5be2e8deca2ad63c00fd000c804c8ae6c59ac839b6389",
+  "inspected_archive_utc": "2026-10-26T04:42:32.985448+00:00",
+  "live_aws_zip_verified_utc": "2026-10-26T04:24:08Z",
+  "canonical_extension_id": "lpgnjkafilbopdojcfnagooojifkccek",
+  "adaptation_scope": "First-party .com origin/links, staging enable switch, readiness message, staging version; original runtime bodies otherwise retained",
+  "new_deployment_file": "config.js",
+  "files": [
+    {
+      "path": "background.js",
+      "sha256": "5775cd4831270e4c7ce8c91613f1c70ce83aa902e2b06470711da8a3a7a5f857",
+      "bytes": 7962,
+      "prefix": "// AWS extension body with the .com origin and an explicit staging switch.\nimportScripts('config.js');\n",
+      "adaptations": [
+        {
+          "old": "const BASE_URL = 'https://app.topratedseotools.com.ng';",
+          "new": "const BASE_URL = globalThis.TRST_EXTENSION.origin;"
+        },
+        {
+          "old": "async function redeemAccessToken(payload, signature) {",
+          "new": "async function redeemAccessToken(payload, signature) {\n  if (!globalThis.TRST_EXTENSION.enabled) return { ok: false, error: 'not_enabled' };"
+        },
+        {
+          "old": "async function checkUsage(tabId, feature) {",
+          "new": "async function checkUsage(tabId, feature) {\n  if (!globalThis.TRST_EXTENSION.enabled) return { allowed: true };"
+        },
+        {
+          "old": "async function whoami() {",
+          "new": "async function whoami() {\n  if (!globalThis.TRST_EXTENSION.enabled) return { ok: false, error: 'not_enabled' };"
+        },
+        {
+          "old": "chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {",
+          "new": "chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {\n  if (message && message.type === 'trst_ping') {\n    sendResponse({ ok: true, protocol: 3, enabled: globalThis.TRST_EXTENSION.enabled === true });\n    return false;\n  }"
+        }
+      ]
+    },
+    {
+      "path": "content.js",
+      "sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3",
+      "bytes": 3389,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "interceptor.js",
+      "sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601",
+      "bytes": 3013,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "limit-reached.html",
+      "sha256": "12de3253f3346dae4f8a760ef3c26475f4ef604a3b8f55e153e63560cf8e8909",
+      "bytes": 1063,
+      "prefix": "",
+      "adaptations": [
+        {
+          "old": "https://app.topratedseotools.com.ng/dashboard.php",
+          "new": "https://topratedseotools.com/dashboard"
+        }
+      ]
+    },
+    {
+      "path": "limit-reached.js",
+      "sha256": "dfb3ca3ff738f724e96d2fe07bbaf028749613c5e1c12dd07481733a3152fcc7",
+      "bytes": 372,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "fa200a8d418bbb4d9e37aa4f6e258a4fa51773a20d3635a7ade76edeee7af729",
+      "bytes": 1527,
+      "prefix": "",
+      "adaptations": [
+        {
+          "old": "https://app.topratedseotools.com.ng",
+          "new": "https://topratedseotools.com",
+          "count": 2
+        },
+        {
+          "old": "topratedseotools.com.ng members.",
+          "new": "topratedseotools.com members."
+        },
+        {
+          "old": "\"version\": \"1.0.0\"",
+          "new": "\"version\": \"1.0.1\""
+        }
+      ]
+    },
+    {
+      "path": "popup.html",
+      "sha256": "cdf1dbf2277a3c2edc2057ef50a1412b85daa324dce01c7f898c72faaba54138",
+      "bytes": 2547,
+      "prefix": "",
+      "adaptations": [
+        {
+          "old": "https://app.topratedseotools.com.ng/login.php",
+          "new": "https://topratedseotools.com/login"
+        }
+      ]
+    },
+    {
+      "path": "popup.js",
+      "sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84",
+      "bytes": 4444,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "icons/icon16.png",
+      "sha256": "dad60782394f70604f4e493e202dc952896684d11b193811b4feb1652b57a5cd",
+      "bytes": 2675,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "icons/icon32.png",
+      "sha256": "e80e69b191fc913cdd4710a98f22ff9944de2684560faca0d2f5305efa3a0769",
+      "bytes": 3086,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "icons/icon48.png",
+      "sha256": "435ef0be2059d06a290ae75f32e3a084a25a97535db9b0a887263a71558a1749",
+      "bytes": 3969,
+      "prefix": "",
+      "adaptations": []
+    },
+    {
+      "path": "icons/icon128.png",
+      "sha256": "fcf8b92ac68fbd924b56010feba8de4afc6c8702b2d7e6746dea0dd2e61efb57",
+      "bytes": 10222,
+      "prefix": "",
+      "adaptations": []
+    }
+  ]
+}

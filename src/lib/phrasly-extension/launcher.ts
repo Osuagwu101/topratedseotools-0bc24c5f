@@ -8,7 +8,6 @@ export interface Handoff { payload: string; signature: string }
 export interface LaunchResult {
   ok: boolean;
   error?: string;
-  provider_login?: "not_performed";
 }
 interface Options {
   extensionId: string;
@@ -47,7 +46,7 @@ export function createPhraslyLauncher(options: Options) {
   }
   async function probe(): Promise<LaunchResult> {
     const result = await send({ type: "trst_ping" }, "extension_unavailable");
-    if (result.ok !== true || result.protocol !== 2) return { ok: false, error: "extension_unavailable" };
+    if (result.ok !== true || result.protocol !== 3) return { ok: false, error: "extension_unavailable" };
     return result.enabled === true ? { ok: true } : { ok: false, error: "extension_disabled" };
   }
   async function launch(feature: LaunchFeature): Promise<LaunchResult> {
@@ -60,7 +59,8 @@ export function createPhraslyLauncher(options: Options) {
     if (!token || typeof token.payload !== "string" || !/^[A-Za-z0-9_-]{1,2048}$/.test(token.payload) ||
         typeof token.signature !== "string" || !/^[a-f0-9]{64}$/.test(token.signature)) return { ok: false, error: "invalid_handoff" };
     const result = await send({ type: "trst_access", payload: token.payload, signature: token.signature }, "launch_state_unknown");
-    if (result.ok === true && result.provider_login === "not_performed") return { ok: true, provider_login: "not_performed" };
+    // AWS reports launch/cookie attempts, not an independent provider login proof.
+    if (result.ok === true) return { ok: true };
     const error = typeof result.error === "string" && /^[a-z_]{1,80}$/.test(result.error) ? result.error : "launch_failed";
     return { ok: false, error };
   }
