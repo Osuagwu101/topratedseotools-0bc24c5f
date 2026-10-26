@@ -191,3 +191,21 @@ export async function whoami(request:Request) {
     subscription_end:null,tools:[{id:TOOL,name:"Phrasly",type:"cookie_extension",active:true,
       resets_in:secondsUntilWatReset(now),features}]},200,true);
 }
+
+/** First-party staff page summary; never returns account cookies or capability tokens. */
+export async function writerStatus(request:Request) {
+  enabled();
+  const uid=await verifiedWriter(request);
+  await activeTopRatedAccess(uid);
+  const features=[];
+  for(const key of ["humanizer","ai_detector"] as const) {
+    try {
+      const limit=await allowedFeature(uid,key);
+      features.push({key,label:key==="humanizer"?"Humanizer":"AI Detector",limit,used:await usage(uid,key)});
+    } catch(error) {
+      if(!(error instanceof OneclickError)||error.code!=="no_access")throw error;
+    }
+  }
+  if(!features.length)throw new OneclickError("no_access",403);
+  return {ok:true,user_id:uid,features,resets_in:secondsUntilWatReset(Math.floor(Date.now()/1000))};
+}
