@@ -19,6 +19,7 @@ const tables:Record<string,unknown>={
 function query(table:string) {
   const q:any={
    select:()=>q,eq:()=>q,order:()=>q,limit:()=>q,
+   then:(resolve:(value:unknown)=>unknown)=>resolve({data:table==="phrasly_oneclick_feature_grants"?[{feature_key:"humanizer",daily_limit:2}]:[],error:null}),
    maybeSingle:async()=>{
      if(table==="phrasly_oneclick_popup_sessions") return {data:popupSessions[0]||null,error:null};
      if(table==="phrasly_oneclick_daily_usage") return {data:{used},error:null};
