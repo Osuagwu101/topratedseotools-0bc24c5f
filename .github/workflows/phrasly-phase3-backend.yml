@@ -99,3 +99,55 @@ jobs:
           test "$status" = 200
           grep -q 'not_signed_in' /tmp/response.json
           echo "PHRASLY_PHASE3_ENABLED_ROUTE_GUARDS_PASS"
+
+  real-local-auth-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install local Supabase CLI and application dependencies
+        run: |
+          bun install --frozen-lockfile
+          bun add --no-save supabase@latest
+      - name: Start disposable Supabase Auth, PostgREST and PostgreSQL
+        run: |
+          mkdir -p /tmp/phrasly-phase3-supabase
+          cd /tmp/phrasly-phase3-supabase
+          "$GITHUB_WORKSPACE/node_modules/.bin/supabase" init --yes
+          "$GITHUB_WORKSPACE/node_modules/.bin/supabase" start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
+      - name: Configure actual local backend and run migrations
+        run: |
+          cd /tmp/phrasly-phase3-supabase
+          "$GITHUB_WORKSPACE/node_modules/.bin/supabase" status -o env > "$GITHUB_WORKSPACE/.phase3-local-env"
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          source .phase3-local-env
+          set +a
+          export PGPASSWORD=postgres
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f tests/phrasly-phase3-local-auth-schema.sql
+          for sql in supabase/migrations/20261026080000_phrasly_aws_oneclick_phase3.sql supabase/migrations/20261026080100_phrasly_aws_oneclick_allocator.sql supabase/migrations/20261026080200_phrasly_aws_tool_config.sql; do
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$sql"
+          done
+      - name: Build and start Nitro using real local Supabase
+        run: |
+          set -a
+          source .phase3-local-env
+          set +a
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_PUBLISHABLE_KEY="$ANON_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          export VITE_SUPABASE_URL="$API_URL"
+          export VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY"
+          export VITE_SUPABASE_PROJECT_ID=local-phase3
+          export PHRASLY_EXTENSION_ENABLED=true
+          export PHRASLY_AWS_EXTENSION_GATE_SECRET='phase3-fixture-secret-for-real-local-auth-123456'
+          export PORT=3329
+          bun run build
+          node .output/server/index.mjs > /tmp/phase3-real-auth-nitro.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3329/ >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          node tests/phrasly-phase3-live-auth.mjs
