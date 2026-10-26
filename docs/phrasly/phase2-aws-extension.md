@@ -2,7 +2,7 @@
 
 The implementation target is the extension-based native Phrasly workflow recovered from AWS. This branch does not deploy or enable a tool.
 
-**Status: first-party protocol and extension components implemented and tested; full automatic provider-login parity is blocked by the original no-session-transfer constraint.** Do not describe this as an end-to-end working Phrasly login.
+**Status on 26 October 2026: first-party source preparation, website launch bridge, real Chromium/MV3 contract rehearsal and reproducible packaging are complete. Exact automatic provider-login parity remains blocked by the original no-session-transfer constraint, so Phase 2's overall integration decision is still open.** Do not describe this as an end-to-end working Phrasly login. See the [closeout and remaining gate](phase2-closeout.md).
 
 ## Actual recovered behavior
 
@@ -19,7 +19,7 @@ Tinyproxy is not in this active extension path. The browser contacts Phrasly dir
 
 ## Source correspondence
 
-[The source map](phase2-aws-source-map.json) identifies nine recovered original files and their hashes. All nine match the pinned recovery manifest after removing the single final LF added when the local inspection copy was written. Original session-bearing data is not included in the map or this branch.
+[The source map](phase2-aws-source-map.json) identifies eleven recovered original files and their hashes, including the original popup. All eleven were rechecked against live AWS files or ZIP entries on 26 October. The ZIP still has SHA-256 `312603cdda37eaa37bb5be2e8deca2ad63c00fd000c804c8ae6c59ac839b6389`. Inspection copies match after removing the single final LF added when they were written. Original session-bearing data is not included in the map or this branch. [The implementation inventory](phase2-source-inventory.json) lists all eighteen code/configuration/workflow/test files with hashes.
 
 | Recovered component | This branch | State |
 | --- | --- | --- |
@@ -27,6 +27,7 @@ Tinyproxy is not in this active extension path. The browser contacts Phrasly dir
 | Separate 14,400-second record token | Same module | Ported; no provider credential in this token |
 | Per-feature quota boundary and WAT day/reset | Same module | Ported as pure helpers; database atomicity belongs to Phase 3 |
 | External `trst_access` message and fulfillment | `extensions/phrasly-oneclick/background.js` | Ported with strict first-party sender validation |
+| Website-to-extension launch | `src/lib/phrasly-extension/launcher.ts` | Readiness probe, authenticated handoff callback, single dispatch, explicit uncertain-outcome handling; live website binding is later work |
 | Session-backed tab tracking | Same worker | Ported; survives worker restart; serialized writes prevent lost concurrent records |
 | Native action hooks, MAIN → isolated → worker relay | `interceptor.js`, `content.js` | Ported using the two recovered exact request paths; no text or provider response is sent to TopRated |
 | Per-action `record_token` and `feature` fields | Worker | Preserved; adds `action_id` for Phase 3 duplicate protection |
@@ -82,22 +83,24 @@ The recovered token format alone does not prevent replay. Phase 3 must add trans
 - The original four-second timeout allowed requests to proceed. The port denies on timeout instead.
 - Native action matching is origin/exact-path/POST-specific rather than a substring match on arbitrary URLs.
 - A disabled extension leaves normal Phrasly requests untouched. Enabled quota checks apply only to TopRated-managed tabs; independent use of the user's provider account is not restricted or metered by TopRated.
+- The worker stores its capability in a blank tab before navigating to Phrasly. Failed navigation closes the new tab and removes the capability. This prevents native scripts racing ahead of tab tracking.
+- Configuration is loaded in the worker and MAIN world. The isolated relay does not depend on a second copy of that configuration. The real browser test explicitly verifies MAIN-world configuration and fetch wrapping before actions.
 - Provider authentication/account controls and cookies are not modified. Only first-party allowance metadata is relayed.
 
 Client-side interception cannot stop someone from using their own provider account outside the extension, and page-origin messages are not a provider authorization boundary. The provider remains responsible for its own login, subscription and quota enforcement. These tests do not establish otherwise.
 
 ## Build and verify
 
-The source extension is disabled by default. A real browser install and full website wiring have not happened.
+The source extension is disabled by default. The actual manifest has been installed and tested in disposable Chromium profiles. Customer-browser installation, published distribution and full website wiring have not happened.
 
 ```sh
-node --experimental-strip-types --test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-worker.test.cjs
+node --experimental-strip-types --test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-worker.test.cjs tests/phrasly-extension-launcher.test.ts
 python3 tests/phrasly-extension-build.test.py
 python3 scripts/phrasly/build-native-extension.py --origin https://YOUR_STAGING_DOMAIN --out /ABSOLUTE/NEW/DIRECTORY
 ```
 
 The builder accepts a plain HTTPS origin, restricts first-party host access and refuses to overwrite an existing directory. `--enabled` is only for later staging after the first-party handlers exist. The actual new extension ID must be configured in the backend; the AWS manifest key/ID is not reused.
 
-Component tests cover token vectors, tampering/expiry/purpose separation, WAT and quota boundaries, worker lifecycle/concurrency, complete synthetic page-to-worker action relay, deny/timeout behavior and packaging restrictions. Fixtures do not log in to Phrasly or process real text. CI also typechecks the port and compiles the unchanged application with dummy configuration.
+Verification passed: 54 Node component tests, six Python packaging tests and two real Chromium/MV3 scenarios. The browser scenarios use a local TLS server, restricted loopback proxy and synthetic account/handler/native-page fixtures; no provider connection, login or real processing occurs. They cover real static injection, first-party launch, both action hooks, revocation, countdown, disabled and unmanaged behavior. CI also typechecks the port and compiles the unchanged application with dummy configuration. [Staging and dependency instructions](phase2-staging-guide.md) distinguish the fixtures from required Phase 3 production handlers.
 
-Production remains intact. The retired proxy's HTTP 410 rules stay in place. Live provider authentication, real browser operation and full end-to-end processing remain unverified.
+Production remains intact. All 5,826 tracked filesystem entries and all 60 PM2 process records matched Phase 1 in the fresh read-only check; six public HTTP checks passed. The retired proxy's HTTP 410 rules stay in place. Real browser component operation is now verified; live provider authentication and full end-to-end processing remain unverified.

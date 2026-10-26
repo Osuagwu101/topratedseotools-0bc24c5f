@@ -1,121 +1,201 @@
 {
   "phase": 2,
   "approach": "Recovered AWS native extension flow",
-  "status": "FIRST_PARTY_PORT_VERIFIED_EXACT_PROVIDER_LOGIN_PARITY_BLOCKED",
+  "status": "FIRST_PARTY_PREPARATION_AND_REAL_MV3_VERIFIED_PROVIDER_LOGIN_SCOPE_UNRESOLVED",
   "phase2_complete": false,
+  "first_party_preparation_complete": true,
   "branch": "phrasly/phase2-integration-20261025",
   "phase1_base": "61933ad20de2692b544611d95af7811090291dec",
-  "implementation_commit": "6c42b000a4150e3cce9cc83577184701d08ed9df",
-  "verified_code_commit": "5eac141ee50bd0df4d40cc2bbe32aa15dc5d26a3",
-  "verified_at": "2026-10-25T16:32:45Z",
+  "verified_code_commit": "e4731fa692ac315429b16b72b73931ad232c324c",
+  "verified_at": "2026-10-26T04:27:31Z",
   "source_basis": {
-    "snapshot": "previously recovered AWS source",
+    "snapshot": "Recovered originals rechecked against current AWS source and ZIP",
     "source_map": "phase2-aws-source-map.json",
-    "files_verified": 9,
-    "inspection_normalization": "one inspection-added final LF removed for comparison"
+    "files_verified": 11,
+    "read_only_aws_utc": "2026-10-26T04:24:08Z",
+    "original_extension_zip_sha256": "312603cdda37eaa37bb5be2e8deca2ad63c00fd000c804c8ae6c59ac839b6389",
+    "implementation_inventory": "phase2-source-inventory.json",
+    "implementation_files": 18,
+    "inherited_application_files_modified": 0
   },
   "tests": {
     "node": {
       "version": "22.23.2",
-      "passed": 43,
+      "passed": 54,
       "failed": 0
     },
     "packaging": {
-      "passed": 4,
+      "passed": 6,
       "failed": 0
     },
+    "browser": {
+      "playwright": "1.58.2",
+      "chromium": "145.0.7632.6",
+      "passed": 2,
+      "failed": 0,
+      "actual_mv3_installed": true,
+      "local_tls_and_restricted_proxy": true,
+      "native_provider_contacts": 0,
+      "synthetic_accounts_and_http_handlers": true
+    },
+    "total_passed": 62,
+    "total_failed": 0,
     "javascript_syntax": "PASS",
     "typescript": "PASS",
+    "frozen_application_dependencies": "PASS",
     "application_build": "PASS",
     "artifact_checks": "PASS",
-    "fixture_only": true,
     "provider_login_tested": false,
-    "real_browser_install_tested": false,
+    "customer_browser_install_tested": false,
     "live_endpoint_wiring_tested": false,
-    "ci_run": 40211861413,
-    "ci_job": 121224592824,
-    "ci_url": "https://github.com/Osuagwu101/topratedseotools-0bc24c5f/actions/runs/40211861413"
+    "ci_run": 40268585778,
+    "ci_job": 121396264222,
+    "ci_url": "https://github.com/Osuagwu101/topratedseotools-0bc24c5f/actions/runs/40268585778"
   },
-  "github_readback": [
+  "package_readback": {
+    "status": "PASS",
+    "artifact_id": 12627092569,
+    "outer_sha256": "861eb5ea7b0bf13e427ce4703df33f11ebb2ac3e165ffe30dfe24abaeedcdb3b",
+    "extension_sha256": "061006801c4a0efd8371ab54e58bfa222524160fd3351b67912a652f70420377",
+    "extension_bytes": 11657,
+    "manifest_files_verified": 7,
+    "archive_entries": 8,
+    "origin": "https://topratedseotools.com",
+    "enabled": false,
+    "version": "0.2.1"
+  },
+  "github_readback": {
+    "ref": "e4731fa692ac315429b16b72b73931ad232c324c",
+    "passed": 22,
+    "failed": 0,
+    "files": [
+      {
+        "path": ".github/workflows/phrasly-phase2-extension.yml",
+        "sha": "b1d290db71721e0a3135f69e819ca0a99580872e",
+        "pass": true
+      },
+      {
+        "path": "config/phrasly-extension.env.example",
+        "sha": "e6b17f93ea2b38f6da2869b0584ed09e87226dc9",
+        "pass": true
+      },
+      {
+        "path": "docs/phrasly/phase2-aws-extension.md",
+        "sha": "254b953a42c356f1903f4505c2d5e20f835a8c93",
+        "pass": true
+      },
+      {
+        "path": "docs/phrasly/phase2-aws-source-map.json",
+        "sha": "415e0f7c5619d1ac5b533ebdf78346dd009c5816",
+        "pass": true
+      },
+      {
+        "path": "docs/phrasly/phase2-staging-guide.md",
+        "sha": "2b20225f98cd3785cd7a4b2ccb82af1c9c9fbc76",
+        "pass": true
+      },
+      {
+        "path": "docs/phrasly/phase2-verification.json",
+        "sha": "a71682f400511fb41402cf9d50a3e040aeac772d",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/background.js",
+        "sha": "a84452d32c0b5094455aace10d6b714dc4fb49bd",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/config.js",
+        "sha": "a766686a8c3f230fd6f03b128ff3cec3f267528f",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/content.js",
+        "sha": "9005c85fc3dd2cee82045d20045b365f1ee3b912",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/interceptor.js",
+        "sha": "1f755048ef898be8329dcc800ad5dc4cf4fc6d9f",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/limit-reached.html",
+        "sha": "1c887bd5f7584cd60e17e83aa91b51078dde1422",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/limit-reached.js",
+        "sha": "52a6685ea386addc3f6b238de768c1c714307c24",
+        "pass": true
+      },
+      {
+        "path": "extensions/phrasly-oneclick/manifest.json",
+        "sha": "04375908ea81c41d71f24774fd487e3dce22f0cb",
+        "pass": true
+      },
+      {
+        "path": "scripts/phrasly/build-native-extension.py",
+        "sha": "ff169db127da47fd5a15d4c35c00240466ca1e09",
+        "pass": true
+      },
+      {
+        "path": "scripts/phrasly/package-native-extension.py",
+        "sha": "5b8dcf3d26343f8c919d76666ee3e90af02bfc39",
+        "pass": true
+      },
+      {
+        "path": "src/lib/phrasly-extension/launcher.ts",
+        "sha": "a3cb50e3be08892ad10287dea719054a41084e84",
+        "pass": true
+      },
+      {
+        "path": "src/lib/phrasly-extension/protocol.server.ts",
+        "sha": "a2292df1a42eba5e8976702c4faba84818ea3645",
+        "pass": true
+      },
+      {
+        "path": "tests/phrasly-extension-browser.test.cjs",
+        "sha": "0723af1362652ae83b026149d98677550e0f3bac",
+        "pass": true
+      },
+      {
+        "path": "tests/phrasly-extension-build.test.py",
+        "sha": "573b1710bdb1d362db7214ce4292964ee79119cc",
+        "pass": true
+      },
+      {
+        "path": "tests/phrasly-extension-launcher.test.ts",
+        "sha": "24bf9aa38c4701af6389cf399e6d728b714f5346",
+        "pass": true
+      },
+      {
+        "path": "tests/phrasly-extension-protocol.test.ts",
+        "sha": "2d7c404edaed73574f8e99582ab303a4fd7f6ff5",
+        "pass": true
+      },
+      {
+        "path": "tests/phrasly-extension-worker.test.cjs",
+        "sha": "5527ec876675ec6ec277b9f2050ab97a3a4215be",
+        "pass": true
+      }
+    ]
+  },
+  "protected_refs": [
     {
-      "path": "src/lib/phrasly-extension/protocol.server.ts",
-      "pass": true,
-      "sha": "a2292df1a42eba5e8976702c4faba84818ea3645"
+      "branch": "main",
+      "sha": "28c9e1d1058b73be11056af94522b2758fe66de8",
+      "unchanged": true
     },
     {
-      "path": "config/phrasly-extension.env.example",
-      "pass": true,
-      "sha": "dad3f69f350a4e06872b65ef49712b05e9b50d88"
+      "branch": "phrasly/phase1-baseline-20261025",
+      "sha": "61933ad20de2692b544611d95af7811090291dec",
+      "unchanged": true
     },
     {
-      "path": ".github/workflows/phrasly-phase2-extension.yml",
-      "pass": true,
-      "sha": "7b8dbb736d7250f1407cdd571448574ad931f47c"
-    },
-    {
-      "path": "scripts/phrasly/build-native-extension.py",
-      "pass": true,
-      "sha": "e89ce933a7687b6119649c10fb852ce3ca6e9482"
-    },
-    {
-      "path": "tests/phrasly-extension-protocol.test.ts",
-      "pass": true,
-      "sha": "2d7c404edaed73574f8e99582ab303a4fd7f6ff5"
-    },
-    {
-      "path": "tests/phrasly-extension-worker.test.cjs",
-      "pass": true,
-      "sha": "52a2a7ae8d3641bb25f1a26437ed0d687be92052"
-    },
-    {
-      "path": "tests/phrasly-extension-build.test.py",
-      "pass": true,
-      "sha": "893f74946c20eb909f9f53c89bda3a27f73f4a10"
-    },
-    {
-      "path": "docs/phrasly/phase2-aws-extension.md",
-      "pass": true,
-      "sha": "254b953a42c356f1903f4505c2d5e20f835a8c93"
-    },
-    {
-      "path": "docs/phrasly/phase2-aws-source-map.json",
-      "pass": true,
-      "sha": "415e0f7c5619d1ac5b533ebdf78346dd009c5816"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/background.js",
-      "pass": true,
-      "sha": "4a1ce03d9ddff595b1db6c007ca2e5de5196dbba"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/config.js",
-      "pass": true,
-      "sha": "a766686a8c3f230fd6f03b128ff3cec3f267528f"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/content.js",
-      "pass": true,
-      "sha": "eeea3a5ec1251ac10dd38b5bd2fa2db0e7c74285"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/interceptor.js",
-      "pass": true,
-      "sha": "1f755048ef898be8329dcc800ad5dc4cf4fc6d9f"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/limit-reached.html",
-      "pass": true,
-      "sha": "1c887bd5f7584cd60e17e83aa91b51078dde1422"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/limit-reached.js",
-      "pass": true,
-      "sha": "52a6685ea386addc3f6b238de768c1c714307c24"
-    },
-    {
-      "path": "extensions/phrasly-oneclick/manifest.json",
-      "pass": true,
-      "sha": "f4c50a0652a1eb70b5ab1340408da89f55522207"
+      "branch": "turnitin/phase4-phase5-admin-20261024",
+      "sha": "663f59675300183fa738f7f5eb43841f536d2bb9",
+      "unchanged": true
     }
   ],
   "production": {
@@ -124,54 +204,132 @@
     "configuration_writes": false,
     "database_writes": false,
     "service_restart_or_reload": false,
-    "public_http": {
-      "utc": "2026-10-25T16:24:10Z",
-      "passed": 6,
-      "failed": 0,
-      "results": [
+    "final_ssh_integrity_recheck": "PASS",
+    "read_only_integrity": {
+      "utc": "2026-10-26T04:02:24Z",
+      "groups": [
+        {
+          "group": "storefront-runtime",
+          "entries_checked": 1293,
+          "unchanged": true,
+          "changed_count": 0,
+          "changed_paths": []
+        },
+        {
+          "group": "login-runtime",
+          "entries_checked": 1042,
+          "unchanged": true,
+          "changed_count": 0,
+          "changed_paths": []
+        },
+        {
+          "group": "admin-runtime-source",
+          "entries_checked": 1075,
+          "unchanged": true,
+          "changed_count": 0,
+          "changed_paths": []
+        },
+        {
+          "group": "assets",
+          "entries_checked": 2347,
+          "unchanged": true,
+          "changed_count": 0,
+          "changed_paths": []
+        },
+        {
+          "group": "nginx-configuration",
+          "entries_checked": 69,
+          "unchanged": true,
+          "changed_count": 0,
+          "changed_paths": []
+        }
+      ],
+      "nginx_site_sha256": "dc7b9d1d6cb81863d3c99e39ab403a291153bbd2d6268369a8b0ba0f2833e620",
+      "nginx_syntax": "PASS",
+      "processes_checked": 60,
+      "processes_unchanged_since_phase1": true,
+      "changed_process_names_since_phase1": [],
+      "processes_unchanged_during_check": true,
+      "http": [
         {
           "path": "/",
-          "status": 200
+          "status": 200,
+          "expected": 200,
+          "pass": true
         },
         {
           "path": "/login",
-          "status": 200
+          "status": 200,
+          "expected": 200,
+          "pass": true
         },
         {
           "path": "/tools/phrasly",
-          "status": 200
+          "status": 200,
+          "expected": 200,
+          "pass": true
         },
         {
           "path": "/admin/turnitin-billing",
-          "status": 200
+          "status": 200,
+          "expected": 200,
+          "pass": true
         },
         {
           "path": "/api/phrasly-proxy",
-          "status": 410
+          "status": 410,
+          "expected": 410,
+          "pass": true
         },
         {
           "path": "/api/phrasly-proxy-bootstrap",
-          "status": 410
+          "status": 410,
+          "expected": 410,
+          "pass": true
         }
-      ]
+      ],
+      "host_writes": false,
+      "service_changes": false
     },
-    "final_ssh_integrity_recheck": "BLOCKED_REMOTE_DEVICE_UNRESPONSIVE",
-    "last_read_only_ssh_snapshot": "2026-10-25T15:45:29Z",
-    "last_observed_pm2_processes": 60,
-    "phase1_branch_unchanged": true,
-    "main_unchanged": "28c9e1d1058b73be11056af94522b2758fe66de8"
+    "aws_main_read_only_access": "PASS",
+    "aws_relay_read_only_access": "PASS",
+    "aws_relay": {
+      "active": {
+        "exit_code": 0,
+        "output": "active"
+      },
+      "enabled": {
+        "exit_code": 0,
+        "output": "enabled"
+      },
+      "version": {
+        "exit_code": 0,
+        "output": "tinyproxy 1.11.3"
+      },
+      "configuration_sha256": "162c6a3284c2ecf2b977a63532bfe266e188c355f328f6919ade63b8e8c9c2c8"
+    },
+    "security_group_rules_modified": false,
+    "temporary_security_rule_cleanup": "NOT_PERFORMED_IN_PHASE_2_NOT_CLAIMED_COMPLETE"
   },
   "excluded_provider_component": {
     "mechanism": "Shared provider-account session/cookie distribution and browser injection",
     "reason": "Original user instruction excludes active-session transfer and mechanisms bypassing third-party access restrictions",
     "ported": false
   },
+  "remaining_gate": {
+    "kind": "Authentication scope conflict",
+    "original_instruction": "Do not transfer active sessions, customer credentials, or mechanisms designed to bypass third-party access restrictions.",
+    "aws_mechanism": "Assign and inject a shared provider-account cookie session",
+    "original_mechanism_ported": false,
+    "provider_login": "not_performed",
+    "missing_source_or_ssh_access": false
+  },
   "remaining": [
-    "Resolve the provider-login component within the user's session-transfer constraint; exact automatic login is not implemented",
-    "Phase 3: authenticated handlers, current entitlement checks, atomic counters, deduplication and token revocation",
-    "Phase 4: real extension ID, browser installation and website/popup onboarding",
-    "Phase 5: authorized real-browser/native processing tests",
-    "Phase 6: separately authorized production rollout"
+    "Resolve exact provider-login behavior within the original session-transfer restriction",
+    "Phase 3: actual authenticated HTTP handlers, fresh entitlements, single-use redemption, transactional counters, deduplication and revocation",
+    "Phase 4: website controls/popup/account UI, stable extension ID and distribution",
+    "Phase 5: authorized real provider processing and end-to-end acceptance",
+    "Phase 6: separately authorized rollout and outstanding temporary AWS security-rule cleanup"
   ],
   "alternate_processing_service_implemented": false
 }

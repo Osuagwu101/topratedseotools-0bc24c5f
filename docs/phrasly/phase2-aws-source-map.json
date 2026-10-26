@@ -6,64 +6,184 @@
       "sha256": "8fb008e17ff01880855c1317fd635bc2223cef5a728416241b56c9e8fca2815c",
       "bytes": 1781,
       "aws_snapshot_sha256": "2153dfa6db1303a30877ce86b0a1e04c7edbd51bcfa2cae5196962797a6702cc",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "platform/public-app/ext-fulfill.php",
       "sha256": "da57c5928cd7e94fed623b08434f5edb3c93c827a1b4c35e13db5b9b3d35fbaf",
       "bytes": 5591,
       "aws_snapshot_sha256": "355129d476edc25beb867ca194c3ebf347da0cfeeea4939b8b33282b1076bf5b",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "platform/public-app/ext-check-usage.php",
       "sha256": "853df33585a74610469368221244aa09c1e5e049561e0bc678f34953a78f2184",
       "bytes": 3077,
       "aws_snapshot_sha256": "837b2c440a88b1f65c6df64539320a5445dfbb119787afdcd74b8dac950f56c4",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "platform/public-app/ext-whoami.php",
       "sha256": "7f5f11de3160c986c40a8efea6a81d39a681625966fb70f640e8b658f7865435",
       "bytes": 4735,
       "aws_snapshot_sha256": "bc2a39686307b83968da2e99151d4ac9c1e9d6c5278ceafd2a668c2c17af741d",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "platform/src/usage_limits.php",
       "sha256": "84f8898ed3a44605e8ca434bca8dd8a1e2cd6964712fe05776a3ad63c6d41f61",
       "bytes": 3089,
       "aws_snapshot_sha256": "5b04ccf4242c8b9e6feafe5c0b48055d4adc76f79e776317ff2e0d29e799e8b7",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "extension/background.js",
       "sha256": "93f7f0498b9f11f87dd089bc911cf8630c3f7633a707786dfb60807d1bd872c5",
       "bytes": 7963,
       "aws_snapshot_sha256": "5775cd4831270e4c7ce8c91613f1c70ce83aa902e2b06470711da8a3a7a5f857",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "extension/interceptor.js",
       "sha256": "eea0573b4a97b4b67b9c5136e786229e9502ca177d785bfcc87c89b3e9e3a298",
       "bytes": 3014,
       "aws_snapshot_sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "extension/content.js",
       "sha256": "cc5d41d8b3f8a661e6c17b27c43044ee2db392a264969a6fa3fcb58c2fef9767",
       "bytes": 3390,
       "aws_snapshot_sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     },
     {
       "path": "extension/manifest.json",
       "sha256": "c274d03e72f0e3e099dfa4d4b02d2a6fed0c3bb6fcab0024961535449b5d1fb7",
       "bytes": 1528,
       "aws_snapshot_sha256": "fa200a8d418bbb4d9e37aa4f6e258a4fa51773a20d3635a7ade76edeee7af729",
-      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
+    },
+    {
+      "path": "extension/popup.html",
+      "sha256": "9491a2e1d64bc7402ce057feaae4f2ba2c6661aae429ae5333bc6406df14413c",
+      "bytes": 2548,
+      "aws_snapshot_sha256": "cdf1dbf2277a3c2edc2057ef50a1412b85daa324dce01c7f898c72faaba54138",
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
+    },
+    {
+      "path": "extension/popup.js",
+      "sha256": "c167e6c5f0a038ccb0e9eca92c9fb274d8fb22875c5ee7ca88a21d8a0359e4d6",
+      "bytes": 4445,
+      "aws_snapshot_sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84",
+      "matches_aws_snapshot_after_removing_inspection_added_final_lf": true,
+      "live_aws_sha256_verified": true
     }
   ],
-  "note": "Hashes identify the private recovered originals. Credential/session-transfer portions are not published."
+  "note": "Hashes identify the recovered originals, rechecked read-only on AWS on 26 October 2026. Session-bearing data and the shared-session distribution mechanism are not published in this port.",
+  "live_aws_recheck": {
+    "utc": "2026-10-26T04:24:08Z",
+    "read_only": true,
+    "archive": {
+      "path": "/var/www/platform/public-app/assets/extension/TopRatedSEOTools-Extension.zip",
+      "sha256": "312603cdda37eaa37bb5be2e8deca2ad63c00fd000c804c8ae6c59ac839b6389",
+      "bytes": 30877,
+      "owner": "www-data:www-data",
+      "mode": "0o644"
+    },
+    "platform_files": [
+      {
+        "path": "/var/www/platform/public-app/ext-handoff.php",
+        "sha256": "2153dfa6db1303a30877ce86b0a1e04c7edbd51bcfa2cae5196962797a6702cc",
+        "bytes": 1780,
+        "owner": "www-data:www-data",
+        "mode": "0o644"
+      },
+      {
+        "path": "/var/www/platform/public-app/ext-fulfill.php",
+        "sha256": "355129d476edc25beb867ca194c3ebf347da0cfeeea4939b8b33282b1076bf5b",
+        "bytes": 5590,
+        "owner": "www-data:www-data",
+        "mode": "0o644"
+      },
+      {
+        "path": "/var/www/platform/public-app/ext-check-usage.php",
+        "sha256": "837b2c440a88b1f65c6df64539320a5445dfbb119787afdcd74b8dac950f56c4",
+        "bytes": 3076,
+        "owner": "www-data:www-data",
+        "mode": "0o644"
+      },
+      {
+        "path": "/var/www/platform/public-app/ext-whoami.php",
+        "sha256": "bc2a39686307b83968da2e99151d4ac9c1e9d6c5278ceafd2a668c2c17af741d",
+        "bytes": 4734,
+        "owner": "www-data:www-data",
+        "mode": "0o644"
+      },
+      {
+        "path": "/var/www/platform/src/usage_limits.php",
+        "sha256": "5b04ccf4242c8b9e6feafe5c0b48055d4adc76f79e776317ff2e0d29e799e8b7",
+        "bytes": 3088,
+        "owner": "www-data:www-data",
+        "mode": "0o644"
+      }
+    ],
+    "extension_entries": [
+      {
+        "path": "TopRatedSEOTools-Extension\\background.js",
+        "sha256": "5775cd4831270e4c7ce8c91613f1c70ce83aa902e2b06470711da8a3a7a5f857",
+        "bytes": 7962
+      },
+      {
+        "path": "TopRatedSEOTools-Extension\\content.js",
+        "sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3",
+        "bytes": 3389
+      },
+      {
+        "path": "TopRatedSEOTools-Extension\\interceptor.js",
+        "sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601",
+        "bytes": 3013
+      },
+      {
+        "path": "TopRatedSEOTools-Extension\\manifest.json",
+        "sha256": "fa200a8d418bbb4d9e37aa4f6e258a4fa51773a20d3635a7ade76edeee7af729",
+        "bytes": 1527
+      },
+      {
+        "path": "TopRatedSEOTools-Extension\\popup.html",
+        "sha256": "cdf1dbf2277a3c2edc2057ef50a1412b85daa324dce01c7f898c72faaba54138",
+        "bytes": 2547
+      },
+      {
+        "path": "TopRatedSEOTools-Extension\\popup.js",
+        "sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84",
+        "bytes": 4444
+      }
+    ],
+    "relay": {
+      "active": {
+        "exit_code": 0,
+        "output": "active"
+      },
+      "enabled": {
+        "exit_code": 0,
+        "output": "enabled"
+      },
+      "version": {
+        "exit_code": 0,
+        "output": "tinyproxy 1.11.3"
+      },
+      "configuration_sha256": "162c6a3284c2ecf2b977a63532bfe266e188c355f328f6919ade63b8e8c9c2c8"
+    }
+  }
 }
