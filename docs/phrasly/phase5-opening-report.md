@@ -19,3 +19,13 @@ Status: **IN PROGRESS**. Isolated cross-service checks passed; real third-party 
 3. Verify quotas, expiration, provider authentication failure, account exhaustion, simultaneous launch and consent boundaries.
 4. Run broader live regression checks for unaffected services and payments using non-financial smoke requests; never create charges or modify balances.
 5. Record test results and exact rollback steps before production deployment Phase 6.
+
+## Expanded verification (26 October 2026)
+- Commit `66ed06c132502a2403d8f63b1896ccc4de0878f1` expanded CI to include synthetic payment checkout/regressions, StealthWriter and ChatGPT vault contracts, Phrasly extension worker, Phrasly session/proxy regressions, and complete application build.
+- Isolated-regressions job `121457893563`: SUCCESS, including all test stages and the final disabled-release gate.
+- These checks do not create or refund money, do not modify balances, and do not exercise live Phrasly provider generation.
+
+## Final outstanding gate
+- No valid authorized live Phrasly processing result has been obtained or independently verified from the website's target environment. A synthetic browser response is not equivalent to live processing.
+- Until this gate passes, **Phase 5 remains open** and the next phase must not activate production access. No fake acceptance evidence should be used.
+- Phase 6 deployment activities are not yet authorized by this report.
