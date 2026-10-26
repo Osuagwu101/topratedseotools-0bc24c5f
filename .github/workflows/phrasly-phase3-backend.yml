@@ -31,3 +31,11 @@ jobs:
         env:
           PGPASSWORD: fixture-only
         run: psql -h localhost -U postgres -d fixture -X -v ON_ERROR_STOP=1 -f tests/phrasly-phase3-schema.sql
+
+  endpoint-fixture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Test AWS-compatible handlers with synthetic login and provider state
+        run: bun test tests/phrasly-phase3-backend.test.ts
