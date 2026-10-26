@@ -54,6 +54,9 @@ async function fixture(enabled, { signedIn = true } = {}) {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     proxy = http.createServer((_request, response) => { response.writeHead(403); response.end(); });
     proxy.on('connect', (request, client, head) => {
+      // Chromium may reset a rejected background CONNECT during profile teardown.
+      // Cover rejected sockets too; they never reach the upstream listener below.
+      client.on('error', () => client.destroy());
       if (!['toprated-staging.example.test:443', 'phrasly.ai:443'].includes(request.url)) return client.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       const upstream = net.connect(server.address().port, '127.0.0.1', () => {
         client.write('HTTP/1.1 200 Connection Established\r\n\r\n');

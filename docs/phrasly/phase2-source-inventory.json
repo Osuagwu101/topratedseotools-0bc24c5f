@@ -110,8 +110,8 @@
     },
     {
       "path": "tests/phrasly-extension-browser.test.cjs",
-      "bytes": 20441,
-      "sha256": "eff9a65c710cac53d9f5cd8bcf08b988831630f227b7c29b22240e3ecc5020b1"
+      "bytes": 20657,
+      "sha256": "8f720b84ecebdb1681c9f4a4ed51be5b9966ddcc272816c9b73e9657f280d5d9"
     },
     {
       "path": "tests/phrasly-extension-build.test.py",
