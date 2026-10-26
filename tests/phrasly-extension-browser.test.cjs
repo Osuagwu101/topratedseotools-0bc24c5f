@@ -115,6 +115,7 @@ test('real MV3: first-party launch, both native actions, revocation, quota count
     assert.deepEqual(await f.page.evaluate(() => globalThis.launcher.launch('humanizer')), { ok: true, provider_login: 'not_performed' });
     const native = await opened;
     await native.waitForURL(NATIVE + '/dashboard');
+    console.log(JSON.stringify({ nativeInjection: await native.evaluate(() => ({ configured: globalThis.TRST_EXTENSION?.enabled === true, wrappedFetch: window.fetch.toString().includes('permission') })), trackedTabs: await f.context.serviceWorkers()[0].evaluate(async () => Object.keys((await chrome.storage.session.get('trst_tracked_tabs')).trst_tracked_tabs || {})) }));
     assert.equal(f.state.handoffs, 1); assert.equal(f.state.fulfillments, 1); assert.equal(f.state.usage.length, 0);
     const replay = await f.page.evaluate(({ id, token }) => new Promise(resolve => chrome.runtime.sendMessage(id, { type: 'trst_access', ...token }, resolve)), { id: f.id, token: f.state.token });
     assert.equal(replay.error, 'already_redeemed');
