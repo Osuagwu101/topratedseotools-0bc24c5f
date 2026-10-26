@@ -39,3 +39,40 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Test AWS-compatible handlers with synthetic login and provider state
         run: bun test tests/phrasly-phase3-backend.test.ts
+
+  http-staging-smoke:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: http://127.0.0.1:9
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_staging_dummy
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_staging_dummy
+      VITE_SUPABASE_URL: http://127.0.0.1:9
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_staging_dummy
+      VITE_SUPABASE_PROJECT_ID: isolated-stage
+      PHRASLY_EXTENSION_ENABLED: 'false'
+      PORT: '3327'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Build offline application in disposable staging
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Start actual compiled Nitro server and verify Phrasly routes fail closed
+        run: |
+          node .output/server/index.mjs > /tmp/phrasly-phase3-stage.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS "http://127.0.0.1:3327/" -o /dev/null; then break; fi
+            sleep 1
+          done
+          for path in '/ext-handoff.php?tool_id=phrasly&feature=humanizer' '/ext-fulfill.php?payload=invalid&signature=invalid' '/ext-whoami.php'; do
+            status=$(curl -sS -o /tmp/response.json -w '%{http_code}' "http://127.0.0.1:3327$path")
+            test "$status" = 503
+            grep -q 'service_unavailable' /tmp/response.json
+          done
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' -X POST -d 'record_token=invalid&feature=humanizer' "http://127.0.0.1:3327/ext-check-usage.php")
+          test "$status" = 503
+          grep -q 'service_unavailable' /tmp/response.json
+          echo "PHRASLY_PHASE3_STAGING_HTTP_PASS"
