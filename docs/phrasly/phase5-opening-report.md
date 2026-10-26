@@ -1,3 +1,5 @@
+> Historical opening report. Phase 5 is now COMPLETE; see [verified closeout](phase5-closeout.md), [real provider results](phase5-live-provider-results.md), and [rollback](phase5-rollback.md). Open items below describe the earlier state and are superseded by those results.
+
 # Phase 5 opening verification — 26 October 2026
 
 Status: **IN PROGRESS**. Isolated cross-service checks passed; real third-party Phrasly acceptance and production-adjacent regression verification not yet complete.
