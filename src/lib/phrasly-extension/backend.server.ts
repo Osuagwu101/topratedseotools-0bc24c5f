@@ -51,8 +51,26 @@ async function activeWriter(uid: string) {
   const {data,error} = await db.from("profiles").select("account_status").eq("id",uid).maybeSingle();
   if(error || !data || data.account_status === "suspended") throw new OneclickError("account_inactive",403);
 }
+async function activeTopRatedAccess(uid:string) {
+  const {data:grants,error:grantError}=await db.from("tool_access_grants")
+    .select("status,expires_at").eq("user_id",uid).eq("tool_slug",TOOL).eq("status","active").limit(20);
+  if(grantError) throw new OneclickError("service_unavailable",503);
+  const now=Date.now();
+  const granted=(grants||[]).some((g:any)=>g.status==="active" && (!g.expires_at || Date.parse(g.expires_at)>now));
+  if(granted) return;
+  const {data:orders,error:orderError}=await db.from("tool_orders")
+    .select("status,payment_status,expires_at,access_type,fulfilment_status")
+    .eq("user_id",uid).eq("tool_slug",TOOL).eq("status","approved").limit(20);
+  if(orderError) throw new OneclickError("service_unavailable",503);
+  const paid=(orders||[]).some((o:any)=>o.status==="approved" && o.payment_status==="successful" &&
+    (!o.expires_at || Date.parse(o.expires_at)>now) &&
+    (o.access_type!=="private" || o.fulfilment_status==="active"));
+  if(!paid) throw new OneclickError("no_access",403);
+}
+
 async function allowedFeature(uid: string, f: Feature) {
   await activeWriter(uid);
+  await activeTopRatedAccess(uid);
   const {data,error}=await db.from("phrasly_oneclick_feature_grants")
     .select("daily_limit,enabled").eq("user_id",uid).eq("tool_id",TOOL).eq("feature_key",f).maybeSingle();
   if(error) throw new OneclickError("service_unavailable",503);
@@ -157,7 +175,7 @@ export async function whoami(request:Request) {
   if(error || !data || data.revoked_at || Date.parse(data.expires_at)<=Date.now())
     return oneclickJson({ok:false,error:"not_signed_in"},200,true);
   const uid=data.user_id as string;
-  try {await activeWriter(uid);} catch {return oneclickJson({ok:false,error:"not_signed_in"},200,true);}
+  try {await activeWriter(uid);await activeTopRatedAccess(uid);} catch {return oneclickJson({ok:false,error:"not_signed_in"},200,true);}
   const {data:grants,error:grantsError}=await db.from("phrasly_oneclick_feature_grants")
     .select("feature_key,daily_limit").eq("user_id",uid).eq("tool_id",TOOL).eq("enabled",true);
   if(grantsError) throw new OneclickError("service_unavailable",503);
