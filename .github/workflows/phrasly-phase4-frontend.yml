@@ -28,6 +28,12 @@ jobs:
         run: bun run build
       - name: Verify original extension/website launcher protocol
         run: bun test tests/phrasly-extension-launcher.test.ts tests/phrasly-extension-protocol.test.ts
+      - name: Install isolated Chromium test runner
+        run: |
+          bun add --no-save playwright@1.58.2
+          bunx playwright install --with-deps chromium
+      - name: Install actual AWS extension in Chromium and exercise staging launch
+        run: node --experimental-strip-types --test tests/phrasly-extension-browser.test.cjs
       - name: Prevent Phase 4 from activating extension
         run: |
           grep -q 'enabled: false' extensions/phrasly-oneclick/config.js
