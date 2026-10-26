@@ -7,6 +7,7 @@ process.env.PHRASLY_EXTENSION_ENABLED="true";
 process.env.PHRASLY_AWS_EXTENSION_GATE_SECRET="fixture-phase3-hmac-secret-32bytes-long";
 const encrypted=encryptPhraslySession(normalisePhraslySession("fixture-only"));
 let used=0;
+let accessActive=true;
 const audits: unknown[]=[];
 const popupSessions: {token_hash:string;user_id:string;expires_at:string}[]=[];
 const tables:Record<string,unknown>={
@@ -19,7 +20,9 @@ const tables:Record<string,unknown>={
 function query(table:string) {
   const q:any={
    select:()=>q,eq:()=>q,order:()=>q,limit:()=>q,
-   then:(resolve:(value:unknown)=>unknown)=>resolve({data:table==="phrasly_oneclick_feature_grants"?[{feature_key:"humanizer",daily_limit:2}]:[],error:null}),
+   then:(resolve:(value:unknown)=>unknown)=>resolve({data:
+     table==="phrasly_oneclick_feature_grants"?[{feature_key:"humanizer",daily_limit:2}]:
+     table==="tool_access_grants"&&accessActive?[{status:"active",expires_at:null}]:[],error:null}),
    maybeSingle:async()=>{
      if(table==="phrasly_oneclick_popup_sessions") return {data:popupSessions[0]||null,error:null};
      if(table==="phrasly_oneclick_daily_usage") return {data:{used},error:null};
@@ -93,6 +96,11 @@ describe("AWS Phase 3 Node handlers",()=>{
   expect(b.used).toBe(2);
   const denied=await backend.fulfill(new Request("https://topratedseotools.com/ext-fulfill.php?payload="+token.payload+"&signature="+token.signature));
   expect(denied.status).toBe(429);
+ });
+ test("revoked TopRated entitlement blocks new handoffs",async()=>{
+  accessActive=false;
+  await expect(backend.handoff(new Request("https://topratedseotools.com/ext-handoff.php?feature=humanizer",{headers:{authorization:"Bearer valid-synthetic-token"}}))).rejects.toMatchObject({code:"no_access",status:403});
+  accessActive=true;
  });
  test("explicit enablement switch blocks all five handlers",async()=>{
   process.env.PHRASLY_EXTENSION_ENABLED="false";
