@@ -11,6 +11,8 @@ await build({
  resolve:{alias:{"@":path.join(root,"src")}},
  define:{"import.meta.env":JSON.stringify({VITE_SUPABASE_URL:"https://vuhnvsejdszfvwicflbb.supabase.co",VITE_SUPABASE_PUBLISHABLE_KEY:"sb_publishable_qACYapb1FmF5eAfeG9wEPw_KYGrmAa6",PROD:true,DEV:false}),"process.env.NODE_ENV":JSON.stringify("production")},
  build:{outDir:out,emptyOutDir:false,minify:true,sourcemap:false,target:"es2022",
-  lib:{entry:path.join(root,"src/components/tools/PhraslyStaffWorkspace.tsx"),formats:["es"],fileName:()=>"writer.js"}}
+  lib:{entry:{writer:path.join(root,"src/components/tools/PhraslyStaffWorkspace.tsx"),"customer-access-v1":path.join(root,"src/components/tools/PhraslyCustomerEntry.tsx")},formats:["es"],fileName:(_format,name)=>name+".js"}}
 });
 fs.copyFileSync(path.join(out,"writer.js"),path.join(out,"admin.js"));
+
+fs.copyFileSync(path.join(root,"src/lib/phrasly-extension/customer-bootstrap.js"),path.join(out,"customer-bootstrap-v1.js"));

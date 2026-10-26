@@ -1,3 +1,5 @@
+> Reopened for customer-entry correction. Earlier verification covered /phrasly, not the actual retained storefront Launch Phrasly path or visible dashboard installation. See customer-entry-correction.md.
+
 # Phase 6 closeout — 26 October 2026
 
 Status: COMPLETE AND DEPLOYED. Writers enter native Phrasly at phrasly.ai through the original AWS MV3 handoff. The additional TopRated writer dashboard has been removed from the writer flow.
