@@ -3,9 +3,9 @@ const fs=require("node:fs"),path=require("node:path"),os=require("node:os"),asse
 const {execFileSync}=require("node:child_process"),{createHash}=require("node:crypto"),{chromium}=require("playwright");
 const dir=process.env.PHRASLY_ACCEPTANCE_PRIVATE_DIR;
 const site="https://topratedseotools.com",id="lpgnjkafilbopdojcfnagooojifkccek";
-const qa=JSON.parse(fs.readFileSync(path.join(dir,"phase6-writer-session.private.json"),"utf8"));
+const qa=JSON.parse(fs.readFileSync(path.join(dir,process.env.PHRASLY_BROWSER_USE_OWNER==="true"?"phase6-owner-session.private.json":"phase6-writer-session.private.json"),"utf8"));
 const owner=JSON.parse(fs.readFileSync(path.join(dir,"phase6-owner-session.private.json"),"utf8"));
-let context;const evidence={utc:new Date().toISOString(),checks:{},errors:[],provider_generation_requests:0};
+let context;const evidence={utc:new Date().toISOString(),checks:{},errors:[],provider_generation_requests:0,browser_actor:process.env.PHRASLY_BROWSER_USE_OWNER==="true"?"existing_owner_with_explicit_writer_grants":"acceptance_writer"};
 (async()=>{
  const temp=fs.mkdtempSync(path.join(dir,"phase6-public-"));
  const extension=path.join(temp,"extension");
