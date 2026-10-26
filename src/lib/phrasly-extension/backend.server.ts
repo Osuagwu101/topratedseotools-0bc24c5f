@@ -92,6 +92,9 @@ export async function fulfill(request:Request) {
   const uid=claims.uid,f=feature(claims.feature||"default");
   const limit=await allowedFeature(uid,f), used=await usage(uid,f);
   if(used>=limit) return oneclickJson({ok:false,error:"limit_reached",limit,resets_in:secondsUntilWatReset(Math.floor(Date.now()/1000))},429,true);
+  const {data:settings,error:settingsError}=await db.from("phrasly_oneclick_tool_config")
+    .select("enabled,feature_urls,block_paths").eq("tool_id",TOOL).maybeSingle();
+  if(settingsError || !settings?.enabled) throw new OneclickError("tool_not_found",404);
   const {data:assigned,error:assignError}=await db.rpc("phrasly_oneclick_assign_account",{p_user:uid});
   if(assignError) throw new OneclickError("service_unavailable",503);
   if(!assigned) throw new OneclickError("no_accounts_available",503);
@@ -103,7 +106,10 @@ export async function fulfill(request:Request) {
   // Domain is restricted by the existing encrypted-vault normalizer.
   const cookies=state.authenticated_cookies;
   await audit(uid,"ext_fulfilled",f);
-  return oneclickJson({ok:true,url:account.target_url,cookies,block_paths:[],
+  const url=typeof settings.feature_urls?.[f]==="string"?settings.feature_urls[f]:account.target_url;
+  if(!/^https:\/\/(?:[a-z0-9-]+\.)?phrasly\.ai(?:\/|$)/i.test(url)) throw new OneclickError("tool_not_found",404);
+  const blockPaths=Array.isArray(settings.block_paths)?settings.block_paths.filter((p:unknown)=>typeof p==="string" && p.startsWith("/")):[];
+  return oneclickJson({ok:true,url,cookies,block_paths:blockPaths,
     used,limit,record_token:issueAwsRecordToken(uid,TOOL,Math.floor(Date.now()/1000),secret())},200,true);
 }
 export async function checkUsage(request:Request) {
