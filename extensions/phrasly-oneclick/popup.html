@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { width: 300px; font-family: system-ui, sans-serif; margin: 0; color: #1e293b; }
+  .header { display: flex; align-items: center; gap: 10px; padding: 16px; border-bottom: 1px solid #e2e8f0; }
+  .header img { width: 32px; height: 32px; }
+  .header .title { font-size: 13px; font-weight: 700; }
+  .body { padding: 16px; }
+  .center { text-align: center; }
+  .muted { color: #64748b; font-size: 12px; }
+  .btn { display: block; width: 100%; box-sizing: border-box; text-align: center; background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .account { margin-bottom: 14px; }
+  .account .name { font-weight: 700; font-size: 14px; }
+  .account .email { color: #64748b; font-size: 12px; }
+  .account .sub { margin-top: 4px; font-size: 11px; }
+  .sub.active { color: #16a34a; }
+  .sub.expired { color: #dc2626; }
+  .tool { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid #f1f5f9; }
+  .tool .name { font-size: 13px; font-weight: 600; }
+  .tool .status { font-size: 11px; color: #94a3b8; }
+  .tool-btn { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .tool-btn[disabled] { background: #cbd5e1; cursor: default; }
+  .hidden { display: none; }
+  a { color: #2563eb; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon128.png" alt="">
+    <div class="title">Top Rated SEO Tools</div>
+  </div>
+
+  <div class="body">
+    <div id="loading" class="center muted">Loading…</div>
+
+    <div id="signedOut" class="center hidden">
+      <p class="muted">You're not signed in.</p>
+      <a class="btn" href="https://topratedseotools.com/login" target="_blank">Sign in to dashboard</a>
+      <p class="muted" id="debugReason" style="margin-top:8px; font-size:10px; word-break:break-all;"></p>
+    </div>
+
+    <div id="signedIn" class="hidden">
+      <div class="account">
+        <div class="name" id="fullName"></div>
+        <div class="email" id="email"></div>
+        <div class="sub" id="subStatus"></div>
+      </div>
+      <div id="toolsList"></div>
+      <div id="noTools" class="muted hidden">No tools yet — contact support to get access.</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

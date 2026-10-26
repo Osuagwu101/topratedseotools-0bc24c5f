@@ -1,0 +1,91 @@
+name: Phrasly AWS extension parity
+
+on:
+  push:
+    branches: [phrasly/phase2-integration-20261025]
+    paths:
+      - "src/lib/phrasly-extension/**"
+      - "extensions/phrasly-oneclick/**"
+      - "tests/phrasly-extension*"
+      - "scripts/phrasly/build-native-extension.py"
+      - "scripts/phrasly/package-native-extension.py"
+      - "scripts/phrasly/verify-aws-extension-source.py"
+      - "config/phrasly-aws-extension-provenance.json"
+      - "config/phrasly-extension.env.example"
+      - ".github/workflows/phrasly-phase2-extension.yml"
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/lib/phrasly-extension/**"
+      - "extensions/phrasly-oneclick/**"
+      - "tests/phrasly-extension*"
+      - "scripts/phrasly/**"
+      - "config/phrasly*"
+      - ".github/workflows/phrasly-phase2-extension.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: http://127.0.0.1:9
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase2_dummy
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_phase2_dummy
+      VITE_SUPABASE_URL: http://127.0.0.1:9
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase2_dummy
+      VITE_SUPABASE_PROJECT_ID: phase2-offline
+      PHRASLY_EXTENSION_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.2"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - name: Verify original AWS source bodies and binary assets
+        run: python3 scripts/phrasly/verify-aws-extension-source.py
+      - name: Test the recovered token and extension contracts
+        run: node --experimental-strip-types --test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-worker.test.cjs tests/phrasly-extension-launcher.test.ts
+      - name: Check extension JavaScript syntax
+        run: |
+          for file in extensions/phrasly-oneclick/*.js; do node --check "$file"; done
+      - name: Test extension packaging boundaries
+        run: python3 tests/phrasly-extension-build.test.py
+      - name: Remove inherited env files in this disposable runner
+        run: find . -maxdepth 1 -type f -name '.env*' -delete
+      - name: Install unchanged locked dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - name: Typecheck the protocol port
+        run: bunx tsc --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --types node --allowImportingTsExtensions src/lib/phrasly-extension/protocol.server.ts src/lib/phrasly-extension/launcher.ts tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-launcher.test.ts
+      - name: Install isolated browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/phrasly-browser" --ignore-scripts --no-package-lock --no-save --no-audit --no-fund playwright@1.58.2
+          node "$RUNNER_TEMP/phrasly-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Exercise the actual MV3 package in Chromium using local contract fixtures
+        env:
+          NODE_PATH: ${{ runner.temp }}/phrasly-browser/node_modules
+        run: node --experimental-strip-types --test tests/phrasly-extension-browser.test.cjs
+      - name: Package disabled extension with an auditable file manifest
+        run: |
+          mkdir -p "$RUNNER_TEMP/phrasly-artifacts"
+          python3 scripts/phrasly/package-native-extension.py --origin https://topratedseotools.com --out "$RUNNER_TEMP/phrasly-artifacts/TopRated-Phrasly-OneClick-staging.zip" > "$RUNNER_TEMP/phrasly-artifacts/package-verification.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phrasly-extension-staging
+          path: ${{ runner.temp }}/phrasly-artifacts/
+          retention-days: 14
+      - name: Compile without production credentials or deployment
+        run: npm run build
+      - name: Verify build artifacts
+        run: |
+          test -s .output/server/index.mjs
+          test -d .output/public/assets
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.js' | wc -l)" -ge 20
+          test "$(find .output/public/assets -maxdepth 1 -type f -name '*.css' | wc -l)" -ge 1

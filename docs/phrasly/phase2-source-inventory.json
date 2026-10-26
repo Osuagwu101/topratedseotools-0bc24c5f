@@ -1,0 +1,137 @@
+{
+  "scope": "All website Phase 2 implementation/configuration/test/workflow files. Canonical AWS backend and archive are stored separately in the private source repository.",
+  "branch": "phrasly/phase2-integration-20261025",
+  "private_source_commit": "4c420f5d054653d4dc3eb12ecf74e0508556b184",
+  "files": [
+    {
+      "path": ".github/workflows/phrasly-phase2-extension.yml",
+      "bytes": 4380,
+      "sha256": "8fef9099555a263ad6fcd2522360992d809c10759d09f655023934a7c27dde50"
+    },
+    {
+      "path": "config/phrasly-aws-extension-provenance.json",
+      "bytes": 4924,
+      "sha256": "7409d3b1d273055f58c1d5b2555930e83c1305992c70a3dc20fd45e48e9f53bc"
+    },
+    {
+      "path": "config/phrasly-extension.env.example",
+      "bytes": 773,
+      "sha256": "240932b4158792bb0520ba1904b4ed6d754b32f546edfe7acf4588f8c58a7712"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/background.js",
+      "bytes": 8469,
+      "sha256": "05908e4d6de2c03d52811c8210f86bf88f1b31f48965e277a70731da0b73f2b2"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/config.js",
+      "bytes": 103,
+      "sha256": "9edaa6d974340387db4aac30394dd1afafb3b0101187a2859f438d5ef627fa07"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/content.js",
+      "bytes": 3389,
+      "sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon128.png",
+      "bytes": 10222,
+      "sha256": "fcf8b92ac68fbd924b56010feba8de4afc6c8702b2d7e6746dea0dd2e61efb57"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon16.png",
+      "bytes": 2675,
+      "sha256": "dad60782394f70604f4e493e202dc952896684d11b193811b4feb1652b57a5cd"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon32.png",
+      "bytes": 3086,
+      "sha256": "e80e69b191fc913cdd4710a98f22ff9944de2684560faca0d2f5305efa3a0769"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon48.png",
+      "bytes": 3969,
+      "sha256": "435ef0be2059d06a290ae75f32e3a084a25a97535db9b0a887263a71558a1749"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/interceptor.js",
+      "bytes": 3013,
+      "sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/limit-reached.html",
+      "bytes": 1052,
+      "sha256": "d9c51d2443b00865d7c03a182e3cd4f13e362432e29936085af717e1972b5cc6"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/limit-reached.js",
+      "bytes": 372,
+      "sha256": "dfb3ca3ff738f724e96d2fe07bbaf028749613c5e1c12dd07481733a3152fcc7"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/manifest.json",
+      "bytes": 1510,
+      "sha256": "dedbe8eb8b503e7602be12229fd7d821c486ed2a19bc4593e6f63cce6756bbb4"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/popup.html",
+      "bytes": 2536,
+      "sha256": "c0b67449b4ba627b3dbeeb934f8e8a5a2c27253ce872809a692771a4f4df7187"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/popup.js",
+      "bytes": 4444,
+      "sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84"
+    },
+    {
+      "path": "scripts/phrasly/build-native-extension.py",
+      "bytes": 2987,
+      "sha256": "02d53cf675c0efcc81a54230970517cac700f2bb9ef2e13e7fdd754d1edebace"
+    },
+    {
+      "path": "scripts/phrasly/package-native-extension.py",
+      "bytes": 2330,
+      "sha256": "7e93776cfbe71d3ac8166a6db643edbd564dadaeb9a84a348210866e3bea97d2"
+    },
+    {
+      "path": "scripts/phrasly/verify-aws-extension-source.py",
+      "bytes": 1657,
+      "sha256": "8f747a57c00d3d1f79df59112a462415902a1356985e18da7c5bce62f7d236fe"
+    },
+    {
+      "path": "src/lib/phrasly-extension/launcher.ts",
+      "bytes": 3429,
+      "sha256": "2e63df80c534e08829245a81f0257921471fec2f74aee8c594b82857f9057472"
+    },
+    {
+      "path": "src/lib/phrasly-extension/protocol.server.ts",
+      "bytes": 3976,
+      "sha256": "c6df3347a30159b396236787b4862c7e1a98cecc181895dce4918488ac27599a"
+    },
+    {
+      "path": "tests/phrasly-extension-browser.test.cjs",
+      "bytes": 20657,
+      "sha256": "8f720b84ecebdb1681c9f4a4ed51be5b9966ddcc272816c9b73e9657f280d5d9"
+    },
+    {
+      "path": "tests/phrasly-extension-build.test.py",
+      "bytes": 4803,
+      "sha256": "839ae466ed50ed52e8bc46f82f17aa5027c8ac72eddd75b32cc4108cfbb02f54"
+    },
+    {
+      "path": "tests/phrasly-extension-launcher.test.ts",
+      "bytes": 3804,
+      "sha256": "06ffd9ac099723c6efa8f41ad3f93ec738c79efc60862f258718508f2c6b2307"
+    },
+    {
+      "path": "tests/phrasly-extension-protocol.test.ts",
+      "bytes": 4894,
+      "sha256": "a3847877568b6f7012fb036e156226d80f0ea7acd78f08ca1d6e43e1de209db6"
+    },
+    {
+      "path": "tests/phrasly-extension-worker.test.cjs",
+      "bytes": 14865,
+      "sha256": "9fa4c44b131612af2e76999a7c4a1e9ce1d0151fd22538fcdc6368609f9756b1"
+    }
+  ]
+}

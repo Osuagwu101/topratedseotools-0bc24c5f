@@ -1,0 +1,149 @@
+{
+  "authority": "Live AWS source and original extension archive",
+  "canonical_manifest": "https://github.com/Osuagwu101/topratedseotools.com.ng-source/blob/4c420f5d054653d4dc3eb12ecf74e0508556b184/reference/phrasly-oneclick/aws-canonical/source-manifest.json",
+  "extension_provenance": "../../config/phrasly-aws-extension-provenance.json",
+  "archive_sha256": "312603cdda37eaa37bb5be2e8deca2ad63c00fd000c804c8ae6c59ac839b6389",
+  "backend_files": [
+    {
+      "path": "platform/public-app/access.php",
+      "sha256": "dc3607f326cf33c223354aa7551aa7382257456dc0b4fb0a7257da0b32a39369",
+      "bytes": 1561
+    },
+    {
+      "path": "platform/public-app/assets/img/apple-touch-icon.png",
+      "sha256": "53e59318fe2e0d727db30cd1845678a988b91ce0338faf38af78a36cf9069808",
+      "bytes": 15786
+    },
+    {
+      "path": "platform/public-app/assets/img/favicon-16.png",
+      "sha256": "2467d11eca24668fec2fbb74f4dc4ecde38185e82fd241ef66c576b54d3c423c",
+      "bytes": 2675
+    },
+    {
+      "path": "platform/public-app/assets/img/favicon-32.png",
+      "sha256": "2abbabb32d375532edb17aa04b772a478cb5edf99ee047cf73f435e8ff4836c7",
+      "bytes": 3086
+    },
+    {
+      "path": "platform/public-app/assets/img/favicon.ico",
+      "sha256": "afbac54e2f0cb72acc14191508ab23853438371b7790189cf8a5762346cab5e4",
+      "bytes": 15342
+    },
+    {
+      "path": "platform/public-app/assets/img/logo-160.webp",
+      "sha256": "57bcab38807ff12b75b2295542890af8cabed457653b96bd9c64a360f7768a85",
+      "bytes": 4160
+    },
+    {
+      "path": "platform/public-app/assets/img/logo-64.webp",
+      "sha256": "4f90955563d3fbe09a61faf9bc5df101fa234dcfc9fb9b4b189261899107481d",
+      "bytes": 2618
+    },
+    {
+      "path": "platform/public-app/dashboard.php",
+      "sha256": "656ffe2782121e41691cba1f4d9db90bfad0ec786539f28cdd60220a6e28afd0",
+      "bytes": 14712
+    },
+    {
+      "path": "platform/public-app/ext-check-usage.php",
+      "sha256": "837b2c440a88b1f65c6df64539320a5445dfbb119787afdcd74b8dac950f56c4",
+      "bytes": 3076
+    },
+    {
+      "path": "platform/public-app/ext-fulfill.php",
+      "sha256": "355129d476edc25beb867ca194c3ebf347da0cfeeea4939b8b33282b1076bf5b",
+      "bytes": 5590
+    },
+    {
+      "path": "platform/public-app/ext-handoff.php",
+      "sha256": "2153dfa6db1303a30877ce86b0a1e04c7edbd51bcfa2cae5196962797a6702cc",
+      "bytes": 1780
+    },
+    {
+      "path": "platform/public-app/ext-whoami.php",
+      "sha256": "bc2a39686307b83968da2e99151d4ac9c1e9d6c5278ceafd2a668c2c17af741d",
+      "bytes": 4734
+    },
+    {
+      "path": "platform/public-app/extension.php",
+      "sha256": "2f0651bc161ed271ed6d569146c261f426dcb214f1b848148d0ef5a2323cd845",
+      "bytes": 2740
+    },
+    {
+      "path": "platform/public-app/login.php",
+      "sha256": "1e71ed6712a9f390ca6b8c42831a754e45ae7a1eeb1237b0227ef8bb1e6f79bc",
+      "bytes": 3931
+    },
+    {
+      "path": "platform/public-app/logout.php",
+      "sha256": "48f63f527620eb5f06298bb3b449c64154b136350dab066e19090e8b1a5f6472",
+      "bytes": 110
+    },
+    {
+      "path": "platform/src/cookie_vault.php",
+      "sha256": "cb253b9b956cca06b91d096362e31e941d37c1760f5e136c4f900ae33f00c789",
+      "bytes": 2659
+    },
+    {
+      "path": "platform/src/db.php",
+      "sha256": "71d1d396d13a710baafade4b193785a8469a9927062d6acbf25662f20976ac8c",
+      "bytes": 789
+    },
+    {
+      "path": "platform/src/helpers.php",
+      "sha256": "5a7c72d72b603c00e9639f305c62da191e19b567c39639d3621f74aae9eceb83",
+      "bytes": 1920
+    },
+    {
+      "path": "platform/src/usage_limits.php",
+      "sha256": "5b04ccf4242c8b9e6feafe5c0b48055d4adc76f79e776317ff2e0d29e799e8b7",
+      "bytes": 3088
+    },
+    {
+      "path": "platform/src/user_auth.php",
+      "sha256": "6c1cb13731983b4e80e9bfe5d723d7785449bc4e5f2cfdc9928394c0a2ab2e37",
+      "bytes": 5029
+    },
+    {
+      "path": "platform/templates-app/footer.php",
+      "sha256": "528501ac48ed6897b00104ac2288b1692dfaeb57d3edeff84de8ea7c1dc64014",
+      "bytes": 1118
+    },
+    {
+      "path": "platform/templates-app/header.php",
+      "sha256": "35a15b3b2ce9cb5590f8f2a0f0d7ea1c123817dd33c49d8ddcc50d6db88d7ce9",
+      "bytes": 2618
+    },
+    {
+      "path": "platform/templates/favicon.php",
+      "sha256": "d8b499967a6459a01ab815c76e8999754c7da6dfd537a25f9ebad2c930c62557",
+      "bytes": 321
+    },
+    {
+      "path": "platform/templates/theme-toggle.php",
+      "sha256": "528ce138514299d5fcb4c835f85476eb866ccb224a5aac11580be2425ce368d8",
+      "bytes": 2240
+    }
+  ],
+  "schema_objects": [
+    "activity_log",
+    "cookie_account_assignments",
+    "credential_account_assignments",
+    "devices",
+    "oc_sessions",
+    "tool_cookie_accounts",
+    "tool_credential_accounts",
+    "tool_usage",
+    "tools",
+    "user_tool_access",
+    "users",
+    "idx_activity_created",
+    "idx_devices_user",
+    "idx_oc_sessions_expires"
+  ],
+  "original_extension_file_count": 12,
+  "customer_rows_copied": 0,
+  "production_secrets_copied": false,
+  "source_commit": "4c420f5d054653d4dc3eb12ecf74e0508556b184",
+  "live_aws_recheck_utc": "2026-10-26T05:22:41Z"
+}
