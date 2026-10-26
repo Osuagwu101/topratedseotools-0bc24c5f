@@ -40,7 +40,7 @@ const fake:any={
  from:query,
  rpc:async(name:string)=>{
   if(name==="phrasly_oneclick_assign_account") return {data:accountId,error:null};
-  if(name==="phrasly_oneclick_count_attempt"){used=Math.min(used+1,2);return {data:[{allowed:used<3,used,daily_limit:2,resets_in:3600}],error:null};}
+  if(name==="phrasly_oneclick_count_attempt"){const allowed=used<2;if(allowed)used++;return {data:[{allowed,used,daily_limit:2,resets_in:3600}],error:null};}
   return {data:null,error:"unsupported"};
  }
 };
