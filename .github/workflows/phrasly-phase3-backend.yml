@@ -1,0 +1,33 @@
+name: Phrasly Phase 3 isolated database
+on:
+  push:
+    branches:
+      - phrasly/phase3-backend-20261026
+  pull_request:
+    paths:
+      - 'supabase/migrations/2026102608*'
+      - 'tests/phrasly-phase3-schema.sql'
+      - '.github/workflows/phrasly-phase3-backend.yml'
+jobs:
+  postgres-fixture:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fixture
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Phase 3 migrations in disposable PostgreSQL
+        env:
+          PGPASSWORD: fixture-only
+        run: psql -h localhost -U postgres -d fixture -X -v ON_ERROR_STOP=1 -f tests/phrasly-phase3-schema.sql
