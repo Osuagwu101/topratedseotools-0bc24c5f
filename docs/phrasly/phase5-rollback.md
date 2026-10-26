@@ -1,25 +1,29 @@
-# Phrasly rollback — live Phase 6
+# Phrasly rollback — native Phase 6 release
 
-The active release runs as PM2 service trst-phrasly-aws-oct26 from /home/ubuntu/releases/trst-phrasly-aws-20261026 on 127.0.0.1:3338.
+The active release is /home/ubuntu/releases/trst-phrasly-native-20261026, PM2 trst-phrasly-native-oct26 on 127.0.0.1:3339. The previous /home/ubuntu/releases/trst-phrasly-aws-20261026 release on port 3338 is retained but stopped.
 
-The effective Nginx file is /etc/nginx/sites-enabled/topratedseotools. The similarly named sites-available file is not the effective routing file. Phase 6 inspected nginx -T and captured the effective file before activation.
+The effective Nginx file is /etc/nginx/sites-enabled/topratedseotools. Do not substitute the similarly named sites-available file.
 
-## Restore routing
+## Restore the previous Phrasly release
 
-The verified pre-release snapshot is /home/ubuntu/backups/phrasly-phase6-live-20261026/nginx-active.conf (SHA-256 8f6283835c54e51e0edfaa092ebd3d52d54ef943461c2d92744acc5f72f90c53).
+1. Start only the retained service: pm2 start trst-phrasly-aws-oct26.
+2. Verify its loopback /ext-whoami.php and /phrasly endpoints on port 3338.
+3. Copy /home/ubuntu/releases/trst-phrasly-native-20261026/nginx-before.conf to /etc/nginx/sites-enabled/topratedseotools using sudo cp.
+4. Run sudo nginx -t. Reload with sudo systemctl reload nginx only after validation succeeds.
+5. Allow graceful worker transition, verify Phrasly and ordinary public routes, then stop only trst-phrasly-native-oct26 if needed and run pm2 save.
 
-1. Copy the snapshot with sudo cp /home/ubuntu/backups/phrasly-phase6-live-20261026/nginx-active.conf /etc/nginx/sites-enabled/topratedseotools.
-2. Validate with sudo nginx -t.
-3. Only after validation succeeds, reload with sudo systemctl reload nginx.
-4. Wait for the new worker configuration to take effect, then verify home/login/admin, StealthWriter, ChatGPT, Turnitin and Turnitin buy pages. The retired /api/phrasly-proxy must remain HTTP 410.
-5. If stopping the new backend is necessary, stop only pm2 stop trst-phrasly-aws-oct26 and run pm2 save. Leave the 60 original PM2 services untouched.
+This restores the earlier manual-launch writer page. It retains native phrasly.ai processing and the separate Admin controls.
 
-The first activation check encountered a request served by an old Nginx worker during graceful reload. The activation script restored the snapshot and reloaded successfully. A retry recorded warmup statuses [404,200], then passed all strict checks. This exercised the routing rollback; it was not a database rollback.
+## Restore the pre-Phrasly routing
 
-## Data boundary
+The protected original snapshot is /home/ubuntu/backups/phrasly-phase6-live-20261026/nginx-active.conf, SHA-256 8f6283835c54e51e0edfaa092ebd3d52d54ef943461c2d92744acc5f72f90c53.
 
-Do not drop the additive Phrasly tables, delete audit/attempt rows, reset usage, change financial balances or revoke unrelated access. The account owner and explicitly assigned writers have separate feature grants. Revoke a writer through the Phrasly Admin screen when required.
+Copy that snapshot to the effective file, validate nginx -t, reload, wait for worker transition, and verify home/login/Admin, StealthWriter, ChatGPT, Turnitin and Turnitin buy. The retired /api/phrasly-proxy must remain HTTP 410. Stop only the two added Phrasly services when appropriate and persist PM2 state. Leave the original 60 services untouched.
 
-The Phase 5 acceptance matrix restored its temporary settings successfully. Later Phase 6 tests restored only the QA writer's original feature allowances/expiry, retained the intended owner grant, and refreshed the same authorized AWS cookie snapshot encrypted at rest.
+Both activation scripts exercised automatic restoration on failed checks. For the native correction, raw HTML hashes initially differed because ordinary pages include per-request SSR timestamps. The successful retry normalized only the observed timestamp fields and retained all other response/process checks.
 
-The former loopback-only candidate on port 3336 was stopped after the live release passed routing checks. Its package and evidence remain available for inspection; the current protected release directory contains the active settings, extension ZIP, manifest and activation evidence.
+## Preserve data
+
+Do not drop additive tables, delete audit/attempt rows, reset usage, change balances or revoke unrelated access. Use the owner screen for intended writer revocation and encrypted cookie updates.
+
+The temporary QA grant retains its original expiry. Final native browser acceptance used the existing owner with explicit writer grants; no expired historical grant was revived. No rollback requires financial-table writes.

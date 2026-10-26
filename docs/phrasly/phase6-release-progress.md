@@ -1,11 +1,9 @@
-> Native-first UX clarification: an automatic native Phrasly entry is committed and CI-passing, but awaits deployment because the authorized remote device stopped responding. See [the correction and exact resume state](native-direct-launch-correction.md). The deployed extra writer launcher has not yet been removed.
+# Phase 6 release progress
 
-# Phase 6 — complete
+Status: COMPLETE AND DEPLOYED, including the native-first writer experience.
 
-The private Phrasly writer workspace and owner administration are live. See [the final closeout](phase6-closeout.md) for the exact deployed commit, verified artifact hashes, live HTTPS/API/browser results, provider allowance and rollback instructions.
+The live writer entries automatically open native phrasly.ai through the original AWS extension. The separate owner controls remain available. Fresh public API and browser acceptance passed, including both authenticated native editors ready for input.
 
-Writer access: https://topratedseotools.com/phrasly
+The active release is /home/ubuntu/releases/trst-phrasly-native-20261026, manifest source 70e5c9be8a2c9ea691b39c779cfac9abe07058a2, PM2 trst-phrasly-native-oct26 on loopback port 3339. The superseded port-3338 release is stopped and retained.
 
-Owner administration: https://topratedseotools.com/admin/phrasly
-
-The former loopback-only candidate was superseded by the persisted live release. Existing unrelated services and financial records were preserved.
+See phase6-closeout.md for the complete verified state, access links, test scope, provider allowance and rollback.

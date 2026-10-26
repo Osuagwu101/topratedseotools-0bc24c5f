@@ -1,52 +1,59 @@
 # Phase 6 closeout — 26 October 2026
 
-Status: COMPLETE. The AWS-style Phrasly workflow is deployed for the account owner and explicitly assigned in-house writers.
+Status: COMPLETE AND DEPLOYED. Writers enter native Phrasly at phrasly.ai through the original AWS MV3 handoff. The additional TopRated writer dashboard has been removed from the writer flow.
 
 ## Live access
 
-- Writer workspace: https://topratedseotools.com/phrasly
+- Humanizer entry: https://topratedseotools.com/phrasly
+- Detector entry: https://topratedseotools.com/phrasly?feature=ai_detector
 - Owner administration: https://topratedseotools.com/admin/phrasly
 
-The writer page uses the existing TopRated sign-in, shows feature-specific daily usage, launches the original AWS MV3 flow, and distributes the verified enabled extension ZIP through an authenticated POST. The owner page requires the existing active Super Admin role and an admin account; it assigns/revokes feature grants and refreshes the encrypted Phrasly cookie snapshot. It never displays saved cookie values.
+An authorized signed-in writer with the extension is automatically sent into the native Phrasly tab. TopRated shows only the necessary sign-in, extension setup, transition or access-error state. There is no TopRated processing editor, recreated Phrasly dashboard or iframe. Native destinations are https://phrasly.ai/dashboard/humanizer and https://phrasly.ai/dashboard/ai-detector.
 
-No Phrasly product listing, checkout, subscription sale, customer financial record or unrelated service was added or changed. The existing three expired historical Phrasly grants were not revived. The account owner was explicitly enabled; the internal QA grant retains its original expiry. Other writers are assigned individually through the owner screen.
+The separate owner page retains existing Super Admin authorization, individual writer grants/revocation, feature-specific daily limits and encrypted account-cookie updates. Saved cookie values are never returned to the owner UI. Opening a feature does not consume a request; original AWS attempt accounting applies to native processing requests.
 
 ## Deployed artifact
 
-- Runtime commit: a264d5fd9b18209e008ca015a86e7cdcad7becef.
-- Release: /home/ubuntu/releases/trst-phrasly-aws-20261026.
-- PM2: trst-phrasly-aws-oct26, loopback 127.0.0.1:3338, persisted with pm2 save.
-- Archive SHA-256: acc15a9200b5e904b4f556095b75fa528fdd13d611e78a02fc8d8d58bf3be826.
-- Extension SHA-256: 07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3.
-- Stable AWS extension ID: lpgnjkafilbopdojcfnagooojifkccek.
-- Packaged 655 runtime files; operational-secret scan passed; no native platform modules.
-- Later documentation/acceptance commits do not change deployed runtime code.
+- Runtime manifest source: 70e5c9be8a2c9ea691b39c779cfac9abe07058a2.
+- Native UX application change: 10568a7272ca9211c9d465a4bc45c07a45dbd255.
+- Release: /home/ubuntu/releases/trst-phrasly-native-20261026.
+- PM2: trst-phrasly-native-oct26 on 127.0.0.1:3339, persisted with pm2 save.
+- Archive SHA-256: 45d85727ea82a9774782477470e3d0da80943ad8f70f7de2508bda10dc25ccf7.
+- Enabled extension SHA-256: 07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3.
+- Original stable extension ID: lpgnjkafilbopdojcfnagooojifkccek.
+- 655 runtime files; operational-secret scan passed; zero native platform modules.
+- Live switch: 18:51 WAT. The superseded Phrasly release on port 3338 is stopped and retained for rollback.
 
-Nginx forwards only the private workspace/Admin pages, the eight Phrasly extension/status/admin/package endpoints, and /phrasly-assets/ to the release. Existing storefront, login, Admin, payment and unrelated tool routes remain on their original services. The retired /api/phrasly-proxy remains HTTP 410. New capability-bearing endpoints do not write access logs. Private pages are no-index and have a self-origin content security policy.
+Only the existing twelve Phrasly upstream references changed from 3338 to 3339 inside the Phrasly Nginx block. The effective file is /etc/nginx/sites-enabled/topratedseotools. Original storefront, login, Admin, payment and unrelated tool routing remains unchanged. The retired provider proxy remains HTTP 410.
 
 ## Verification
 
-All CI checks on the deployed runtime commit passed:
-- AWS extension parity: run 40303138990.
-- Frontend/actual Chromium launch: run 40303138961.
-- Cross-service regression and full build: run 40303138954.
+All three CI workflows on runtime-manifest source 70e5c9b passed: frontend/Chromium 40371669102, AWS parity 40371669080, cross-service/full build 40371669014. The local production build also passed.
 
-Release API acceptance: 11/11 passed locally and again against https://topratedseotools.com at 11:06 WAT. Coverage includes signed-out rejection, writer/Admin separation, active owner authorization, grants/allowance restoration, revocation, input validation, foreign-cookie rejection, exact encrypted AWS cookie preservation, exact enabled package download, page/assets and no-index/CSP headers.
+Fresh public HTTPS API acceptance at 19:39 WAT passed all eight checks: three signed-out rejections, explicit writer grants, sanitized owner state, exact enabled ZIP, and both private pages with no-index/CSP headers. No grant or financial mutation was needed for this final run.
 
-Public HTTPS Chromium acceptance at 11:07 WAT passed seven checks: signed-out sign-in page, assigned writer controls, exact ZIP download, authenticated native Humanizer page, authenticated native AI Detector page, popup identity/features and owner Admin controls. No first-party page errors occurred. These checks opened the real native editors without additional generation. Successful 50-word real rewriting and the finished detector score were already proven in Phase 5.
+Fresh visible Chromium acceptance started at 19:39 WAT and passed:
+- Signed-out sign-in screen.
+- Owner Admin controls, with the saved-cookie field empty.
+- Automatic native Humanizer launch.
+- Automatic native Detector launch.
+- Absence of the extra writer dashboard and embedded iframe.
+- Extension popup identity and both feature entries.
+- Authenticated native Humanizer editor ready for input.
+- Authenticated native Detector editor ready for input.
 
-The public site smoke comparison preserved status AND response byte count for home/login/Admin, StealthWriter, ChatGPT, Turnitin and Turnitin buy. The original 60 PM2 process PIDs/status/restart counters were unchanged. Final monitoring confirmed the added release online with zero restarts, protected runtime settings, persisted PM2 configuration, and no operational secrets in its release logs. Supabase advisor warning categories/counts were unchanged.
+The acceptance actor was the existing owner with explicit writer grants. The temporary QA grant had already expired and was not revived. No page errors or provider generation requests occurred. Earlier native checks had remained on Phrasly's loading screen; the final fresh run loaded both real editors successfully. No provider-page modification or protection bypass was introduced, and no definitive cause is claimed for that transient loading.
 
-## Rollback
+Phase 5 already verified real 50-word native rewriting and a completed detector score. Its 12-case final matrix and the earlier 11-case release authorization/administration suite remain documented in their original evidence. They were not rerun with expired acceptance grants or by resetting usage.
 
-The effective file is /etc/nginx/sites-enabled/topratedseotools. The protected pre-release snapshot and PM2 inventory are in /home/ubuntu/backups/phrasly-phase6-live-20261026. Follow phase5-rollback.md; do not use the obsolete similarly named sites-available file.
+Final read-only monitoring verifies the original 60 PM2 PIDs/status/restart counts, the native release online with zero restarts, protected settings, persisted PM2 state, no operational secrets in its logs, the twelve native upstream references, and ordinary public responses. The ordinary-page comparison normalizes only the observed per-request SSR timestamp fields; status, byte size and all remaining content match.
 
-An initial probe reached an old worker during graceful Nginx reload and triggered successful automatic rollback. The retry recorded [404,200] during warmup, then passed every strict new-route and ordinary-route check. The old unmanaged candidate on port 3336 was stopped after activation.
+## Operation and rollback
 
-## Provider allowance and operator workflow
+Assign an existing writer's email, daily feature limits and optional expiry in Phrasly Admin. Install the authenticated enabled extension ZIP once in the writer's Chrome/Edge browser. Visiting either entry then opens the corresponding native tool automatically.
 
-The native provider account showed Free plan and 11 words left during the public browser check. This is the provider's account allowance, independent of TopRated's daily request-attempt allowances. It is not unlimited. For continued Humanizer use, the owner can replace the Phrasly cookie snapshot in the owner screen with an authorized account session that has sufficient allowance.
+The native provider account's plan allowance remains independent of TopRated's daily request limits. It last showed Free plan and 11 words left at 11:07 WAT. That amount was not remeasured during final acceptance. Continued processing needs an authorized Phrasly account with sufficient provider allowance; its cookie snapshot can be refreshed through the owner page.
 
-To add a writer: use an existing TopRated account email in Phrasly Admin, set Humanizer/Detector daily request limits and optional expiry, and save. The writer signs in at /phrasly, downloads/extracts the extension, loads it using the documented Chrome/Edge steps, and launches a feature. No writer invitations or other messages were sent automatically.
+The previous release and both routing snapshots are retained. Follow phase5-rollback.md. An initial native-release attempt restored the prior configuration automatically when raw HTML hashes differed; diagnosis showed existing SSR timestamps. The successful retry normalized only those timestamp fields and passed the strict comparisons.
 
-The AWS request matching, language-check counting, native retries, attempt accounting and native session behavior were retained. No Business API, provider proxy or substitute processing service was introduced. No charges, refunds, balance changes or financial-table writes occurred.
+No Business API, provider proxy, sales listing, order, payment, balance change, financial-table write, audit deletion or usage reset was introduced. Existing AWS request matching, cookie metadata, retry behavior, four-second timeout and attempt accounting remain intact. PR 109 records this release; deployment is independent of its merge status.
