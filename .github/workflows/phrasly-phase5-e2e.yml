@@ -24,7 +24,11 @@ jobs:
         run: bun test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-launcher.test.ts tests/phrasly-phase3-backend.test.ts
       - name: Unrelated product regression checks
         run: |
-          bun test tests/stealthwriter-customer-assignment.test.ts tests/stealthwriter-provider-routing.test.ts tests/chatgpt-phase4-validation.test.ts tests/turnitin-credit-foundation.test.ts tests/turnitin-phase5-billing.test.ts
+          bun test tests/stealthwriter-customer-assignment.test.ts tests/stealthwriter-provider-routing.test.ts tests/chatgpt-phase4-validation.test.ts tests/turnitin-credit-foundation.test.ts tests/turnitin-phase5-billing.test.ts tests/currency-payments.test.ts tests/custom-payment-e2e.test.ts tests/offline-payments.test.ts tests/stealthwriter-session-vault.test.ts tests/chatgpt-session-vault.test.ts
+      - name: Phrasly worker and session failures
+        run: |
+          bun test tests/phrasly-session-vault.test.ts tests/phrasly-proxy-foundation.test.ts
+          node --test tests/phrasly-extension-worker.test.cjs
       - name: Full website build
         run: bun run build
       - name: Explicit no-production-activation gate
