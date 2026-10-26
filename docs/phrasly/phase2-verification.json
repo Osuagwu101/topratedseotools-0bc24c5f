@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "date": "2026-10-26",
-  "phase2_complete": false,
-  "status": "source_complete_final_ci_pending",
+  "phase2_complete": true,
+  "status": "complete",
   "branch": "phrasly/phase2-integration-20261025",
   "implementation_decision": "Original AWS cookie-extension implementation, as most recently instructed by the user",
   "previous_scope_gate": "superseded_by_latest_user_instruction",
@@ -20,9 +20,10 @@
     "environment": "AWS PHP CLI; disposable SQLite/session files and loopback HTTP; no production database"
   },
   "browser_tests": {
-    "required": 8,
-    "final_ci_status": "pending",
-    "local_attempt": "Chromium binary unavailable; no source failure inferred"
+    "passed": 8,
+    "final_ci_status": "PASS",
+    "environment": "Actual Chromium 145 / Playwright 1.58.2, original AWS MV3, synthetic sessions and local TLS/loopback fixture",
+    "provider_contacts": 0
   },
   "source_verifiers": {
     "extension": "PASS",
@@ -55,8 +56,55 @@
     "commit": "4c420f5d054653d4dc3eb12ecf74e0508556b184",
     "canonical_path": "reference/phrasly-oneclick/aws-canonical",
     "current_aws_recheck_utc": "2026-10-26T05:22:41Z",
-    "status": "source_published_ci_pending"
+    "status": "published_source_verified_ci_passed",
+    "branch_head_with_index_and_hashes": "d888866ad2bd090990430a0ae72afd233aec3757",
+    "readback_files_verified": 45,
+    "ci_run_id": 40274046116
   },
   "public_website_repository": "Osuagwu101/topratedseotools-0bc24c5f",
-  "raw_backend_or_archive_published_to_public_website": false
+  "raw_backend_or_archive_published_to_public_website": false,
+  "ci_tested_website_commit": "0e62ca9d9abeefbed30e301832c6d9d5f89bd42b",
+  "total_tests_passed": 80,
+  "ci": {
+    "website_push": {
+      "run_id": 40274388645,
+      "job_id": 121413905868,
+      "conclusion": "success"
+    },
+    "website_pull_request": {
+      "run_id": 40274393676,
+      "job_id": 121413920201,
+      "conclusion": "success"
+    },
+    "private_original_backend": {
+      "run_id": 40274046116,
+      "job_id": 121412876158,
+      "conclusion": "success"
+    },
+    "typecheck": "PASS",
+    "application_compile": "PASS",
+    "application_build_artifacts": "PASS"
+  },
+  "package": {
+    "status": "PASS",
+    "artifact_id": 12630105508,
+    "outer_sha256": "856b60b9754bb8a8b14653fdc253ad9f5f4404b7c68023e66a856a3b69f72c98",
+    "inner_sha256": "367f942a6c5183369f2aa4205aa53f1f592064597e2d404ca18bb37f85942cab",
+    "inner_bytes": 48141,
+    "deployment_files": 13,
+    "zip_entries": 14,
+    "enabled": false,
+    "version": "1.0.1",
+    "origin": "https://topratedseotools.com",
+    "expires_utc": "2026-11-09T05:29:09Z"
+  },
+  "ci_fixture_correction": "Rejected loopback CONNECT sockets now handle Chromium teardown ECONNRESET; both final push and PR runs passed. No extension runtime change.",
+  "acceptance": {
+    "aws_implementation_selected": true,
+    "original_source_and_schema_preserved_privately": true,
+    "full_extension_workflow_restored": true,
+    "backend_contract_and_mapping_documented": true,
+    "reproducible_package_verified": true,
+    "production_unchanged": true
+  }
 }
