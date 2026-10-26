@@ -76,3 +76,26 @@ jobs:
           test "$status" = 503
           grep -q 'service_unavailable' /tmp/response.json
           echo "PHRASLY_PHASE3_STAGING_HTTP_PASS"
+      - name: Verify enabled routes reject requests without valid access
+        env:
+          PHRASLY_EXTENSION_ENABLED: 'true'
+          PHRASLY_AWS_EXTENSION_GATE_SECRET: 'phase3-fixture-secret-not-for-production-123456'
+          PORT: '3328'
+        run: |
+          node .output/server/index.mjs > /tmp/phrasly-phase3-enabled.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS "http://127.0.0.1:3328/" -o /dev/null; then break; fi
+            sleep 1
+          done
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' "http://127.0.0.1:3328/ext-handoff.php?tool_id=phrasly&feature=humanizer")
+          test "$status" = 401
+          grep -q 'not_signed_in' /tmp/response.json
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' "http://127.0.0.1:3328/ext-fulfill.php")
+          test "$status" = 400
+          grep -q 'missing_token' /tmp/response.json
+          status=$(curl -sS -o /tmp/response.json -w '%{http_code}' "http://127.0.0.1:3328/ext-whoami.php")
+          test "$status" = 200
+          grep -q 'not_signed_in' /tmp/response.json
+          echo "PHRASLY_PHASE3_ENABLED_ROUTE_GUARDS_PASS"
