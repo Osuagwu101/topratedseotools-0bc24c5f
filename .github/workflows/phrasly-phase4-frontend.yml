@@ -1,0 +1,34 @@
+name: Phrasly Phase 4 frontend review
+on:
+  push:
+    branches: [phrasly/phase4-frontend-20261026]
+  pull_request:
+    paths:
+      - 'src/lib/phrasly-extension/**'
+      - 'src/components/tools/PhraslyOneClickActions.tsx'
+      - 'src/components/tools/ToolAccessPanel.tsx'
+      - '.github/workflows/phrasly-phase4-frontend.yml'
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: http://127.0.0.1:9
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase4_fixture
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_phase4_fixture
+      VITE_SUPABASE_URL: http://127.0.0.1:9
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase4_fixture
+      VITE_SUPABASE_PROJECT_ID: phase4-offline
+      PHRASLY_EXTENSION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install frozen dependencies
+        run: bun install --frozen-lockfile
+      - name: Compile website with production OneClick disabled
+        run: bun run build
+      - name: Verify original extension/website launcher protocol
+        run: bun test tests/phrasly-extension-launcher.test.ts tests/phrasly-extension-protocol.test.ts
+      - name: Prevent Phase 4 from activating extension
+        run: |
+          grep -q 'enabled: false' extensions/phrasly-oneclick/config.js
+          grep -q 'PHRASLY_EXTENSION_ENABLED' src/lib/phrasly-extension/backend.server.ts
