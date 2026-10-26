@@ -1,26 +1,25 @@
-# Phrasly Phase 5 rollback and Phase 6 boundary
+# Phrasly rollback — live Phase 6
 
-Phase 5 has not changed production Nginx, production PM2 processes, public tool settings or financial records. Its additive tables and audit/attempt rows are retained. Never roll back by dropping tables, deleting audit data, resetting usage or changing balances.
+The active release runs as PM2 service trst-phrasly-aws-oct26 from /home/ubuntu/releases/trst-phrasly-aws-20261026 on 127.0.0.1:3338.
 
-## Acceptance matrix restoration
+The effective Nginx file is /etc/nginx/sites-enabled/topratedseotools. The similarly named sites-available file is not the effective routing file. Phase 6 inspected nginx -T and captured the effective file before activation.
 
-tests/phrasly-phase5-final-matrix.mjs registers restoration before each temporary mutation and restores every snapshot in finally. It changes only the internal acceptance writer's profile/grant/feature settings and the currently unexposed Phrasly account/configuration. The successful run reported restoration_errors: [].
+## Restore routing
 
-Verified restored state: account enabled, capacity null; Phrasly configuration enabled inside the private backend; both acceptance feature limits 20 and enabled. The real production backend enable flag/routing remains unchanged.
+The verified pre-release snapshot is /home/ubuntu/backups/phrasly-phase6-live-20261026/nginx-active.conf (SHA-256 8f6283835c54e51e0edfaa092ebd3d52d54ef943461c2d92744acc5f72f90c53).
 
-If this matrix is interrupted, use the protected operator settings and original snapshots: restore the acceptance profile account_status, staff grant status/expires_at, feature daily_limit/enabled, account enabled/capacity and tool configuration enabled. Re-run the read-only verification before continuing. Retain all attempt/audit rows.
+1. Copy the snapshot with sudo cp /home/ubuntu/backups/phrasly-phase6-live-20261026/nginx-active.conf /etc/nginx/sites-enabled/topratedseotools.
+2. Validate with sudo nginx -t.
+3. Only after validation succeeds, reload with sudo systemctl reload nginx.
+4. Wait for the new worker configuration to take effect, then verify home/login/admin, StealthWriter, ChatGPT, Turnitin and Turnitin buy pages. The retired /api/phrasly-proxy must remain HTTP 410.
+5. If stopping the new backend is necessary, stop only pm2 stop trst-phrasly-aws-oct26 and run pm2 save. Leave the 60 original PM2 services untouched.
 
-## Private candidate rollback
+The first activation check encountered a request served by an old Nginx worker during graceful reload. The activation script restored the snapshot and reloaded successfully. A retry recorded warmup statuses [404,200], then passed all strict checks. This exercised the routing rollback; it was not a database rollback.
 
-Candidate target: /home/ubuntu/staging/phrasly-phase6-20261026.
-The Phase 6 stage launcher writes candidate.pid and candidate-evidence.json. Stop only that PID after checking /proc/PID/cmdline refers to this candidate's .output/server/index.mjs. The release is loopback-only; stopping it does not change public traffic.
+## Data boundary
 
-The launcher snapshots /etc/nginx/sites-available/topratedseotools and the baseline PM2 inventory in /home/ubuntu/backups/phrasly-phase6-20261026, with directory mode 0700 and file mode 0600. Before a later public route switch, preserve a fresh copy and validate nginx -t.
+Do not drop the additive Phrasly tables, delete audit/attempt rows, reset usage, change financial balances or revoke unrelated access. The account owner and explicitly assigned writers have separate feature grants. Revoke a writer through the Phrasly Admin screen when required.
 
-If a later Phase 6 route switch requires rollback:
-1. Restore the exact saved Nginx configuration with sudo cp /home/ubuntu/backups/phrasly-phase6-20261026/nginx.conf /etc/nginx/sites-available/topratedseotools.
-2. Run sudo nginx -t. Reload with sudo systemctl reload nginx only if validation succeeds.
-3. Verify the established public home/login/admin, StealthWriter, ChatGPT, Turnitin and Turnitin buy pages and compare the established PM2 processes to the protected snapshot.
-4. Stop only the new candidate if required. Keep existing releases and database records.
+The Phase 5 acceptance matrix restored its temporary settings successfully. Later Phase 6 tests restored only the QA writer's original feature allowances/expiry, retained the intended owner grant, and refreshed the same authorized AWS cookie snapshot encrypted at rest.
 
-No public route switch has occurred at this Phase 5 boundary. A backup alone is not evidence that a public rollback was exercised.
+The former loopback-only candidate on port 3336 was stopped after the live release passed routing checks. Its package and evidence remain available for inspection; the current protected release directory contains the active settings, extension ZIP, manifest and activation evidence.
