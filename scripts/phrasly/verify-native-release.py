@@ -15,17 +15,30 @@ logs=[pathlib.Path(release["pm2_env"][k]).read_bytes() for k in ["pm_out_log_pat
 checks["no_operational_secrets_in_logs"]=not any(settings[k].encode() in b for k in ["SUPABASE_SERVICE_ROLE_KEY","PHRASLY_AWS_EXTENSION_GATE_SECRET","PHRASLY_SESSION_ENCRYPTION_KEY"] for b in logs)
 checks["pm2_persisted"]=any(p["name"]=="trst-phrasly-native-oct26" for p in json.loads(pathlib.Path("/home/ubuntu/.pm2/dump.pm2").read_text()))
 activation=json.loads((root/"activation-evidence.json").read_text())
+entry=pathlib.Path("/home/ubuntu/staging/phrasly-customer-entry-20261026")
+tag=b""
+if (entry/"entry-manifest.json").exists():
+ manifest=json.loads((entry/"entry-manifest.json").read_text())
+ public=pathlib.Path("/var/www/trst-phrasly-entry-20261026")
+ bootstrap=(public/"customer-bootstrap-v1.js").read_text().replace("\r","").replace("\n"," ")
+ tag=('<script data-trst-phrasly-bootstrap="1">'+bootstrap+"</script>").encode()
 def fetch(route):
  try:
   with urllib.request.urlopen("https://topratedseotools.com"+route,timeout=20) as r:return r.status,r.read()
  except urllib.error.HTTPError as e:return e.code,e.read()
 for route,baseline in activation["ordinary_route_fingerprints"].items():
  status,body=fetch(route)
+ if tag:body=body.replace(tag,b"")
  actual={"status":status,"bytes":len(body),"sha256_without_ssr_timestamps":hashlib.sha256(re.sub(rb"(?<=,u:)[0-9]{13}(?=,s:)",b"TIMESTAMP",body)).hexdigest()}
  checks["unchanged:"+route]=actual==baseline
 for route,expected in [("/api/phrasly-proxy",410),("/phrasly",200),("/admin/phrasly",200),("/ext-status",401),("/ext-admin",401)]:
  checks["http:"+route]=fetch(route)[0]==expected
-checks["native_upstreams_only"]=pathlib.Path("/etc/nginx/sites-enabled/topratedseotools").read_text().count("127.0.0.1:3339")==12
+checks["native_upstreams_only"]=pathlib.Path("/etc/nginx/sites-enabled/topratedseotools").read_text().count("127.0.0.1:3339")==(11 if tag else 12)
+if tag:
+ for name,digest in manifest["files"].items():
+  status,body=fetch("/phrasly-assets/"+name)
+  checks["asset:"+name]=status==200 and hashlib.sha256(body).hexdigest()==digest
+ checks["customer_entry_bootstrap_present"]=tag in fetch("/tools/phrasly")[1]
 assert all(checks.values()),str(checks)
 evidence={"status":"PASS","utc":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),"checks":checks,"native_pid":release["pid"],"native_restarts":release["pm2_env"]["restart_time"],"financial_mutations":False}
 (root/"final-monitoring.json").write_text(json.dumps(evidence,indent=2));(root/"final-monitoring.json").chmod(0o600)

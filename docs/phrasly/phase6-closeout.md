@@ -1,61 +1,73 @@
-> Reopened for customer-entry correction. Earlier verification covered /phrasly, not the actual retained storefront Launch Phrasly path or visible dashboard installation. See customer-entry-correction.md.
+# Phase 6 closeout — actual customer flow verified
 
-# Phase 6 closeout — 26 October 2026
+Status: DEPLOYED AND VERIFIED, including the customer-entry correction on 26 October 2026.
 
-Status: COMPLETE AND DEPLOYED. Writers enter native Phrasly at phrasly.ai through the original AWS MV3 handoff. The additional TopRated writer dashboard has been removed from the writer flow.
+The earlier closeout covered the separate /phrasly route and missed the retained storefront's actual Launch Phrasly button and visible extension setup. The owner correctly identified that gap. The customer route, dashboard download panel and installation instructions are now integrated and tested on production.
 
-## Live access
+## Customer workflow
 
-- Humanizer entry: https://topratedseotools.com/phrasly
-- Detector entry: https://topratedseotools.com/phrasly?feature=ai_detector
-- Owner administration: https://topratedseotools.com/admin/phrasly
+1. Use the normal TopRated customer login.
+2. Open /dashboard or /tools/phrasly. Both provide Download Extension and installation guidance.
+3. Download the authenticated enabled ZIP and extract it.
+4. Open chrome://extensions, edge://extensions or brave://extensions. Enable Developer mode, choose Load unpacked and select the extracted folder containing manifest.json.
+5. Return to TopRated. The actual Launch Phrasly button opens the signed-in native Humanizer; Access AI Detector opens the signed-in native Detector.
 
-An authorized signed-in writer with the extension is automatically sent into the native Phrasly tab. TopRated shows only the necessary sign-in, extension setup, transition or access-error state. There is no TopRated processing editor, recreated Phrasly dashboard or iframe. Native destinations are https://phrasly.ai/dashboard/humanizer and https://phrasly.ai/dashboard/ai-detector.
+The download automatically expands the numbered instructions. With the extension missing, Launch Phrasly shows installation help instead of opening Phrasly's login/signup page. Writers do not enter a separate provider password. Phrasly's own startup can take time, as it does on AWS.
 
-The separate owner page retains existing Super Admin authorization, individual writer grants/revocation, feature-specific daily limits and encrypted account-cookie updates. Saved cookie values are never returned to the owner UI. Opening a feature does not consume a request; original AWS attempt accounting applies to native processing requests.
+Customer links:
+- https://topratedseotools.com/dashboard
+- https://topratedseotools.com/tools/phrasly
+- https://topratedseotools.com/phrasly?setup=1 — installation guide
+- https://topratedseotools.com/phrasly — automatic native Humanizer entry
+- https://topratedseotools.com/phrasly?feature=ai_detector — automatic native Detector entry
+- https://topratedseotools.com/admin/phrasly — separate owner controls
 
-## Deployed artifact
+Processing remains entirely on native phrasly.ai. No first-party processing editor, cloned Phrasly dashboard, iframe, Business API or provider proxy was added.
 
-- Runtime manifest source: 70e5c9be8a2c9ea691b39c779cfac9abe07058a2.
-- Native UX application change: 10568a7272ca9211c9d465a4bc45c07a45dbd255.
-- Release: /home/ubuntu/releases/trst-phrasly-native-20261026.
-- PM2: trst-phrasly-native-oct26 on 127.0.0.1:3339, persisted with pm2 save.
-- Archive SHA-256: 45d85727ea82a9774782477470e3d0da80943ad8f70f7de2508bda10dc25ccf7.
-- Enabled extension SHA-256: 07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3.
-- Original stable extension ID: lpgnjkafilbopdojcfnagooojifkccek.
-- 655 runtime files; operational-secret scan passed; zero native platform modules.
-- Live switch: 18:51 WAT. The superseded Phrasly release on port 3338 is stopped and retained for rollback.
+## Deployment
 
-Only the existing twelve Phrasly upstream references changed from 3338 to 3339 inside the Phrasly Nginx block. The effective file is /etc/nginx/sites-enabled/topratedseotools. Original storefront, login, Admin, payment and unrelated tool routing remains unchanged. The retired provider proxy remains HTTP 410.
+- Customer frontend source: 822809e8483d5d2fcfa11a02b1aaf843a14f8adc.
+- Public assets: /var/www/trst-phrasly-entry-20261026, seven files.
+- Frontend archive SHA-256: e406f6dd86017146e3d801a97d0645fe2c6316e891b42466fc2a76e52c6bde4e.
+- Activated: 21:05 WAT.
+- Backend remains manifest source 70e5c9be8a2c9ea691b39c779cfac9abe07058a2 in /home/ubuntu/releases/trst-phrasly-native-20261026, PM2 trst-phrasly-native-oct26 on 127.0.0.1:3339.
+- The original storefront remains on port 3124. Its bootstrap adds only Phrasly setup/launch behavior, including client-side navigation. Existing GA4 insertion is retained.
+- Public Phrasly assets are served directly by Nginx; the existing eleven private page/API upstreams continue on port 3339.
+- Enabled ZIP SHA-256 remains 07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3.
+- Original extension ID remains lpgnjkafilbopdojcfnagooojifkccek.
+
+The extension files and the enabled ZIP were not changed by this customer-entry correction. Public bundles were scanned for the exact operational secrets before installation; none were present.
 
 ## Verification
 
-All three CI workflows on runtime-manifest source 70e5c9b passed: frontend/Chromium 40371669102, AWS parity 40371669080, cross-service/full build 40371669014. The local production build also passed.
+All three CI checks on customer frontend source 822809e passed: frontend/actual Chromium 40392150805, AWS parity 40392151114, cross-service regression 40392151073. The frontend build and JavaScript/Python syntax checks also passed.
 
-Fresh public HTTPS API acceptance at 19:39 WAT passed all eight checks: three signed-out rejections, explicit writer grants, sanitized owner state, exact enabled ZIP, and both private pages with no-index/CSP headers. No grant or financial mutation was needed for this final run.
+The full public customer run, starting at 21:18 WAT, passed all eight checks:
+- Actual customer password login writes the existing customer session storage.
+- The real Launch Phrasly button with no extension shows setup, without opening a provider login tab.
+- AWS-style installation instructions are visible.
+- Download from the actual tool page matches the enabled ZIP byte for byte.
+- The customer dashboard contains the download panel.
+- Actual tool-catalog navigation displays the Phrasly setup panel.
+- The real legacy Launch Phrasly button opens the authenticated native Humanizer editor.
+- The actual tool page opens the authenticated native Detector editor.
 
-Fresh visible Chromium acceptance started at 19:39 WAT and passed:
-- Signed-out sign-in screen.
-- Owner Admin controls, with the saved-cookie field empty.
-- Automatic native Humanizer launch.
-- Automatic native Detector launch.
-- Absence of the extra writer dashboard and embedded iframe.
-- Extension popup identity and both feature entries.
-- Authenticated native Humanizer editor ready for input.
-- Authenticated native Detector editor ready for input.
+No page errors occurred and no generation was requested. Native handoff and editor readiness allow three minutes each. The navigation test explicitly returns the customer tab to the foreground, matching user interaction.
 
-The acceptance actor was the existing owner with explicit writer grants. The temporary QA grant had already expired and was not revived. No page errors or provider generation requests occurred. Earlier native checks had remained on Phrasly's loading screen; the final fresh run loaded both real editors successfully. The owner confirms that the original AWS experience also commonly takes time to open. This expected startup delay must not be confused with a failed first-party handoff. The acceptance test now allows up to three minutes for each native editor after its URL opens. No provider-page modification, automatic reload behavior or protection bypass was added to the deployed application.
+The password-login check used the existing internal QA account. Native access checks used the existing owner with explicit writer grants. No expired QA or historical grant was revived.
 
-Phase 5 already verified real 50-word native rewriting and a completed detector score. Its 12-case final matrix and the earlier 11-case release authorization/administration suite remain documented in their original evidence. They were not rerun with expired acceptance grants or by resetting usage.
+Separate public support checks passed: owner controls render with the saved-cookie field empty; /phrasly?setup=1 shows the installation guide without auto-opening native tabs. These checks cover the changed shared frontend bundles as well as the normal customer flow.
 
-Final read-only monitoring verifies the original 60 PM2 PIDs/status/restart counts, the native release online with zero restarts, protected settings, persisted PM2 state, no operational secrets in its logs, the twelve native upstream references, and ordinary public responses. The ordinary-page comparison normalizes only the observed per-request SSR timestamp fields; status, byte size and all remaining content match.
+Post-deployment monitoring at 21:11 WAT passed: original 60 process PIDs/status/restart counts unchanged, all 62 application processes unchanged during activation, native backend online with zero restarts, protected settings, persisted PM2 state, no operational secrets in its logs, seven exact public asset hashes, correct private endpoint authorization, and the retired proxy returning HTTP 410. Ordinary responses match after removing only the added bootstrap and observed per-request SSR timestamps.
+
+Detailed machine-readable evidence: evidence/phase6-customer-entry-20261026.json. Tests: tests/phrasly-customer-entry.cjs and tests/phrasly-entry-support-ui.cjs.
 
 ## Operation and rollback
 
-Assign an existing writer's email, daily feature limits and optional expiry in Phrasly Admin. Install the authenticated enabled extension ZIP once in the writer's Chrome/Edge browser. Visiting either entry then opens the corresponding native tool automatically.
+Assign writers through the existing owner page, with feature limits and optional expiry. Installation is once per browser/profile. Existing browser tabs need one refresh to load the new entry integration.
 
-The native provider account's plan allowance remains independent of TopRated's daily request limits. It last showed Free plan and 11 words left at 11:07 WAT. That amount was not remeasured during final acceptance. Continued processing needs an authorized Phrasly account with sufficient provider allowance; its cookie snapshot can be refreshed through the owner page.
+The provider account's allowance is independent of TopRated request limits. Its last measured allowance was Free plan, 11 words left, at 11:07 WAT; that amount was not remeasured during this correction. Continued processing requires sufficient provider allowance.
 
-The previous release and both routing snapshots are retained. Follow phase5-rollback.md. An initial native-release attempt restored the prior configuration automatically when raw HTML hashes differed; diagnosis showed existing SSR timestamps. The successful retry normalized only those timestamp fields and passed the strict comparisons.
+Latest routing backup: /home/ubuntu/backups/phrasly-entry-fix-20261026/nginx-before.conf. Restore only /etc/nginx/sites-enabled/topratedseotools, validate nginx -t, then reload and verify. No application restart or database rollback is required for this frontend correction. Detailed steps are in phase5-rollback.md.
 
-No Business API, provider proxy, sales listing, order, payment, balance change, financial-table write, audit deletion or usage reset was introduced. Existing AWS request matching, cookie metadata, retry behavior, four-second timeout and attempt accounting remain intact. PR 109 records this release; deployment is independent of its merge status.
+No payments, balances, orders, financial tables, expired grants, daily counters, account cookies or original AWS processing behavior were changed. Opening native features remains free of request-count consumption; native processing attempts retain the original AWS accounting.

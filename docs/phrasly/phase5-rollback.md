@@ -1,5 +1,19 @@
 # Phrasly rollback — native Phase 6 release
 
+## Latest customer-entry correction
+
+The latest correction serves seven public frontend assets from /var/www/trst-phrasly-entry-20261026 and attaches the extension setup/launch bootstrap to the retained storefront. The existing application processes were not changed.
+
+To roll back only this correction:
+1. Run sudo cp /home/ubuntu/backups/phrasly-entry-fix-20261026/nginx-before.conf /etc/nginx/sites-enabled/topratedseotools.
+2. Run sudo nginx -t. Reload with sudo systemctl reload nginx only if validation succeeds.
+3. Wait for graceful worker transition and verify normal home/login/Admin, other tools and the private Phrasly endpoints.
+4. Retain the public asset directory and protected evidence. Do not restart an application, delete data, reset counters or change grants.
+
+This restores the previous retained storefront behavior, including its earlier missing dashboard setup/legacy launch connection. The separate /phrasly native entry and backend remain available. The complete pre-correction Nginx snapshot is protected in the backup directory; the current deployment's rollback path was prepared but was not deliberately exercised after successful activation.
+
+## Earlier native backend release rollback
+
 The active release is /home/ubuntu/releases/trst-phrasly-native-20261026, PM2 trst-phrasly-native-oct26 on 127.0.0.1:3339. The previous /home/ubuntu/releases/trst-phrasly-aws-20261026 release on port 3338 is retained but stopped.
 
 The effective Nginx file is /etc/nginx/sites-enabled/topratedseotools. Do not substitute the similarly named sites-available file.

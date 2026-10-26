@@ -1,9 +1,11 @@
 # Phase 6 release progress
 
-Status: COMPLETE AND DEPLOYED, including the native-first writer experience.
+Status: DEPLOYED AND VERIFIED, including the customer-entry correction.
 
-The live writer entries automatically open native phrasly.ai through the original AWS extension. The separate owner controls remain available. Fresh public API and browser acceptance passed, including both authenticated native editors ready for input.
+The actual customer dashboard and Phrasly tool page now expose the extension ZIP and installation steps. The existing Launch Phrasly button uses the AWS extension handoff and opens the authenticated native Humanizer; the tool page also opens the authenticated native Detector. A missing extension shows setup instead of the provider's login/signup page.
 
-The active release is /home/ubuntu/releases/trst-phrasly-native-20261026, manifest source 70e5c9be8a2c9ea691b39c779cfac9abe07058a2, PM2 trst-phrasly-native-oct26 on loopback port 3339. The superseded port-3338 release is stopped and retained.
+The full public customer run starting at 21:18 WAT passed all eight checks. Admin controls and the explicit installation guide also passed. Native startup delay is accounted for in acceptance.
 
-See phase6-closeout.md for the complete verified state, access links, test scope, provider allowance and rollback.
+Customer frontend source: 822809e8483d5d2fcfa11a02b1aaf843a14f8adc, seven public assets under /var/www/trst-phrasly-entry-20261026, activated at 21:05 WAT. The storefront and existing backend processes remain on ports 3124 and 3339 respectively. All 62 processes were unchanged during activation.
+
+See phase6-closeout.md, customer-entry-correction.md and evidence/phase6-customer-entry-20261026.json for the verified state and rollback.

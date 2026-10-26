@@ -1,0 +1,88 @@
+{
+  "customer_public_acceptance": {
+    "utc": "2026-10-26T20:18:27.233Z",
+    "mode": "public_production",
+    "checks": {
+      "existing_customer_login_storage_verified": true,
+      "actual_launch_without_extension_shows_setup_not_provider_login": true,
+      "aws_style_installation_steps_visible": true,
+      "exact_enabled_zip_downloaded_from_actual_tool_page": true,
+      "customer_dashboard_download_panel": true,
+      "real_catalog_navigation_installs_setup_panel": true,
+      "actual_legacy_launch_opens_authenticated_native_humanizer": true,
+      "actual_tool_page_opens_authenticated_native_detector": true
+    },
+    "page_errors": [],
+    "provider_generation_requests": 0,
+    "status": "PASS"
+  },
+  "support_ui_acceptance": {
+    "utc": "2026-10-26T20:16:42.297Z",
+    "checks": {
+      "admin_controls_and_empty_saved_cookie_field": true,
+      "explicit_installation_guide_no_native_auto_launch": true
+    },
+    "errors": [],
+    "status": "PASS"
+  },
+  "activation": {
+    "status": "LIVE",
+    "utc": "2026-10-26T20:05:26Z",
+    "source_commit": "822809e8483d5d2fcfa11a02b1aaf843a14f8adc",
+    "operational_secret_scan": "PASS",
+    "files": {
+      "PhraslyAccessSetup-BG8igQMY.js": "99fcc70fab9a81dcdb61d2943368ac106187aa276d3f41b1d651e5805ebceda9",
+      "access-setup.css": "def21baf16825f443a6d0b01c430972665dc1454e8f4de0357ee60d618367fdd",
+      "admin.js": "427047f4c32d0e6356654c2cfeb34936d5380e64dfc2ce8468339454d0445b12",
+      "customer-access-v1.js": "696bbbf0fb09b55fd09ac3e4ebc6bd5413359766c7e5cdb157d3a0b233621ce3",
+      "customer-bootstrap-v1.js": "fa61e8c9ea083472ca1cecfd49ad3bce167eb8624006a0a7733abb13ac697b52",
+      "workspace.css": "b0394277ba0f4c343b392e7f14462270ce4f0e8970888f6927f0c8c16e0b893c",
+      "writer.js": "427047f4c32d0e6356654c2cfeb34936d5380e64dfc2ce8468339454d0445b12"
+    },
+    "archive_sha256": "e406f6dd86017146e3d801a97d0645fe2c6316e891b42466fc2a76e52c6bde4e",
+    "all_application_processes_unchanged": true,
+    "application_process_count": 62,
+    "original_responses_preserved_except_added_bootstrap_and_ssr_timestamps": true,
+    "financial_mutations": false,
+    "backup": "/home/ubuntu/backups/phrasly-entry-fix-20261026"
+  },
+  "monitoring": {
+    "status": "PASS",
+    "utc": "2026-10-26T20:11:42Z",
+    "checks": {
+      "all_original_60_unchanged": true,
+      "native_online_zero_restarts": true,
+      "previous_phrasly_release_stopped": true,
+      "settings_mode_600": true,
+      "directory_mode_700": true,
+      "no_operational_secrets_in_logs": true,
+      "pm2_persisted": true,
+      "unchanged:/": true,
+      "unchanged:/login": true,
+      "unchanged:/admin": true,
+      "unchanged:/tools/stealthwriter": true,
+      "unchanged:/tools/chatgpt": true,
+      "unchanged:/turnitin": true,
+      "unchanged:/turnitin/buy": true,
+      "http:/api/phrasly-proxy": true,
+      "http:/phrasly": true,
+      "http:/admin/phrasly": true,
+      "http:/ext-status": true,
+      "http:/ext-admin": true,
+      "native_upstreams_only": true,
+      "asset:PhraslyAccessSetup-BG8igQMY.js": true,
+      "asset:access-setup.css": true,
+      "asset:admin.js": true,
+      "asset:customer-access-v1.js": true,
+      "asset:customer-bootstrap-v1.js": true,
+      "asset:workspace.css": true,
+      "asset:writer.js": true,
+      "customer_entry_bootstrap_present": true
+    },
+    "native_pid": 101027,
+    "native_restarts": 0,
+    "financial_mutations": false
+  },
+  "financial_mutations": false,
+  "grant_mutations": false
+}

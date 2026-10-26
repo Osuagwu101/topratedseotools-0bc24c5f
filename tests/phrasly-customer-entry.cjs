@@ -59,7 +59,7 @@ function errors(page){page.on("pageerror",e=>evidence.page_errors.push(e.message
  const dashboard=await context.newPage();errors(dashboard);await dashboard.goto(site+"/dashboard",{waitUntil:"domcontentloaded",timeout:60000});
  await dashboard.locator("[data-trst-phrasly-access]").getByRole("button",{name:"Download Extension (.zip)",exact:true}).waitFor({timeout:45000});
  evidence.checks.customer_dashboard_download_panel=true;console.log("PASS customer login, missing-extension launch, AWS instructions, ZIP and dashboard panel");
- await tool.goto(site+"/tools",{waitUntil:"domcontentloaded",timeout:60000});await tool.locator('a[href="/tools/phrasly"]').first().click();
+ await tool.bringToFront();await tool.goto(site+"/tools",{waitUntil:"domcontentloaded",timeout:60000});await tool.locator('a[href="/tools/phrasly"]').first().click();
  await tool.locator("[data-trst-phrasly-access]").waitFor({timeout:30000});evidence.checks.real_catalog_navigation_installs_setup_panel=true;
  await context.unrouteAll({behavior:"ignoreErrors"});await context.close();await browser.close();browser=null;
  const extension=path.join(temp,"extension");execFileSync("python",["-c","import zipfile,sys;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])",file,extension]);
@@ -69,10 +69,10 @@ function errors(page){page.on("pageerror",e=>evidence.page_errors.push(e.message
  const realTool=await extensionContext.newPage();errors(realTool);await realTool.goto(site+"/tools/phrasly",{waitUntil:"domcontentloaded",timeout:60000});
  await realTool.locator("[data-trst-phrasly-access]").waitFor({timeout:45000});
  const opened=extensionContext.waitForEvent("page",{timeout:180000});await realTool.getByRole("button",{name:"Launch Phrasly",exact:true}).click();
- const native=await opened;await native.waitForURL("https://phrasly.ai/dashboard/humanizer",{waitUntil:"commit",timeout:60000});
+ const native=await opened;await native.bringToFront();await native.waitForURL("https://phrasly.ai/dashboard/humanizer",{waitUntil:"commit",timeout:60000});
  await native.locator("textarea").first().waitFor({timeout:180000});evidence.checks.actual_legacy_launch_opens_authenticated_native_humanizer=true;
- const detectorEvent=extensionContext.waitForEvent("page",{timeout:180000});await realTool.locator("[data-trst-phrasly-access]").getByRole("button",{name:"Access AI Detector",exact:true}).click();
- const detector=await detectorEvent;await detector.waitForURL("https://phrasly.ai/dashboard/ai-detector",{waitUntil:"commit",timeout:60000});await detector.locator("textarea").first().waitFor({timeout:180000});
+ await realTool.bringToFront();const detectorEvent=extensionContext.waitForEvent("page",{timeout:180000});await realTool.locator("[data-trst-phrasly-access]").getByRole("button",{name:"Access AI Detector",exact:true}).click();
+ const detector=await detectorEvent;await detector.bringToFront();await detector.waitForURL("https://phrasly.ai/dashboard/ai-detector",{waitUntil:"commit",timeout:60000});await detector.locator("textarea").first().waitFor({timeout:180000});
  evidence.checks.actual_tool_page_opens_authenticated_native_detector=true;
  assert.deepEqual(evidence.page_errors,[]);evidence.status="PASS";console.log(JSON.stringify(evidence));
 })().catch(e=>{evidence.status="FAIL";evidence.failure=e.message;console.error(JSON.stringify(evidence));process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(dir,staged?"phrasly-entry-staged.json":"phrasly-entry-public.json"),JSON.stringify(evidence,null,2));if(browser)await browser.close();if(extensionContext)await extensionContext.close();});
