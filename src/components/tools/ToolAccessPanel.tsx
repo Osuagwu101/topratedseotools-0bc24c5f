@@ -9,6 +9,7 @@ import type { ToolAccessLevel, ToolSetting } from "@/lib/access.functions";
 import { getMyAccess } from "@/lib/access.functions";
 import { getMyGrantedAccess } from "@/lib/grant-access.functions";
 import { launchTool } from "@/lib/tool-launcher";
+import { PhraslyOneClickActions } from "@/components/tools/PhraslyOneClickActions";
 
 interface Props {
   tool: Tool;
@@ -149,14 +150,15 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
                 : "Your subscription is active for this tool. Launch it below."
           }
         >
+          {tool.slug === "phrasly" && effective.one_click_auth_enabled ? <PhraslyOneClickActions /> : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
+            {!(tool.slug === "phrasly" && effective.one_click_auth_enabled) ? <button
               type="button"
               onClick={handleLaunchTool}
               className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90"
             >
               <Rocket className="h-4 w-4" /> Launch {tool.name}
-            </button>
+            </button> : null}
             <Link
               to="/orders"
               className="inline-flex items-center rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-muted"
