@@ -14,6 +14,16 @@ on:
       - "config/phrasly-extension.env.example"
       - ".github/workflows/phrasly-phase2-extension.yml"
 
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/lib/phrasly-extension/**"
+      - "extensions/phrasly-oneclick/**"
+      - "tests/phrasly-extension*"
+      - "scripts/phrasly/**"
+      - "config/phrasly*"
+      - ".github/workflows/phrasly-phase2-extension.yml"
+
 permissions:
   contents: read
 

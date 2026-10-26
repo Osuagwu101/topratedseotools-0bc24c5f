@@ -1,76 +1,66 @@
-# Phase 2 extension staging package
+# Phase 2 reproduction guide
 
-This guide builds and tests the recovered extension's first-party components in a separate checkout. It does not enable the current website, deploy a release, or authenticate a provider account. The existing public/login/admin releases must retain their separate routes.
+Use a separate checkout and disposable browser profile. The package retains the original AWS cookie/session workflow, popup and public extension identity. It defaults to disabled and is not connected to production routes.
 
-## Dependencies and configuration
+## Dependencies
 
-| Component | Dependency | Scope |
-| --- | --- | --- |
-| Protocol | Node 22.23.2 built-in crypto | Server only; 60-second handoff and four-hour record capability |
-| Website bridge | Browser Chrome runtime messaging | Calls the configured extension; delegates handoff issuance to an authenticated callback |
-| Extension | Chrome Manifest V3, storage API | No npm packages, remote scripts, cookie permission or embedded provider credentials |
-| Build/package | Python 3.12+ standard library | Fixed file allowlist, UTF-8/LF, fixed ZIP metadata, no compression variability |
-| Browser contract test | Playwright 1.58.2 and Chromium 145.0.7632.6; OpenSSL | Disposable development/CI dependency, outside application package/lockfiles |
-| Application compile | Bun 1.4.4 with existing `bun.lock` | Preserve the known lockfile; the inherited npm lock is stale |
+The CI workflow pins Node 22.23.2, Bun 1.4.4 and Playwright 1.58.2 with its Chromium build. Python 3 standard-library tools build the package and verify source. The unchanged PHP backend rehearsal requires PHP CLI with `pdo_sqlite`; it uses synthetic users, an isolated database, a fresh signing secret, local session files and a loopback server. The application uses the existing committed lockfiles.
 
-| Variable or build input | Visibility | Purpose / current state |
-| --- | --- | --- |
-| Builder `--origin` | Public | Exact first-party HTTPS hostname; rewrites sender/host scope and dashboard link |
-| Builder/package `--enabled` | Public | Explicit staging opt-in; omitted by default and in the downloadable package |
-| `PHRASLY_EXTENSION_ENABLED` | Server configuration | Future backend feature flag; keep false until Phase 3 gates exist |
-| `PHRASLY_HANDOFF_SECRET` | Server secret | New random value of at least 32 bytes; never reuse AWS's signing secret |
-| `PHRASLY_EXTENSION_ORIGIN` | Public allowlist value | Exact `chrome-extension://NEW_ID` for future backend requests |
-| `VITE_PHRASLY_EXTENSION_ID` | Public browser configuration | Planned website binding to the new extension; no current live launch binding |
-| Existing Supabase configuration | Existing server/client boundaries | Phase 3 uses verified account/access state; the service-role key stays server only |
+## Source, protocol and packaging checks
 
-The environment example is [config/phrasly-extension.env.example](../../config/phrasly-extension.env.example). The library and example do not, by themselves, wire any HTTP handlers or change the live `launchTool` function.
-
-No new paid processing service has been configured or provisioned. The recovered native workflow uses the provider's own browser page and account. Current provider account permissions, plan and cost were not independently established in this phase; a TopRated entitlement does not grant provider permission. Do not infer provider authentication from a successful first-party handoff.
-
-## Build an unpacked extension
-
-In a clean branch checkout:
+From the repository root:
 
 ```sh
+python3 scripts/phrasly/verify-aws-extension-source.py
 node --experimental-strip-types --test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-worker.test.cjs tests/phrasly-extension-launcher.test.ts
 python3 tests/phrasly-extension-build.test.py
-python3 scripts/phrasly/build-native-extension.py --origin https://YOUR_STAGING_DOMAIN --out /ABSOLUTE/NEW/EXTENSION_DIRECTORY
 ```
 
-The destination must not already exist. The builder copies only the seven reviewed extension files, accepts a plain HTTPS DNS origin on port 443, and writes a disabled configuration by default. It does not import anything from a browser profile, AWS environment file, ZIP containing active state, or customer record.
-
-Load the new directory through Chrome's unpacked-extension control in a dedicated test profile. Record the newly assigned extension ID. The recovered AWS manifest key and published extension ID are intentionally not reused. This manual procedure is for a new staging profile; the automated browser proof separately loads the actual manifest into a disposable Chromium profile.
-
-Keep the package disabled on a real site until the Phase 3 handoff, redemption and quota handlers are implemented. Merely enabling it will not create those endpoints or log into Phrasly.
-
-## Produce and verify a portable ZIP
+In the [private AWS source checkout](https://github.com/Osuagwu101/topratedseotools.com.ng-source/blob/4c420f5d054653d4dc3eb12ecf74e0508556b184/reference/phrasly-oneclick/aws-canonical/README.md), run the original-backend checks separately:
 
 ```sh
-python3 scripts/phrasly/package-native-extension.py --origin https://YOUR_STAGING_DOMAIN --out /ABSOLUTE/NEW/TopRated-Phrasly-OneClick-staging.zip
+python3 scripts/phrasly/verify-aws-backend-source.py
+python3 tests/phrasly-extension-aws-backend.test.py
 ```
 
-The output JSON includes the archive's SHA-256. Inside the ZIP, `BUILD-MANIFEST.json` lists the origin, enabled flag, extension version, byte size and SHA-256 of every shipped source file. Entries have fixed order, time and permissions. Existing archives are never overwritten. Packaging tests rebuild twice and compare complete archive bytes and each manifest entry.
+The PHP test runner supplies all database paths and secrets itself. Do not configure it with operational credentials. It copies canonical source to a temporary directory and deletes that directory after the test.
 
-The branch workflow publishes a disabled `.com` package as the `phrasly-extension-staging` artifact, retained for 14 days. It is source packaging, not a Chrome Web Store release or production installation.
+## Actual MV3 browser rehearsal
 
-## Website bridge binding for Phase 3
-
-`src/lib/phrasly-extension/launcher.ts` exports `createPhraslyLauncher`. Bind it to the browser runtime, the new public extension ID and a `requestHandoff(feature)` callback that uses the site's verified authentication. The callback returns only `{payload, signature}`. Supabase bearer credentials must not be sent to the extension.
-
-The bridge probes the extension before requesting a handoff. Missing, disabled or incompatible extensions fail before issuance. It sends the original `trst_access` fields once. A lost launch response returns `launch_state_unknown`; it does not automatically replay a consumed handoff. The worker stores its record capability in an `about:blank` tab before navigating to the native page, avoiding an initial untracked-request race.
-
-The current live launcher still references the retired proxy; it has not been switched. The new bridge is a separately tested component ready for that later binding.
-
-## Real-browser contract rehearsal
-
-The workflow installs Playwright into its temporary directory, installs Chromium only in the disposable runner, and runs:
+Install browser dependencies outside the repository, then run the tests:
 
 ```sh
-NODE_PATH=/ABSOLUTE/TO/ISOLATED/node_modules node --experimental-strip-types --test tests/phrasly-extension-browser.test.cjs
+npm install --prefix /tmp/phrasly-browser --ignore-scripts --no-package-lock --no-save --no-audit --no-fund playwright@1.58.2
+node /tmp/phrasly-browser/node_modules/playwright/cli.js install --with-deps chromium
+NODE_PATH=/tmp/phrasly-browser/node_modules node --experimental-strip-types --test tests/phrasly-extension-browser.test.cjs
 ```
 
-The test generates a short-lived local TLS certificate and synthetic test account/capabilities. A loopback CONNECT proxy accepts only the two fixture hostnames and sends both to the local TLS server. Other destinations are denied; the proxy contains no upstream forwarding path. Temporary certificate files, browser profiles and servers are removed after testing. Certificate-error suppression exists only in this isolated fixture.
+The browser tests use a local TLS fixture and a loopback proxy that only accepts the two fixture hostnames and has no upstream forwarding path. Every provider/session value is synthetic. They install the real MV3 manifest and test cookie login, HttpOnly cookies, popup identity and launch, both native actions, menu hiding, blocked navigation, quota cleanup/countdown, revocation, untracked tabs, reusable handoffs, failed-processing attempt accounting and a disabled package. They do not contact Phrasly or establish real processing.
 
-This exercises the installed service worker, static MAIN/isolated content scripts, real website-to-extension messages, native action hooks, usage denial and countdown. The fixture's synthetic handlers model one-use redemption, per-feature counts and revocation. They are not the production handlers, database transactions, login state or provider service. No provider contact, login, paid action or real text processing occurs.
+The original public manifest key fixes the extension ID to `lpgnjkafilbopdojcfnagooojifkccek`. Keep the original extension out of the disposable staging profile, since two installations with the same ID cannot coexist.
 
-Phase 3 still needs actual authenticated handlers, fresh entitlements, transactional counters, action deduplication, revocation and a decision that satisfies the existing provider-session restriction. Phase 4 needs the real website controls/popup/onboarding and stable extension distribution. Phase 5 proves authorized processing; Phase 6 governs any separately authorized rollout.
+## Build a reproducible package
+
+```sh
+python3 scripts/phrasly/package-native-extension.py --origin https://topratedseotools.com --out /tmp/TopRated-Phrasly-OneClick-staging.zip
+```
+
+Output must not already exist. The ZIP contains 13 deployment files plus `BUILD-MANIFEST.json`, with fixed ZIP metadata and per-file hashes. It is disabled by default: `enabled:false` and no static content scripts. The source has the original AWS wildcard host permission because that is required for the original cookie workflow. No active cookie or credential is embedded.
+
+For a later isolated staging install after the backend exists:
+
+```sh
+python3 scripts/phrasly/build-native-extension.py --origin https://YOUR_STAGING_DOMAIN --out /ABSOLUTE/NEW/DIRECTORY --enabled
+```
+
+`--enabled` restores the original static content scripts and cookie workflow. It does not create backend handlers, account records, subscriptions or a first-party session bridge. Staging and rollout remain later phases.
+
+## Website and backend integration
+
+`createPhraslyLauncher` takes the extension ID, Chrome runtime and an authenticated `requestHandoff(feature)` callback. It checks readiness first and sends the original `trst_access` message once. A lost reply returns `launch_state_unknown`; it does not automatically retry the launch. An `ok:true` reply reports the worker's launch result, not independently verified provider login or processing.
+
+Use [the backend handoff](phase2-backend-handoff.md) for exact GET/POST fields, cookie-account allocation, first-party popup session transport and identity/storage adaptation. `config/phrasly-extension.env.example` records the intended deployment settings; the current production launch path does not consume them yet.
+
+The website workflow verifies extension source bytes, runs the component/browser/build tests, typechecks the two TypeScript modules, creates a disabled package and compiles the application with dummy configuration. It has no deployment step and no production credentials.
+
+The private source repository has its own `Phrasly authoritative AWS backend` workflow for the original-source/schema verifier, PHP syntax and ten isolated backend tests. Raw backend source and the original archive stay in that private repository.

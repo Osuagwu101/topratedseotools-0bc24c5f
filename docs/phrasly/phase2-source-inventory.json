@@ -1,135 +1,137 @@
 {
-  "scope": "All 18 Phase 2 implementation/configuration/workflow/test files; documentation and evidence excluded to avoid checksum cycles",
+  "scope": "All website Phase 2 implementation/configuration/test/workflow files. Canonical AWS backend and archive are stored separately in the private source repository.",
   "branch": "phrasly/phase2-integration-20261025",
-  "verified_code_commit": "e4731fa692ac315429b16b72b73931ad232c324c",
-  "phase1_base": "61933ad20de2692b544611d95af7811090291dec",
-  "inherited_application_files_modified": 0,
+  "private_source_commit": "4c420f5d054653d4dc3eb12ecf74e0508556b184",
   "files": [
     {
       "path": ".github/workflows/phrasly-phase2-extension.yml",
-      "sha256": "37598015f4d0b3b083ad1ff5d45307202ba68d0a76ceeb88b3c57d38045e3b24",
-      "bytes": 3836,
-      "git_blob_sha": "b1d290db71721e0a3135f69e819ca0a99580872e",
-      "mode": "100644"
+      "bytes": 4380,
+      "sha256": "8fef9099555a263ad6fcd2522360992d809c10759d09f655023934a7c27dde50"
+    },
+    {
+      "path": "config/phrasly-aws-extension-provenance.json",
+      "bytes": 4924,
+      "sha256": "7409d3b1d273055f58c1d5b2555930e83c1305992c70a3dc20fd45e48e9f53bc"
     },
     {
       "path": "config/phrasly-extension.env.example",
-      "sha256": "eab2c3d7433d03af8d79eea79372d8408d563e198a27cc11dab66b71a9408d4b",
-      "bytes": 510,
-      "git_blob_sha": "e6b17f93ea2b38f6da2869b0584ed09e87226dc9",
-      "mode": "100644"
+      "bytes": 773,
+      "sha256": "240932b4158792bb0520ba1904b4ed6d754b32f546edfe7acf4588f8c58a7712"
     },
     {
       "path": "extensions/phrasly-oneclick/background.js",
-      "sha256": "4f58550085b8fb8dd25817526f9a2078cb657889f44e9e62e472706c1d732f3c",
-      "bytes": 5089,
-      "git_blob_sha": "a84452d32c0b5094455aace10d6b714dc4fb49bd",
-      "mode": "100644"
+      "bytes": 8469,
+      "sha256": "05908e4d6de2c03d52811c8210f86bf88f1b31f48965e277a70731da0b73f2b2"
     },
     {
       "path": "extensions/phrasly-oneclick/config.js",
-      "sha256": "bdd81af9c230374422259a703d4c4bb98e54964c51522492d074407ca62a70a8",
-      "bytes": 185,
-      "git_blob_sha": "a766686a8c3f230fd6f03b128ff3cec3f267528f",
-      "mode": "100644"
+      "bytes": 103,
+      "sha256": "9edaa6d974340387db4aac30394dd1afafb3b0101187a2859f438d5ef627fa07"
     },
     {
       "path": "extensions/phrasly-oneclick/content.js",
-      "sha256": "9ca487d2952b565d48aec4163569a0c2966ce206178f03a2377a15e37a787022",
-      "bytes": 912,
-      "git_blob_sha": "9005c85fc3dd2cee82045d20045b365f1ee3b912",
-      "mode": "100644"
+      "bytes": 3389,
+      "sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon128.png",
+      "bytes": 10222,
+      "sha256": "fcf8b92ac68fbd924b56010feba8de4afc6c8702b2d7e6746dea0dd2e61efb57"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon16.png",
+      "bytes": 2675,
+      "sha256": "dad60782394f70604f4e493e202dc952896684d11b193811b4feb1652b57a5cd"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon32.png",
+      "bytes": 3086,
+      "sha256": "e80e69b191fc913cdd4710a98f22ff9944de2684560faca0d2f5305efa3a0769"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/icons/icon48.png",
+      "bytes": 3969,
+      "sha256": "435ef0be2059d06a290ae75f32e3a084a25a97535db9b0a887263a71558a1749"
     },
     {
       "path": "extensions/phrasly-oneclick/interceptor.js",
-      "sha256": "1145d9a5ab2333ed7385d951dd776e2e6f663a60f879ec9c8e649a884277c15e",
-      "bytes": 1859,
-      "git_blob_sha": "1f755048ef898be8329dcc800ad5dc4cf4fc6d9f",
-      "mode": "100644"
+      "bytes": 3013,
+      "sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601"
     },
     {
       "path": "extensions/phrasly-oneclick/limit-reached.html",
-      "sha256": "3c84e364b4cc6da993ba9d9c91c5864be6b270b9cdc155acbcc62e77de840d13",
-      "bytes": 544,
-      "git_blob_sha": "1c887bd5f7584cd60e17e83aa91b51078dde1422",
-      "mode": "100644"
+      "bytes": 1052,
+      "sha256": "d9c51d2443b00865d7c03a182e3cd4f13e362432e29936085af717e1972b5cc6"
     },
     {
       "path": "extensions/phrasly-oneclick/limit-reached.js",
-      "sha256": "31aae2e01f08248d72d85e7830396f3c187c4d07878d174f6a96f060e017d991",
-      "bytes": 305,
-      "git_blob_sha": "52a6685ea386addc3f6b238de768c1c714307c24",
-      "mode": "100644"
+      "bytes": 372,
+      "sha256": "dfb3ca3ff738f724e96d2fe07bbaf028749613c5e1c12dd07481733a3152fcc7"
     },
     {
       "path": "extensions/phrasly-oneclick/manifest.json",
-      "sha256": "0cd0f905be9855be52f0bffbef5c8441881798af7023e0f9436c3c0926d09f11",
-      "bytes": 670,
-      "git_blob_sha": "04375908ea81c41d71f24774fd487e3dce22f0cb",
-      "mode": "100644"
+      "bytes": 1510,
+      "sha256": "dedbe8eb8b503e7602be12229fd7d821c486ed2a19bc4593e6f63cce6756bbb4"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/popup.html",
+      "bytes": 2536,
+      "sha256": "c0b67449b4ba627b3dbeeb934f8e8a5a2c27253ce872809a692771a4f4df7187"
+    },
+    {
+      "path": "extensions/phrasly-oneclick/popup.js",
+      "bytes": 4444,
+      "sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84"
     },
     {
       "path": "scripts/phrasly/build-native-extension.py",
-      "sha256": "08a6b5d2ec9223fcdc4f470df1325af34e0a907bfe6243edfce1db013f487254",
-      "bytes": 2655,
-      "git_blob_sha": "ff169db127da47fd5a15d4c35c00240466ca1e09",
-      "mode": "100644"
+      "bytes": 2987,
+      "sha256": "02d53cf675c0efcc81a54230970517cac700f2bb9ef2e13e7fdd754d1edebace"
     },
     {
       "path": "scripts/phrasly/package-native-extension.py",
-      "sha256": "7e93776cfbe71d3ac8166a6db643edbd564dadaeb9a84a348210866e3bea97d2",
       "bytes": 2330,
-      "git_blob_sha": "5b8dcf3d26343f8c919d76666ee3e90af02bfc39",
-      "mode": "100644"
+      "sha256": "7e93776cfbe71d3ac8166a6db643edbd564dadaeb9a84a348210866e3bea97d2"
+    },
+    {
+      "path": "scripts/phrasly/verify-aws-extension-source.py",
+      "bytes": 1657,
+      "sha256": "8f747a57c00d3d1f79df59112a462415902a1356985e18da7c5bce62f7d236fe"
     },
     {
       "path": "src/lib/phrasly-extension/launcher.ts",
-      "sha256": "c728bed505202b706bb79aebddeacc4fa2d03ac22a9a3359af7f8fd996c9912c",
-      "bytes": 3459,
-      "git_blob_sha": "a3cb50e3be08892ad10287dea719054a41084e84",
-      "mode": "100644"
+      "bytes": 3429,
+      "sha256": "2e63df80c534e08829245a81f0257921471fec2f74aee8c594b82857f9057472"
     },
     {
       "path": "src/lib/phrasly-extension/protocol.server.ts",
-      "sha256": "b020b9cc1fecae5c2c077fc1f450777afe3727c5092fb8f9ba47b00d342d2191",
-      "bytes": 4032,
-      "git_blob_sha": "a2292df1a42eba5e8976702c4faba84818ea3645",
-      "mode": "100644"
+      "bytes": 3976,
+      "sha256": "c6df3347a30159b396236787b4862c7e1a98cecc181895dce4918488ac27599a"
     },
     {
       "path": "tests/phrasly-extension-browser.test.cjs",
-      "sha256": "fc4ae98d127a0c9953ba3e06f4802d2374a1eecf4691a3e08d5a73765f974ef4",
-      "bytes": 14669,
-      "git_blob_sha": "0723af1362652ae83b026149d98677550e0f3bac",
-      "mode": "100644"
+      "bytes": 20441,
+      "sha256": "eff9a65c710cac53d9f5cd8bcf08b988831630f227b7c29b22240e3ecc5020b1"
     },
     {
       "path": "tests/phrasly-extension-build.test.py",
-      "sha256": "2484ce6b52fe8583f6033711cdc9cdc522e35fca30a5bb9234cea6b47fe6780e",
-      "bytes": 4237,
-      "git_blob_sha": "573b1710bdb1d362db7214ce4292964ee79119cc",
-      "mode": "100644"
+      "bytes": 4803,
+      "sha256": "839ae466ed50ed52e8bc46f82f17aa5027c8ac72eddd75b32cc4108cfbb02f54"
     },
     {
       "path": "tests/phrasly-extension-launcher.test.ts",
-      "sha256": "66f34e02d432a8dad48c9d06a15ab0c2660c28fa2566775526dd655e28d01ef8",
-      "bytes": 3910,
-      "git_blob_sha": "24bf9aa38c4701af6389cf399e6d728b714f5346",
-      "mode": "100644"
+      "bytes": 3804,
+      "sha256": "06ffd9ac099723c6efa8f41ad3f93ec738c79efc60862f258718508f2c6b2307"
     },
     {
       "path": "tests/phrasly-extension-protocol.test.ts",
-      "sha256": "a5df48e5c40a92dcb9a3a55b388823600b7b41973bf739aa217573494981bb9f",
-      "bytes": 4600,
-      "git_blob_sha": "2d7c404edaed73574f8e99582ab303a4fd7f6ff5",
-      "mode": "100644"
+      "bytes": 4894,
+      "sha256": "a3847877568b6f7012fb036e156226d80f0ea7acd78f08ca1d6e43e1de209db6"
     },
     {
       "path": "tests/phrasly-extension-worker.test.cjs",
-      "sha256": "f9d721e29e2e97ab7ec2834646192df892693ebe6b2797ccf10539b835c3319e",
-      "bytes": 11595,
-      "git_blob_sha": "5527ec876675ec6ec277b9f2050ab97a3a4215be",
-      "mode": "100644"
+      "bytes": 14865,
+      "sha256": "9fa4c44b131612af2e76999a7c4a1e9ce1d0151fd22538fcdc6368609f9756b1"
     }
   ]
 }
