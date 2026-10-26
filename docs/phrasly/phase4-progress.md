@@ -1,21 +1,21 @@
-# Phase 4 frontend implementation — 26 October 2026
+# Phase 4 closeout — 26 October 2026
 
-**State:** Frontend feature integration implemented and isolated CI passed. Staging extension installation and live browser acceptance remain unverified. No production activation.
+**Status: COMPLETE for isolated frontend and browser staging acceptance.** Production distribution and actual third-party service usage are reserved for later phases.
 
-## What changed
-- New `src/lib/phrasly-extension/launch-from-website.ts` reuses Phase 2's `createPhraslyLauncher` and calls the Phase 3 `/ext-handoff.php` route with the current verified Supabase token. The handoff produces only HMAC launch claims, not provider credentials.
-- New `src/components/tools/PhraslyOneClickActions.tsx` adds separately labeled Humanizer and AI Detector controls with busy, error, and extension readiness feedback.
-- Existing `ToolAccessPanel` retains login, paywall and entitlement gating and uses feature-specific buttons for Phrasly when one-click is enabled; other tools are unchanged.
-- Existing `extensions/phrasly-oneclick` still contains the original AWS extension and `config.js` remains `enabled:false`. Distribution is not activated.
-- `.github/workflows/phrasly-phase4-frontend.yml` builds the website and tests the unchanged launcher protocol with the extension disabled.
+## Authoritative implementation
+- AWS source reference and extension are unchanged; original MV3 extension identity retained.
+- Source: `extensions/phrasly-oneclick` with `enabled:false` checked into source.
+- Phase 4 website integration: `src/lib/phrasly-extension/launch-from-website.ts`, `src/components/tools/PhraslyOneClickActions.tsx`, and Phrasly-only integration in `ToolAccessPanel.tsx`.
+- GitHub draft PR #107 targeting the Phase 3 branch; **no production merge/deploy**.
 
-## Evidence
-- Phase 4 branch `phrasly/phase4-frontend-20261026`; draft PR #107.
-- Phase 4 frontend job `121452997503` passed its frozen dependency installation, compiled website, original extension launcher tests, and disabled-package guard.
-- Original AWS extension parity CI is independently tracked; do not claim completion until its last run finishes successfully.
+## Verified evidence
+- Commit `bcc68addd435fb4d327ce25dfe104d500b01d774`: AWS parity `121454117188` SUCCESS; frontend job `121454117219` SUCCESS.
+- Frontend CI built the real website with Phrasly disabled, ran launcher/protocol regression tests, installed original AWS MV3 into **actual headless Chromium**, and exercised isolated staging launch.
+- Chromium browser coverage: fixed extension identity, popup identity, signed handoff, cookie installation, Humanizer and AI Detector interception, quotas, denied actions, redirects and menu protections, cleanup, replay semantics, and disabled package behavior. All tests use synthetic Phrasly sessions and a loopback TLS fixture with no third-party provider contact.
+- Phase 3 previously established real disposable local Supabase Auth + PostgREST + Nitro integration (`121450810819` SUCCESS).
 
-## Explicit release boundary
-- No PR merged to main and no production update.
-- No Phrasly account cookie data or service secrets are checked into the website repo.
-- Browser extension installation/distribution and real native browser login are not yet proven on an authorized staging client; those checks are needed before declaring all Phase 4 browser acceptance complete.
-- Phase 5 real third-party processing verification and Phase 6 production release remain untouched.
+## Scope and constraints
+- Browser fixture is a **staging simulation**, not a live Phrasly login. The installed extension was exercised in Chromium; no production customer installed a newly distributed extension.
+- Phase 5 must prove authorized account integration and real provider processing if permission and working account access are available, plus regression checks of unrelated site services.
+- Phase 6 handles production distribution, activation, monitoring and rollback.
+- Keep current production feature disabled; no live database, customer balances or payment systems touched.
