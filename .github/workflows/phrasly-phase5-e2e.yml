@@ -1,0 +1,33 @@
+name: Phrasly Phase 5 cross-service regression
+on:
+  push:
+    branches: [phrasly/phase5-e2e-20261026]
+  pull_request:
+    paths: ['tests/**', '.github/workflows/phrasly-phase5-e2e.yml', 'src/lib/phrasly-extension/**', 'src/components/tools/**']
+jobs:
+  isolated-regressions:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: http://127.0.0.1:9
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase5_dummy
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_phase5_dummy
+      VITE_SUPABASE_URL: http://127.0.0.1:9
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_phase5_dummy
+      VITE_SUPABASE_PROJECT_ID: phase5-offline
+      PHRASLY_EXTENSION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Frozen dependencies
+        run: bun install --frozen-lockfile
+      - name: Phrasly protocol and server contract regressions
+        run: bun test tests/phrasly-extension-protocol.test.ts tests/phrasly-extension-launcher.test.ts tests/phrasly-phase3-backend.test.ts
+      - name: Unrelated product regression checks
+        run: |
+          bun test tests/stealthwriter-customer-assignment.test.ts tests/stealthwriter-provider-routing.test.ts tests/chatgpt-phase4-validation.test.ts tests/turnitin-credit-foundation.test.ts tests/turnitin-phase5-billing.test.ts
+      - name: Full website build
+        run: bun run build
+      - name: Explicit no-production-activation gate
+        run: |
+          grep -q 'enabled: false' extensions/phrasly-oneclick/config.js
+          test -s .output/server/index.mjs
