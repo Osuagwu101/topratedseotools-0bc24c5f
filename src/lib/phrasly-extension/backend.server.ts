@@ -12,6 +12,9 @@ const FEATURES = ["humanizer", "ai_detector", "default"] as const;
 type Feature = typeof FEATURES[number];
 const db = supabaseAdmin as any;
 
+function enabled() {
+  if (process.env.PHRASLY_EXTENSION_ENABLED !== "true") throw new OneclickError("service_unavailable",503);
+}
 function secret() {
   const v = process.env.PHRASLY_AWS_EXTENSION_GATE_SECRET || "";
   if (Buffer.byteLength(v) < 32) throw new Error("handoff_secret_required");
@@ -67,6 +70,7 @@ async function audit(uid:string,event:string,f?:Feature) {
   await db.from("phrasly_oneclick_activity").insert({user_id:uid,event_type:event,feature_key:f||null});
 }
 export async function handoff(request:Request) {
+  enabled();
   const uid=await verifiedWriter(request);
   const f=feature(new URL(request.url).searchParams.get("feature")||"default");
   const toolId=new URL(request.url).searchParams.get("tool_id")||TOOL;
@@ -84,6 +88,7 @@ function decode(payload:string,sig:string,kind:"handoff"|"record") {
   }
 }
 export async function fulfill(request:Request) {
+  enabled();
   const params=new URL(request.url).searchParams;
   const payload=params.get("payload")||"",signature=params.get("signature")||"";
   if(!payload||!signature) throw new OneclickError("missing_token",400);
@@ -113,6 +118,7 @@ export async function fulfill(request:Request) {
     used,limit,record_token:issueAwsRecordToken(uid,TOOL,Math.floor(Date.now()/1000),secret())},200,true);
 }
 export async function checkUsage(request:Request) {
+  enabled();
   const raw=await request.text();
   if(raw.length>8_192) throw new OneclickError("bad_request",400);
   const form=new URLSearchParams(raw),token=form.get("record_token")||"";
@@ -130,6 +136,7 @@ export async function checkUsage(request:Request) {
 }
 function hash(value:string) {return createHash("sha256").update(value).digest("hex");}
 export async function createPopupSession(request:Request) {
+  enabled();
   const uid=await verifiedWriter(request);
   const token=randomBytes(32).toString("base64url");
   const {error}=await db.from("phrasly_oneclick_popup_sessions").insert({
@@ -142,6 +149,7 @@ export async function createPopupSession(request:Request) {
   }});
 }
 export async function whoami(request:Request) {
+  enabled();
   const token=request.headers.get("x-ext-session")||"";
   if(!/^[A-Za-z0-9_-]{32,128}$/.test(token)) return oneclickJson({ok:false,error:"not_signed_in"},200,true);
   const {data,error}=await db.from("phrasly_oneclick_popup_sessions")
