@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export type PhraslyFeature = "humanizer" | "ai_detector" | "default";
 export interface AwsClaims { uid: string | number; tool_id: string | number; exp: number; feature?: PhraslyFeature }
+export interface AwsDecodedClaims extends Record<string, unknown> { uid: string | number; tool_id: string | number; exp: number; feature?: unknown }
 export const HANDOFF_SECONDS = 60;
 export const RECORD_SECONDS = 14_400;
 
@@ -32,7 +33,7 @@ export function issueAwsRecordToken(uid: string | number, toolId: string | numbe
   const token = signAwsClaims({ uid, tool_id: toolId, exp: now + RECORD_SECONDS }, secret);
   return `${token.payload}.${token.signature}`;
 }
-export function verifyAwsToken(payload: string, signature: string, kind: "handoff" | "record", now: number, secret: string): AwsClaims {
+export function verifyAwsToken(payload: string, signature: string, kind: "handoff" | "record", now: number, secret: string): AwsDecodedClaims {
   requireSecret(secret);
   if (kind !== "handoff" && kind !== "record") throw new Error("bad_token");
   if (!Number.isSafeInteger(now) || now < 0 || typeof payload !== "string" || !/^[A-Za-z0-9_-]{1,2048}$/u.test(payload) ||
@@ -43,12 +44,11 @@ export function verifyAwsToken(payload: string, signature: string, kind: "handof
   try { data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); } catch { throw new Error("bad_token"); }
   if (!data || typeof data !== "object" || Array.isArray(data) || !identity(data.uid) || !identity(data.tool_id) ||
       !Number.isSafeInteger(data.exp) || (data.exp as number) < 0) throw new Error("bad_token");
-  const allowed = kind === "handoff" ? ["uid", "tool_id", "feature", "exp"] : ["uid", "tool_id", "exp"];
-  if (Object.keys(data).some(key => !allowed.includes(key)) || (kind === "handoff" && !feature(data.feature))) throw new Error("bad_token");
-  // Preserve the recovered '< now' expiry boundary; reject implausible future TTLs.
+  // AWS has no cryptographic purpose claim, extra-field rejection or maximum
+  // remaining-TTL check. Feature grants and account state are checked by the
+  // real endpoints after verification; this decoder grants no access itself.
   if ((data.exp as number) < now) throw new Error("token_expired");
-  if ((data.exp as number) > now + (kind === "handoff" ? HANDOFF_SECONDS : RECORD_SECONDS)) throw new Error("bad_token");
-  return data as unknown as AwsClaims;
+  return data as unknown as AwsDecodedClaims;
 }
 export function watUsageDay(now: number): string {
   return new Date((now + 3_600) * 1_000).toISOString().slice(0, 10);

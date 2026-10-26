@@ -29,13 +29,13 @@ test("separate record token lives four hours and contains no provider credential
   assert.deepEqual(data, { uid: 42, tool_id: 7, exp: now + 14400 });
   assert.throws(() => verifyAwsToken(payload, signature, "record", now + 14401, secret), /token_expired/);
 });
-test("handoff cannot be substituted for a record token", () => {
+test("AWS uses the same signing key and accepts a handoff payload in the record verifier", () => {
   const t = issueAwsHandoff(42, 7, "humanizer", now, secret);
-  assert.throws(() => verifyAwsToken(t.payload, t.signature, "record", now, secret), /bad_token/);
+  assert.equal(verifyAwsToken(t.payload, t.signature, "record", now, secret).uid, 42);
 });
-test("record token cannot be substituted for a handoff", () => {
+test("a record payload has no feature; AWS fulfillment applies its default feature grant separately", () => {
   const [payload, signature] = issueAwsRecordToken(42, 7, now, secret).split(".");
-  assert.throws(() => verifyAwsToken(payload, signature, "handoff", now, secret), /bad_token/);
+  assert.equal(verifyAwsToken(payload, signature, "handoff", now, secret).feature, undefined);
 });
 test("modified payload and incorrect signature fail validation", () => {
   const t = issueAwsHandoff(42, 7, "humanizer", now, secret);
@@ -49,14 +49,17 @@ for (const signature of ["", "0", "z".repeat(64)]) test(`malformed signature len
 test("a new deployment needs its own sufficiently long secret", () => {
   assert.throws(() => issueAwsHandoff(42, 7, "humanizer", now, "short"), /handoff_secret_required/);
 });
+test("empty user identity is rejected", () => {
+  const t = signAwsClaims({ uid: 0, tool_id: 7, feature: "humanizer", exp: now + 60 }, secret);
+  assert.throws(() => verifyAwsToken(t.payload, t.signature, "handoff", now, secret), /bad_token/);
+});
 for (const data of [
-  { uid: 0, tool_id: 7, feature: "humanizer", exp: now + 60 },
   { uid: 42, tool_id: 7, feature: "unknown", exp: now + 60 },
   { uid: 42, tool_id: 7, feature: "humanizer", exp: now + 61 },
   { uid: 42, tool_id: 7, feature: "humanizer", exp: now + 60, role: "admin" },
-]) test(`signed malformed claims ${JSON.stringify(data)}`, () => {
+]) test(`AWS leaves signed feature/extra-field/remaining-TTL policy to the endpoints: ${JSON.stringify(data)}`, () => {
   const t = signAwsClaims(data as never, secret);
-  assert.throws(() => verifyAwsToken(t.payload, t.signature, "handoff", now, secret), /bad_token/);
+  assert.deepEqual(verifyAwsToken(t.payload, t.signature, "handoff", now, secret), data);
 });
 test("WAT day and reset cross 23:00 UTC, matching Africa/Lagos midnight", () => {
   const before = Date.parse("2026-10-25T22:59:59Z") / 1000;
