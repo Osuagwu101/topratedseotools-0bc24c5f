@@ -42,7 +42,7 @@ Fresh visible Chromium acceptance started at 19:39 WAT and passed:
 - Authenticated native Humanizer editor ready for input.
 - Authenticated native Detector editor ready for input.
 
-The acceptance actor was the existing owner with explicit writer grants. The temporary QA grant had already expired and was not revived. No page errors or provider generation requests occurred. Earlier native checks had remained on Phrasly's loading screen; the final fresh run loaded both real editors successfully. No provider-page modification or protection bypass was introduced, and no definitive cause is claimed for that transient loading.
+The acceptance actor was the existing owner with explicit writer grants. The temporary QA grant had already expired and was not revived. No page errors or provider generation requests occurred. Earlier native checks had remained on Phrasly's loading screen; the final fresh run loaded both real editors successfully. The owner confirms that the original AWS experience also commonly takes time to open. This expected startup delay must not be confused with a failed first-party handoff. The acceptance test now allows up to three minutes for each native editor after its URL opens. No provider-page modification, automatic reload behavior or protection bypass was added to the deployed application.
 
 Phase 5 already verified real 50-word native rewriting and a completed detector score. Its 12-case final matrix and the earlier 11-case release authorization/administration suite remain documented in their original evidence. They were not rerun with expired acceptance grants or by resetting usage.
 
