@@ -29,6 +29,15 @@ jobs:
         run: |
           bun test tests/phrasly-session-vault.test.ts tests/phrasly-proxy-foundation.test.ts
           node --test tests/phrasly-extension-worker.test.cjs
+      - name: Verify AWS popup bridge is connected before handoff
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('src/lib/phrasly-extension/launch-from-website.ts').read_text()
+          assert source.index('fetch("/ext-session"') < source.index('fetch("/ext-handoff.php?"'), 'popup session must be created before signed handoff'
+          assert 'credentials:"same-origin"' in source
+          print('PHRASLY_AWS_POPUP_SESSION_BRIDGE_PASS')
+          PY
       - name: Full website build
         run: bun run build
       - name: Explicit no-production-activation gate
