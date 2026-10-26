@@ -1,4 +1,4 @@
-/* Real Chromium/MV3 test. Every HTTPS request is fulfilled locally or aborted.
+/* Real Chromium/MV3 test. HTTPS uses a local TLS fixture through a restricted proxy.
  * The first-party handlers and native page are synthetic contract fixtures.
  * This does not authenticate to Phrasly or validate provider processing.
  */
@@ -11,6 +11,9 @@ const { execFileSync } = require('node:child_process');
 const { stripTypeScriptTypes } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const { randomBytes } = require('node:crypto');
+const http = require('node:http');
+const https = require('node:https');
+const net = require('node:net');
 const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const SITE = 'https://toprated-staging.example.test';
@@ -19,13 +22,53 @@ const NATIVE = 'https://phrasly.ai';
 async function fixture(enabled) {
   const protocol = await import(pathToFileURL(path.join(root, 'src/lib/phrasly-extension/protocol.server.ts')).href);
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'trst-mv3-'));
-  let context;
+  let context; let server; let proxy;
+  const connections = new Set();
+  const closeServers = async () => {
+    for (const socket of connections) socket.destroy();
+    for (const service of [proxy, server]) if (service?.listening) {
+      service.closeAllConnections?.(); await new Promise(resolve => service.close(resolve));
+    }
+  };
   try {
     const extension = path.join(temporary, 'extension');
     execFileSync('python3', [path.join(root, 'scripts/phrasly/build-native-extension.py'), '--origin', SITE, '--out', extension, ...(enabled ? ['--enabled'] : [])]);
+    const fixtureKey = path.join(temporary, 'fixture.key'); const fixtureCert = path.join(temporary, 'fixture.crt');
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=toprated-staging.example.test', '-addext', 'subjectAltName=DNS:toprated-staging.example.test,DNS:phrasly.ai', '-keyout', fixtureKey, '-out', fixtureCert], { stdio: 'ignore' });
+    let handler;
+    server = https.createServer({ key: fs.readFileSync(fixtureKey), cert: fs.readFileSync(fixtureCert) }, async (request, response) => {
+      try {
+        let body = '';
+        for await (const chunk of request) { body += chunk; if (body.length > 16_384) throw new Error('oversized fixture request'); }
+        const route = {
+          request: () => ({ url: () => 'https://' + request.headers.host + request.url, method: () => request.method,
+            headers: () => request.headers, postData: () => body, postDataJSON: () => JSON.parse(body) }),
+          fulfill: ({ status = 200, contentType = 'text/plain', body = '' }) => { response.writeHead(status, { 'Content-Type': contentType, 'Cache-Control': 'no-store' }); response.end(body); },
+          abort: () => { response.writeHead(404); response.end(); },
+        };
+        if (!handler) throw new Error('fixture handler not ready');
+        await handler(route);
+      } catch (error) { response.writeHead(500); response.end('fixture failure'); console.error(error); }
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    proxy = http.createServer((_request, response) => { response.writeHead(403); response.end(); });
+    proxy.on('connect', (request, client, head) => {
+      // Every permitted target goes to this fixture. No upstream DNS/network call exists.
+      if (!['toprated-staging.example.test:443', 'phrasly.ai:443'].includes(request.url)) return client.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+      const upstream = net.connect(server.address().port, '127.0.0.1', () => {
+        client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        if (head.length) upstream.write(head);
+        client.pipe(upstream); upstream.pipe(client);
+      });
+      for (const socket of [client, upstream]) {
+        connections.add(socket); socket.on('close', () => connections.delete(socket)); socket.on('error', () => { client.destroy(); upstream.destroy(); });
+      }
+    });
+    await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
     context = await chromium.launchPersistentContext(path.join(temporary, 'profile'), {
-      channel: 'chromium', headless: true,
-      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, '--host-resolver-rules=MAP * ~NOTFOUND'],
+      channel: 'chromium', headless: true, ignoreHTTPSErrors: true,
+      proxy: { server: 'http://127.0.0.1:' + proxy.address().port },
+      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, '--host-resolver-rules=MAP * ~NOTFOUND,EXCLUDE 127.0.0.1', '--ignore-certificate-errors'],
     });
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', { timeout: 15_000 });
     const id = new URL(worker.url()).host;
@@ -41,7 +84,7 @@ async function fixture(enabled) {
       <script>for(const [feature,path] of [['humanizer','rewrite'],['ai_detector','detect']]){
         document.getElementById(feature).onclick=async()=>{const r=await fetch('/api/ai/'+path,{method:'POST',body:JSON.stringify({text:'synthetic fixture text'})});document.getElementById('status').textContent=feature+':'+r.status;};
       }</script></html>`;
-    await context.route('**/*', async route => {
+    handler = async route => {
       const request = route.request(); const url = new URL(request.url());
       if (url.origin === SITE) {
         if (url.pathname === '/favicon.ico') return route.fulfill({ status: 204 });
@@ -95,13 +138,14 @@ async function fixture(enabled) {
         if (url.pathname === '/favicon.ico') return route.fulfill({ status: 204 });
       }
       state.otherRequests.push(url.origin + url.pathname); return route.abort();
-    });
+    };
     const page = await context.newPage();
     await page.goto(SITE + '/dashboard');
     await page.waitForFunction(() => !!globalThis.launcher);
-    return { context, page, state, id, temporary, async close() { await context.close(); fs.rmSync(temporary, { recursive: true, force: true }); } };
+    return { context, page, state, id, temporary, async close() { await context.close(); await closeServers(); fs.rmSync(temporary, { recursive: true, force: true }); } };
   } catch (error) {
     if (context) await context.close();
+    await closeServers();
     fs.rmSync(temporary, { recursive: true, force: true });
     throw error;
   }
@@ -115,7 +159,10 @@ test('real MV3: first-party launch, both native actions, revocation, quota count
     assert.deepEqual(await f.page.evaluate(() => globalThis.launcher.launch('humanizer')), { ok: true, provider_login: 'not_performed' });
     const native = await opened;
     await native.waitForURL(NATIVE + '/dashboard');
-    console.log(JSON.stringify({ nativeInjection: await native.evaluate(() => ({ configured: globalThis.TRST_EXTENSION?.enabled === true, wrappedFetch: window.fetch.toString().includes('permission') })), trackedTabs: await f.context.serviceWorkers()[0].evaluate(async () => Object.keys((await chrome.storage.session.get('trst_tracked_tabs')).trst_tracked_tabs || {})) }));
+    const injection = await native.evaluate(() => ({ configuration: globalThis.TRST_EXTENSION || null, wrappedFetch: window.fetch.toString().includes('permission') }));
+    console.log(JSON.stringify({ nativeInjection: injection, grantedPermissions: await f.context.serviceWorkers()[0].evaluate(() => chrome.permissions.getAll()) }));
+    assert.equal(injection.configuration?.enabled, true, 'manifest content scripts must execute in the native page');
+    assert.equal(injection.wrappedFetch, true, 'MAIN world must wrap fetch before actions');
     assert.equal(f.state.handoffs, 1); assert.equal(f.state.fulfillments, 1); assert.equal(f.state.usage.length, 0);
     const replay = await f.page.evaluate(({ id, token }) => new Promise(resolve => chrome.runtime.sendMessage(id, { type: 'trst_access', ...token }, resolve)), { id: f.id, token: f.state.token });
     assert.equal(replay.error, 'already_redeemed');
