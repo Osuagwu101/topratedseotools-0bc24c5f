@@ -29,3 +29,10 @@ Status: **IN PROGRESS**. Isolated cross-service checks passed; real third-party 
 - No valid authorized live Phrasly processing result has been obtained or independently verified from the website's target environment. A synthetic browser response is not equivalent to live processing.
 - Until this gate passes, **Phase 5 remains open** and the next phase must not activate production access. No fake acceptance evidence should be used.
 - Phase 6 deployment activities are not yet authorized by this report.
+
+## Direct AWS source parity review (26 October 2026)
+Compared private canonical AWS sources `platform/public-app/ext-handoff.php`, `ext-fulfill.php`, and `ext-check-usage.php` at source commit `4c420f5d054653d4dc3eb12ecf74e0508556b184` to the actual TopRated Phase 5 branch. Verified contracts: short-lived HMAC feature-scoped token, entitlement recheck at fulfillment, provider account selection, no usage increment on opening, longer-lived record token and per-action usage recheck. TopRated adapts numeric AWS tool/user IDs to named tool slug and Supabase UUID.
+
+**Defect fixed:** Original AWS platform has a PHPSESSID browser session that the extension popup reads. TopRated uses Supabase bearer authentication; its previously implemented `/ext-session` endpoint was never called by the website launcher. Commit `8250b8db6aff5262e9001462479680f3872bb723` now creates the secure first-party popup session before requesting a signed handoff. The Phase 5 CI workflow checks call order and same-origin cookies, in addition to existing backend and browser tests. This preserves the original AWS popup contract, not a new authentication architecture.
+
+**Remaining evidence:** CI and synthetic fixtures cannot prove that an actual authorized Phrasly account has been configured in the TopRated server vault, nor that the real Phrasly service accepts an action from TopRated staging. This final provider-integration acceptance remains OPEN. Do not claim Phase 5 fully closed or activate production until actually confirmed.
