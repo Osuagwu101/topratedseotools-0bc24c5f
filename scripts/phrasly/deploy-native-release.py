@@ -15,7 +15,7 @@ def request(route,port=None):
   with urllib.request.urlopen(urllib.request.Request(url,headers={"Host":"topratedseotools.com"}),timeout=20) as r:return r.status,r.read()
  except urllib.error.HTTPError as e:return e.code,e.read()
 def fingerprint(route): 
- status,body=request(route);return {"status":status,"sha256_without_ssr_timestamps":hashlib.sha256(re.sub(rb"(?<=,u:)\\d{13}(?=,s:)",b"TIMESTAMP",body)).hexdigest(),"bytes":len(body)}
+ status,body=request(route);return {"status":status,"sha256_without_ssr_timestamps":hashlib.sha256(re.sub(rb"(?<=,u:)[0-9]{13}(?=,s:)",b"TIMESTAMP",body)).hexdigest(),"bytes":len(body)}
 manifest=json.loads((root/"phase6-native-manifest.json").read_text())
 assert manifest["source_commit"]==expected
 assert hashlib.sha256((root/"phase6-native.tgz").read_bytes()).hexdigest()==manifest["archive_sha256"]
