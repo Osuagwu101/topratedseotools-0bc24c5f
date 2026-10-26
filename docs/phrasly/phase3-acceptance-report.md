@@ -22,3 +22,13 @@
 
 ## Scope boundary
 Phase 4 website UI/distribution, Phase 5 real provider acceptance, and Phase 6 live rollout remain outside Phase 3. This document intentionally does **not** claim those phases or real provider use succeeded.
+
+## Additional isolated HTTP staging evidence (26 October 2026)
+- `72f905c6b9447a895d1495d1c2b6126ce7f5c120`: actual compiled Nitro HTTP server tested on a disposable GitHub runner with all Phrasly integration flags disabled, no production database or secrets.
+- Isolated HTTP smoke job `121443996622`: **SUCCESS**; validates that original-path handlers respond with HTTP 503 and `service_unavailable` when disabled.
+- Disposable PostgreSQL fixture `121443996711`: **SUCCESS**.
+- Synthetic endpoint fixture `121443996412`: **SUCCESS**.
+- These demonstrate compiled route availability and fail-closed behavior, not live authorized activation.
+- Supabase listed zero existing development branches. A dedicated Supabase staging branch was attempted, but creation was blocked by a mandatory extra-cost confirmation. The quoted branch cost is **$0.01344 per hour**; no billing commitment was made without user consent.
+
+Outstanding: paid staging branch creation and real destination Supabase auth/database integration tests. Keep PR draft until those pass.
