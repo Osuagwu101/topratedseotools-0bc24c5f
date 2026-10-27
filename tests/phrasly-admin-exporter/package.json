@@ -1,0 +1,10 @@
+{
+  "name": "toprated-phrasly-admin-exporter-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --experimental-vm-modules security.test.mjs && node browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}
