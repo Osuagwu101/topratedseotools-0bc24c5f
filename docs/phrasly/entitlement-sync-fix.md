@@ -22,4 +22,23 @@ Expiry and source revocation continue to be enforced by activeTopRatedAccess at 
 
 ## Production verification
 
-Pending deployment of this exact version-controlled migration and read-only verification of the affected user's native status and download/handoff authorization.
+Applied successfully on 27 October 2026 as migration 20261027071059_phrasly_entitlement_feature_sync. The source filename matches the recorded production migration version; its SQL is identical to the tested and deployed content.
+
+The affected user's existing approved entitlement received exactly the missing Humanizer and AI Detector grants, each at 20/day. Live acceptance using a temporary verification session confirmed:
+- Signed-out access is rejected.
+- The affected user's /ext-status succeeds and both handoffs are authorized.
+- The authenticated download matches the unchanged enabled extension ZIP.
+- The actual customer tool panel no longer falsely denies access.
+- Both native phrasly.ai editors open and become ready through the installed extension.
+- No provider generation was requested; both daily counters remain at zero.
+- The temporary verification session was revoked without signing out the user's existing sessions.
+
+Evidence: evidence/entitlement-live-20261027.json. Live test: tests/phrasly-entitlement-live.cjs (requires an explicitly supplied private verification session; it does not send messages).
+
+Before/after row fingerprints match for all 48 tool_orders, all 12 tool_access_grants and both existing phrasly_oneclick_daily_usage rows. Existing account cookies and extension bytes were not modified. The security advisor reports no new findings; the internal schema and function deny USAGE/EXECUTE to anon and authenticated. Existing unrelated advisor findings remain outside this fix.
+
+GitHub entitlement regression and cross-service regression both passed at implementation commit 488d11eb5ac85dd419863db9393708d5a03fcfac. Final-head CI is checked before merge.
+
+## Rollback
+
+If synchronization must be disabled, disable only phrasly_seed_features_after_admin_access on tool_access_grants and phrasly_seed_features_after_paid_order on tool_orders in a versioned transaction. Do not delete repaired permissions, counters or source entitlements. Runtime launch code and native provider behavior are unchanged.
