@@ -10,7 +10,7 @@ The exporter is separate from the writers' existing Phrasly Access extension. It
 
 ## Handoff
 
-Sending is explicit. Cookie values stay in extension session memory for a maximum five-minute unclaimed handoff. The URL contains only a random 256-bit nonce. A claim must come from the exact HTTPS TopRated Admin path, matching fragment and browser tab opened by the exporter. The packet is consumed before the response, serialized against concurrent requests and removed on expiry. Cookies are not placed in a URL, logs, local/sync extension storage or a remote third-party service.
+Sending is explicit. An unclaimed handoff is valid for five minutes; an expiry alarm removes abandoned packets, and every claim also checks its expiry. The URL contains only a random 256-bit nonce. A claim must come from the exact HTTPS TopRated Admin path, matching fragment and browser tab opened by the exporter. The packet is consumed before the response, serialized against concurrent requests and removed on expiry. Cookies are not placed in a URL, logs, local/sync extension storage or a remote third-party service.
 
 The Admin page requests the packet only after /ext-admin confirms the signed-in owner. Imported values stay hidden in page memory. The account selector starts empty and Save stays disabled until an account is chosen. Saving uses the existing save_account action; no new database tables, role grants or public save API are introduced.
 
@@ -26,4 +26,18 @@ public/phrasly-assets/Osuagwu-Solomon-TopRated.zip
 Version: 1.0.0
 SHA-256: 84116055b20c1afc8f3a87a968095c6579730d6f96378bdd2449d975d7708eb7
 
-Only public Admin JavaScript and this new download need activation. Existing writer assets, writer ZIP, backend, database and provider-processing behavior are retained. Deployment and live acceptance evidence will be appended after activation.
+Only public Admin JavaScript and this new download need activation. Existing writer assets, writer ZIP, backend, database and provider-processing behavior are retained. Activated on 27 October 2026 from source d6c352ddc4c812ef8461c97b505232ec99674f73. The deployed Admin asset is ec947e03d96182121ae44bbe354cd994959582436ecf7b4f65ac45d90f124b00; the ZIP SHA above matches the live browser download.
+
+Live acceptance passed using a temporary owner session and the existing authenticated Phrasly account:
+- The real extension captured the current browser session and handed it to the authenticated owner page.
+- The target account had to be chosen explicitly. The real save request was guarded against a different target or changed metadata.
+- The account-session update succeeded exactly once, preserving label, capacity and enabled state.
+- The Admin download produced the exact packaged ZIP.
+- A temporary writer login then opened ready native Humanizer and AI Detector editors after the account refresh.
+- No provider processing was requested. The temporary owner and writer sessions were revoked locally, leaving existing user sessions intact.
+
+The captured session differed from the stored snapshot at preparation time. This is recorded as an observation, not a failed acceptance check: Phrasly was authenticated before export, the saved session matched the captured browser session, and both native editors authenticated afterward.
+
+The 62 application processes, all existing writer/public assets and the enabled writer ZIP remained unchanged. Orders, source access grants and Phrasly daily-usage fingerprints also remained unchanged. The guarded deployment keeps the previous Admin asset in /home/ubuntu/backups/phrasly-admin-exporter-20261027 for rollback.
+
+Evidence: evidence/admin-exporter-live-20261027.json. CI at the deployed source passed exporter regression, frontend review, AWS parity and cross-service regression. The live test script requires explicitly prepared private acceptance inputs and is not part of ordinary CI.
