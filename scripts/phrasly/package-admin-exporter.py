@@ -17,5 +17,7 @@ output=root/'public/phrasly-assets/Osuagwu-Solomon-TopRated.zip';output.parent.m
 with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
  for name in sorted(files):
   info=zipfile.ZipInfo(name,(2026,10,27,0,0,0));info.create_system=3;info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16
-  archive.writestr(info,files[name].read_bytes(),compresslevel=9)
+  data=files[name].read_bytes()
+  if not name.endswith('.png'):data=data.replace(b'\r\n',b'\n')
+  archive.writestr(info,data,compresslevel=9)
 print(json.dumps({'file':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'files':len(files),'extension_id':identity}))
