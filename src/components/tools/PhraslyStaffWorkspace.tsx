@@ -4,11 +4,15 @@ import {supabase} from "@/integrations/supabase/client";
 import {launchPhraslyAwsFeature} from "@/lib/phrasly-extension/launch-from-website";
 import {PhraslyAccessSetup} from "./PhraslyAccessSetup";
 import {PhraslyOneClickActions} from "@/components/tools/PhraslyOneClickActions";
+import {cookieImportNonce,receivePhraslyCookieImport,type ImportedPhraslyCookies} from "@/lib/phrasly-extension/cookie-import";
 
 const ADMIN=location.pathname.startsWith("/admin/");
 const SETUP=new URLSearchParams(location.search).get("setup")==="1";
 const messages:Record<string,string>={
  not_signed_in:"Sign in to continue.",no_access:"Phrasly access has not been assigned to this account. Contact your administrator.",
+ cookie_import_unavailable:"The Admin cookie exporter could not be reached. Return to phrasly.ai and choose Send to TopRated Admin again.",
+ cookie_import_expired:"The cookie handoff expired. Return to phrasly.ai and send a fresh export.",
+ cookie_import_invalid:"The cookie handoff could not be verified. Return to phrasly.ai and send again.",
  forbidden:"This page is available to the account owner.",account_inactive:"This account is unavailable. Contact your administrator.",
  writer_not_found:"No active TopRated account matches that email.",bad_cookie_json:"Paste the Phrasly cookie array as valid JSON, including its session cookie.",
  bad_request:"Check the entered details and try again.",service_unavailable:"Phrasly is temporarily unavailable. Contact your administrator."
@@ -30,8 +34,20 @@ function App(){
  const [email,setEmail]=useState(""),[password,setPassword]=useState("");
  const [writerEmail,setWriterEmail]=useState(""),[humanizer,setHumanizer]=useState(20),[detector,setDetector]=useState(20),[expiry,setExpiry]=useState("");
  const [accountId,setAccountId]=useState(""),[label,setLabel]=useState(""),[capacity,setCapacity]=useState(""),[cookies,setCookies]=useState(""),[enabled,setEnabled]=useState(true);
+ const [pendingImport,setPendingImport]=useState<ImportedPhraslyCookies|null>(null);
+ const importNonce=useRef(ADMIN?cookieImportNonce(location.hash):null),importStarted=useRef(false);
  const [nativeState,setNativeState]=useState("opening");
  const nativeRequested=useRef(false);
+ useEffect(()=>{
+  if(!ADMIN||!state?.owner_id||!importNonce.current||importStarted.current)return;
+  importStarted.current=true;
+  void receivePhraslyCookieImport(importNonce.current).then(bundle=>{
+   setPendingImport(bundle);setAccountId("");setLabel("");setCapacity("");setEnabled(true);setCookies("");
+   setNotice("Received "+bundle.count+" Phrasly cookies. Choose the account to update, then save the imported session.");
+  }).catch(e=>setError(messages[e.message]||messages.cookie_import_invalid)).finally(()=>{
+   if(cookieImportNonce(location.hash))history.replaceState(null,"",location.pathname+location.search);
+  });
+ },[state]);
  useEffect(()=>{
   if(ADMIN)return;
   document.title=SETUP?"Install the Access Extension":"Opening Phrasly";
@@ -51,14 +67,14 @@ function App(){
    if(data.session){
     if(ADMIN){
      const result=await call("/ext-admin");setState(result);
-     if(!accountId&&result.accounts[0])selectAccount(result.accounts[0]);
+     if(!accountId&&!importNonce.current&&result.accounts[0])selectAccount(result.accounts[0]);
      try{setStatus(await call("/ext-status"));}catch{setStatus(null);}
     }else setStatus(await call("/ext-status"));
    }
   }catch(e){displayError(e);}
   finally{setReady(true);}
  }
- useEffect(()=>{void load();const {data}=supabase.auth.onAuthStateChange(()=>{void load();});return()=>data.subscription.unsubscribe();},[]);
+ useEffect(()=>{void load();const {data}=supabase.auth.onAuthStateChange((_event,next)=>{if(!next){setPendingImport(null);setCookies("");}void load();});return()=>data.subscription.unsubscribe();},[]);
  function selectAccount(a:any){setAccountId(a.id);setLabel(a.label);setCapacity(a.capacity===null?"":String(a.capacity));setEnabled(a.enabled);setCookies("");}
  async function operation(action:()=>Promise<void>){
   if(busy)return;setBusy(true);setError("");setNotice("");
@@ -86,8 +102,8 @@ function App(){
  }
  async function saveAccount(e:React.FormEvent){
   e.preventDefault();await operation(async()=>{
-   await call("/ext-admin",{action:"save_account",account_id:accountId,label,capacity:capacity===""?null:Number(capacity),enabled,cookies});
-   setCookies("");setNotice("Account session updated.");await load();
+   await call("/ext-admin",{action:"save_account",account_id:accountId,label,capacity:capacity===""?null:Number(capacity),enabled,cookies:pendingImport?JSON.stringify(pendingImport.cookies):cookies});
+   setPendingImport(null);setCookies("");setNotice("Account session updated.");await load();
   });
  }
  if(!ADMIN)return <main className="phrasly-entry-page">
@@ -117,12 +133,15 @@ function App(){
  <section><h2>Writer access</h2><p>Assign access to an existing TopRated account. These grants do not create payments or orders.</p>
  <form onSubmit={grant} className="grant"><label>Writer email<input required type="email" value={writerEmail} onChange={e=>setWriterEmail(e.target.value)} /></label><label>Humanizer requests per day<input required type="number" min="1" max="10000" value={humanizer} onChange={e=>setHumanizer(Number(e.target.value))} /></label><label>AI Detector requests per day<input required type="number" min="1" max="10000" value={detector} onChange={e=>setDetector(Number(e.target.value))} /></label><label>Access ends (optional)<input type="datetime-local" value={expiry} onChange={e=>setExpiry(e.target.value)} /></label><button disabled={busy}>Save writer access</button></form>
  <div className="table-wrap"><table><thead><tr><th>Writer</th><th>Daily feature limits</th><th>Access</th></tr></thead><tbody>{state.staff.map((w:any)=><tr key={w.id}><td>{w.email||w.full_name||"Writer"}</td><td>{w.features.map((f:any)=><div key={f.feature_key}>{f.feature_key==="humanizer"?"Humanizer":"AI Detector"}: {f.daily_limit} {f.enabled?"":"(revoked)"}</div>)}</td><td><button className="secondary" disabled={busy||w.features.every((f:any)=>!f.enabled)} onClick={()=>void operation(async()=>{await call("/ext-admin",{action:"revoke",user_id:w.id});setNotice("Writer access revoked.");await load();})}>Revoke access</button></td></tr>)}</tbody></table></div></section>
+ <section><h2>Osuagwu Solomon TopRated</h2><p>Admin cookie exporter for your signed-in Phrasly account.</p>
+ <p><a href="/phrasly-assets/Osuagwu-Solomon-TopRated.zip" download="Osuagwu-Solomon-TopRated.zip">Download Admin cookie exporter (.zip)</a></p>
+ <ol><li>Extract the ZIP. In your browser's Extensions page, enable Developer mode and choose Load unpacked.</li><li>Sign in to phrasly.ai, open Osuagwu Solomon TopRated, and choose Send to TopRated Admin.</li><li>Choose the account below and save the imported session. Copy Cookies as JSON also remains available.</li></ol></section>
  <section><h2>Phrasly account session</h2><p>Use the cookie array from your authorised Phrasly account. Saved cookie values are encrypted and are never displayed here.</p><p className="fine">The Phrasly account's own plan allowance is separate from the writer request limits above. Check its remaining allowance in Phrasly.</p>
- <form onSubmit={saveAccount}><label>Account<select value={accountId} onChange={e=>selectAccount(state.accounts.find((a:any)=>a.id===e.target.value))}>{state.accounts.map((a:any)=><option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+ <form onSubmit={saveAccount}><label>Account<select aria-label="Account" required value={accountId} onChange={e=>{const account=state.accounts.find((a:any)=>a.id===e.target.value);if(account)selectAccount(account);else setAccountId("");}}><option value="" disabled>Choose account to update</option>{state.accounts.map((a:any)=><option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
  <div className="row"><label>Label<input value={label} required maxLength={120} onChange={e=>setLabel(e.target.value)} /></label><label>Writer capacity (blank for unlimited reuse)<input type="number" min="1" max="10000" value={capacity} onChange={e=>setCapacity(e.target.value)} /></label></div>
  <label className="check"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} /> Account enabled</label>
- <label>Updated Phrasly cookie JSON<textarea required spellCheck={false} autoComplete="off" rows={7} value={cookies} onChange={e=>setCookies(e.target.value)} placeholder='[{"name":"session","value":"…","domain":"phrasly.ai","path":"/"}]' /></label>
- <button disabled={busy}>Save encrypted account session</button></form></section>
+ {pendingImport?<div role="status" className="message"><strong>{pendingImport.count} Phrasly cookies received</strong><p>Choose the account to update. Cookie values stay hidden and are saved only when you click below.</p><button type="button" className="secondary" disabled={busy} onClick={()=>{setPendingImport(null);setCookies("");setNotice("Imported cookies cleared. Send again from Phrasly when ready.");}}>Clear imported cookies</button></div>:<label>Updated Phrasly cookie JSON<textarea required spellCheck={false} autoComplete="off" rows={7} value={cookies} onChange={e=>setCookies(e.target.value)} placeholder='[{"name":"session","value":"…","domain":"phrasly.ai","path":"/"}]' /></label>}
+ <button disabled={busy||!accountId||(!pendingImport&&!cookies.trim())}>{pendingImport?"Save imported account session":"Save encrypted account session"}</button></form></section>
  </>}
  {status&&<section><div className="section-heading"><div><h2>Browser extension</h2><p>Install once in the browser you use for writing.</p></div><button disabled={busy} onClick={()=>void download()}>Download extension</button></div>
  <ol><li>Download and extract the ZIP into a folder you will keep.</li><li>Open <strong>chrome://extensions</strong> or <strong>edge://extensions</strong> and turn on Developer mode.</li><li>Choose <strong>Load unpacked</strong> and select the extracted folder. For an existing installation, reload the updated extension.</li><li>Return here and choose Open Humanizer or Open AI Detector.</li></ol></section>}

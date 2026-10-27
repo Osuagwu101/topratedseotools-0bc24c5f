@@ -1,0 +1,40 @@
+name: Phrasly Admin cookie exporter
+on:
+  push:
+    paths:
+      - "extensions/phrasly-admin-exporter/**"
+      - "src/lib/phrasly-extension/cookie-import.ts"
+      - "src/components/tools/PhraslyStaffWorkspace.tsx"
+      - "scripts/phrasly/package-admin-exporter.py"
+      - "tests/phrasly-admin-exporter/**"
+      - ".github/workflows/phrasly-admin-exporter.yml"
+  pull_request:
+    paths:
+      - "extensions/phrasly-admin-exporter/**"
+      - "src/lib/phrasly-extension/cookie-import.ts"
+      - "src/components/tools/PhraslyStaffWorkspace.tsx"
+      - "scripts/phrasly/package-admin-exporter.py"
+      - "tests/phrasly-admin-exporter/**"
+      - ".github/workflows/phrasly-admin-exporter.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exporter-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/phrasly-admin-exporter/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: python3 scripts/phrasly/package-admin-exporter.py
+      - run: git diff --exit-code -- public/phrasly-assets/Osuagwu-Solomon-TopRated.zip
+      - run: node scripts/phrasly/build-staff-workspace.mjs
+      - run: npm ci --prefix tests/phrasly-admin-exporter --ignore-scripts --no-audit --no-fund
+      - run: ./tests/phrasly-admin-exporter/node_modules/.bin/playwright install --with-deps chromium
+      - run: xvfb-run -a npm test --prefix tests/phrasly-admin-exporter
