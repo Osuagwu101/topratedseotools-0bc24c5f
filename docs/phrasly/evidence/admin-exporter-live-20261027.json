@@ -1,0 +1,30 @@
+{
+  "utc": "2026-10-27T09:33:40.925Z",
+  "mode": "public_production_existing_account",
+  "checks": {
+    "existing_provider_session_authenticated": true,
+    "cookie_values_hidden_in_popup": true,
+    "live_owner_import_requires_target_selection": true,
+    "live_selected_account_session_saved": true,
+    "existing_account_settings_preserved": true,
+    "live_browser_download": true
+  },
+  "native": {
+    "humanizer": {
+      "editor_ready": true,
+      "path": "/dashboard/humanizer"
+    },
+    "ai_detector": {
+      "editor_ready": true,
+      "path": "/dashboard/ai-detector"
+    }
+  },
+  "provider_generation_requests": 0,
+  "package_sha256": "84116055b20c1afc8f3a87a968095c6579730d6f96378bdd2449d975d7708eb7",
+  "status": "PASS",
+  "temporary_owner_session_revoked": true,
+  "temporary_writer_session_revoked": true,
+  "observations": {
+    "captured_session_differs_from_stored_snapshot": true
+  }
+}

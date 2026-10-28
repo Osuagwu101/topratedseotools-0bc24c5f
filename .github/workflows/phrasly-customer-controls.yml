@@ -1,0 +1,36 @@
+name: Phrasly customer Admin controls
+on:
+  push:
+    paths:
+      - 'src/components/admin/PhraslyCustomer*'
+      - 'src/routes/admin.customers.$userId.tsx'
+      - 'src/lib/phrasly-extension/admin-customer-controls-bootstrap.js'
+      - 'scripts/phrasly/build-admin-customer-controls.mjs'
+      - 'tests/phrasly-admin-exporter/customer-controls-browser.cjs'
+      - '.github/workflows/phrasly-customer-controls.yml'
+  pull_request:
+    paths:
+      - 'src/components/admin/PhraslyCustomer*'
+      - 'src/routes/admin.customers.$userId.tsx'
+      - 'src/lib/phrasly-extension/admin-customer-controls-bootstrap.js'
+      - 'scripts/phrasly/build-admin-customer-controls.mjs'
+      - 'tests/phrasly-admin-exporter/customer-controls-browser.cjs'
+      - '.github/workflows/phrasly-customer-controls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  customer-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: node scripts/phrasly/build-admin-customer-controls.mjs
+      - run: npm ci --prefix tests/phrasly-admin-exporter --ignore-scripts --no-audit --no-fund
+      - run: ./tests/phrasly-admin-exporter/node_modules/.bin/playwright install --with-deps chromium
+      - run: node tests/phrasly-admin-exporter/customer-controls-browser.cjs

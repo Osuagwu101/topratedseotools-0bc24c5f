@@ -1,0 +1,1 @@
+{"name":"phrasly-entitlement-regressions","private":true,"type":"module","scripts":{"test":"node regression.mjs"},"devDependencies":{"@electric-sql/pglite":"0.5.12"}}

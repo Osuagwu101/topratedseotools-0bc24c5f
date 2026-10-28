@@ -1,0 +1,37 @@
+{
+  "utc": "2026-10-27T07:13:42.037Z",
+  "checks": {
+    "signed_out_denied": true,
+    "affected_user_status": true,
+    "humanizer_handoff_authorized": true,
+    "ai_detector_handoff_authorized": true,
+    "authorized_exact_extension_download": true,
+    "customer_panel_no_false_denial": true
+  },
+  "native": {
+    "humanizer": {
+      "editor_ready": true,
+      "path": "/dashboard/humanizer"
+    },
+    "ai_detector": {
+      "editor_ready": true,
+      "path": "/dashboard/ai-detector"
+    }
+  },
+  "provider_generation_requests": 0,
+  "allowances": [
+    {
+      "key": "humanizer",
+      "limit": 20,
+      "used": 0
+    },
+    {
+      "key": "ai_detector",
+      "limit": 20,
+      "used": 0
+    }
+  ],
+  "zip_sha256": "07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3",
+  "status": "PASS",
+  "temporary_session_revoked": true
+}

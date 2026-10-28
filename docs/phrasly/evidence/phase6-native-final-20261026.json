@@ -1,0 +1,74 @@
+{
+  "api": {
+    "status": "PASS",
+    "utc": "2026-10-26T18:39:12.140Z",
+    "checks": {
+      "signed_out:/ext-admin": true,
+      "signed_out:/ext-status": true,
+      "signed_out:/ext-package": true,
+      "explicit_writer_grants": true,
+      "sanitized_admin": true,
+      "exact_enabled_package": true,
+      "private_page:/phrasly": true,
+      "private_page:/admin/phrasly": true
+    },
+    "browser_actor": "existing_owner_with_explicit_writer_grants",
+    "financial_mutations": false,
+    "grant_mutations": false,
+    "provider_generation_requests": 0
+  },
+  "browser": {
+    "utc": "2026-10-26T18:39:13.219Z",
+    "status": "PASS",
+    "checks": {
+      "signed_out_page": true,
+      "owner_admin_controls": true,
+      "humanizer_native_auto_launch": true,
+      "ai_detector_native_auto_launch": true,
+      "no_writer_dashboard": true,
+      "extension_popup": true
+    },
+    "native": {
+      "humanizer": {
+        "editor_ready": true,
+        "url": "https://phrasly.ai/dashboard/humanizer"
+      },
+      "ai_detector": {
+        "editor_ready": true,
+        "url": "https://phrasly.ai/dashboard/ai-detector"
+      }
+    },
+    "page_errors": [],
+    "provider_generation_requests": 0,
+    "actor": "existing_owner_with_explicit_writer_grants"
+  },
+  "monitoring": {
+    "status": "PASS",
+    "utc": "2026-10-26T18:41:35Z",
+    "checks": {
+      "all_original_60_unchanged": true,
+      "native_online_zero_restarts": true,
+      "previous_phrasly_release_stopped": true,
+      "settings_mode_600": true,
+      "directory_mode_700": true,
+      "no_operational_secrets_in_logs": true,
+      "pm2_persisted": true,
+      "unchanged:/": true,
+      "unchanged:/login": true,
+      "unchanged:/admin": true,
+      "unchanged:/tools/stealthwriter": true,
+      "unchanged:/tools/chatgpt": true,
+      "unchanged:/turnitin": true,
+      "unchanged:/turnitin/buy": true,
+      "http:/api/phrasly-proxy": true,
+      "http:/phrasly": true,
+      "http:/admin/phrasly": true,
+      "http:/ext-status": true,
+      "http:/ext-admin": true,
+      "native_upstreams_only": true
+    },
+    "native_pid": 101027,
+    "native_restarts": 0,
+    "financial_mutations": false
+  }
+}

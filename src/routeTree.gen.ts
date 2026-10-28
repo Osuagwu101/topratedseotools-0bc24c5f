@@ -16,10 +16,19 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PhraslyRouteImport } from './routes/phrasly'
 import { Route as NgRouteImport } from './routes/ng'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GhRouteImport } from './routes/gh'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as ExtWhoamiDotphpRouteImport } from './routes/ext-whoami[.]php'
+import { Route as ExtStatusRouteImport } from './routes/ext-status'
+import { Route as ExtSessionRouteImport } from './routes/ext-session'
+import { Route as ExtPackageRouteImport } from './routes/ext-package'
+import { Route as ExtHandoffDotphpRouteImport } from './routes/ext-handoff[.]php'
+import { Route as ExtFulfillDotphpRouteImport } from './routes/ext-fulfill[.]php'
+import { Route as ExtCheckUsageDotphpRouteImport } from './routes/ext-check-usage[.]php'
+import { Route as ExtAdminRouteImport } from './routes/ext-admin'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -46,6 +55,7 @@ import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminPricingRouteImport } from './routes/admin.pricing'
+import { Route as AdminPhraslyRouteImport } from './routes/admin.phrasly'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminMarketingRouteImport } from './routes/admin.marketing'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
@@ -161,6 +171,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PhraslyRoute = PhraslyRouteImport.update({
+  id: '/phrasly',
+  path: '/phrasly',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NgRoute = NgRouteImport.update({
   id: '/ng',
   path: '/ng',
@@ -179,6 +194,46 @@ const GhRoute = GhRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtWhoamiDotphpRoute = ExtWhoamiDotphpRouteImport.update({
+  id: '/ext-whoami.php',
+  path: '/ext-whoami.php',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtStatusRoute = ExtStatusRouteImport.update({
+  id: '/ext-status',
+  path: '/ext-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtSessionRoute = ExtSessionRouteImport.update({
+  id: '/ext-session',
+  path: '/ext-session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtPackageRoute = ExtPackageRouteImport.update({
+  id: '/ext-package',
+  path: '/ext-package',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtHandoffDotphpRoute = ExtHandoffDotphpRouteImport.update({
+  id: '/ext-handoff.php',
+  path: '/ext-handoff.php',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtFulfillDotphpRoute = ExtFulfillDotphpRouteImport.update({
+  id: '/ext-fulfill.php',
+  path: '/ext-fulfill.php',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtCheckUsageDotphpRoute = ExtCheckUsageDotphpRouteImport.update({
+  id: '/ext-check-usage.php',
+  path: '/ext-check-usage.php',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtAdminRoute = ExtAdminRouteImport.update({
+  id: '/ext-admin',
+  path: '/ext-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookiesRoute = CookiesRouteImport.update({
@@ -308,6 +363,11 @@ const AdminReviewsRoute = AdminReviewsRouteImport.update({
 const AdminPricingRoute = AdminPricingRouteImport.update({
   id: '/admin/pricing',
   path: '/admin/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPhraslyRoute = AdminPhraslyRouteImport.update({
+  id: '/admin/phrasly',
+  path: '/admin/phrasly',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
@@ -738,10 +798,19 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/ext-admin': typeof ExtAdminRoute
+  '/ext-check-usage.php': typeof ExtCheckUsageDotphpRoute
+  '/ext-fulfill.php': typeof ExtFulfillDotphpRoute
+  '/ext-handoff.php': typeof ExtHandoffDotphpRoute
+  '/ext-package': typeof ExtPackageRoute
+  '/ext-session': typeof ExtSessionRoute
+  '/ext-status': typeof ExtStatusRoute
+  '/ext-whoami.php': typeof ExtWhoamiDotphpRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gh': typeof GhRoute
   '/login': typeof LoginRoute
   '/ng': typeof NgRoute
+  '/phrasly': typeof PhraslyRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -767,6 +836,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/phrasly': typeof AdminPhraslyRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRouteWithChildren
@@ -854,10 +924,19 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/ext-admin': typeof ExtAdminRoute
+  '/ext-check-usage.php': typeof ExtCheckUsageDotphpRoute
+  '/ext-fulfill.php': typeof ExtFulfillDotphpRoute
+  '/ext-handoff.php': typeof ExtHandoffDotphpRoute
+  '/ext-package': typeof ExtPackageRoute
+  '/ext-session': typeof ExtSessionRoute
+  '/ext-status': typeof ExtStatusRoute
+  '/ext-whoami.php': typeof ExtWhoamiDotphpRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gh': typeof GhRoute
   '/login': typeof LoginRoute
   '/ng': typeof NgRoute
+  '/phrasly': typeof PhraslyRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -878,6 +957,7 @@ export interface FileRoutesByTo {
   '/admin/credentials': typeof AdminCredentialsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/phrasly': typeof AdminPhraslyRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/transactions': typeof AdminTransactionsRoute
@@ -966,10 +1046,19 @@ export interface FileRoutesById {
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/ext-admin': typeof ExtAdminRoute
+  '/ext-check-usage.php': typeof ExtCheckUsageDotphpRoute
+  '/ext-fulfill.php': typeof ExtFulfillDotphpRoute
+  '/ext-handoff.php': typeof ExtHandoffDotphpRoute
+  '/ext-package': typeof ExtPackageRoute
+  '/ext-session': typeof ExtSessionRoute
+  '/ext-status': typeof ExtStatusRoute
+  '/ext-whoami.php': typeof ExtWhoamiDotphpRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gh': typeof GhRoute
   '/login': typeof LoginRoute
   '/ng': typeof NgRoute
+  '/phrasly': typeof PhraslyRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -995,6 +1084,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/marketing': typeof AdminMarketingRouteWithChildren
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/phrasly': typeof AdminPhraslyRoute
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRouteWithChildren
@@ -1085,10 +1175,19 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/cookies'
+    | '/ext-admin'
+    | '/ext-check-usage.php'
+    | '/ext-fulfill.php'
+    | '/ext-handoff.php'
+    | '/ext-package'
+    | '/ext-session'
+    | '/ext-status'
+    | '/ext-whoami.php'
     | '/forgot-password'
     | '/gh'
     | '/login'
     | '/ng'
+    | '/phrasly'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1114,6 +1213,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/marketing'
     | '/admin/orders'
+    | '/admin/phrasly'
     | '/admin/pricing'
     | '/admin/reviews'
     | '/admin/settings'
@@ -1201,10 +1301,19 @@ export interface FileRouteTypes {
     | '/about'
     | '/contact'
     | '/cookies'
+    | '/ext-admin'
+    | '/ext-check-usage.php'
+    | '/ext-fulfill.php'
+    | '/ext-handoff.php'
+    | '/ext-package'
+    | '/ext-session'
+    | '/ext-status'
+    | '/ext-whoami.php'
     | '/forgot-password'
     | '/gh'
     | '/login'
     | '/ng'
+    | '/phrasly'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1225,6 +1334,7 @@ export interface FileRouteTypes {
     | '/admin/credentials'
     | '/admin/dashboard'
     | '/admin/orders'
+    | '/admin/phrasly'
     | '/admin/pricing'
     | '/admin/reviews'
     | '/admin/transactions'
@@ -1312,10 +1422,19 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/cookies'
+    | '/ext-admin'
+    | '/ext-check-usage.php'
+    | '/ext-fulfill.php'
+    | '/ext-handoff.php'
+    | '/ext-package'
+    | '/ext-session'
+    | '/ext-status'
+    | '/ext-whoami.php'
     | '/forgot-password'
     | '/gh'
     | '/login'
     | '/ng'
+    | '/phrasly'
     | '/pricing'
     | '/privacy'
     | '/register'
@@ -1341,6 +1460,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/marketing'
     | '/admin/orders'
+    | '/admin/phrasly'
     | '/admin/pricing'
     | '/admin/reviews'
     | '/admin/settings'
@@ -1431,10 +1551,19 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
+  ExtAdminRoute: typeof ExtAdminRoute
+  ExtCheckUsageDotphpRoute: typeof ExtCheckUsageDotphpRoute
+  ExtFulfillDotphpRoute: typeof ExtFulfillDotphpRoute
+  ExtHandoffDotphpRoute: typeof ExtHandoffDotphpRoute
+  ExtPackageRoute: typeof ExtPackageRoute
+  ExtSessionRoute: typeof ExtSessionRoute
+  ExtStatusRoute: typeof ExtStatusRoute
+  ExtWhoamiDotphpRoute: typeof ExtWhoamiDotphpRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GhRoute: typeof GhRoute
   LoginRoute: typeof LoginRoute
   NgRoute: typeof NgRoute
+  PhraslyRoute: typeof PhraslyRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
@@ -1453,6 +1582,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminMarketingRoute: typeof AdminMarketingRouteWithChildren
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminPhraslyRoute: typeof AdminPhraslyRoute
   AdminPricingRoute: typeof AdminPricingRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRouteWithChildren
@@ -1529,6 +1659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/phrasly': {
+      id: '/phrasly'
+      path: '/phrasly'
+      fullPath: '/phrasly'
+      preLoaderRoute: typeof PhraslyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ng': {
       id: '/ng'
       path: '/ng'
@@ -1555,6 +1692,62 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-whoami.php': {
+      id: '/ext-whoami.php'
+      path: '/ext-whoami.php'
+      fullPath: '/ext-whoami.php'
+      preLoaderRoute: typeof ExtWhoamiDotphpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-status': {
+      id: '/ext-status'
+      path: '/ext-status'
+      fullPath: '/ext-status'
+      preLoaderRoute: typeof ExtStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-session': {
+      id: '/ext-session'
+      path: '/ext-session'
+      fullPath: '/ext-session'
+      preLoaderRoute: typeof ExtSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-package': {
+      id: '/ext-package'
+      path: '/ext-package'
+      fullPath: '/ext-package'
+      preLoaderRoute: typeof ExtPackageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-handoff.php': {
+      id: '/ext-handoff.php'
+      path: '/ext-handoff.php'
+      fullPath: '/ext-handoff.php'
+      preLoaderRoute: typeof ExtHandoffDotphpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-fulfill.php': {
+      id: '/ext-fulfill.php'
+      path: '/ext-fulfill.php'
+      fullPath: '/ext-fulfill.php'
+      preLoaderRoute: typeof ExtFulfillDotphpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-check-usage.php': {
+      id: '/ext-check-usage.php'
+      path: '/ext-check-usage.php'
+      fullPath: '/ext-check-usage.php'
+      preLoaderRoute: typeof ExtCheckUsageDotphpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ext-admin': {
+      id: '/ext-admin'
+      path: '/ext-admin'
+      fullPath: '/ext-admin'
+      preLoaderRoute: typeof ExtAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cookies': {
@@ -1737,6 +1930,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/pricing'
       fullPath: '/admin/pricing'
       preLoaderRoute: typeof AdminPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/phrasly': {
+      id: '/admin/phrasly'
+      path: '/admin/phrasly'
+      fullPath: '/admin/phrasly'
+      preLoaderRoute: typeof AdminPhraslyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/orders': {
@@ -2518,10 +2718,19 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
+  ExtAdminRoute: ExtAdminRoute,
+  ExtCheckUsageDotphpRoute: ExtCheckUsageDotphpRoute,
+  ExtFulfillDotphpRoute: ExtFulfillDotphpRoute,
+  ExtHandoffDotphpRoute: ExtHandoffDotphpRoute,
+  ExtPackageRoute: ExtPackageRoute,
+  ExtSessionRoute: ExtSessionRoute,
+  ExtStatusRoute: ExtStatusRoute,
+  ExtWhoamiDotphpRoute: ExtWhoamiDotphpRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GhRoute: GhRoute,
   LoginRoute: LoginRoute,
   NgRoute: NgRoute,
+  PhraslyRoute: PhraslyRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
@@ -2541,6 +2750,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminMarketingRoute: AdminMarketingRouteWithChildren,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminPhraslyRoute: AdminPhraslyRoute,
   AdminPricingRoute: AdminPricingRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRouteWithChildren,
