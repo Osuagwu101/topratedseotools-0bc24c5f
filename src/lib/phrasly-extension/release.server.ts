@@ -31,7 +31,7 @@ export async function downloadPackage(request:Request) {
 export async function adminState(request:Request) {
  const uid=await owner(request);
  const accounts=await checked(db.from("phrasly_oneclick_accounts").select("id,label,target_url,capacity,enabled,created_at").eq("tool_id","phrasly").order("created_at"));
- const grants=await checked(db.from("phrasly_oneclick_feature_grants").select("user_id,feature_key,daily_limit,enabled").eq("tool_id","phrasly"));
+ const grants=await checked(db.from("phrasly_oneclick_feature_grants").select("user_id,feature_key,daily_limit,enabled,is_unlimited").eq("tool_id","phrasly"));
  const ids=[...new Set((grants||[]).map((g:any)=>g.user_id))];
  const profiles=ids.length?await checked(db.from("profiles").select("id,email,full_name").in("id",ids)):[];
  const staff=ids.map(id=>({id,...profiles.find((p:any)=>p.id===id),features:grants.filter((g:any)=>g.user_id===id)}));
@@ -41,7 +41,8 @@ function identifier(raw:unknown) {
  if(typeof raw!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw))throw new OneclickError("bad_request",400);
  return raw;
 }
-function allowance(raw:unknown) {
+function allowance(raw:unknown):number|null {
+ if(raw===null)return null;
  if(!Number.isInteger(raw)||Number(raw)<1||Number(raw)>10000)throw new OneclickError("bad_request",400);
  return Number(raw);
 }
@@ -70,10 +71,20 @@ export async function adminChange(request:Request) {
   const record={user_id:profile.id,tool_slug:"phrasly",account_id:reference.id,access_type:"shared",status:"active",expires_at:expires,granted_by:uid,notes:"In-house Phrasly writer access"};
   await checked(existing?db.from("tool_access_grants").update(record).eq("id",existing.id):db.from("tool_access_grants").insert(record));
   await checked(db.from("phrasly_oneclick_feature_grants").upsert([
-   {user_id:profile.id,tool_id:"phrasly",feature_key:"humanizer",daily_limit:humanizer,enabled:true},
-   {user_id:profile.id,tool_id:"phrasly",feature_key:"ai_detector",daily_limit:detector,enabled:true}
+   {user_id:profile.id,tool_id:"phrasly",feature_key:"humanizer",daily_limit:humanizer??20,is_unlimited:humanizer===null,enabled:true},
+   {user_id:profile.id,tool_id:"phrasly",feature_key:"ai_detector",daily_limit:detector??20,is_unlimited:detector===null,enabled:true}
   ]));
   await audit(uid,"admin_staff_granted:"+profile.id);
+ } else if(input.action==="set_limit") {
+  const target=identifier(input.user_id);
+  if(input.feature!=="humanizer"&&input.feature!=="ai_detector")throw new OneclickError("bad_request",400);
+  const value=allowance(input.limit);
+  const changes=value===null?{is_unlimited:true}:{daily_limit:value,is_unlimited:false};
+  const saved=await checked(db.from("phrasly_oneclick_feature_grants").update(changes)
+   .eq("user_id",target).eq("tool_id","phrasly").eq("feature_key",input.feature)
+   .select("feature_key").maybeSingle());
+  if(!saved)throw new OneclickError("feature_access_not_found",404);
+  await audit(uid,"admin_staff_limit:"+target+":"+input.feature+":"+(value??"unlimited"));
  } else if(input.action==="revoke") {
   const target=identifier(input.user_id);
   await checked(db.from("phrasly_oneclick_feature_grants").update({enabled:false}).eq("user_id",target).eq("tool_id","phrasly"));
