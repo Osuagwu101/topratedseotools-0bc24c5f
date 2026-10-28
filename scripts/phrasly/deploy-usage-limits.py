@@ -40,7 +40,7 @@ if sys.argv[1]=='stage':
 elif sys.argv[1]=='activate':
  before=json.loads((root/'processes-before.json').read_text());unchanged(before)
  original=nginx.read_text();start=original.index('    # BEGIN Phrasly AWS in-house release');end=original.index('    # END Phrasly AWS in-house release',start)
- block=original[start:end];assert block.count('127.0.0.1:3339')==12
+ block=original[start:end];assert block.count('127.0.0.1:3339')==11
  proposed=original[:start]+block.replace('127.0.0.1:3339','127.0.0.1:3340')+original[end:]
  assert sha(public/'admin.js')=='ec947e03d96182121ae44bbe354cd994959582436ecf7b4f65ac45d90f124b00'
  assert sha(public/'writer.js')=='427047f4c32d0e6356654c2cfeb34936d5380e64dfc2ce8468339454d0445b12'
