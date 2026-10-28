@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/AdminShell";
+import {PhraslyCustomerControlsCard} from "@/components/admin/PhraslyCustomerControlsCard";
 import { AssignToolDialog } from "@/components/admin/AssignToolDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -166,6 +167,7 @@ function CustomerPage() {
             <TurnitinPostpaidCard userId={userId} />
             <TurnitinCreditsCard userId={userId} />
             <StealthWriterControlsCard userId={userId} />
+            <PhraslyCustomerControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
 
             {/* Subscriptions */}
