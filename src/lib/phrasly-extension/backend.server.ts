@@ -72,10 +72,10 @@ async function allowedFeature(uid: string, f: Feature) {
   await activeWriter(uid);
   await activeTopRatedAccess(uid);
   const {data,error}=await db.from("phrasly_oneclick_feature_grants")
-    .select("daily_limit,enabled").eq("user_id",uid).eq("tool_id",TOOL).eq("feature_key",f).maybeSingle();
+    .select("daily_limit,enabled,is_unlimited").eq("user_id",uid).eq("tool_id",TOOL).eq("feature_key",f).maybeSingle();
   if(error) throw new OneclickError("service_unavailable",503);
   if(!data?.enabled || !Number.isInteger(data.daily_limit) || data.daily_limit < 1) throw new OneclickError("no_access",403);
-  return data.daily_limit as number;
+  return data.is_unlimited === true ? null : data.daily_limit as number;
 }
 async function usage(uid:string,f:Feature) {
   const day=watUsageDay(Math.floor(Date.now()/1000));
@@ -114,7 +114,7 @@ export async function fulfill(request:Request) {
   if(claims.tool_id!==TOOL || typeof claims.uid!=="string") throw new OneclickError("bad_token",400);
   const uid=claims.uid,f=feature(claims.feature||"default");
   const limit=await allowedFeature(uid,f), used=await usage(uid,f);
-  if(used>=limit) return oneclickJson({ok:false,error:"limit_reached",limit,resets_in:secondsUntilWatReset(Math.floor(Date.now()/1000))},429,true);
+  if(limit!==null && used>=limit) return oneclickJson({ok:false,error:"limit_reached",limit,resets_in:secondsUntilWatReset(Math.floor(Date.now()/1000))},429,true);
   const {data:settings,error:settingsError}=await db.from("phrasly_oneclick_tool_config")
     .select("enabled,feature_urls,block_paths").eq("tool_id",TOOL).maybeSingle();
   if(settingsError || !settings?.enabled) throw new OneclickError("tool_not_found",404);
@@ -133,7 +133,7 @@ export async function fulfill(request:Request) {
   if(!/^https:\/\/(?:[a-z0-9-]+\.)?phrasly\.ai(?:\/|$)/i.test(url)) throw new OneclickError("tool_not_found",404);
   const blockPaths=Array.isArray(settings.block_paths)?settings.block_paths.filter((p:unknown)=>typeof p==="string" && p.startsWith("/")):[];
   return oneclickJson({ok:true,url,cookies,block_paths:blockPaths,
-    used,limit,record_token:issueAwsRecordToken(uid,TOOL,Math.floor(Date.now()/1000),secret())},200,true);
+    used,limit:limit??"Unlimited",unlimited:limit===null,record_token:issueAwsRecordToken(uid,TOOL,Math.floor(Date.now()/1000),secret())},200,true);
 }
 export async function checkUsage(request:Request) {
   enabled();
@@ -150,7 +150,7 @@ export async function checkUsage(request:Request) {
   const {data,error}=await db.rpc("phrasly_oneclick_count_attempt",{p_user:uid,p_feature:f});
   if(error||!Array.isArray(data)||!data[0]) throw new OneclickError("service_unavailable",503);
   const count=data[0];
-  return oneclickJson({ok:true,allowed:count.allowed,used:count.used,limit:count.daily_limit,resets_in:count.resets_in},200,true);
+  return oneclickJson({ok:true,allowed:count.allowed,used:count.used,limit:count.daily_limit??"Unlimited",unlimited:count.daily_limit===null,resets_in:count.resets_in},200,true);
 }
 function hash(value:string) {return createHash("sha256").update(value).digest("hex");}
 export async function createPopupSession(request:Request) {
@@ -177,14 +177,14 @@ export async function whoami(request:Request) {
   const uid=data.user_id as string;
   try {await activeWriter(uid);await activeTopRatedAccess(uid);} catch {return oneclickJson({ok:false,error:"not_signed_in"},200,true);}
   const {data:grants,error:grantsError}=await db.from("phrasly_oneclick_feature_grants")
-    .select("feature_key,daily_limit").eq("user_id",uid).eq("tool_id",TOOL).eq("enabled",true);
+    .select("feature_key,daily_limit,is_unlimited").eq("user_id",uid).eq("tool_id",TOOL).eq("enabled",true);
   if(grantsError) throw new OneclickError("service_unavailable",503);
   const {data:user}=await db.auth.admin.getUserById(uid);
   const now=Math.floor(Date.now()/1000),features=[];
   for(const g of grants||[]) {
-    const f=feature(g.feature_key),used=await usage(uid,f),maxed=used>=g.daily_limit;
+    const f=feature(g.feature_key),used=await usage(uid,f),unlimited=g.is_unlimited===true,maxed=!unlimited&&used>=g.daily_limit;
     features.push({key:f,label:f==="humanizer"?"Humanizer":f==="ai_detector"?"AI Detector":"Access",
-      used,limit:g.daily_limit,maxed,
+      used,limit:unlimited?"Unlimited":g.daily_limit,unlimited,maxed,
       ...(!maxed?issueAwsHandoff(uid,TOOL,f,now,secret()):{})});
   }
   return oneclickJson({ok:true,email:user?.user?.email||"",full_name:user?.user?.user_metadata?.full_name||"",
@@ -201,7 +201,7 @@ export async function writerStatus(request:Request) {
   for(const key of ["humanizer","ai_detector"] as const) {
     try {
       const limit=await allowedFeature(uid,key);
-      features.push({key,label:key==="humanizer"?"Humanizer":"AI Detector",limit,used:await usage(uid,key)});
+      features.push({key,label:key==="humanizer"?"Humanizer":"AI Detector",limit:limit??"Unlimited",unlimited:limit===null,used:await usage(uid,key)});
     } catch(error) {
       if(!(error instanceof OneclickError)||error.code!=="no_access")throw error;
     }

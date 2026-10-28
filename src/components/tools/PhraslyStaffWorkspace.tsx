@@ -1,3 +1,4 @@
+import {PhraslyDailyLimitEditor} from "./PhraslyDailyLimitEditor";
 import React,{useEffect,useRef,useState} from "react";
 import {createRoot} from "react-dom/client";
 import {supabase} from "@/integrations/supabase/client";
@@ -15,6 +16,7 @@ const messages:Record<string,string>={
  cookie_import_invalid:"The cookie handoff could not be verified. Return to phrasly.ai and send again.",
  forbidden:"This page is available to the account owner.",account_inactive:"This account is unavailable. Contact your administrator.",
  writer_not_found:"No active TopRated account matches that email.",bad_cookie_json:"Paste the Phrasly cookie array as valid JSON, including its session cookie.",
+ feature_access_not_found:"This feature has no assigned access. Assign writer access first.",
  bad_request:"Check the entered details and try again.",service_unavailable:"Phrasly is temporarily unavailable. Contact your administrator."
 };
 async function call(url:string,body?:unknown,binary=false){
@@ -33,6 +35,7 @@ function App(){
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
  const [email,setEmail]=useState(""),[password,setPassword]=useState("");
  const [writerEmail,setWriterEmail]=useState(""),[humanizer,setHumanizer]=useState(20),[detector,setDetector]=useState(20),[expiry,setExpiry]=useState("");
+ const [humanizerUnlimited,setHumanizerUnlimited]=useState(false),[detectorUnlimited,setDetectorUnlimited]=useState(false);
  const [accountId,setAccountId]=useState(""),[label,setLabel]=useState(""),[capacity,setCapacity]=useState(""),[cookies,setCookies]=useState(""),[enabled,setEnabled]=useState(true);
  const [pendingImport,setPendingImport]=useState<ImportedPhraslyCookies|null>(null);
  const importNonce=useRef(ADMIN?cookieImportNonce(location.hash):null),importStarted=useRef(false);
@@ -96,7 +99,7 @@ function App(){
  }
  async function grant(e:React.FormEvent){
   e.preventDefault();await operation(async()=>{
-   await call("/ext-admin",{action:"grant",email:writerEmail,humanizer,ai_detector:detector,expires_at:expiry?new Date(expiry).toISOString():null});
+   await call("/ext-admin",{action:"grant",email:writerEmail,humanizer:humanizerUnlimited?null:humanizer,ai_detector:detectorUnlimited?null:detector,expires_at:expiry?new Date(expiry).toISOString():null});
    setNotice("Writer access saved.");await load();
   });
  }
@@ -128,11 +131,11 @@ function App(){
  {notice&&<div className="message" role="status">{notice}</div>}
  {!ready?<section><p>Loading your access…</p></section>:!session?<section className="signin"><h2>Sign in to TopRated</h2><p>Use your existing {ADMIN?"Admin":"writer"} account.</p><form onSubmit={login}><label>Email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>{busy?"Signing in…":"Sign in"}</button></form></section>:<>
  {status&&<section><div className="section-heading"><div><h2>Open Phrasly</h2><p>Daily allowances reset at midnight, West Africa Time.</p></div><button className="secondary" onClick={()=>void load()}>Refresh usage</button></div>
- <div className="allowances">{status.features.map((f:any)=><div key={f.key}><strong>{f.label}</strong><span>{f.used} / {f.limit} used today</span></div>)}</div><PhraslyOneClickActions /></section>}
+ <div className="allowances">{status.features.map((f:any)=><div key={f.key}><strong>{f.label}</strong><span>{f.unlimited?`${f.used} used today · Unlimited`:`${f.used} / ${f.limit} used today`}</span></div>)}</div><PhraslyOneClickActions /></section>}
  {ADMIN&&state&&<>
- <section><h2>Writer access</h2><p>Assign access to an existing TopRated account. These grants do not create payments or orders.</p>
- <form onSubmit={grant} className="grant"><label>Writer email<input required type="email" value={writerEmail} onChange={e=>setWriterEmail(e.target.value)} /></label><label>Humanizer requests per day<input required type="number" min="1" max="10000" value={humanizer} onChange={e=>setHumanizer(Number(e.target.value))} /></label><label>AI Detector requests per day<input required type="number" min="1" max="10000" value={detector} onChange={e=>setDetector(Number(e.target.value))} /></label><label>Access ends (optional)<input type="datetime-local" value={expiry} onChange={e=>setExpiry(e.target.value)} /></label><button disabled={busy}>Save writer access</button></form>
- <div className="table-wrap"><table><thead><tr><th>Writer</th><th>Daily feature limits</th><th>Access</th></tr></thead><tbody>{state.staff.map((w:any)=><tr key={w.id}><td>{w.email||w.full_name||"Writer"}</td><td>{w.features.map((f:any)=><div key={f.feature_key}>{f.feature_key==="humanizer"?"Humanizer":"AI Detector"}: {f.daily_limit} {f.enabled?"":"(revoked)"}</div>)}</td><td><button className="secondary" disabled={busy||w.features.every((f:any)=>!f.enabled)} onClick={()=>void operation(async()=>{await call("/ext-admin",{action:"revoke",user_id:w.id});setNotice("Writer access revoked.");await load();})}>Revoke access</button></td></tr>)}</tbody></table></div></section>
+ <section><h2>Writer access</h2><p>Assign access to an existing TopRated account. These grants do not create payments or orders. Edit each assigned feature below. Remove limit gives unlimited daily usage and keeps the existing access dates.</p>
+ <form onSubmit={grant} className="grant"><label>Writer email<input required type="email" value={writerEmail} onChange={e=>setWriterEmail(e.target.value)} /></label><label>Humanizer requests per day<input disabled={humanizerUnlimited} required={!humanizerUnlimited} type="number" min="1" max="10000" value={humanizer} onChange={e=>setHumanizer(Number(e.target.value))} /></label><label className="check"><input type="checkbox" checked={humanizerUnlimited} onChange={e=>setHumanizerUnlimited(e.target.checked)} /> Unlimited Humanizer</label><label>AI Detector requests per day<input disabled={detectorUnlimited} required={!detectorUnlimited} type="number" min="1" max="10000" value={detector} onChange={e=>setDetector(Number(e.target.value))} /></label><label className="check"><input type="checkbox" checked={detectorUnlimited} onChange={e=>setDetectorUnlimited(e.target.checked)} /> Unlimited AI Detector</label><label>Access ends (optional)<input type="datetime-local" value={expiry} onChange={e=>setExpiry(e.target.value)} /></label><button disabled={busy}>Save writer access</button></form>
+ <div className="table-wrap"><table><thead><tr><th>Writer</th><th>Daily feature limits (edit or remove)</th><th>Access</th></tr></thead><tbody>{state.staff.map((w:any)=><tr key={w.id}><td>{w.email||w.full_name||"Writer"}</td><td>{w.features.filter((f:any)=>f.feature_key==="humanizer"||f.feature_key==="ai_detector").map((f:any)=><PhraslyDailyLimitEditor key={f.feature_key} writer={w.email||w.full_name||"Writer"} feature={f} disabled={busy} onSave={value=>operation(async()=>{await call("/ext-admin",{action:"set_limit",user_id:w.id,feature:f.feature_key,limit:value});setNotice("Writer limit updated.");await load();})} />)}</td><td><button className="secondary" disabled={busy||w.features.every((f:any)=>!f.enabled)} onClick={()=>void operation(async()=>{await call("/ext-admin",{action:"revoke",user_id:w.id});setNotice("Writer access revoked.");await load();})}>Revoke access</button></td></tr>)}</tbody></table></div></section>
  <section><h2>Osuagwu Solomon TopRated</h2><p>Admin cookie exporter for your signed-in Phrasly account.</p>
  <p><a href="/phrasly-assets/Osuagwu-Solomon-TopRated.zip" download="Osuagwu-Solomon-TopRated.zip">Download Admin cookie exporter (.zip)</a></p>
  <ol><li>Extract the ZIP. In your browser's Extensions page, enable Developer mode and choose Load unpacked.</li><li>Sign in to phrasly.ai, open Osuagwu Solomon TopRated, and choose Send to TopRated Admin.</li><li>Choose the account below and save the imported session. Copy Cookies as JSON also remains available.</li></ol></section>
