@@ -6,7 +6,7 @@ Unlimited is represented by is_unlimited on the existing private grant table, re
 
 The set_limit action uses the existing authenticated owner/Admin endpoint. It validates the user, feature and explicit integer-or-null value, updates exactly one existing grant, and records an audit event. It never creates a source entitlement or enables a revoked feature. Anonymous users and ordinary writers cannot edit limits. The counter remains service-role-only; its fixed search_path and fully qualified table names prevent path injection.
 
-Migration: 20261028190203_phrasly_user_usage_limits.sql (created with Supabase CLI). The additive migration adds the flag and replaces the counter in one transaction. No source assignments, orders, payments, balances, provider sessions or existing counters are rewritten.
+Migration: 20261028190736_phrasly_user_usage_limits.sql (created with Supabase CLI). The additive migration adds the flag and replaces the counter in one transaction. No source assignments, orders, payments, balances, provider sessions or existing counters are rewritten.
 
 Verification: 10 actual PostgreSQL/PGlite migration/counter checks; 10 tests executing the real backend/Admin modules; eight Chromium UI checks covering add/edit/remove, isolated user/feature changes, validation and revocation preservation. Existing cookie-exporter and entitlement regressions also run. GitHub workflow: phrasly-limits.yml.
 
