@@ -18,7 +18,7 @@ const root = path.resolve(__dirname, '..');
 const SITE = 'https://toprated-staging.example.test';
 const NATIVE = 'https://phrasly.ai';
 const AWS_ID = 'lpgnjkafilbopdojcfnagooojifkccek';
-const PROVIDER_COOKIE = 'trst_synthetic_provider';
+const PROVIDER_COOKIE = 'session';
 
 async function fixture(enabled, { signedIn = true } = {}) {
   const protocol = await import(pathToFileURL(path.join(root, 'src/lib/phrasly-extension/protocol.server.ts')).href);
@@ -199,7 +199,7 @@ test('real AWS MV3: cookie login, native actions, menu/nav controls and quota co
     const native = await f.launch();
     assert.equal(await native.locator('#fixture-auth').textContent(), 'authenticated');
     assert.equal(await f.providerCookiePresent(), true);
-    assert.equal(await native.evaluate(() => document.cookie.includes('trst_synthetic_provider')), false, 'HttpOnly session must stay outside page JavaScript');
+    assert.equal(await native.evaluate(() => document.cookie.includes('session=')), false, 'HttpOnly session must stay outside page JavaScript');
     assert.equal(f.state.usage.length, 0, 'opening does not increment the daily count');
     await native.waitForFunction(() => document.querySelector('#accountMenu').getAttribute('data-trst-hidden') === '1');
     assert.equal(await native.locator('#accountMenu').isVisible(), false);

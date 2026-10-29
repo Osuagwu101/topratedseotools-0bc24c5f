@@ -1,0 +1,27 @@
+{
+  "status": "LIVE",
+  "utc": "2026-10-29T09:02:59Z",
+  "version": "1.0.2",
+  "sha256": "a3056d5e936ea82bdb79938070d51902e2f6ee202abee6fbc3d3ea5525b8d1bc",
+  "previous_sha256": "07fb62c132bca769a1b4adc5aec4731ba5f312abbe07b022ce5bb1cbd0f5f3b3",
+  "existing_processes_unchanged": 64,
+  "authorized_download_verified": true,
+  "anonymous_download_denied": true,
+  "extension_identity_unchanged": true,
+  "extension_permissions_unchanged": true,
+  "provider_network_requests": 0,
+  "installed_browsers_require_extension_update": true,
+  "worker_tests": 24,
+  "packaging_tests": 6,
+  "cookie_store_browser_checks": 8,
+  "mv3_tests": 8,
+  "before": {
+    "session_cookie_count": 2,
+    "browser_selected_old": true
+  },
+  "after": {
+    "session_cookie_count": 1,
+    "browser_selected_old": false
+  },
+  "affected_writer_sign_in_verified": false
+}
