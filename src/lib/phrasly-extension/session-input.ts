@@ -29,6 +29,11 @@ export function parsePhraslySessionInput(input:unknown):Record<string,unknown>[]
  }
  if(!Array.isArray(value)||!value.length||value.length>100||JSON.stringify(value).length>200000)return invalid();
  if(!value.every(c=>c&&typeof c.name==="string"&&/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(c.name)&&typeof c.value==="string"&&c.value.length<=64000&&!/[\r\n\x00]/.test(c.value)&&typeof c.domain==="string"&&/^(?:[a-z0-9-]+\.)*phrasly\.ai$/i.test(c.domain.replace(/^\./,""))&&(!c.path||(typeof c.path==="string"&&c.path.startsWith("/")&&!/[\r\n\x00]/.test(c.path)))))return invalid();
- if(value.filter(c=>c.name==="session"&&c.value.length>0).length!==1)return invalid();
+ const sessions=value.filter(c=>c.name==="session"&&c.value.length>0&&c.domain.replace(/^\./,"").toLowerCase()==="phrasly.ai"&&(c.path||"/")==="/");
+ if(!sessions.length)throw new Error("missing_login_cookie");
+ if(new Set(sessions.map(c=>c.value)).size!==1)throw new Error("ambiguous_login_cookies");
+ // Identical login values are safe to collapse; conflicting identities are never guessed.
+ const selected=sessions.find(c=>c.hostOnly===true)||sessions[0];
+ value=[...value.filter(c=>c.name!=="session"),selected];
  return value.map(c=>({...c,domain:c.domain.toLowerCase(),path:c.path||"/"}));
 }

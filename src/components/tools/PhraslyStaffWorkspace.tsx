@@ -14,6 +14,8 @@ const messages:Record<string,string>={
  cookie_import_expired:"The cookie handoff expired. Return to phrasly.ai and send a fresh export.",
  cookie_import_invalid:"The cookie handoff could not be verified. Return to phrasly.ai and send again.",
  forbidden:"This page is available to the account owner.",account_inactive:"This account is unavailable. Contact your administrator.",
+ missing_login_cookie:"The export has no root Phrasly login cookie. Send a fresh export from your signed-in Phrasly profile.",
+ ambiguous_login_cookies:"The export contains conflicting Phrasly login cookies. Download and reload Admin cookie exporter version 1.0.1, then send again from your working Phrasly profile.",
  writer_not_found:"No active TopRated account matches that email.",bad_cookie_json:"Paste the complete Phrasly cookie JSON or the session cookie value. Only cookies for phrasly.ai are accepted.",
  feature_access_not_found:"This feature has no assigned access. Assign writer access first.",
  bad_request:"Check the entered details and try again.",service_unavailable:"Phrasly is temporarily unavailable. Contact your administrator."

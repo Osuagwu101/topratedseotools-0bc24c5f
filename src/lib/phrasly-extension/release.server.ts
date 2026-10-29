@@ -96,7 +96,7 @@ export async function adminChange(request:Request) {
   if(!label||label.length>120)throw new OneclickError("bad_request",400);
   if(input.capacity!==null&&(!Number.isInteger(input.capacity)||input.capacity<1||input.capacity>10000))throw new OneclickError("bad_request",400);
   let cookies:Record<string,unknown>[];
-  try{cookies=parsePhraslySessionInput(input.cookies);}catch{throw new OneclickError("bad_cookie_json",400);}
+  try{cookies=parsePhraslySessionInput(input.cookies);}catch(e){const code=e instanceof Error&&["missing_login_cookie","ambiguous_login_cookies"].includes(e.message)?e.message:"bad_cookie_json";throw new OneclickError(code,400);}
   const existing=await checked(db.from("phrasly_oneclick_accounts").select("id").eq("id",id).eq("tool_id","phrasly").maybeSingle());
   if(!existing)throw new OneclickError("account_not_found",404);
   const state={authenticated_cookies:cookies,session_tokens:{storage:{localStorage:{},sessionStorage:{}}}};
@@ -109,7 +109,7 @@ export async function adminChange(request:Request) {
 }
 export function workspacePage(admin=false) {
  const title=admin?"Phrasly administration":"Writer workspace";
- return new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+title+' — TopRated</title><link rel="stylesheet" href="/phrasly-assets/workspace.css"></head><body><div id="root"></div><script type="module" src="/phrasly-assets/'+(admin?"admin-session-paste-20261029":"writer")+'.js"></script></body></html>',{headers:{
+ return new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+title+' — TopRated</title><link rel="stylesheet" href="/phrasly-assets/workspace.css"></head><body><div id="root"></div><script type="module" src="/phrasly-assets/'+(admin?"admin-import-validation-20261029":"writer")+'.js"></script></body></html>',{headers:{
   "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","X-Robots-Tag":"noindex, nofollow","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN",
   "Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://vuhnvsejdszfvwicflbb.supabase.co; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
  }});
