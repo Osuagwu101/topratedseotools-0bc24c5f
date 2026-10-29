@@ -1,0 +1,31 @@
+name: Phrasly login-cookie replacement
+on:
+  push:
+    paths:
+      - 'extensions/phrasly-oneclick/**'
+      - 'tests/phrasly-extension-worker.test.cjs'
+      - 'tests/phrasly-admin-exporter/cookie-replacement-browser.cjs'
+      - '.github/workflows/phrasly-cookie-replacement.yml'
+  pull_request:
+    paths:
+      - 'extensions/phrasly-oneclick/**'
+      - 'tests/phrasly-extension-worker.test.cjs'
+      - 'tests/phrasly-admin-exporter/cookie-replacement-browser.cjs'
+      - '.github/workflows/phrasly-cookie-replacement.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cookie-replacement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/phrasly-extension-worker.test.cjs
+      - run: python3 tests/phrasly-extension-build.test.py
+      - run: npm ci --prefix tests/phrasly-admin-exporter --ignore-scripts --no-audit --no-fund
+      - run: ./tests/phrasly-admin-exporter/node_modules/.bin/playwright install --with-deps chromium
+      - run: xvfb-run -a node tests/phrasly-admin-exporter/cookie-replacement-browser.cjs

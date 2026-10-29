@@ -9,12 +9,13 @@ const SITE = 'https://topratedseotools.com';
 
 function worker({ enabled = true, fulfill = {}, quota = { ok: true, allowed: true, used: 1, limit: 20 },
   sharedStorage = {}, rejectedCookies = [], firstPartySession = 'synthetic-first-party-session', whoamiStatus = 200, cookieReadError = false } = {}) {
-  const storage = sharedStorage; const calls = []; const tabs = []; const updates = []; const events = []; const cookieSets = []; const cookieRemoves = [];
+  const storage = sharedStorage; const calls = []; const tabs = []; const updates = []; const events = []; const cookieSets = []; const cookieRemoves = []; const cookieJar = [];
   let external, internal, removed, navigation;
   const chrome = {
     storage: { session: { async get() { return structuredClone(storage); }, async set(data) { Object.assign(storage, structuredClone(data)); events.push('tracked'); } } },
     cookies: {
-      async set(data) { events.push('cookie:' + data.name); cookieSets.push(data); if (rejectedCookies.includes(data.name)) throw new Error('synthetic cookie failure'); return data; },
+      async getAll(filter) { return cookieJar.filter(c => !filter.name || c.name === filter.name); },
+      async set(data) { events.push('cookie:' + data.name); cookieSets.push(data); if (rejectedCookies.includes(data.name)) throw new Error('synthetic cookie failure'); cookieJar.splice(0,cookieJar.length,...cookieJar.filter(c=>c.name!==data.name)); const saved={...data,domain:data.domain||'phrasly.ai',hostOnly:!data.domain};cookieJar.push(saved);return saved; },
       async remove(data) { cookieRemoves.push(data); },
       async get() { if (cookieReadError) throw new Error('synthetic read failure'); return firstPartySession ? { value: firstPartySession } : null; },
     },
@@ -23,14 +24,14 @@ function worker({ enabled = true, fulfill = {}, quota = { ok: true, allowed: tru
     webNavigation: { onBeforeNavigate: { addListener(fn) { navigation = fn; } } },
     runtime: { getURL: p => 'chrome-extension://fixture/' + p, onMessageExternal: { addListener(fn) { external = fn; } }, onMessage: { addListener(fn) { internal = fn; } } },
   };
-  const context = vm.createContext({ chrome, URL, URLSearchParams, Object, Promise,
+  const context = vm.createContext({ chrome, URL, URLSearchParams, Object, Promise, Date,
     importScripts() {}, TRST_EXTENSION: { origin: SITE, enabled },
     async fetch(url, init) {
       calls.push({ url, init }); const endpoint = new URL(url).pathname;
       const status = endpoint === '/ext-whoami.php' ? whoamiStatus : 200;
       return { status, ok: status === 200, async json() {
         if (endpoint === '/ext-fulfill.php') return { ok: true, url: 'https://phrasly.ai/dashboard', record_token: 'synthetic-record', used: 0, limit: 20,
-          cookies: [{ name: 'synthetic_provider', value: 'synthetic-secret', domain: '.phrasly.ai', httpOnly: true }],
+          cookies: [{ name: 'session', value: 'synthetic-secret', domain: '.phrasly.ai', httpOnly: true }],
           block_paths: ['/billing', '/account'], ...fulfill };
         if (endpoint === '/ext-whoami.php') return { ok: true, full_name: 'Synthetic Writer', tools: [] };
         return quota;
@@ -88,18 +89,18 @@ test('fulfillment uses the original GET query token contract', async () => {
 });
 test('cookie installation precedes native tab creation and tracking matches AWS order', async () => {
   const w = worker(); const response = await w.access();
-  assert.deepEqual(w.events, ['cookie:synthetic_provider', 'tab', 'tracked']);
+  assert.deepEqual(w.events, ['cookie:session', 'tab', 'tracked']);
   assert.equal(w.tabs[0].url, 'https://phrasly.ai/dashboard');
   assert.equal(w.cookieSets[0].httpOnly, true);
   assert.deepEqual(Object.keys(response).sort(), ['limit', 'ok', 'results', 'used']);
   assert.equal(JSON.stringify(response).includes('synthetic-secret'), false);
   assert.equal(JSON.stringify(w.storage).includes('synthetic-secret'), false);
-  assert.equal(w.storage.trst_tracked_tabs[1].appliedCookies[0].name, 'synthetic_provider');
+  assert.equal(w.storage.trst_tracked_tabs[1].appliedCookies[0].name, 'session');
 });
-test('AWS reports partial cookie failures and still opens the native tab', async () => {
-  const w = worker({ rejectedCookies: ['synthetic_provider'] }); const response = await w.access();
-  assert.equal(response.ok, true); assert.equal(response.results.success.length, 0); assert.equal(response.results.failed.length, 1);
-  assert.equal(w.tabs.length, 1);
+test('failed login-cookie installation refuses to open a guest tab', async () => {
+  const w = worker({ rejectedCookies: ['session'] }); const response = await w.access();
+  assert.equal(response.ok, false); assert.equal(response.error,'session_cookie_not_installed');assert.equal(response.results.success.length, 0);assert.ok(response.results.failed.length>=1);
+  assert.equal(w.tabs.length, 0);
 });
 test('failed fulfillment opens no tab and forwards its countdown', async () => {
   const w = worker({ fulfill: { ok: false, error: 'limit_reached', resets_in: 30 } });
@@ -128,7 +129,7 @@ test('untracked tab and absent sender tab are denied without a usage request', a
 test('quota denial clears installed cookies, opens countdown and untracks', async () => {
   const w = worker({ quota: { ok: true, allowed: false, resets_in: 120 } }); await w.access();
   assert.equal((await w.usage()).allowed, false);
-  assert.deepEqual(plain(w.cookieRemoves), [{ url: 'https://phrasly.ai/', name: 'synthetic_provider' }]);
+  assert.deepEqual(plain(w.cookieRemoves), [{ url: 'https://phrasly.ai/', name: 'session' }]);
   assert.match(w.updates[0].url, /limit-reached.html\?resets_in=120$/); assert.deepEqual(Object.keys(w.storage.trst_tracked_tabs), []);
 });
 test('an upstream access error also clears cookies and redirects, matching AWS', async () => {
