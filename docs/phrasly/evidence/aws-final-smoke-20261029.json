@@ -1,0 +1,1 @@
+{"status": "PASS", "routes": {"/admin/phrasly": 200, "/ext-admin": 401, "/ext-status": 401, "/": 200, "/login": 200, "/admin": 200, "/turnitin": 200, "/tools/stealthwriter": 200}, "writer_version": "1.1.0", "unused_candidate_stopped": true, "schema_changes": false, "financial_mutations": false}

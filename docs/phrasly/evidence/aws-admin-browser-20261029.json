@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "accountRows": 1,
+  "usage": [
+    {
+      "used": 7,
+      "capacity": null
+    }
+  ],
+  "deployedNavigationAsset": true,
+  "privateFieldsExposed": false,
+  "consoleErrors": 0
+}

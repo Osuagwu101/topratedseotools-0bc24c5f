@@ -1,15 +1,29 @@
-# AWS Admin parity rebuild — 29 October 2026
+# Phrasly AWS source rebuild — 29 October 2026
 
-Source: original AWS /var/www/platform/public/cookie-tools.php and the supplied Jawad-Ahmed-EXR.rar.
-The AWS source has per-account label/URL/capacity fields, cookie JSON, assignment counts, Save and Add Account. The earlier TopRated page only edited a selected existing account.
+## Result
+The AWS account-management layout, complete cookie-array path, original writer extension and refreshed Admin exporter are deployed on TopRated. The writer extension is version 1.1.0 and was confirmed loaded in Chrome Default, Profile 3 and Profile 4.
 
-Implemented: account rows, account creation, native URL validation, capacity and usage indicators, blank-cookie metadata saves that retain encrypted sessions, dedicated Admin navigation, and the original EXR popup structure with TopRated branding. Export permission remains restricted to Phrasly. Values stay masked in the popup; Copy Cookies as JSON and the authenticated Admin handoff preserve the full bundle.
+## Source and implementation
+The reference files were read from the live AWS /var/www/platform installation and its original writer ZIP. The supplied Jawad Ahmed EXR archive supplies the Admin popup layout and active-URL cookie export behavior.
 
-Preserved: existing owner authorization, encrypted storage, writer entitlements, unlimited settings, and today's root-session validation. No database schema, payment, credit or balance changes are required.
+Seven writer files match AWS literally after the .com origin substitution. The background worker additionally loads the existing origin configuration and answers the website's compatibility ping. Its cookie-installation functions, ordering and native-tab launch sequence match the original.
 
-Validation: 12 backend/import tests passed; six browser checks passed; production Vite build passed. A clean Chrome-extension profile installed the login cookie and opened phrasly.ai/dashboard/humanizer, but the provider showed a Cloudflare security verification page. Native authenticated Humanizer/Detector processing is NOT verified by that test. This rebuild must not be described as resolving the original login problem until a clean ordinary writer profile completes real processing.
+The earlier custom root-cookie selection and server deduplication no longer alter cookie-array imports. All 44 live AWS cookies were saved, encrypted, read back and compared unchanged. The working AWS account bundle and feature URL/block-path settings were transferred to the identified TopRated account. Its label, capacity and enabled state were preserved.
 
-The current writer extension remains unchanged by this Admin deployment. AWS account-removal behavior is not added; enabled/disabled account controls remain available without deleting records.
+The Admin page supports account rows, native URL editing, capacities, assignment counts, Save and Add Account. A metadata save with an empty cookie field retains the encrypted session. The rebuilt Admin exporter keeps Copy Cookies as JSON and its authenticated, single-use Send to Admin handoff. Values remain masked in its scrollable display.
 
-## Exact native source correction
-The copied AWS cookie installation functions, original seven writer files and the live AWS cookie bundle opened a clean native profile at phrasly.ai/dashboard. /api/auth/user returned 200. The custom exporter session-selection and server cookie-deduplication steps have been removed from the array path; the full exported array now survives unchanged. Raw session quick-paste remains a compatibility input. The writer package is rebuilt as version 1.1.0. Account data is kept out of git. Native processing still requires its own end-to-end check.
+## Validation
+- 16 backend, import and literal-source parity tests passed.
+- 28 Admin exporter permission and handoff checks passed.
+- Six browser checks passed, including account creation, failed-input retention and mobile layout.
+- The production build passed.
+- The live Admin page returned one account, real assignment counts and no saved cookie values; the deployed navigation adapter passed its browser fixture.
+- The live authenticated writer download matched the v1.1.0 build.
+- Original AWS source/data and the live TopRated Humanizer handoff each produced /api/auth/user status 200 in a clean profile.
+
+The automated two-feature processing check was not completed; no Humanizer or AI Detector generation was submitted. Native processing success is not claimed by the sign-in smoke tests.
+
+## Deployment and rollback
+The active Phrasly release is /home/ubuntu/releases/trst-phrasly-aws-exact-20261029 on localhost port 3344. Only the isolated Phrasly route block and its Admin navigation injection were changed. Existing service processes were preserved. Private rollback snapshots retain the previous encrypted account/configuration and Nginx/assets.
+
+No schema, financial, balance or credit changes were made. Existing writer grants and limits were retained. Account deletion is not added; enable/disable remains available.

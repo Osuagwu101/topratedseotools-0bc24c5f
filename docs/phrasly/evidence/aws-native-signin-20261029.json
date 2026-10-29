@@ -1,0 +1,8 @@
+{
+  "launch_ok": true,
+  "native_url": "https://phrasly.ai/dashboard/humanizer",
+  "native_auth_statuses": [
+    200
+  ],
+  "provider_generation_requests": 0
+}
