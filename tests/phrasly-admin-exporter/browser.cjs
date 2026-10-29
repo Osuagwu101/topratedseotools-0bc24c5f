@@ -1,6 +1,8 @@
 /* Real Chromium MV3 integration, entirely synthetic accounts/cookies and routed APIs. */
 const fs=require("node:fs"),os=require("node:os"),path=require("node:path"),assert=require("node:assert/strict"),{createHash}=require("node:crypto"),{chromium}=require("playwright");
 const root=path.resolve(__dirname,"../.."),extension=path.join(root,"extensions/phrasly-admin-exporter"),assets=path.join(root,"public/phrasly-assets"),id="eohjplbcofclaeblcbdaoijfcdjpmmnl",site="https://topratedseotools.com";
+const ts=require('typescript'),vm=require('node:vm'),parserBox={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,'src/lib/phrasly-extension/session-input.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,parserBox);
 const report={status:"RUNNING",mode:"synthetic_offline_fixture",checks:{},page_errors:[],external_network_requests:0};
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),"toprated-admin-exporter-"));let context,role="owner",saved=[],ownerGets=0;
 const uid="00000000-0000-4000-8000-000000000001";
@@ -62,7 +64,7 @@ async function pending(worker){return worker.evaluate(async()=>{const p=(await c
     assert.equal(request.headers().authorization,"Bearer "+token);
     if(role!=="owner")return json(route,{ok:false,error:"forbidden"},403);
     if(request.method()==="GET"){ownerGets++;return json(route,{ok:true,owner_id:uid,accounts,staff:[]});}
-    const body=request.postDataJSON();assert.equal(body.action,"save_account");saved.push(body);return json(route,{ok:true});
+    const body=request.postDataJSON();assert.equal(body.action,"save_account");try{parserBox.exports.parsePhraslySessionInput(body.cookies);}catch(e){return json(route,{ok:false,error:e.message},400);}saved.push(body);return json(route,{ok:true});
    }
    if(u.pathname==="/dashboard")return route.fulfill({contentType:"text/html",body:"<!doctype html><title>Fixture customer page</title><p>Customer page</p>"});
   }
@@ -74,6 +76,7 @@ async function pending(worker){return worker.evaluate(async()=>{const p=(await c
  context.on("page",page=>page.on("pageerror",e=>report.page_errors.push(e.message.slice(0,160))));
  await context.addCookies([
   {name:"session",value:"SYNTHETIC_PHRASLY_SESSION",domain:".phrasly.ai",path:"/",secure:true,httpOnly:true,sameSite:"Lax",expires:Math.floor(Date.now()/1000)+3600},
+  {name:"session",value:"SELECTED_HOST_LOGIN",domain:"phrasly.ai",path:"/",secure:true,httpOnly:true,sameSite:"Lax",expires:Math.floor(Date.now()/1000)+3600},
   {name:"theme",value:"light",domain:"phrasly.ai",path:"/",secure:true,sameSite:"Lax"},
   {name:"payload_cookie",value:"<b>HIDDEN_FIXTURE</b>",domain:".phrasly.ai",path:"/",secure:true}
  ]);
@@ -87,7 +90,7 @@ async function pending(worker){return worker.evaluate(async()=>{const p=(await c
  await popup.click("#copy-json-btn");
  await popup.waitText("#status-message","Complete cookie JSON copied.");
  const copied=JSON.parse(await popup.evaluate("navigator.clipboard.readText()"));
- assert.equal(copied.length,3);assert.equal(copied.find(c=>c.name==="session").httpOnly,true);assert.equal(copied.find(c=>c.name==="session").domain,".phrasly.ai");assert.ok(copied.every(c=>"storeId" in c&&"sameSite" in c&&"path" in c));
+ assert.equal(copied.length,3);assert.equal(copied.find(c=>c.name==="session").httpOnly,true);const selectedLogin=await worker.evaluate(()=>chrome.cookies.get({url:"https://phrasly.ai/",name:"session",storeId:"0"}));assert.deepEqual(copied.find(c=>c.name==="session"),selectedLogin);assert.equal((await worker.evaluate(()=>chrome.cookies.getAll({domain:"phrasly.ai",name:"session"}))).length,2);assert.equal(copied.filter(c=>c.name==="session").length,1);assert.ok(copied.every(c=>"storeId" in c&&"sameSite" in c&&"path" in c));
  report.checks.copy_full_json_with_metadata=true;
 
  const opened=context.waitForEvent("page");await popup.click("#send-admin-btn");const admin=await opened;

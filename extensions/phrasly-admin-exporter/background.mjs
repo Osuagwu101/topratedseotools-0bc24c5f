@@ -14,6 +14,13 @@ async function collect(tabId) {
   const store = stores.find(s => s.tabIds.includes(tabId));
   if (!store) throw new Error("cookie_store_unavailable");
   const cookies = (await chrome.cookies.getAll({domain: "phrasly.ai", storeId: store.id})).filter(c => isPhraslyDomain(c.domain));
+  // Export the root login selected by Chrome, not every stale domain/path variant.
+  const sessions = cookies.filter(c => c.name === "session");
+  if (sessions.length > 1) {
+    const selected = await chrome.cookies.get({url: "https://phrasly.ai/", name: "session", storeId: store.id});
+    if (!selected || !selected.value || selected.path !== "/" || selected.domain.replace(/^\./, "").toLowerCase() !== "phrasly.ai") throw new Error("phrasly_sign_in_required");
+    return validateCookies([...cookies.filter(c => c.name !== "session"), selected], false);
+  }
   return validateCookies(cookies, false);
 }
 
