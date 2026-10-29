@@ -1,44 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "Osuagwu Solomon TopRated",
-  "version": "1.1.0",
-  "minimum_chrome_version": "102",
-  "description": "Copy your Phrasly cookies or send them to TopRated Admin to update a selected account.",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx/ZhZc9PR/HxHucitGp8p8CkO3u1FBxcYjIuKWjGQA9++7w0hrNLTjv9AuSCByHuyca+ezdOP1XS5gx/xfFQSKyhfyFUZk4UKCtsLXPOf6vYVZh7UIFn6b4MEv9dQDc9atfw9JhJotyv2JlKtzr5kohUTnDEBBlkg5oemKou/PAovJJDxJx9VMJe+Q19trS7f07OXUzRegw6bRqZAL2Pu2mDfIwPJjw8wrkFdimoCYlp1R40553dhLR6bjRQzQg5HGhns8JKUeKsFTGeW9NTX5Gr5gfoqCup7cqlZZX0ayaMN8fDMVTVQps+rPJQ76vKlKBBWl2mUwRzCVs21cDYJQIDAQAB",
+  "name": "Jawad Ahmed EXR - Cookie Editor",
+  "version": "1.0",
+  "description": "A simple extension to view and edit cookies.",
   "permissions": [
     "cookies",
-    "activeTab",
-    "storage",
-    "clipboardWrite",
-    "alarms"
+    "activeTab"
   ],
   "host_permissions": [
-    "https://phrasly.ai/*",
-    "https://*.phrasly.ai/*"
+    "<all_urls>"
   ],
-  "background": {
-    "service_worker": "background.mjs",
-    "type": "module"
-  },
-  "externally_connectable": {
-    "matches": [
-      "https://topratedseotools.com/*"
-    ]
-  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Osuagwu Solomon TopRated",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
-  },
-  "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "default_icon": "icon.png"
   }
 }

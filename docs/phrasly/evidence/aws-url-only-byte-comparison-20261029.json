@@ -1,0 +1,73 @@
+{
+  "status": "PASS",
+  "writer_files": 12,
+  "admin_files": 4,
+  "only_domain_replacements": {
+    "https://app.topratedseotools.com.ng": "https://topratedseotools.com",
+    "topratedseotools.com.ng": "topratedseotools.com"
+  },
+  "extra_runtime_files": 0,
+  "original_version_preserved": true,
+  "files": [
+    {
+      "file": "background.js",
+      "result": "URL substitution only",
+      "sha256": "88d9aa8e174b87721b9c07fdff6dea4b742647528af8aa62b107423ba3c57450"
+    },
+    {
+      "file": "content.js",
+      "result": "identical",
+      "sha256": "dfd3b6e5c45cd7edccbfe0e07c44a0430aa294e4008c0fda32a3a33b6cfaa1e3"
+    },
+    {
+      "file": "interceptor.js",
+      "result": "identical",
+      "sha256": "d7892003601992ba0be26e173459e0c6bb08f8b3f6f98af6412216f588f32601"
+    },
+    {
+      "file": "limit-reached.html",
+      "result": "URL substitution only",
+      "sha256": "8404f9d8cf1d768886862b877805c73efc8bdc01810c85c702cd65f80391f96e"
+    },
+    {
+      "file": "limit-reached.js",
+      "result": "identical",
+      "sha256": "dfb3ca3ff738f724e96d2fe07bbaf028749613c5e1c12dd07481733a3152fcc7"
+    },
+    {
+      "file": "manifest.json",
+      "result": "URL substitution only",
+      "sha256": "2fccbe7a049267925b3d7e6c99376e50ad35aba54b260effc376b18c110d5f57"
+    },
+    {
+      "file": "popup.html",
+      "result": "URL substitution only",
+      "sha256": "3d30ef69410f8e54b7d2e61fcd27747dc3a8d2b6590d78f0285dacfacf339829"
+    },
+    {
+      "file": "popup.js",
+      "result": "identical",
+      "sha256": "25eac3b2be03d39366a014273a607bb6b8db4f9eb586d833c2befcf5f09acc84"
+    },
+    {
+      "file": "icons/icon128.png",
+      "result": "identical",
+      "sha256": "fcf8b92ac68fbd924b56010feba8de4afc6c8702b2d7e6746dea0dd2e61efb57"
+    },
+    {
+      "file": "icons/icon16.png",
+      "result": "identical",
+      "sha256": "dad60782394f70604f4e493e202dc952896684d11b193811b4feb1652b57a5cd"
+    },
+    {
+      "file": "icons/icon32.png",
+      "result": "identical",
+      "sha256": "e80e69b191fc913cdd4710a98f22ff9944de2684560faca0d2f5305efa3a0769"
+    },
+    {
+      "file": "icons/icon48.png",
+      "result": "identical",
+      "sha256": "435ef0be2059d06a290ae75f32e3a084a25a97535db9b0a887263a71558a1749"
+    }
+  ]
+}

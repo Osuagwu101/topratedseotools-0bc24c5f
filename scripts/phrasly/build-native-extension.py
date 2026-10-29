@@ -1,47 +1,23 @@
-#!/usr/bin/env python3
-"""Build the reviewed native extension into a NEW directory; no credentials."""
-import argparse
-import json
-from pathlib import Path
-import re
-from urllib.parse import urlsplit
-
-FILES = ("manifest.json", "config.js", "background.js", "content.js", "interceptor.js", "limit-reached.html", "limit-reached.js", "popup.html", "popup.js", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png")
-
-def build(origin, destination, enabled=False):
-    url = urlsplit(origin)
-    if any(c.isspace() or ord(c) < 32 for c in origin) or url.scheme != "https" or not url.hostname or url.username or url.password or url.port not in (None, 443) or url.path not in ("", "/") or url.query or url.fragment:
-        raise ValueError("Use a plain HTTPS origin on port 443")
-    if len(url.hostname) > 253 or not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", url.hostname):
-        raise ValueError("Use an ASCII DNS hostname")
-    origin = "https://" + url.hostname
-    source = Path(__file__).resolve().parents[2] / "extensions/phrasly-oneclick"
-    if any(not (source / name).is_file() or (source / name).is_symlink() for name in FILES):
-        raise ValueError("Extension source is incomplete or contains a symlink")
-    destination = Path(destination)
-    destination.mkdir(parents=True, exist_ok=False)
-    for name in FILES:
-        target = destination / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        data = (source / name).read_bytes() if name.endswith(".png") else (source / name).read_text(encoding="utf-8").encode("utf-8")
-        target.write_bytes(data)
-    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
-    manifest["host_permissions"] = [origin + "/*", "*://*/*"]
-    manifest["externally_connectable"] = {"matches": [origin + "/*"]}
-    if not enabled:
-        manifest["content_scripts"] = []
-    (destination / "manifest.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
-    config = "globalThis.TRST_EXTENSION = Object.freeze(" + json.dumps({"origin": origin, "enabled": enabled}) + ");\n"
-    (destination / "config.js").write_bytes(config.encode("utf-8"))
-    for name, route in [("limit-reached.html", "/dashboard"), ("popup.html", "/login")]:
-        page = destination / name
-        page.write_bytes(page.read_text(encoding="utf-8").replace("https://topratedseotools.com" + route, origin + route).encode("utf-8"))
-    return {"directory": str(destination), "origin": origin, "enabled": enabled}
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--origin", required=True)
-    parser.add_argument("--out", required=True)
-    parser.add_argument("--enabled", action="store_true", help="Only after first-party endpoints are wired in staging")
-    args = parser.parse_args()
-    print(json.dumps(build(args.origin, args.out, args.enabled)))
+"""Copy the original AWS writer files, replacing only first-party domain URLs."""
+import argparse,json,pathlib,zipfile,urllib.parse
+ROOT=pathlib.Path(__file__).resolve().parents[2]
+REFERENCE=ROOT/"reference/phrasly-aws-url-only/writer-original.zip"
+def rewritten(data,origin):
+ for old,new in [(b"https://app.topratedseotools.com.ng",origin.encode()),(b"topratedseotools.com.ng",urllib.parse.urlsplit(origin).hostname.encode())]:
+  data=data.replace(old,new)
+ return data
+def build(origin,destination,enabled=False):
+ u=urllib.parse.urlsplit(origin)
+ if u.scheme!="https" or not u.hostname or u.path not in ("","/") or u.query or u.fragment or u.username or u.password or u.port not in (None,443):raise ValueError("HTTPS origin required")
+ origin="https://"+u.hostname
+ destination=pathlib.Path(destination);destination.mkdir(parents=True,exist_ok=False)
+ files=[]
+ with zipfile.ZipFile(REFERENCE) as z:
+  for info in z.infolist():
+   if info.is_dir():continue
+   rel=info.filename.replace(chr(92),"/").split("/",1)[1]
+   p=destination/rel;p.parent.mkdir(parents=True,exist_ok=True)
+   data=z.read(info);p.write_bytes(data if rel.endswith(".png") else rewritten(data,origin));files.append(rel)
+ return {"origin":origin,"files":len(files),"adaptation":"URLs only"}
+if __name__=="__main__":
+ p=argparse.ArgumentParser();p.add_argument("--origin",required=True);p.add_argument("--out",required=True);p.add_argument("--enabled",action="store_true");a=p.parse_args();print(json.dumps(build(a.origin,a.out,a.enabled)))

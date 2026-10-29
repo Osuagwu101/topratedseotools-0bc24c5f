@@ -23,8 +23,7 @@
 // out the tab with a clear "limit reached" page. No reverse proxy involved
 // at any point — Phrasly is only ever contacted by the user's own browser.
 
-importScripts('config.js');
-const BASE_URL = globalThis.TRST_EXTENSION.origin;
+const BASE_URL = 'https://topratedseotools.com';
 const FULFILL_URL = `${BASE_URL}/ext-fulfill.php`;
 const WHOAMI_URL = `${BASE_URL}/ext-whoami.php`;
 const CHECK_USAGE_URL = `${BASE_URL}/ext-check-usage.php`;
@@ -189,7 +188,6 @@ async function whoami() {
 }
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if(message?.type==="trst_ping"){sendResponse({ok:true,protocol:3,enabled:globalThis.TRST_EXTENSION.enabled===true});return false;}
   if (!message || message.type !== 'trst_access') {
     return false;
   }

@@ -1,0 +1,6 @@
+
+extensions/phrasly-oneclick/** -text whitespace=cr-at-eol
+extensions/phrasly-admin-exporter/** -text whitespace=cr-at-eol
+reference/phrasly-aws-url-only/** -text whitespace=cr-at-eol
+
+reference/phrasly-aws-url-only/admin-interface/*.html -text whitespace=-blank-at-eol,cr-at-eol

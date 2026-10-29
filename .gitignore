@@ -33,3 +33,5 @@ dist-ssr
 
 # Reproducible Phrasly staff bundles, produced by the build script.
 /public/phrasly-assets/*.js
+
+__pycache__/

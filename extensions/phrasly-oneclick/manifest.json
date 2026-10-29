@@ -1,15 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Top Rated SEO Tools \u2014 Access",
+  "name": "Top Rated SEO Tools — Access",
   "description": "Official access extension for topratedseotools.com members.",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAowt7aERYR9FhcoOsGcci+mXG9anN9O9D1W1RPuvklT5KpX7GlO0LrzAS03Mk0ovqqdbMNJnk3/LWIxDniBILkBEAqO0I5dnaH9SOTKzQAoyFmzjl22v9lG85GNKgx+whfmLP9LXx1xlvNx4Y5SF8qc3gItKstEFKqahKk/tfYpL37+hKY98JJ2KWO6Ddk4i3YdNLCOmIi/Vc0dk37GA5LTO8NegPf1hTLDtIpgAJgoa9Fwr4WIMCp8PLRndlZCiLkQ5678RpwihPmFSuugCD5f5yjuKuRuFIceqWylyvctbIrbHJU1j676HoF1CLnBYyREwOdQkcvkMW+lCav1NprQIDAQAB",
-  "permissions": [
-    "cookies",
-    "tabs",
-    "webNavigation",
-    "storage"
-  ],
+  "permissions": ["cookies", "tabs", "webNavigation", "storage"],
   "host_permissions": [
     "https://topratedseotools.com/*",
     "*://*/*"
@@ -19,29 +14,19 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://phrasly.ai/*"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["https://phrasly.ai/*"],
+      "js": ["content.js"],
       "run_at": "document_start"
     },
     {
-      "matches": [
-        "https://phrasly.ai/*"
-      ],
-      "js": [
-        "interceptor.js"
-      ],
+      "matches": ["https://phrasly.ai/*"],
+      "js": ["interceptor.js"],
       "run_at": "document_start",
       "world": "MAIN"
     }
   ],
   "externally_connectable": {
-    "matches": [
-      "https://topratedseotools.com/*"
-    ]
+    "matches": ["https://topratedseotools.com/*"]
   },
   "action": {
     "default_popup": "popup.html",

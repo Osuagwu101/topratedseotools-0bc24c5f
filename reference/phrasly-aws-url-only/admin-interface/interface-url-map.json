@@ -1,0 +1,11 @@
+{
+  "/assets/img/": "/phrasly-assets/aws/",
+  "href=\"/dashboard.php\"": "href=\"/admin\"",
+  "href=\"/users.php\"": "href=\"/admin/customers\"",
+  "href=\"/tools.php\"": "href=\"/admin/tools\"",
+  "href=\"/tool-vault.php\"": "href=\"/admin/tools\"",
+  "href=\"/cookie-tools.php\"": "href=\"/admin/phrasly\"",
+  "href=\"/activity.php\"": "href=\"/admin/settings/activity\"",
+  "href=\"/profile.php\"": "href=\"/admin/settings\"",
+  "href=\"/logout.php\"": "href=\"/admin?aws-logout=1\""
+}

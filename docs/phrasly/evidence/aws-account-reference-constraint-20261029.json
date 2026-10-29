@@ -1,0 +1,12 @@
+{
+  "query": "SELECT current_database() AS database_name, conname, confdeltype, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE contype = 'f' AND conrelid = 'public.phrasly_oneclick_assignments'::regclass AND confrelid = 'public.phrasly_oneclick_accounts'::regclass;",
+  "result": [
+    {
+      "database_name": "postgres",
+      "conname": "phrasly_oneclick_assignments_account_id_fkey",
+      "confdeltype": "a",
+      "definition": "FOREIGN KEY (account_id) REFERENCES phrasly_oneclick_accounts(id)"
+    }
+  ],
+  "read_only": true
+}

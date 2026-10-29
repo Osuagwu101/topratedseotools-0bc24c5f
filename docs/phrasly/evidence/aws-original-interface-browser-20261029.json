@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "checks": [
+    "original populated cookie field and assigned-account controls",
+    "original AWS desktop geometry matches within 0px",
+    "original Save submits full configuration",
+    "original Add Account and unused Remove controls",
+    "original unused-account confirmation and removal",
+    "original AWS theme toggle",
+    "original mobile sidebar toggle"
+  ],
+  "desktop_max_geometry_delta_px": 0,
+  "synthetic_accounts_only": true,
+  "production_mutations": false
+}
