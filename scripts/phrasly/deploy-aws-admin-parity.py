@@ -1,10 +1,10 @@
 """Stage and activate the isolated AWS Admin parity build with rollback."""
 import pathlib,json,hashlib,subprocess,urllib.request,urllib.error,time,socket,sys
-root=pathlib.Path("/home/ubuntu/releases/trst-phrasly-aws-parity-20261029")
+root=pathlib.Path("/home/ubuntu/releases/trst-phrasly-aws-exact-20261029")
 old=pathlib.Path("/home/ubuntu/releases/trst-phrasly-import-validation-20261029")
 public=pathlib.Path("/var/www/trst-phrasly-entry-20261026")
 nginx=pathlib.Path("/etc/nginx/sites-enabled/topratedseotools")
-name="trst-phrasly-aws-parity-oct29";port=3343
+name="trst-phrasly-aws-exact-oct29";port=3344
 manifest=json.loads((root/"manifest.json").read_text())
 def run(args):return subprocess.run(args,check=True,capture_output=True,text=True,timeout=40).stdout
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -19,11 +19,12 @@ def unchanged(before):
  after=procs()
  assert all(after.get(k)==v for k,v in before.items()),"existing process changed"
 for file,digest in manifest["assets"].items():assert sha(root/"assets"/file)==digest
+assert sha(root/"TopRated-Phrasly-Access.zip")==manifest["writer_package_sha256"]
 if sys.argv[1]=="stage":
  assert name not in procs()
  sock=socket.socket();sock.bind(("127.0.0.1",port));sock.close()
  before=procs();(root/"processes-before.json").write_text(json.dumps(before))
- settings=json.loads((old/"settings.private.json").read_text());settings["PORT"]=str(port);settings["HOST"]="127.0.0.1"
+ settings=json.loads((old/"settings.private.json").read_text());settings["PORT"]=str(port);settings["HOST"]="127.0.0.1";settings["PHRASLY_EXTENSION_PACKAGE_PATH"]=str(root/"TopRated-Phrasly-Access.zip")
  for key in ["SUPABASE_SERVICE_ROLE_KEY","PHRASLY_SESSION_ENCRYPTION_KEY","PHRASLY_AWS_EXTENSION_GATE_SECRET"]:
   secret=settings[key].encode();assert len(secret)>15
   for p in (root/"assets").iterdir():assert secret not in p.read_bytes(),"secret in public asset"
@@ -55,10 +56,10 @@ elif sys.argv[1]=="activate":
  needle='<script defer src="/phrasly-assets/customer-tools-summary-v1.js"></script>'
  assert proposed.count(needle)==2
  proposed=proposed.replace(needle,needle+'<script defer src="/phrasly-assets/cookie-tools-navigation-20261029.js"></script>')
- backup=root/"rollback";backup.mkdir(mode=0o700,exist_ok=False)
+ backup=root/"rollback";backup.mkdir(mode=0o700,exist_ok=True)
  (backup/"nginx.conf").write_text(original);(root/"nginx-proposed.conf").write_text(proposed)
  baseline={p.name:sha(p) for p in public.iterdir() if p.is_file()}
- assert (root/"assets/workspace.css").read_bytes().startswith((public/"workspace.css").read_bytes()),"base stylesheet changed"
+ assert (root/"assets/workspace.css").read_text().startswith((public/"workspace.css").read_text()),"base stylesheet changed"
  for file in manifest["assets"]:
   if (public/file).exists():(backup/file).write_bytes((public/file).read_bytes())
  switched=False

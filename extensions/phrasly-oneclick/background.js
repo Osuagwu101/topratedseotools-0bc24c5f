@@ -1,5 +1,3 @@
-// AWS extension body with the .com origin and an explicit staging switch.
-importScripts('config.js');
 // Top Rated SEO Tools — Access extension
 //
 // Flow: a signed, 60-second token (issued by our backend to a logged-in
@@ -25,6 +23,7 @@ importScripts('config.js');
 // out the tab with a clear "limit reached" page. No reverse proxy involved
 // at any point — Phrasly is only ever contacted by the user's own browser.
 
+importScripts('config.js');
 const BASE_URL = globalThis.TRST_EXTENSION.origin;
 const FULFILL_URL = `${BASE_URL}/ext-fulfill.php`;
 const WHOAMI_URL = `${BASE_URL}/ext-whoami.php`;
@@ -39,63 +38,25 @@ function cookieToSetDetails(cookie, pageUrl) {
     url,
     name: cookie.name,
     value: cookie.value,
-    domain: cookie.hostOnly === true ? undefined : (cookie.domain || undefined),
+    domain: cookie.domain || undefined,
     path: cookie.path || '/',
     secure,
     httpOnly: !!cookie.httpOnly,
-    expirationDate: cookie.expirationDate ?? (cookie.expires > 0 ? cookie.expires : undefined),
+    expirationDate: cookie.expirationDate,
     sameSite: cookie.sameSite || 'lax',
   };
 }
 
 async function applyCookies(url, cookies) {
   const results = { success: [], failed: [] };
-  const sessions = Array.isArray(cookies) ? cookies.filter(c => c.name === 'session') : [];
-  const login = sessions[0];
-  const root = c => String(c.domain || new URL(url).hostname).replace(/^\./, '').toLowerCase() === 'phrasly.ai';
-  if (sessions.length !== 1 || !root(login) || (login.path || '/') !== '/' || !login.value) {
-    results.failed.push({ name: 'session', error: 'missing_login_cookie' });
-    return results;
-  }
-  const loginDetails = cookieToSetDetails(login, url);
-  if (loginDetails.expirationDate !== undefined && loginDetails.expirationDate <= Date.now() / 1000) {
-    results.failed.push({ name: 'session', error: 'expired_login_cookie' });
-    return results;
-  }
-  try {
-    // Chrome can retain separate host-only/domain cookies with the same name.
-    // Remove old root-site login variants before installing the Admin session.
-    const existing = (await chrome.cookies.getAll({ domain: 'phrasly.ai', name: 'session' })).filter(root);
-    const matches = existing.length === 1 && existing[0].path === '/' && existing[0].value === login.value && existing[0].hostOnly === (loginDetails.domain === undefined);
-    if (!matches) {
-      for (const old of existing) {
-        const details = { url: 'https://phrasly.ai' + (old.path || '/'), name: 'session' };
-        if (old.storeId) details.storeId = old.storeId;
-        if (old.partitionKey) details.partitionKey = old.partitionKey;
-        await chrome.cookies.remove(details);
-      }
-    }
-  } catch {
-    results.failed.push({ name: 'session', error: 'login_cookie_replacement_failed' });
-    return results;
-  }
   for (const cookie of cookies) {
     const details = cookieToSetDetails(cookie, url);
     try {
-      const saved = await chrome.cookies.set(details);
-      if (!saved || saved.value !== cookie.value) throw new Error('cookie_not_saved');
+      await chrome.cookies.set(details);
       results.success.push({ name: cookie.name, domain: details.domain || new URL(url).hostname, url: details.url });
-    } catch {
-      results.failed.push({ name: cookie.name, error: 'cookie_not_saved' });
+    } catch (err) {
+      results.failed.push({ name: cookie.name, error: String(err) });
     }
-  }
-  try {
-    const installed = (await chrome.cookies.getAll({ domain: 'phrasly.ai', name: 'session' })).filter(root);
-    if (installed.length !== 1 || installed[0].path !== '/' || installed[0].value !== login.value) {
-      results.failed.push({ name: 'session', error: 'login_cookie_not_verified' });
-    }
-  } catch {
-    results.failed.push({ name: 'session', error: 'login_cookie_not_verified' });
   }
   return results;
 }
@@ -155,7 +116,6 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 async function redeemAccessToken(payload, signature) {
-  if (!globalThis.TRST_EXTENSION.enabled) return { ok: false, error: 'not_enabled' };
   const res = await fetch(
     `${FULFILL_URL}?payload=${encodeURIComponent(payload)}&signature=${encodeURIComponent(signature)}`
   );
@@ -164,9 +124,6 @@ async function redeemAccessToken(payload, signature) {
     return { ok: false, error: data.error || 'fulfill_failed', resets_in: data.resets_in };
   }
   const results = await applyCookies(data.url, data.cookies);
-  if (!results.success.some(c => c.name === 'session') || results.failed.some(c => c.name === 'session')) {
-    return { ok: false, error: 'session_cookie_not_installed', results };
-  }
   const tab = await chrome.tabs.create({ url: data.url });
   await trackTab(tab.id, {
     blockPaths: data.block_paths,
@@ -180,7 +137,6 @@ async function redeemAccessToken(payload, signature) {
 // Real per-action check, called by content.js's relay every time
 // interceptor.js catches an actual Humanize/Detect call on Phrasly's page.
 async function checkUsage(tabId, feature) {
-  if (!globalThis.TRST_EXTENSION.enabled) return { allowed: true };
   const tabs = await getTrackedTabs();
   const tracked = tabs[tabId];
   if (!tracked || !tracked.recordToken) {
@@ -212,7 +168,6 @@ async function checkUsage(tabId, feature) {
 // SameSite=Lax cookie cross-site) and asks the backend who that is and what
 // they have access to.
 async function whoami() {
-  if (!globalThis.TRST_EXTENSION.enabled) return { ok: false, error: 'not_enabled' };
   let cookie;
   try {
     cookie = await chrome.cookies.get({ url: BASE_URL + '/', name: 'PHPSESSID' });
@@ -234,10 +189,7 @@ async function whoami() {
 }
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if (message && message.type === 'trst_ping') {
-    sendResponse({ ok: true, protocol: 3, enabled: globalThis.TRST_EXTENSION.enabled === true });
-    return false;
-  }
+  if(message?.type==="trst_ping"){sendResponse({ok:true,protocol:3,enabled:globalThis.TRST_EXTENSION.enabled===true});return false;}
   if (!message || message.type !== 'trst_access') {
     return false;
   }

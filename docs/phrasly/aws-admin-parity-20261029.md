@@ -10,3 +10,6 @@ Preserved: existing owner authorization, encrypted storage, writer entitlements,
 Validation: 12 backend/import tests passed; six browser checks passed; production Vite build passed. A clean Chrome-extension profile installed the login cookie and opened phrasly.ai/dashboard/humanizer, but the provider showed a Cloudflare security verification page. Native authenticated Humanizer/Detector processing is NOT verified by that test. This rebuild must not be described as resolving the original login problem until a clean ordinary writer profile completes real processing.
 
 The current writer extension remains unchanged by this Admin deployment. AWS account-removal behavior is not added; enabled/disabled account controls remain available without deleting records.
+
+## Exact native source correction
+The copied AWS cookie installation functions, original seven writer files and the live AWS cookie bundle opened a clean native profile at phrasly.ai/dashboard. /api/auth/user returned 200. The custom exporter session-selection and server cookie-deduplication steps have been removed from the array path; the full exported array now survives unchanged. Raw session quick-paste remains a compatibility input. The writer package is rebuilt as version 1.1.0. Account data is kept out of git. Native processing still requires its own end-to-end check.

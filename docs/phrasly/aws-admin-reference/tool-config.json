@@ -1,0 +1,4 @@
+{
+  "cookie_feature_urls": "{\"humanizer\":\"https:\\/\\/phrasly.ai\\/dashboard\\/humanizer\",\"ai_detector\":\"https:\\/\\/phrasly.ai\\/dashboard\\/ai-detector\"}",
+  "block_paths": "[\"\\/api\\/auth\\/logout\",\"\\/dashboard\\/settings\",\"\\/dashboard\\/referral\"]"
+}
