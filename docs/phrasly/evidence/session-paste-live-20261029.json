@@ -1,0 +1,25 @@
+{
+  "status": "LIVE",
+  "utc": "2026-10-29T08:10:48Z",
+  "source_commit": "952e43b49ad81f7fe5f6cca1848dd7b534b64ee7",
+  "runtime_before_sha256": "c3642906825b523a12e9db4d50815c15faf9c6af6efdc88e12afd60c67c326e8",
+  "runtime_after_sha256": "7843f1f27f926a552c3000a3c7d1e01c2fe69ee93a9299f9bb5132b09c89dfe4",
+  "assets": {
+    "admin-session-paste-20261029.js": "b80f2c2256493133643acb6703df9e7c61836b15ed9e85376ae6c989a2cb91b4",
+    "PhraslyAccessSetup-DzW1yi4I.js": "aae987d27009a765ab99edd4d0195d35191c0c375fed916f61247c3195ebed53"
+  },
+  "existing_processes_unchanged": 63,
+  "existing_public_assets_unchanged": true,
+  "private_endpoints_require_login": true,
+  "backend_checks": 13,
+  "browser_checks": 9,
+  "exporter_mv3_checks": 9,
+  "live_asset_browser_checks": 9,
+  "live_browser_private_apis": "synthetic fixtures; no production cookie replacement performed",
+  "enabled_features": 12,
+  "unlimited_features": 12,
+  "features_updated_to_unlimited": 3,
+  "audit_events": 3,
+  "account_fingerprint_before": "dbf3b55857a1f2621f5d8e1ea43ee7b5",
+  "account_fingerprint_after": "dbf3b55857a1f2621f5d8e1ea43ee7b5"
+}
