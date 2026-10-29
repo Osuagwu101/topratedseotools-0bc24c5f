@@ -98,12 +98,12 @@ async function pending(worker){return worker.evaluate(async()=>{const p=(await c
  await admin.getByLabel("Email",{exact:true}).fill("admin@example.test");await admin.getByLabel("Password",{exact:true}).fill("fixture-password");
  await admin.getByRole("button",{name:"Sign in",exact:true}).click();
  await admin.getByText("3 Phrasly cookies received",{exact:true}).waitFor({timeout:30000});
- assert.equal(await admin.getByLabel("Account",{exact:true}).inputValue(),"");
- assert.equal(await admin.getByRole("button",{name:"Save imported account session",exact:true}).isDisabled(),true);
+ assert.equal(await admin.getByLabel("Account",{exact:true}).inputValue(),accounts[0].id);
+ assert.equal(await admin.getByRole("button",{name:"Save imported account session",exact:true}).isDisabled(),false);
  assert.equal(new URL(admin.url()).hash,"");
  assert.equal(await pending(worker),null);
  assert.equal(await admin.locator("textarea").count(),0);
- report.checks.authenticated_one_time_claim_hidden_values_and_explicit_target=true;
+ report.checks.authenticated_one_time_claim_hidden_values_and_default_target=true;
  const second=accounts[1];await admin.getByLabel("Account",{exact:true}).selectOption(second.id);
  assert.equal(await admin.getByLabel("Label",{exact:true}).inputValue(),second.label);assert.equal(await admin.getByLabel("Writer capacity (blank for unlimited reuse)",{exact:true}).inputValue(),"9");
  await admin.getByRole("button",{name:"Save imported account session",exact:true}).click();

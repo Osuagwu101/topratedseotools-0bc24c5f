@@ -18,7 +18,7 @@ function synthetic(values){return new vm.SyntheticModule(Object.keys(values),fun
 const stubDb=synthetic({supabaseAdmin:db}),stubVault=synthetic({encryptPhraslySession:x=>x,decryptPhraslySession:()=>JSON.stringify({authenticated_cookies:[{name:'session',value:'FIXTURE'}]})});
 const protocol=synthetic({issueAwsHandoff:()=>({payload:'fixture',signature:'fixture'}),issueAwsRecordToken:()=>('fixture.signature'),verifyAwsToken:()=>({uid,tool_id:'phrasly',feature:'humanizer'}),secondsUntilWatReset:()=>300,watUsageDay:()=>('2026-10-28')});
 const modules={};
-async function load(name){if(modules[name])return modules[name];const file=path.join(root,'src/lib/phrasly-extension',name+'.server.ts');const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;const m=new vm.SourceTextModule(code,{context});modules[name]=m;await m.link(async spec=>{if(spec==='node:crypto')return synthetic({createHash:crypto.createHash,randomBytes:crypto.randomBytes});if(spec==='node:fs/promises')return synthetic({readFile:fs.promises.readFile});if(spec.includes('client.server'))return stubDb;if(spec.includes('protocol.server'))return protocol;if(spec.includes('phrasly-session'))return stubVault;if(spec==='./backend.server')return load('backend');throw Error(spec);});return m;}
+async function load(name){if(modules[name])return modules[name];const file=path.join(root,'src/lib/phrasly-extension',name+(name==='session-input'?'.ts':'.server.ts'));const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;const m=new vm.SourceTextModule(code,{context});modules[name]=m;await m.link(async spec=>{if(spec==='node:crypto')return synthetic({createHash:crypto.createHash,randomBytes:crypto.randomBytes});if(spec==='node:fs/promises')return synthetic({readFile:fs.promises.readFile});if(spec.includes('client.server'))return stubDb;if(spec.includes('protocol.server'))return protocol;if(spec.includes('phrasly-session'))return stubVault;if(spec==='./backend.server')return load('backend');if(spec==='./session-input')return load('session-input');throw Error(spec);});return m;}
 const request=body=>new Request('https://topratedseotools.com/ext-admin',{method:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify(body)});
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name);}
 (async()=>{const r=await load('release');await r.evaluate();const release=r.namespace,backend=modules.backend.namespace;
@@ -32,4 +32,25 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
  await check('missing feature grants are reported without creating access',async()=>{await assert.rejects(release.adminChange(request({action:'set_limit',user_id:'00000000-0000-4000-8000-000000000002',feature:'humanizer',limit:null})),e=>e.code==='feature_access_not_found');});
  await check('expired or revoked source entitlement still denies unlimited launches',async()=>{sourceActive=false;await assert.rejects(backend.fulfill(new Request('https://topratedseotools.com/ext-fulfill.php?payload=fixture&signature=fixture')),e=>e.code==='no_access');sourceActive=true;});
  await check('Admin state includes unlimited flags and limit changes have audit events',async()=>{const state=await(await release.adminState(new Request('https://topratedseotools.com/ext-admin',{headers:{authorization:'Bearer fixture'}}))).json();assert.equal(state.staff[0].features[0].is_unlimited,true);assert.equal(audit.filter(a=>a.event_type.startsWith('admin_staff_limit:')).length,3);});
+ await check('Admin accepts cookie JSON, wrapped exports, Cookie headers and raw session values',async()=>{
+  const cookie={name:'session',value:'SYNTHETIC_SESSION',domain:'.Phrasly.ai',path:'/'};
+  const before=JSON.stringify(grants),base={action:'save_account',account_id:aid,label:'Fixture',capacity:null,enabled:true};
+  for(const cookies of [JSON.stringify([cookie]),[cookie],{cookies:[cookie]},{authenticated_cookies:[cookie]},cookie,'SYNTHETIC_SESSION','session=SYNTHETIC_SESSION; theme=dark;']){
+   await release.adminChange(request({...base,cookies}));
+   const state=JSON.parse(tables.phrasly_oneclick_accounts[0].encrypted_cookies);
+   assert.equal(state.authenticated_cookies[0].value,'SYNTHETIC_SESSION');
+   assert.match(state.authenticated_cookies[0].domain,/phrasly\.ai$/);
+  }
+  assert.equal(JSON.stringify(grants),before);
+ });
+ await check('invalid paste or another site is rejected without changing the saved session',async()=>{
+  const base={action:'save_account',account_id:aid,label:'Fixture',capacity:null,enabled:true},before=changes.length;
+  for(const cookies of ['', '[broken', 'has spaces', [{name:'session',value:'fixture',domain:'evilphrasly.ai'}], [{name:'session',value:'fixture',domain:'phrasly.ai.evil.test'}], [{name:'other',value:'fixture',domain:'phrasly.ai'}], Array(101).fill({name:'session',value:'fixture',domain:'phrasly.ai'})])await assert.rejects(release.adminChange(request({...base,cookies})),e=>e.code==='bad_cookie_json');
+  assert.equal(changes.length,before);
+ });
+ await check('ordinary writers cannot replace provider sessions',async()=>{
+  admin=false;const before=changes.length;
+  await assert.rejects(release.adminChange(request({action:'save_account',account_id:aid,label:'Fixture',capacity:null,enabled:true,cookies:'SYNTHETIC_SESSION'})),e=>e.code==='forbidden');
+  assert.equal(changes.length,before);admin=true;
+ });
  console.log(JSON.stringify({status:'PASS',checks:checks.length}));})().catch(e=>{console.error(e);process.exitCode=1;});

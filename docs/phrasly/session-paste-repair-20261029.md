@@ -1,0 +1,11 @@
+# Phrasly session paste and unlimited Admin page
+
+Imported cookies previously cleared the account selection, label and capacity. Saving was disabled until the owner manually selected an account, including when only one existed. The importer now retains the selected account and defaults to the existing first account. Auth refresh no longer reloads the form or clears pending input; auth callbacks schedule session reads outside the Supabase lock.
+
+The session field accepts full cookie JSON, supported cookie-export wrappers, a Cookie header starting with session=, or the session value alone. Invalid input and cookies outside phrasly.ai are rejected before writes. The existing encrypted vault and owner checks apply. Failed saves retain input; successful saves clear it.
+
+At the owner's request, /admin/phrasly shows Unlimited and removes daily-limit editors and new-assignment limit fields. New assignments from this page submit null for both limits. The existing customer-detail controls are unchanged. All twelve enabled feature grants were verified Unlimited after three flags were updated, with three audit events. No source entitlement, expiry, balance or provider session was changed by that operation. Exact SQL: scripts/phrasly/unlimited-default-20261029.sql.
+
+Validation: thirteen backend/source checks, nine headless browser checks including the exact imported-cookies disabled-Save case, exporter security checks and MV3 regressions. Runtime staging compiles the changed source functions into an isolated copy of the deployed Phrasly bundle and publishes a new Admin entry script; writer assets and unrelated services are preserved. Live activation and results are recorded separately. A real refreshed Phrasly session must still be supplied by the owner; synthetic tests do not establish provider login validity.
+
+Live activation: 29 October 2026 at 08:10 UTC, runtime source 952e43b49ad81f7fe5f6cca1848dd7b534b64ee7. All 63 pre-existing processes and existing public assets are unchanged. Nine browser checks against the actual public HTML/assets passed with synthetic private API responses. Anonymous private endpoints remain protected. Provider session fingerprint was unchanged; the owner supplies fresh cookies in the repaired form. Evidence: evidence/session-paste-live-20261029.json.
