@@ -1,0 +1,9 @@
+# Restore native Phrasly permissions on reassignment
+
+Kino's current source orders were approved and paid, but both native feature rows remained disabled. The provisioning trigger used ON CONFLICT DO NOTHING, so creating a new assignment could not reactivate previously revoked features.
+
+The trigger now enables both features with Unlimited when a new eligible source is inserted or an inactive/unpaid/expired/pending-fulfilment source becomes eligible. Existing numeric allowances and daily usage are retained. Same-source updates and webhook retries preserve explicit revocation. Pending/failed/expired sources and ordinary customer writes cannot provision access. The existing private schema, fixed search path, role guard and service-role-only function privileges remain.
+
+The targeted repair restored Kino's two disabled feature flags after checking his active paid entitlement and inserted two audit events. Exact repair SQL: scripts/phrasly/repair-kino-feature-access-20261029.sql. No order, payment, balance, source expiry or provider session was changed. The function replacement is additive and transactional: supabase/migrations/20261029084715_phrasly_reassignment_feature_restore.sql.
+
+Validation: fourteen isolated PostgreSQL/PGlite reassignment checks plus the historical entitlement regressions. Live checks used the newly created diagnostic writer inside a transaction that was rolled back: source reactivation restored both features, while a no-op retry left a deliberate revocation intact. The diagnostic writer's access was preserved after rollback. Kino was not logged in or impersonated for testing. His two current features are enabled and Unlimited. No new security-advisor findings were introduced. Source orders, payments and provider-session fingerprints match before/after.

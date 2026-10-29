@@ -1,0 +1,27 @@
+name: Phrasly reassignment permissions
+on:
+  push:
+    paths:
+      - 'supabase/migrations/*phrasly_reassignment_feature_restore.sql'
+      - 'tests/phrasly-entitlements/**'
+      - '.github/workflows/phrasly-reassignment.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/*phrasly_reassignment_feature_restore.sql'
+      - 'tests/phrasly-entitlements/**'
+      - '.github/workflows/phrasly-reassignment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reassignment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix tests/phrasly-entitlements --ignore-scripts --no-audit --no-fund
+      - run: node tests/phrasly-entitlements/reassignment.mjs
+      - run: node tests/phrasly-entitlements/regression.mjs

@@ -1,0 +1,18 @@
+{
+  "status": "LIVE",
+  "date": "2026-10-29",
+  "migration": "phrasly_reassignment_feature_restore",
+  "local_checks": 14,
+  "restored_kino_features": 2,
+  "repair_audit_events": 2,
+  "kino_features_enabled_unlimited": true,
+  "live_test_transaction_rolled_back": true,
+  "live_source_reactivation_restores_features": true,
+  "live_same_source_retry_preserves_revocation": true,
+  "new_security_findings": 0,
+  "fingerprints_unchanged": {
+    "orders": "de9d833329213e3a6511219eae7e8bfe",
+    "payments": "8023a1d99c124a1af1fff8c072f3940c",
+    "provider": "dbf3b55857a1f2621f5d8e1ea43ee7b5"
+  }
+}
