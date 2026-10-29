@@ -1,0 +1,17 @@
+[
+  {
+    "Profile": "Default",
+    "OriginalAwsVersion": "1.0.0",
+    "ReloadConfirmed": true
+  },
+  {
+    "Profile": "Profile 3",
+    "OriginalAwsVersion": "1.0.0",
+    "ReloadConfirmed": true
+  },
+  {
+    "Profile": "Profile 4",
+    "OriginalAwsVersion": "1.0.0",
+    "ReloadConfirmed": true
+  }
+]

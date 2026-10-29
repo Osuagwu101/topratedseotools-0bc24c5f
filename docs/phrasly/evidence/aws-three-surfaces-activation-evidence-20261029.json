@@ -1,0 +1,28 @@
+{
+  "status": "LIVE",
+  "source_commit": "ad1a142cd321933072ebfeddd193d0a61563538d",
+  "writer_files": 12,
+  "admin_files": 4,
+  "extension_change_scope": "domain replacements only",
+  "original_interface_templates": 6,
+  "assets": {
+    "Jawad-Ahmed-EXR.zip": "5fbdcf61f42d2be3828b2e75e1c3061421b72c300fa44f08d81757de8256ec90",
+    "Osuagwu-Solomon-TopRated.zip": "5fbdcf61f42d2be3828b2e75e1c3061421b72c300fa44f08d81757de8256ec90",
+    "PhraslyAccessSetup-BuRSpOIq.js": "980eff4dcfdabe1c19d58169f1ddc3d62de7c263a0c2aa63a3cbbfffe7b00dbc",
+    "admin-aws-parity-20261029.js": "86a7d44243e2bde134827b2b3e2693c61e446122540b900ba9130f49984cd8de",
+    "aws-cookie-tools-20261029.js": "f0f7f24e35452ba03efea65a92d7eb0fe8cb393d2dcc50d9dd6f931914673f5a",
+    "aws/apple-touch-icon.png": "53e59318fe2e0d727db30cd1845678a988b91ce0338faf38af78a36cf9069808",
+    "aws/favicon-16.png": "2467d11eca24668fec2fbb74f4dc4ecde38185e82fd241ef66c576b54d3c423c",
+    "aws/favicon-32.png": "2abbabb32d375532edb17aa04b772a478cb5edf99ee047cf73f435e8ff4836c7",
+    "aws/favicon.ico": "afbac54e2f0cb72acc14191508ab23853438371b7790189cf8a5762346cab5e4",
+    "aws/logo-64.webp": "4f90955563d3fbe09a61faf9bc5df101fa234dcfc9fb9b4b189261899107481d",
+    "client-wul2OJKG.js": "b6a6eeaae41119e4aae394803a5b6ba1c036a940cabb1b5cd95167f68337572e",
+    "customer-access-v1.js": "0a15397e02f7f167387e7ea9aca8bbede52f32dff7dafc4838b6cc4727f3b948",
+    "writer.js": "86a7d44243e2bde134827b2b3e2693c61e446122540b900ba9130f49984cd8de"
+  },
+  "writer_sha256": "0cefe78c1f2143ad561fe6008bcb52ebc8cf620e57014cb039b76d16d27be9d7",
+  "existing_application_processes_unchanged": true,
+  "production_account_mutations": false,
+  "financial_mutations": false,
+  "schema_changes": false
+}

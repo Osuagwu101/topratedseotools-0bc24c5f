@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "owner_view_authorized": true,
+  "account_count": 1,
+  "cookie_counts": [
+    44
+  ],
+  "legacy_account_metadata_unchanged": true,
+  "production_mutations": false
+}

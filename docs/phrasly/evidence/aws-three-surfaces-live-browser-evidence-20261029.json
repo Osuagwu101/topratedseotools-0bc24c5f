@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "live_original_admin_interface": true,
+  "cookie_fields": [
+    {
+      "cookieCount": 33,
+      "associatedForm": true
+    }
+  ],
+  "original_logo_loaded": true,
+  "original_theme_toggle": true,
+  "source_writer_download_matches": true,
+  "source_admin_download_matches": true,
+  "page_errors": 0,
+  "production_mutations": false
+}

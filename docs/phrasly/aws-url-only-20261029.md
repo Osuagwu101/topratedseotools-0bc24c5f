@@ -24,3 +24,9 @@ The independent reference screen is rendered directly by the original PHP with m
 The existing TopRated authentication/database adapter remains responsible for authorizing Admin and reading/writing the existing encrypted account storage. Raw JSON is returned only for the authenticated owner view requesting interface=aws. The default Admin API remains sanitized. Account removal refuses assigned records, including a concurrent assignment protected by the verified PostgreSQL foreign key.
 
 No schema, balances, credits, or existing account/assignment data are changed by deployment.
+
+Production publication: the isolated three-surfaces release is live at https://topratedseotools.com/admin/phrasly. The authenticated read-only browser check passed the original page, populated fields, logo, theme toggle and both extension download hashes with zero page errors. No account records were changed by the check.
+
+The user extension was loaded and version 1.0.0 confirmed in Chrome Default, Profile 3 and Profile 4. The earlier custom Admin folder was backed up and replaced by the original four files. The original Jawad Ahmed EXR name and version 1.0 were confirmed in all three profiles. Restoring the original Admin manifest changed the unpacked extension ID for the two profiles using the former custom folder; the obsolete custom instance is disabled by Chrome. The other profile retains its already identical original Admin extension.
+
+Temporary owner browser-test credentials were signed out for that session only and removed after validation. Source and interface parity are verified; native Humanizer/Detector processing across these profiles is not asserted by these checks.
