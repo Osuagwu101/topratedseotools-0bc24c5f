@@ -13,6 +13,6 @@ await build({
  build:{outDir:out,emptyOutDir:false,minify:true,sourcemap:false,target:"es2022",
   lib:{entry:{writer:path.join(root,"src/components/tools/PhraslyStaffWorkspace.tsx"),"customer-access-v1":path.join(root,"src/components/tools/PhraslyCustomerEntry.tsx")},formats:["es"],fileName:(_format,name)=>name+".js"}}
 });
-fs.copyFileSync(path.join(out,"writer.js"),path.join(out,"admin.js"));
+fs.copyFileSync(path.join(out,"writer.js"),path.join(out,"admin-aws-parity-20261029.js"));
 
 fs.copyFileSync(path.join(root,"src/lib/phrasly-extension/customer-bootstrap.js"),path.join(out,"customer-bootstrap-v1.js"));

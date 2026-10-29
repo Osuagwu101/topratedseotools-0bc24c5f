@@ -11,7 +11,7 @@ async function load() {
     count.textContent = cookies.length + " Phrasly cookies";
     const signedIn = cookies.some(c => c.name === "session" && c.value);
     session.textContent = signedIn ? "Session found" : "Sign in needed";
-    for (const cookie of cookies) { const item = document.createElement("li"); item.textContent = cookie.name; list.appendChild(item); }
+    for (const cookie of cookies) { const item = document.createElement("li"); const name=document.createElement("span");name.className="cookie-name";name.textContent=cookie.name;const value=document.createElement("span");value.className="cookie-value";value.textContent="•••••••• (value hidden)";item.append(name,value); list.appendChild(item); }
     copy.disabled = false; send.disabled = !signedIn;
   } catch (e) { count.textContent = "Phrasly account required"; status.textContent = messages[e.message] || messages.extension_request_failed; }
 }

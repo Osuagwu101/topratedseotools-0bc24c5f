@@ -32,6 +32,8 @@ export async function downloadPackage(request:Request) {
 export async function adminState(request:Request) {
  const uid=await owner(request);
  const accounts=await checked(db.from("phrasly_oneclick_accounts").select("id,label,target_url,capacity,enabled,created_at").eq("tool_id","phrasly").order("created_at"));
+ const assignments=await checked(db.from("phrasly_oneclick_assignments").select("account_id").eq("tool_id","phrasly"));
+ for(const account of accounts)account.used=assignments.filter((a:any)=>a.account_id===account.id).length;
  const grants=await checked(db.from("phrasly_oneclick_feature_grants").select("user_id,feature_key,daily_limit,enabled,is_unlimited").eq("tool_id","phrasly"));
  const ids=[...new Set((grants||[]).map((g:any)=>g.user_id))];
  const profiles=ids.length?await checked(db.from("profiles").select("id,email,full_name").in("id",ids)):[];
@@ -90,26 +92,38 @@ export async function adminChange(request:Request) {
   const target=identifier(input.user_id);
   await checked(db.from("phrasly_oneclick_feature_grants").update({enabled:false}).eq("user_id",target).eq("tool_id","phrasly"));
   await audit(uid,"admin_staff_revoked:"+target);
- } else if(input.action==="save_account") {
-  const id=identifier(input.account_id);
+ } else if(input.action==="save_account"||input.action==="add_account") {
+  const adding=input.action==="add_account";
+  const id=adding?null:identifier(input.account_id);
   const label=typeof input.label==="string"?input.label.trim():"";
   if(!label||label.length>120)throw new OneclickError("bad_request",400);
   if(input.capacity!==null&&(!Number.isInteger(input.capacity)||input.capacity<1||input.capacity>10000))throw new OneclickError("bad_request",400);
-  let cookies:Record<string,unknown>[];
-  try{cookies=parsePhraslySessionInput(input.cookies);}catch(e){const code=e instanceof Error&&["missing_login_cookie","ambiguous_login_cookies"].includes(e.message)?e.message:"bad_cookie_json";throw new OneclickError(code,400);}
-  const existing=await checked(db.from("phrasly_oneclick_accounts").select("id").eq("id",id).eq("tool_id","phrasly").maybeSingle());
-  if(!existing)throw new OneclickError("account_not_found",404);
-  const state={authenticated_cookies:cookies,session_tokens:{storage:{localStorage:{},sessionStorage:{}}}};
-  await checked(db.from("phrasly_oneclick_accounts").update({
-    label,capacity:input.capacity,enabled:input.enabled===true,encrypted_cookies:encryptPhraslySession(JSON.stringify(state))
-  }).eq("id",id).eq("tool_id","phrasly"));
-  await audit(uid,"admin_account_updated:"+id);
+  const existing=adding?null:await checked(db.from("phrasly_oneclick_accounts").select("id,target_url").eq("id",id).eq("tool_id","phrasly").maybeSingle());
+  if(!adding&&!existing)throw new OneclickError("account_not_found",404);
+  const target=typeof input.target_url==="string"?input.target_url.trim():existing?.target_url||"https://phrasly.ai/dashboard";
+  let parsed:URL;try{parsed=new URL(target);}catch{throw new OneclickError("bad_target_url",400);}
+  if(parsed.protocol!=="https:"||!(/^(?:[a-z0-9-]+\.)*phrasly\.ai$/i.test(parsed.hostname))||parsed.username||parsed.password||parsed.port)throw new OneclickError("bad_target_url",400);
+  const changes:any={label,target_url:parsed.href,capacity:input.capacity,enabled:input.enabled===true};
+  const replace=typeof input.cookies==="string"?!!input.cookies.trim():input.cookies!=null;
+  if(adding||replace){
+   let cookies:Record<string,unknown>[];
+   try{cookies=parsePhraslySessionInput(input.cookies);}catch(e){const code=e instanceof Error&&["missing_login_cookie","ambiguous_login_cookies"].includes(e.message)?e.message:"bad_cookie_json";throw new OneclickError(code,400);}
+   const state={authenticated_cookies:cookies,session_tokens:{storage:{localStorage:{},sessionStorage:{}}}};
+   changes.encrypted_cookies=encryptPhraslySession(JSON.stringify(state));
+  }
+  if(adding){
+   const created=await checked(db.from("phrasly_oneclick_accounts").insert({...changes,tool_id:"phrasly"}).select("id").single());
+   await audit(uid,"admin_account_added:"+created.id);
+  }else{
+   await checked(db.from("phrasly_oneclick_accounts").update(changes).eq("id",id).eq("tool_id","phrasly"));
+   await audit(uid,"admin_account_updated:"+id);
+  }
  } else throw new OneclickError("bad_request",400);
  return oneclickJson({ok:true});
 }
 export function workspacePage(admin=false) {
  const title=admin?"Phrasly administration":"Writer workspace";
- return new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+title+' — TopRated</title><link rel="stylesheet" href="/phrasly-assets/workspace.css"></head><body><div id="root"></div><script type="module" src="/phrasly-assets/'+(admin?"admin-import-validation-20261029":"writer")+'.js"></script></body></html>',{headers:{
+ return new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+title+' — TopRated</title><link rel="stylesheet" href="/phrasly-assets/workspace.css"></head><body><div id="root"></div><script type="module" src="/phrasly-assets/'+(admin?"admin-aws-parity-20261029":"writer")+'.js"></script></body></html>',{headers:{
   "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","X-Robots-Tag":"noindex, nofollow","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN",
   "Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://vuhnvsejdszfvwicflbb.supabase.co; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
  }});
