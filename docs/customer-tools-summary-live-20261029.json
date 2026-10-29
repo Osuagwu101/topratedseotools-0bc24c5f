@@ -1,0 +1,11 @@
+{
+  "status": "LIVE",
+  "utc": "2026-10-29T08:36:30Z",
+  "asset": "customer-tools-summary-v1.js",
+  "sha256": "f03eb0dc5924d8dfa77a3e0bd773c3e8e7520f095833dc28ee780b8115696b62",
+  "existing_processes_unchanged": 64,
+  "existing_assets_unchanged": true,
+  "new_database_writes": 0,
+  "only_main_admin_injection_changed": true,
+  "revocation_handler": "existing adminCancelAssignedOrder for Admin-assigned subscriptions"
+}

@@ -94,9 +94,9 @@ function CustomerPage() {
 
   const cancel = useMutation({
     mutationFn: (orderId: string) =>
-      adminCancelAssignedOrder({ data: { orderId, reason: "Cancelled by admin" } }),
+      adminCancelAssignedOrder({ data: { orderId, reason: "Tool access revoked by admin" } }),
     onSuccess: () => {
-      toast.success("Subscription cancelled");
+      toast.success("Tool access revoked");
       qc.invalidateQueries({ queryKey: ["admin-customer", userId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -136,6 +136,7 @@ function CustomerPage() {
               <StatCard label="Offline (manual)" value={money(data.totals.offlinePaid)} />
               <StatCard
                 label="Active / expired"
+                href="#assigned-tools"
                 value={`${data.totals.activeSubscriptions} / ${data.totals.expiredSubscriptions}`}
               />
             </div>
@@ -171,7 +172,7 @@ function CustomerPage() {
             <ChatGptControlsCard userId={userId} />
 
             {/* Subscriptions */}
-            <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
+            <div id="assigned-tools" tabIndex={-1} className="mt-6 scroll-mt-24 overflow-hidden rounded-2xl border bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
               <div className="border-b p-3 text-sm font-semibold">Assigned tools & subscriptions</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -210,10 +211,10 @@ function CustomerPage() {
                             <Button
                               size="sm" variant="ghost"
                               onClick={() => {
-                                if (confirm("Cancel this admin-assigned subscription? Payment history will be kept.")) cancel.mutate(o.id);
+                                if (confirm("Revoke access to this admin-assigned tool? Payment history will be kept.")) cancel.mutate(o.id);
                               }}
                             >
-                              <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Revoke access
                             </Button>
                           )}
                         </td>
@@ -1547,13 +1548,10 @@ function CommunicationHistoryCard({ userId }: { userId: string }) {
 
 
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border bg-card p-3 shadow-card">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold leading-tight">{value}</div>
-    </div>
-  );
+function StatCard({ label, value, href }: { label: string; value: string; href?: string }) {
+  const content=<><div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 text-xl font-semibold leading-tight">{value}</div>{href&&<div className="mt-1 text-xs text-primary">View tools &amp; revoke access →</div>}</>;
+  const style="rounded-xl border bg-card p-3 shadow-card";
+  return href?<a href={href} aria-label="View assigned tools and revoke access" className={style+" cursor-pointer transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"} onClick={event=>{event.preventDefault();const list=document.getElementById('assigned-tools');list?.scrollIntoView({behavior:'smooth',block:'start'});list?.focus({preventScroll:true});}}>{content}</a>:<div className={style}>{content}</div>;
 }
 
 function randomPassword(): string {
