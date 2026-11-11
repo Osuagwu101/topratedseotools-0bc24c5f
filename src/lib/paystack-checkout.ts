@@ -263,7 +263,9 @@ export interface VerifyInput {
   tx: {
     status: string;
     reference: string;
-    amount: number; // minor units of `currency`
+    amount: number; // minor units of `currency` (may include fees Paystack added for the customer)
+    /** Product amount before customer-borne fees, in minor units. Null/absent on older responses. */
+    requested_amount?: number | null;
     currency: string;
     metadata?: { order_id?: string };
   } | null;
@@ -315,7 +317,13 @@ export function validatePaymentVerification(
   const expectedAmountMajor =
     v.order.final_amount_charged ?? v.order.price_amount ?? 0;
   const expectedMinor = Math.round(Number(expectedAmountMajor) * 100);
-  if (expectedMinor <= 0 || v.tx.amount !== expectedMinor) {
+  // Paystack may add channel fees (e.g. bank transfer) on top for the customer,
+  // so `amount` can exceed the order total. Compare the product amount
+  // (`requested_amount`, falling back to `amount`) and accept anything >= the
+  // order total — the same rule Turnitin credit and postpaid payments use.
+  const productMinor =
+    v.tx.requested_amount == null ? Number(v.tx.amount) : Number(v.tx.requested_amount);
+  if (expectedMinor <= 0 || !(productMinor >= expectedMinor)) {
     return { ok: false, reason: "amount_mismatch" };
   }
   if ((v.tx.currency ?? "").toUpperCase() !== expectedCurrency) {

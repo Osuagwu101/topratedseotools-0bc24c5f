@@ -377,6 +377,28 @@ async function main() {
     });
     assert(!v.ok && (v as any).reason === "amount_mismatch", "reason");
   });
+  await test("Customer-borne fee on top (requested_amount matches) is accepted", async () => {
+    // Real case: ₦5,000 order, bank transfer, Paystack charged ₦5,106.03 incl. fee.
+    const v = validatePaymentVerification({
+      tx: { ...validTx, amount: 510603, requested_amount: 500000 },
+      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+    });
+    assert(v.ok === true, `expected ok, got ${JSON.stringify(v)}`);
+  });
+  await test("Overpayment without requested_amount is accepted", async () => {
+    const v = validatePaymentVerification({
+      tx: { ...validTx, amount: 510000 },
+      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+    });
+    assert(v.ok === true, `expected ok, got ${JSON.stringify(v)}`);
+  });
+  await test("Underpayment is rejected even when fees push amount above total", async () => {
+    const v = validatePaymentVerification({
+      tx: { ...validTx, amount: 505000, requested_amount: 499999 },
+      order: validOrder, callerUserId: USER, env: "test", otherOrderHasReference: false,
+    });
+    assert(!v.ok && (v as any).reason === "amount_mismatch", "reason");
+  });
   await test("Currency mismatch (USD)", async () => {
     const v = validatePaymentVerification({
       tx: { ...validTx, currency: "USD" },
