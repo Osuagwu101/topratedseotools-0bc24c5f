@@ -154,9 +154,13 @@ export function joinPdfItems(items: PdfTextItem[]): string {
 
 export async function countPdfWords(buf: ArrayBuffer): Promise<number> {
   const pdfjs = await import("pdfjs-dist");
-  if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
+  if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerPort) {
     const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+    // Start the worker from a Blob with an explicit JS type: some servers send
+    // .mjs as application/octet-stream, which browsers refuse to run as a worker.
+    const code = await (await fetch(worker.default)).text();
+    const blobUrl = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+    pdfjs.GlobalWorkerOptions.workerPort = new Worker(blobUrl, { type: "module" });
   }
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
   try {
