@@ -23,6 +23,10 @@ from pathlib import Path
 REPO = "https://github.com/Osuagwu101/topratedseotools-0bc24c5f.git"
 RELEASES = Path("/home/ubuntu/releases")
 NGINX_CFG = Path("/etc/nginx/sites-enabled/topratedseotools")
+# Dedicated proxy hostnames served by the main app; their proxy_pass follows the live port.
+EXTRA_NGINX_CFGS = [Path("/etc/nginx/sites-enabled/chatgpt-proxy")]
+# Dedicated hosts answer 401 to an anonymous request (no proxy session) when healthy.
+DEDICATED_HOST_CHECKS = {"https://chatgpt.topratedseotools.com/": {"401"}}
 BACKUPS = Path("/home/ubuntu/deploy/backups")
 CURRENT_LINK = Path("/home/ubuntu/deploy/current")  # always points at the live release
 ASSETS_DST = Path("/var/www/trst-assets-unified-20261015/assets")
@@ -128,16 +132,32 @@ def main():
     run(["sudo", "rsync", "-a", "--ignore-existing", f"{rel}/.output/public/assets/", f"{ASSETS_DST}/"])
 
     # 6. Switch nginx page routes from the live port to the new port.
-    new_cfg = re.sub(r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + live_port + r";$",
-                     r"\1proxy_pass http://127.0.0.1:" + new_port + ";", original_cfg)
+    swap = lambda text: re.sub(r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + live_port + r";$",
+                               r"\1proxy_pass http://127.0.0.1:" + new_port + ";", text)
+    new_cfg = swap(original_cfg)
     if new_cfg == original_cfg:
         raise SystemExit("nginx config unchanged; aborting")
     BACKUPS.mkdir(parents=True, exist_ok=True)
-    (BACKUPS / f"nginx-before-{short}-{int(time.time())}.conf").write_text(original_cfg)
-    tmp = Path(f"/tmp/nginx-{short}.conf")
-    tmp.write_text(new_cfg)
+    stamp = int(time.time())
+    (BACKUPS / f"nginx-before-{short}-{stamp}.conf").write_text(original_cfg)
+    changes = [(NGINX_CFG, original_cfg, new_cfg)]
+    for extra in EXTRA_NGINX_CFGS:
+        if not extra.exists():
+            continue
+        before = extra.read_text()
+        after = swap(before)
+        if after != before:
+            (BACKUPS / f"{extra.name}-before-{short}-{stamp}.conf").write_text(before)
+            changes.append((extra, before, after))
+
+    def install(path, text):
+        tmp = Path(f"/tmp/nginx-{short}-{path.name}.conf")
+        tmp.write_text(text)
+        run(["sudo", "cp", str(tmp), str(path)])
+
     try:
-        run(["sudo", "cp", str(tmp), str(NGINX_CFG)])
+        for path, _, after in changes:
+            install(path, after)
         run(["sudo", "nginx", "-t"], capture_output=True)
         run(["sudo", "systemctl", "reload", "nginx"])
         time.sleep(2)
@@ -146,9 +166,18 @@ def main():
             log(f"PUBLIC {route} {code}")
             if code not in OK_CODES:
                 raise RuntimeError(f"Public smoke test failed for {route}: {code}")
+        for url, ok in DEDICATED_HOST_CHECKS.items():
+            if not any(path in EXTRA_NGINX_CFGS for path, _, _ in changes):
+                break
+            code = http_code(url)
+            log(f"PUBLIC {url} {code}")
+            if code not in ok:
+                raise RuntimeError(f"Dedicated host smoke test failed for {url}: {code}")
     except BaseException as exc:
-        tmp.write_text(original_cfg)
-        subprocess.run(["sudo", "cp", str(tmp), str(NGINX_CFG)], check=True)
+        for path, before, _ in changes:
+            tmp = Path(f"/tmp/nginx-{short}-{path.name}.rollback")
+            tmp.write_text(before)
+            subprocess.run(["sudo", "cp", str(tmp), str(path)], check=True)
         subprocess.run(["sudo", "nginx", "-t"], check=True)
         subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
         log(f"ROLLED BACK nginx to port {live_port}: {exc}")
