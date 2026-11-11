@@ -137,8 +137,9 @@ export function upstreamTarget(requestUrl: string): { url: URL; host: string } |
 const HOST_RE = "([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))";
 
 /** Point every absolute Grammarly URL in a text body at the proxy host. */
-export function rewriteGrammarlyBody(text: string, publicOrigin: string) {
+export function rewriteGrammarlyBody(text: string, publicOrigin: string, debug = false) {
   const wsOrigin = publicOrigin.replace(/^https:/, "wss:");
+  const proxyHost = new URL(publicOrigin).hostname;
   const esc = (s: string) => s.replaceAll("/", "\\/");
   const httpTarget = (host: string) =>
     host.toLowerCase() === "app.grammarly.com" ? publicOrigin : `${publicOrigin}/__host/${host.toLowerCase()}`;
@@ -147,7 +148,13 @@ export function rewriteGrammarlyBody(text: string, publicOrigin: string) {
     .replace(new RegExp(`https:\\\\/\\\\/${HOST_RE}`, "gi"), (_, host) => esc(httpTarget(host)))
     .replace(new RegExp(`wss://${HOST_RE}`, "gi"), (_, host) => `${wsOrigin}/__ws/${host.toLowerCase()}`)
     .replace(new RegExp(`wss:\\\\/\\\\/${HOST_RE}`, "gi"), (_, host) => esc(`${wsOrigin}/__ws/${host.toLowerCase()}`))
-    .replace(new RegExp(`(["'(=\\s])//${HOST_RE}`, "gi"), (_, pre, host) => `${pre}${httpTarget(host)}`);
+    .replace(new RegExp(`(["'(=\\s])//${HOST_RE}`, "gi"), (_, pre, host) => `${pre}${httpTarget(host)}`)
+    // The editor writes its cookies for ".grammarly.com"; on the proxy host the
+    // browser would refuse them and the editor never finishes starting.
+    .replace(/("cookie"\s*:\s*")\.grammarly\.com(")/g, `$1${proxyHost}$2`)
+    .replace(/(\\"cookie\\"\s*:\s*\\")\.grammarly\.com(\\")/g, `$1${proxyHost}$2`)
+    // Debug switch (cookie trst_debug=1): copy the editor's own log to the console.
+    .replace(/"copyLogsToConsole"\s*:\s*false/g, debug ? '"copyLogsToConsole":true' : '"copyLogsToConsole":false');
 }
 
 /**
@@ -167,6 +174,7 @@ var S=window.WebSocket;function WS(u,p){return p===undefined?new S(map(u)):new S
 if(window.EventSource){var E=window.EventSource;window.EventSource=function(u,c){return new E(map(u),c)};window.EventSource.prototype=E.prototype}
 if(navigator.sendBeacon){var B=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return B(map(u),d)}}
 var WO=window.open;window.open=function(u){if(u){var t=map(u);if(t===u&&/^https?:/i.test(String(u))&&!String(u).startsWith(O))return null;arguments[0]=t}return WO.apply(this,arguments)};
+var CD=Object.getOwnPropertyDescriptor(Document.prototype,"cookie");if(CD&&CD.set){Object.defineProperty(document,"cookie",{configurable:true,get:function(){return CD.get.call(document)},set:function(v){CD.set.call(document,String(v).replace(/;\\s*domain=[^;]*/ig,""))}})}
 if(document.cookie.indexOf("csrf-token=")<0)document.cookie="csrf-token=trst-proxy; path=/; secure; samesite=lax";
 }catch(e){}})();</script>`;
 }
@@ -668,7 +676,8 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     return new Response(upstream.body, { status: upstream.status, headers: out });
   }
 
-  let text = rewriteGrammarlyBody(await upstream.text(), publicOrigin);
+  const debug = parseCookies(request).get("trst_debug") === "1";
+  let text = rewriteGrammarlyBody(await upstream.text(), publicOrigin, debug);
 
   if (type.includes("text/html")) {
     text = text.replace(/<head([^>]*)>/i, (m) => m + grammarlyBootstrapScript());

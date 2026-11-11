@@ -47,6 +47,12 @@ assert(rw.includes('d="https:\\/\\/grammarly.topratedseotools.com\\/__host\\/aut
 assert(rw.includes(`e='${O}/__host/denali-static.grammarly.com/js/a.js'`), "rewrites protocol-relative URLs");
 assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
 
+{
+  const cfg = rewriteGrammarlyBody('{"domains":{"cookie":".grammarly.com"},"copyLogsToConsole":false}', O);
+  assert(cfg.includes('"cookie":"grammarly.topratedseotools.com"'), "editor cookies are written for the proxy host");
+  assert(cfg.includes('"copyLogsToConsole":false') && rewriteGrammarlyBody('"copyLogsToConsole":false', O, true).includes('"copyLogsToConsole":true'), "debug switch only when asked");
+}
+
 // ---- bootstrap script is valid JS
 {
   const html = grammarlyBootstrapScript();
@@ -59,6 +65,7 @@ assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
   }
   assert(ok, "bootstrap script compiles");
   assert(js.includes("__ws/") && js.includes("__host/") && js.includes("csrf-token="), "bootstrap maps sockets/hosts and sets a readable CSRF cookie");
+  assert(js.includes('domain=[^;]*'), "bootstrap drops foreign cookie domains");
 }
 
 // ---- shared-account blocks
