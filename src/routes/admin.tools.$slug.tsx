@@ -69,6 +69,11 @@ import {
   adminRevokeChatGptSession,
 } from "@/lib/chatgpt-session.functions";
 import {
+  adminGetGrammarlySessionStatus,
+  adminSaveGrammarlySession,
+  adminRevokeGrammarlySession,
+} from "@/lib/grammarly-session.functions";
+import {
   adminGetTurnitinOriginalitySessionStatus,
   adminSaveTurnitinOriginalitySession,
   adminTestTurnitinOriginalitySession,
@@ -103,6 +108,11 @@ const phraslySessionQuery = queryOptions({
   queryKey: ["admin-phrasly-authorized-session"],
   queryFn: () => adminGetPhraslySessionStatus(),
 });
+const grammarlySessionQuery = queryOptions({
+  queryKey: ["admin-grammarly-authorized-session"],
+  queryFn: () => adminGetGrammarlySessionStatus(),
+});
+
 const chatGptSessionQuery = queryOptions({
   queryKey: ["admin-chatgpt-authorized-session"],
   queryFn: () => adminGetChatGptSessionStatus(),
@@ -137,6 +147,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
         : []),
       ...(tool.slug === "phrasly"
         ? [context.queryClient.ensureQueryData(phraslySessionQuery)]
+        : []),
+      ...(tool.slug === "grammarly"
+        ? [context.queryClient.ensureQueryData(grammarlySessionQuery)]
         : []),
       ...(tool.slug === "chatgpt"
         ? [context.queryClient.ensureQueryData(chatGptSessionQuery)]
@@ -186,7 +199,7 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
-  if (tool.slug === "phrasly" || tool.slug === "chatgpt") {
+  if (tool.slug === "phrasly" || tool.slug === "chatgpt" || tool.slug === "grammarly") {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
@@ -276,6 +289,9 @@ function AdminToolPage() {
           )}
           {tab === "session" && tool.slug === "phrasly" && (
             <PhraslySessionTab />
+          )}
+          {tab === "session" && tool.slug === "grammarly" && (
+            <GrammarlySessionTab />
           )}
           {tab === "session" && tool.slug === "chatgpt" && (
             <ChatGptSessionTab />
@@ -951,6 +967,164 @@ function ChatGptSessionTab() {
           {!data.can_manage ? (
             <span className="text-xs text-muted-foreground">
               Only a Super Admin can replace or revoke the ChatGPT authorised session.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Stored data is write-only here and encrypted before database storage.
+            </span>
+          )}
+          <div className="flex gap-2">
+            {data.configured ? (
+              <button
+                type="button"
+                onClick={revoke}
+                disabled={!data.can_manage || saving || revoking}
+                className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {revoking ? "Revoking…" : "Revoke session"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={save}
+              disabled={!data.can_manage || saving || revoking || !sessionData.trim()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatGrammarlySessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
+
+function GrammarlySessionTab() {
+  const { data } = useSuspenseQuery(grammarlySessionQuery);
+  const saveSession = useServerFn(adminSaveGrammarlySession);
+  const revokeSession = useServerFn(adminRevokeGrammarlySession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error("Paste the authorised Grammarly session JSON first.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await saveSession({ data: { session_data: sessionData.trim() } });
+      setSessionData("");
+      await qc.invalidateQueries({
+        queryKey: ["admin-grammarly-authorized-session"],
+      });
+      toast.success("Grammarly authorised session saved securely.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not save the Grammarly session.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revoke() {
+    if (!confirm("Revoke the stored Grammarly authorised session?")) return;
+    setRevoking(true);
+    try {
+      await revokeSession();
+      setSessionData("");
+      await qc.invalidateQueries({
+        queryKey: ["admin-grammarly-authorized-session"],
+      });
+      toast.success("Grammarly authorised session revoked.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not revoke the Grammarly session.",
+      );
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Grammarly authorised session</h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              The authorised-session vault stores one encrypted multi-cookie session bundle.
+              Multiple first-party cookie objects are kept together server-side and are
+              never displayed back in the browser after saving.
+            </p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                data.configured
+                  ? "bg-success/15 text-success"
+                  : data.status === "revoked"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {data.configured
+                ? "Stored"
+                : data.status === "revoked"
+                  ? "Revoked"
+                  : "Not configured"}
+            </span>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Last changed: {formatGrammarlySessionTime(data.updated_at)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Paste the cookies from a browser signed in to the shared Grammarly
+          Premium account. One-click launch for writers is switched on once the
+          Grammarly proxy is live.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Grammarly session JSON
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={12}
+          autoComplete="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          disabled={!data.can_manage || saving || revoking}
+          placeholder={'{"version":2,"cookies":[{"name":"grauth","value":"...","domain":".grammarly.com","path":"/"},{"name":"csrf-token","value":"...","domain":".grammarly.com","path":"/"}]}'}
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Paste the authorised multi-cookie session JSON here. The server accepts
+          multiple first-party cookie objects in one bundle, rejects unrelated domains,
+          and discards analytics, support, and challenge cookies. Do not paste secret
+          session values into chat.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {!data.can_manage ? (
+            <span className="text-xs text-muted-foreground">
+              Only a Super Admin can replace or revoke the Grammarly authorised session.
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
