@@ -13,6 +13,7 @@ import {
   isActiveChatGPTGrant,
   isActiveChatGPTOrder,
   isForwardedChatGPTClientHeader,
+  isImmutableChatGPTAssetPath,
   mapChatGPTClientApiPath,
   upstreamHeaders,
   rewriteChatGPTBody,
@@ -390,6 +391,15 @@ assert(mapChatGPTClientApiPath("/__codex-api/sentinel/chat-requirements/prepare"
 assert(mapChatGPTClientApiPath("/__codex-anon-api/models") === "/backend-anon/models", "maps anon codex API base");
 assert(mapChatGPTClientApiPath("/__codex-apix/me") === "/__codex-apix/me", "does not map lookalike prefixes");
 assert(mapChatGPTClientApiPath("/c/123") === "/c/123" && mapChatGPTClientApiPath("/") === "/", "leaves page routes alone");
+
+assert(isImmutableChatGPTAssetPath("https://chatgpt.com", "/cdn/assets/123.abc.js"), "hashed ChatGPT assets are cacheable");
+assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/backend-api/me"), "API calls are never cached");
+assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/"), "pages are never cached");
+{
+  const src = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
+  assert(src.includes("CHATGPT_SESSION_CACHE_MS = 30_000"), "writer-session validation cache is short-lived (30s)");
+  assert(src.indexOf("request.arrayBuffer()") < src.indexOf("proxySession = await requireProxySession(request)"), "request body is read before slow session checks");
+}
 
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
