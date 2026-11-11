@@ -35,6 +35,50 @@ export const CHATGPT_PROXY_COOKIE = "trst_cg_proxy";
 export const CHATGPT_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
 
+// ---- Performance caches ----------------------------------------------------
+// Every ChatGPT page pulls ~40 assets and dozens of API calls through this
+// proxy. Re-validating the writer session (8+ database round trips) and
+// re-loading the vault on every one made first loads take 20s+. Validated
+// sessions and the vault are cached briefly; revocations still apply within
+// CHATGPT_SESSION_CACHE_MS.
+const CHATGPT_SESSION_CACHE_MS = 30_000;
+const CHATGPT_VAULT_CACHE_MS = 30_000;
+const CHATGPT_ASSET_CACHE_MAX_BYTES = 96 * 1024 * 1024;
+const proxySessionCache = new Map<string, { row: any; until: number }>();
+let vaultCache: { value: string; until: number } | null = null;
+type CachedAsset = { body: string | ArrayBuffer; contentType: string; bytes: number };
+const assetCache = new Map<string, CachedAsset>();
+let assetCacheBytes = 0;
+
+export function isImmutableChatGPTAssetPath(targetOrigin: string, pathname: string) {
+  return targetOrigin === CHATGPT_UPSTREAM_ORIGIN && pathname.startsWith("/cdn/assets/");
+}
+
+function getCachedAsset(key: string) {
+  const hit = assetCache.get(key);
+  if (hit) {
+    assetCache.delete(key);
+    assetCache.set(key, hit); // LRU refresh
+  }
+  return hit;
+}
+
+function putCachedAsset(key: string, asset: CachedAsset) {
+  if (asset.bytes > 16 * 1024 * 1024) return;
+  const old = assetCache.get(key);
+  if (old) {
+    assetCacheBytes -= old.bytes;
+    assetCache.delete(key);
+  }
+  assetCache.set(key, asset);
+  assetCacheBytes += asset.bytes;
+  for (const [k, v] of assetCache) {
+    if (assetCacheBytes <= CHATGPT_ASSET_CACHE_MAX_BYTES) break;
+    assetCache.delete(k);
+    assetCacheBytes -= v.bytes;
+  }
+}
+
 export function chatgptProxyPublicOrigin() {
   const raw = String(process.env.CHATGPT_PROXY_PUBLIC_ORIGIN ?? "").trim();
   if (!raw) return null;
@@ -246,6 +290,7 @@ async function sourceStillActive(
 }
 
 async function loadEncryptedChatGPTSession() {
+  if (vaultCache && vaultCache.until > Date.now()) return vaultCache.value;
   const { data, error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .select("encrypted_payload, status")
@@ -257,7 +302,8 @@ async function loadEncryptedChatGPTSession() {
       "ChatGPT needs to be refreshed by Admin before writers can launch it.",
     );
   }
-  return String(data.encrypted_payload);
+  vaultCache = { value: String(data.encrypted_payload), until: Date.now() + CHATGPT_VAULT_CACHE_MS };
+  return vaultCache.value;
 }
 
 export function extractChatGPTCookieRotations(
@@ -321,10 +367,12 @@ async function persistRotatedChatGPTCookies(upstream: Response) {
   if (!rotated.changed) return;
 
   const nowIso = new Date().toISOString();
+  const nextEncrypted = encryptChatGptSession(rotated.plaintext);
+  vaultCache = { value: nextEncrypted, until: Date.now() + CHATGPT_VAULT_CACHE_MS };
   const { error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .update({
-      encrypted_payload: encryptChatGptSession(rotated.plaintext),
+      encrypted_payload: nextEncrypted,
       rotated_at: nowIso,
       updated_at: nowIso,
     })
@@ -349,6 +397,15 @@ type ChatGPTProxyDiagnosticCode =
   | "upstream_external_redirect"
   | "upstream_redirect"
   | "upstream_ok";
+
+const okDiagnosticAt = new Map<string, number>();
+function shouldRecordOkDiagnostic(sessionId: string) {
+  const last = okDiagnosticAt.get(sessionId) ?? 0;
+  if (Date.now() - last < 60_000) return false;
+  if (okDiagnosticAt.size > 5000) okDiagnosticAt.clear();
+  okDiagnosticAt.set(sessionId, Date.now());
+  return true;
+}
 
 async function recordChatGPTProxyDiagnostic(
   proxySessionId: string,
@@ -583,6 +640,13 @@ async function requireProxySession(request: Request) {
   const deviceFingerprint = cookies.get(CHATGPT_DEVICE_COOKIE);
   if (!token || !isValidChatGptDeviceFingerprint(deviceFingerprint)) return null;
 
+  const cacheKey = `${hashChatGPTProxyToken(token)}:${deviceFingerprint}`;
+  const cached = proxySessionCache.get(cacheKey);
+  if (cached && cached.until > Date.now()) {
+    if (new Date(String(cached.row.expires_at)).getTime() > Date.now()) return cached.row;
+  }
+  proxySessionCache.delete(cacheKey);
+
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
@@ -648,6 +712,8 @@ async function requireProxySession(request: Request) {
     .update({ last_seen_at: nowIso })
     .eq("id", row.id);
 
+  if (proxySessionCache.size > 5000) proxySessionCache.clear();
+  proxySessionCache.set(cacheKey, { row, until: Date.now() + CHATGPT_SESSION_CACHE_MS });
   return row;
 }
 
@@ -882,6 +948,35 @@ export async function handleChatGPTProxyRequest(request: Request) {
     return exchangeLaunchTicket(request, ticket);
   }
 
+  // Read the request body before any slow checks: the incoming stream can be
+  // torn down while we wait ("Response body object should not be disturbed").
+  let body: ArrayBuffer | undefined;
+  if (!["GET", "HEAD"].includes(request.method)) {
+    const declared = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
+      return new Response("Request too large", {
+        status: 413,
+        headers: standardHeaders("text/plain; charset=utf-8"),
+      });
+    }
+    let bytes: ArrayBuffer;
+    try {
+      bytes = await request.arrayBuffer();
+    } catch {
+      return new Response("Request body unavailable", {
+        status: 400,
+        headers: standardHeaders("text/plain; charset=utf-8"),
+      });
+    }
+    if (bytes.byteLength > MAX_REQUEST_BYTES) {
+      return new Response("Request too large", {
+        status: 413,
+        headers: standardHeaders("text/plain; charset=utf-8"),
+      });
+    }
+    body = bytes;
+  }
+
   let proxySession;
   try {
     proxySession = await requireProxySession(request);
@@ -939,6 +1034,20 @@ export async function handleChatGPTProxyRequest(request: Request) {
     return forbidden("This ChatGPT account, settings, or billing page is restricted.");
   }
 
+  const publicOrigin = new URL(request.url).origin;
+  const assetCacheable =
+    request.method === "GET" &&
+    (isSecondaryHost || isImmutableChatGPTAssetPath(targetOrigin, target.pathname));
+  const assetKey = `${publicOrigin}${proxyBase}|${target.toString()}`;
+  if (assetCacheable) {
+    const hit = getCachedAsset(assetKey);
+    if (hit) {
+      const h = standardHeaders(hit.contentType);
+      h.set("Cache-Control", "private, max-age=31536000, immutable");
+      return new Response(hit.body, { status: 200, headers: h });
+    }
+  }
+
   let cookieHeader = "";
   try {
     const encrypted = await loadEncryptedChatGPTSession();
@@ -961,25 +1070,6 @@ export async function handleChatGPTProxyRequest(request: Request) {
       "session_cookie_missing",
     );
     return unavailable();
-  }
-
-  let body: ArrayBuffer | undefined;
-  if (!["GET", "HEAD"].includes(request.method)) {
-    const declared = Number(request.headers.get("content-length") ?? 0);
-    if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
-      return new Response("Request too large", {
-        status: 413,
-        headers: standardHeaders("text/plain; charset=utf-8"),
-      });
-    }
-    const bytes = await request.arrayBuffer();
-    if (bytes.byteLength > MAX_REQUEST_BYTES) {
-      return new Response("Request too large", {
-        status: 413,
-        headers: standardHeaders("text/plain; charset=utf-8"),
-      });
-    }
-    body = bytes;
   }
 
   let upstream: Response;
@@ -1054,11 +1144,14 @@ export async function handleChatGPTProxyRequest(request: Request) {
     return new Response(null, { status: upstream.status, headers: h });
   }
 
-  await recordChatGPTProxyDiagnostic(
-    String(proxySession.id),
-    "upstream_ok",
-    upstream.status,
-  );
+  // Success diagnostics are throttled and never block the response.
+  if (shouldRecordOkDiagnostic(String(proxySession.id))) {
+    void recordChatGPTProxyDiagnostic(
+      String(proxySession.id),
+      "upstream_ok",
+      upstream.status,
+    );
+  }
 
   const contentType =
     upstream.headers.get("content-type") ?? "application/octet-stream";
@@ -1096,15 +1189,25 @@ export async function handleChatGPTProxyRequest(request: Request) {
     contentType.includes("application/json") ||
     contentType.includes("text/plain");
 
+  const storeAsset = assetCacheable && upstream.status === 200;
+  if (storeAsset) headers.set("Cache-Control", "private, max-age=31536000, immutable");
+
   if (isRewriteableText) {
     const text = await upstream.text();
-    return new Response(
-      rewriteChatGPTBody(text, contentType, proxyBase, new URL(request.url).origin),
-      {
-        status: upstream.status,
-        headers,
-      },
-    );
+    const rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
+    if (storeAsset) {
+      putCachedAsset(assetKey, { body: rewritten, contentType, bytes: rewritten.length * 2 });
+    }
+    return new Response(rewritten, {
+      status: upstream.status,
+      headers,
+    });
+  }
+
+  if (storeAsset) {
+    const bytes = await upstream.arrayBuffer();
+    putCachedAsset(assetKey, { body: bytes, contentType, bytes: bytes.byteLength });
+    return new Response(bytes, { status: upstream.status, headers });
   }
 
   return new Response(upstream.body, {
