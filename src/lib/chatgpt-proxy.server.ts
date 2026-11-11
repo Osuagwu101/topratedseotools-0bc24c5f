@@ -651,6 +651,16 @@ async function requireProxySession(request: Request) {
   return row;
 }
 
+// ChatGPT's client picks its API base from the hostname: "/backend-api" on
+// chatgpt.com, otherwise "/__codex-api" (and "/__codex-anon-api" for logged-out
+// calls). Those prefixes only exist on chatgpt.com as SPA fallbacks (HTML 200 /
+// plain 400), so on our proxy host map them back to the real API paths.
+export function mapChatGPTClientApiPath(path: string) {
+  const m = path.match(/^\/(__codex-api|__codex-anon-api)(?=\/|$)(.*)$/);
+  if (!m) return path;
+  return (m[1] === "__codex-api" ? "/backend-api" : "/backend-anon") + (m[2] || "");
+}
+
 export function rewriteChatGPTBody(
   text: string,
   contentType: string,
@@ -901,7 +911,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       : "";
 
   let targetOrigin = CHATGPT_UPSTREAM_ORIGIN;
-  let targetPath = suffix || CHATGPT_LANDING_PATH;
+  let targetPath = mapChatGPTClientApiPath(suffix || CHATGPT_LANDING_PATH);
   let isSecondaryHost = false;
 
   const routedHost = targetPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
