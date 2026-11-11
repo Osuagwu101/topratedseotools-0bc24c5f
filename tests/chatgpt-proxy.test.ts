@@ -374,6 +374,16 @@ assert(
   assert(isForwardedChatGPTClientHeader("Authorization") && !isForwardedChatGPTClientHeader("cookie"), "header allow-list is case-insensitive and excludes cookies");
 }
 
+{
+  const js = 'const a=new URL("https://chatgpt.com/backend-api");const b="https:\\/\\/chatgpt.com\\/x";const c="https://cdn.oaistatic.com/y.png";';
+  const ded = rewriteChatGPTBody(js, "application/javascript", "", "https://chatgpt.topratedseotools.com");
+  assert(ded.includes('new URL("https://chatgpt.topratedseotools.com/backend-api")'), "dedicated host keeps chatgpt.com URLs absolute (valid for new URL)");
+  assert(ded.includes("https:\\/\\/chatgpt.topratedseotools.com\\/x"), "rewrites JSON-escaped chatgpt.com URLs to the absolute proxy origin");
+  assert(ded.includes("https://chatgpt.topratedseotools.com/__host/cdn.oaistatic.com/y.png"), "routes asset hosts through the absolute proxy origin");
+  const path = rewriteChatGPTBody(js, "application/javascript", "/api/chatgpt-proxy", "https://topratedseotools.com");
+  assert(path.includes('new URL("https://topratedseotools.com/api/chatgpt-proxy/backend-api")'), "path mode also keeps URLs absolute");
+}
+
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   console.error(failures.join("\n"));
