@@ -1269,7 +1269,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     headers.set("Cache-Control", "no-store");
     const streamBody =
       isChatGptOrigin && request.method === "POST" && upstream.body &&
-      /^\/backend-api\/(?:f\/)?conversation\/?$/i.test(target.pathname)
+      /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)
         ? teeConversationOwnership(upstream.body, writerId)
         : upstream.body;
     return new Response(streamBody, {

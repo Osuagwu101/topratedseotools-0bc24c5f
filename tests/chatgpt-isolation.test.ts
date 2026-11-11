@@ -14,6 +14,8 @@ import {
   hiddenAccountSurface,
   isBlockedConversationMutation,
   isConversationListPath,
+  rewriteStreamHandoffEvent,
+  teeConversationOwnership,
 } from "../src/lib/chatgpt-isolation.server";
 import { isBlockedChatGptApiRequest } from "../src/lib/chatgpt-controls.server";
 
@@ -109,6 +111,36 @@ assert(filterServerRenderedHistory("<html>no data</html>", owned) === "<html>no 
   assert(!out.includes("theirs"), "foreign chat removed in escape test");
   assert(!out.includes("</script><b>"), "re-encoded payloads never break out of the script tag");
 }
+
+// ---- stream handoff stays on SSE (replies no longer stall for 30s)
+{
+  const ev = 'data: {"type":"stream_handoff","turn_exchange_id":"t1","options":[{"type":"subscribe_ws_topic","topic_id":"conversation-abc"},{"type":"resume_sse_endpoint"}]}';
+  const out = rewriteStreamHandoffEvent(ev);
+  const data = JSON.parse(out.slice(5));
+  assert(data.options.length === 1 && data.options[0].type === "resume_sse_endpoint", "handoff only offers SSE resume");
+  assert(!out.includes("subscribe_ws_topic"), "websocket topic option is removed");
+  assert(data.turn_exchange_id === "t1", "other handoff fields are kept");
+  const other = 'event: delta\ndata: {"v":"hello stream_handoff text"}';
+  assert(rewriteStreamHandoffEvent(other) === other, "ordinary events pass through unchanged");
+}
+await (async () => {
+  const enc = new TextEncoder();
+  const parts = [
+    'event: delta\ndata: {"v":"Hel',
+    'lo"}\n\ndata: {"type":"stream_handoff","turn_exchange_id":"x","options":[{"type":"subscribe_ws_topic","topic_id":"conversation-1"}]}\n\n',
+    "data: [DONE]\n\n",
+  ];
+  const src = new ReadableStream<Uint8Array>({
+    start(c) {
+      for (const p of parts) c.enqueue(enc.encode(p));
+      c.close();
+    },
+  });
+  const text = await new Response(teeConversationOwnership(src, "user-1")).text();
+  assert(text.includes('data: {"v":"Hello"}\n\n'), "split events are reassembled intact");
+  assert(text.includes("resume_sse_endpoint") && !text.includes("subscribe_ws_topic"), "handoff rewritten inside the live stream");
+  assert(text.endsWith("data: [DONE]\n\n"), "stream end is preserved");
+})();
 
 // ---- wiring
 const proxy = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");

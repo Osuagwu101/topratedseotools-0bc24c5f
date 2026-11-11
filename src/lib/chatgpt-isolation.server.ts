@@ -343,28 +343,73 @@ export async function claimConversation(conversationId: string, userId: string) 
 }
 
 /**
- * Pass a streamed /f/conversation response through untouched while watching
- * for the conversation id, then record the writer as its owner.
+ * ChatGPT sometimes ends a reply stream with a "stream_handoff" event telling
+ * the browser to continue on a WebSocket topic (ws.chatgpt.com). From our proxy
+ * host that topic never delivers, so the browser sat on "Thinking" for its 30s
+ * idle timeout and the answer only appeared after a reload. Offering only the
+ * SSE resume option makes the browser continue via POST /f/conversation/resume,
+ * which streams through the proxy like the original reply.
+ */
+export function rewriteStreamHandoffEvent(eventText: string): string {
+  if (!/"type"\s*:\s*"stream_handoff"/.test(eventText)) return eventText;
+  return eventText
+    .split("\n")
+    .map((line) => {
+      if (!line.startsWith("data:")) return line;
+      const raw = line.slice(5).trim();
+      try {
+        const data = JSON.parse(raw);
+        if (data?.type !== "stream_handoff") return line;
+        data.options = [{ type: "resume_sse_endpoint" }];
+        return "data: " + JSON.stringify(data);
+      } catch {
+        return line;
+      }
+    })
+    .join("\n");
+}
+
+/**
+ * Pass a streamed /f/conversation response through, event by event: record
+ * the writer as owner of the conversation and keep handoffs on SSE.
  */
 export function teeConversationOwnership(
   body: ReadableStream<Uint8Array>,
   userId: string,
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
-  let seen = "";
-  let done = false;
+  const encoder = new TextEncoder();
+  let pending = "";
+  let claimed = false;
+  const handle = (eventText: string) => {
+    if (!claimed) {
+      const id = conversationIdFromStreamText(eventText);
+      if (id) {
+        claimed = true;
+        void claimConversation(id, userId);
+      }
+    }
+    return rewriteStreamHandoffEvent(eventText);
+  };
   return body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
-        if (!done) {
-          seen = (seen + decoder.decode(chunk, { stream: true })).slice(-65_536);
-          const id = conversationIdFromStreamText(seen);
-          if (id) {
-            done = true;
-            void claimConversation(id, userId);
-          }
-        }
-        controller.enqueue(chunk);
+        pending += decoder.decode(chunk, { stream: true });
+        // Emit every complete SSE event (terminated by a blank line) at once.
+        let cut = Math.max(pending.lastIndexOf("\n\n"), pending.lastIndexOf("\r\n\r\n"));
+        if (cut < 0) return;
+        cut += pending.startsWith("\r\n", cut) ? 4 : 2;
+        const complete = pending.slice(0, cut);
+        pending = pending.slice(cut);
+        const out = complete
+          .split(/(\r?\n\r?\n)/)
+          .map((part) => (/^\r?\n\r?\n$/.test(part) ? part : handle(part)))
+          .join("");
+        controller.enqueue(encoder.encode(out));
+      },
+      flush(controller) {
+        pending += decoder.decode();
+        if (pending) controller.enqueue(encoder.encode(handle(pending)));
       },
     }),
   );
