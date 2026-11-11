@@ -108,6 +108,10 @@ export const adminSaveGrammarlySession = createServerFn({ method: "POST" })
 
 
     // One-click launch is switched on separately once the Grammarly proxy ships.
+    await admin
+      .from("grammarly_proxy_sessions")
+      .update({ status: "revoked" })
+      .in("status", ["issued", "active"]);
 
     await logAdminActivity(context, {
       action: "grammarly.authorized_session_replace",
@@ -149,6 +153,10 @@ export const adminRevokeGrammarlySession = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
 
+    await admin
+      .from("grammarly_proxy_sessions")
+      .update({ status: "revoked" })
+      .in("status", ["issued", "active"]);
     await setGrammarlyOneClickEnabled(admin, false);
 
     await logAdminActivity(context, {

@@ -24,9 +24,19 @@ REPO = "https://github.com/Osuagwu101/topratedseotools-0bc24c5f.git"
 RELEASES = Path("/home/ubuntu/releases")
 NGINX_CFG = Path("/etc/nginx/sites-enabled/topratedseotools")
 # Dedicated proxy hostnames served by the main app; their proxy_pass follows the live port.
-EXTRA_NGINX_CFGS = [Path("/etc/nginx/sites-enabled/chatgpt-proxy")]
-# Dedicated hosts answer 401 to an anonymous request (no proxy session) when healthy.
-DEDICATED_HOST_CHECKS = {"https://chatgpt.topratedseotools.com/": {"401"}}
+EXTRA_NGINX_CFGS = [
+    Path("/etc/nginx/sites-enabled/chatgpt-proxy"),
+    Path("/etc/nginx/sites-enabled/grammarly-proxy"),
+]
+# Dedicated hosts answer 401 to an anonymous request (no proxy session) when
+# healthy. Only hosts whose nginx file actually points at the app are checked.
+DEDICATED_HOST_CHECKS = {
+    "/etc/nginx/sites-enabled/chatgpt-proxy": ("https://chatgpt.topratedseotools.com/", {"401"}),
+    "/etc/nginx/sites-enabled/grammarly-proxy": ("https://grammarly.topratedseotools.com/", {"401"}),
+}
+# Grammarly live-checking WebSocket relay (nginx /__ws/ on the Grammarly host).
+GRAMMARLY_WS_NAME = "trst-grammarly-ws"
+GRAMMARLY_WS_SCRIPT = "scripts/grammarly-ws-relay.mjs"
 BACKUPS = Path("/home/ubuntu/deploy/backups")
 CURRENT_LINK = Path("/home/ubuntu/deploy/current")  # always points at the live release
 ASSETS_DST = Path("/var/www/trst-assets-unified-20261015/assets")
@@ -166,9 +176,10 @@ def main():
             log(f"PUBLIC {route} {code}")
             if code not in OK_CODES:
                 raise RuntimeError(f"Public smoke test failed for {route}: {code}")
-        for url, ok in DEDICATED_HOST_CHECKS.items():
-            if not any(path in EXTRA_NGINX_CFGS for path, _, _ in changes):
-                break
+        for path, _, _ in changes:
+            if str(path) not in DEDICATED_HOST_CHECKS:
+                continue
+            url, ok = DEDICATED_HOST_CHECKS[str(path)]
             code = http_code(url)
             log(f"PUBLIC {url} {code}")
             if code not in ok:
@@ -182,6 +193,14 @@ def main():
         subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
         log(f"ROLLED BACK nginx to port {live_port}: {exc}")
         raise SystemExit(1)
+
+    # Restart the Grammarly WebSocket relay from the new release (clients reconnect).
+    if (rel / GRAMMARLY_WS_SCRIPT).exists():
+        subprocess.run(["pm2", "delete", GRAMMARLY_WS_NAME], capture_output=True)
+        subprocess.run(["pm2", "start", str(rel / GRAMMARLY_WS_SCRIPT), "--name", GRAMMARLY_WS_NAME,
+                        "--cwd", str(rel), "--interpreter", "/usr/bin/node",
+                        f"--node-args=--env-file={rel / '.env'}"], capture_output=True)
+        log("restarted Grammarly WebSocket relay")
 
     subprocess.run(["pm2", "save"], capture_output=True)
     # Stable pointer to the live release for cron jobs (postpaid reminder worker etc.).
