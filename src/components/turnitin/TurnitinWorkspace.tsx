@@ -845,7 +845,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             <Link to="/billing" className="rounded-lg border border-amber-600/40 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white">
               View billing history
             </Link>
-            <Link to="/turnitin/buy" className="rounded-lg border px-4 py-2 text-sm font-semibold">
+            <Link to={"/turnitin/buy"} className="rounded-lg border px-4 py-2 text-sm font-semibold">
               View invoices
             </Link>
           </div>
@@ -1248,7 +1248,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                   {settlingPostpaid ? "Opening payment..." :
                    "Pay "+formatNaira(postpaidInvoices.data?.totalOutstandingNgn ?? 0)+" now"}
                 </button>
-                <Link to="/turnitin/buy"
+                <Link to={"/turnitin/buy"}
                   className="rounded-lg border px-4 py-3 text-center text-sm font-semibold">
                   View and download invoice
                 </Link>
