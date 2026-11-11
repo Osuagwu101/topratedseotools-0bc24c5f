@@ -53,7 +53,7 @@ import {
   TURNITIN_CREDIT_MAX_QUANTITY,
   TURNITIN_CREDIT_UNIT_PRICE_NGN,
 } from "@/lib/turnitin-pricing";
-import { countDocumentWords, MAX_WORDS_FOR_AI } from "@/lib/turnitin-word-count";
+import { countDocumentWords, MAX_WORDS_FOR_AI, MAX_WORDS_PER_FILE } from "@/lib/turnitin-word-count";
 import {
   getMyTurnitinPostpaidSettlements,
   initializeTurnitinPostpaidSettlement,
@@ -233,7 +233,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       Number(billingPolicy?.file_threshold ?? Number.MAX_SAFE_INTEGER);
   const cannotSubmitForBilling = billingUnverified || billingPaymentRequired || billingPendingCapacity;
 
-  const canSubmitNow = !!selectedFile && !!workspace.data?.foundationReady &&
+  const overFileWordLimit = wordCount.status === "done" && (wordCount.words ?? 0) > MAX_WORDS_PER_FILE;
+  const canSubmitNow = !!selectedFile && !overFileWordLimit && !!workspace.data?.foundationReady &&
     (workspace.data.account.billing_mode === "postpaid" ||
       workspace.data.summary.available_credits > 0) && !cannotSubmitForBilling && !submitting;
   useEffect(() => {
@@ -647,6 +648,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000)),
         ]);
         setSubmitting(false);
+      }
+      if (words != null && words > MAX_WORDS_PER_FILE) {
+        setSubmitError(
+          `This document has about ${words.toLocaleString()} words. Turnitin only checks files up to ${MAX_WORDS_PER_FILE.toLocaleString()} words, so please split it into smaller files.`,
+        );
+        return;
       }
       if (words != null && words > MAX_WORDS_FOR_AI) {
         setOverLimitConfirmOpen(true);
@@ -1343,7 +1350,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             </button>
           )}
 
-          {selectedFile && wordCount.status === "done" && (wordCount.words ?? 0) > MAX_WORDS_FOR_AI ? (
+          {selectedFile && overFileWordLimit ? (
+            <p role="alert" className="mt-2 flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs leading-5 text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Over 50,000 words: Turnitin cannot check files this long. Please split the document into parts of 50,000 words or fewer.
+            </p>
+          ) : selectedFile && wordCount.status === "done" && (wordCount.words ?? 0) > MAX_WORDS_FOR_AI ? (
             <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs leading-5 text-amber-700">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               Over 30,000 words: AI detection will not be available for this document. You will get the similarity report only, and the check is charged as normal.
@@ -1567,6 +1579,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               !selectedFile ||
               !foundationReady ||
               cannotSubmitForBilling ||
+              overFileWordLimit ||
               (!isPostpaid && summary.available_credits < 1)
             }
             className={compactSubmit ? "sr-only" : "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"}

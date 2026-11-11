@@ -14,6 +14,8 @@
 
 export const MAX_WORDS_FOR_AI = 30_000;
 export const MIN_WORDS_FOR_AI = 300;
+/** Turnitin/Originality rejects files above this many words (the check is refunded, but nothing is produced). */
+export const MAX_WORDS_PER_FILE = 50_000;
 
 export type WordCountResult = {
   words: number;

@@ -7,6 +7,7 @@ import {
   docxXmlToText,
   joinPdfItems,
   MAX_WORDS_FOR_AI,
+  MAX_WORDS_PER_FILE,
 } from "../src/lib/turnitin-word-count";
 
 let failures = 0;
@@ -24,7 +25,8 @@ const item = (str: string, x: number, y = 700, width = str.length * 6, hasEOL = 
 console.log("• text tokenising");
 eq("plain words", countWordsInText("one two  three\nfour"), 4);
 eq("punctuation-only tokens ignored", countWordsInText("Hello — world ; 2024 ."), 3);
-eq("limit constant", MAX_WORDS_FOR_AI, 30_000);
+eq("AI limit constant", MAX_WORDS_FOR_AI, 30_000);
+eq("per-file limit constant", MAX_WORDS_PER_FILE, 50_000);
 
 console.log("• DOCX XML");
 eq("runs inside a word are joined", words("<w:p><w:r><w:t>Intro</w:t></w:r><w:r><w:t>duction</w:t></w:r></w:p>"), 1);
