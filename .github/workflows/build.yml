@@ -108,6 +108,8 @@ jobs:
         run: bun tests/turnitin-v2-cutover.test.ts
       - name: Turnitin pre-upload word count
         run: bun tests/turnitin-word-count.test.ts
+      - name: Email formatting helpers
+        run: bun tests/email-formatting.test.ts
 
       - name: Custom Payment gateway regression tests
         run: bunx vitest run tests/custom-payment-merchant-currencies.test.ts tests/custom-payment-gateways.test.ts tests/flutterwave-gateway.test.ts tests/flutterwave-provider-validation.test.ts tests/gateway-routing-and-custom-tools.test.ts
