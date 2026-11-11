@@ -66,6 +66,10 @@ assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
   assert(ok, "bootstrap script compiles");
   assert(js.includes("__ws/") && js.includes("__host/") && js.includes("csrf-token="), "bootstrap maps sockets/hosts and sets a readable CSRF cookie");
   assert(js.includes('domain=[^;]*'), "bootstrap drops foreign cookie domains");
+  const dbg = grammarlyBootstrapScript(true).replace(/^<script>/, "").replace(/<\/script>$/, "");
+  let dbgOk = true;
+  try { new vm.Script(dbg); } catch { dbgOk = false; }
+  assert(dbgOk && dbg.includes("[trst] error") && !js.includes("[trst] error"), "debug capture compiles and is only added on request");
 }
 
 // ---- shared-account blocks
