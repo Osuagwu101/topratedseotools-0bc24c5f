@@ -9,6 +9,7 @@ Steps: clone the commit -> install -> build -> start on the idle port ->
 smoke-test locally -> copy hashed assets -> point nginx at the new port ->
 smoke-test publicly -> roll nginx back automatically on any failure.
 The previous app process is left running so a manual rollback is instant.
+/home/ubuntu/deploy/current is repointed to the live release (used by cron jobs).
 """
 import os
 import re
@@ -23,6 +24,7 @@ REPO = "https://github.com/Osuagwu101/topratedseotools-0bc24c5f.git"
 RELEASES = Path("/home/ubuntu/releases")
 NGINX_CFG = Path("/etc/nginx/sites-enabled/topratedseotools")
 BACKUPS = Path("/home/ubuntu/deploy/backups")
+CURRENT_LINK = Path("/home/ubuntu/deploy/current")  # always points at the live release
 ASSETS_DST = Path("/var/www/trst-assets-unified-20261015/assets")
 PORTS = ("3270", "3271")
 BUN = "/home/ubuntu/.bun/bin/bun"
@@ -153,6 +155,12 @@ def main():
         raise SystemExit(1)
 
     subprocess.run(["pm2", "save"], capture_output=True)
+    # Stable pointer to the live release for cron jobs (postpaid reminder worker etc.).
+    tmp_link = CURRENT_LINK.with_name(CURRENT_LINK.name + ".tmp")
+    if tmp_link.is_symlink() or tmp_link.exists():
+        tmp_link.unlink()
+    tmp_link.symlink_to(rel)
+    os.replace(tmp_link, CURRENT_LINK)
     log(f"DEPLOY_OK {sha} live on port {new_port}; previous build still running on {live_port} for instant rollback")
 
     # 7. Housekeeping: keep the newest few main releases (never the two that are running).
