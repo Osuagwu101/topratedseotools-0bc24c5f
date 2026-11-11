@@ -1,0 +1,50 @@
+name: Deploy to OVH
+
+# Runs after "Production Build" passes on main (or manually from the Actions tab).
+# The SSH key in OVH_DEPLOY_KEY is restricted on the server to a forced command
+# that only runs scripts/deploy/ovh_deploy_main.py with the commit SHA.
+on:
+  workflow_run:
+    workflows: ["Production Build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ovh
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.OVH_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OVH_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::warning::OVH deploy secrets are not configured; skipping deploy."
+            echo "SKIP_DEPLOY=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/ovh_deploy
+          chmod 600 ~/.ssh/ovh_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy commit
+        if: env.SKIP_DEPLOY != '1'
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          echo "Deploying $SHA"
+          ssh -i ~/.ssh/ovh_deploy -o BatchMode=yes -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking=yes ubuntu@142.44.162.207 "$SHA"
