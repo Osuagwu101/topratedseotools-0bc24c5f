@@ -87,7 +87,8 @@ export const getMyTurnitinPostpaidInvoiceOverview = createServerFn({ method: "GE
   });
 
 
-export type PostpaidHistoryEvent = { type: string; at: string } & Record<string, unknown>;
+/** JSON-serialisable event row from turnitin_postpaid_customer_history. */
+export type PostpaidHistoryEvent = { type: string; at: string } & Record<string, string | number | boolean | null>;
 
 export const getMyTurnitinPostpaidBillingHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
