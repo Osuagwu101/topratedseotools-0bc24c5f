@@ -162,8 +162,8 @@ export function rewriteGrammarlyBody(text: string, publicOrigin: string, debug =
  * (fetch, XHR, WebSocket, EventSource, beacons) onto the proxy host, and gives
  * the editor a readable CSRF cookie (the real token is added server-side).
  */
-export function grammarlyBootstrapScript() {
-  return `<script>(function(){try{
+export function grammarlyBootstrapScript(debug = false) {
+  return `<script>(function(){try{${debug ? GRAMMARLY_DEBUG_CAPTURE : ""}
 var O=location.origin,W=O.replace(/^https:/,"wss:");
 var R=/^(https?|wss?):\\/\\/([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))(\\/[^]*)?$/i;
 function map(u){try{var s=String(u instanceof URL?u.href:u);var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
@@ -178,6 +178,15 @@ var CD=Object.getOwnPropertyDescriptor(Document.prototype,"cookie");if(CD&&CD.se
 if(document.cookie.indexOf("csrf-token=")<0)document.cookie="csrf-token=trst-proxy; path=/; secure; samesite=lax";
 }catch(e){}})();</script>`;
 }
+
+/** Troubleshooting only (cookie trst_debug=1): surface editor errors and log uploads in the console. */
+const GRAMMARLY_DEBUG_CAPTURE = `
+window.addEventListener("error",function(e){console.warn("[trst] error",e.message,e.filename,e.lineno,e.error&&e.error.stack&&String(e.error.stack).slice(0,600))});
+window.addEventListener("unhandledrejection",function(e){var r=e.reason;console.warn("[trst] rejection",r&&(r.message||String(r)).slice(0,300),r&&r.stack&&String(r.stack).slice(0,600))});
+(function(){var F0=window.fetch;window.fetch=function(i,n){try{var u=String(typeof i==="string"?i:i&&i.url);if(/f-log|femetrics|logv2/.test(u)&&n&&typeof n.body==="string")console.warn("[trst] log-upload",u.slice(0,80),n.body.slice(0,4000))}catch(x){}return F0.apply(this,arguments)};
+var XO0=XMLHttpRequest.prototype.open,XS0=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__trstU=String(u);return XO0.apply(this,arguments)};XMLHttpRequest.prototype.send=function(b){try{if(/f-log|femetrics|logv2/.test(this.__trstU||"")&&typeof b==="string")console.warn("[trst] log-upload",this.__trstU.slice(0,80),b.slice(0,4000))}catch(x){}return XS0.apply(this,arguments)};
+if(navigator.sendBeacon){var SB0=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){try{if(typeof d==="string")console.warn("[trst] beacon",String(u).slice(0,80),d.slice(0,4000))}catch(x){}return SB0(u,d)}}})();
+`;
 
 // --------------------------------------------------------------- the vault
 
@@ -680,7 +689,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   let text = rewriteGrammarlyBody(await upstream.text(), publicOrigin, debug);
 
   if (type.includes("text/html")) {
-    text = text.replace(/<head([^>]*)>/i, (m) => m + grammarlyBootstrapScript());
+    text = text.replace(/<head([^>]*)>/i, (m) => m + grammarlyBootstrapScript(debug));
     out.set("Cache-Control", "no-store");
   }
 
