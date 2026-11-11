@@ -104,6 +104,19 @@ function proxyCookiePathForRequest(request: Request) {
   return isDedicatedChatGPTProxyRequest(request) ? "/" : CHATGPT_PROXY_BASE;
 }
 
+// OpenAI's per-region file storage (uploads, downloads, generated images),
+// e.g. sdmntprcentralus.oaiusercontent.com. It only accepts browser uploads
+// from chatgpt.com (CORS), so on our proxy host those requests are routed
+// through /__host/<host>/... like other asset hosts.
+export function isChatGPTUserContentHost(host: string) {
+  const h = host.toLowerCase();
+  return /^[a-z0-9-]+\.oaiusercontent\.com$/.test(h);
+}
+
+export function isAllowedChatGPTRoutedHost(host: string) {
+  return chatgptAllowedAssetHosts().includes(host.toLowerCase()) || isChatGPTUserContentHost(host);
+}
+
 export function chatgptAllowedAssetHosts() {
   const configured = String(process.env.CHATGPT_ASSET_HOSTS ?? "")
     .split(",")
@@ -752,6 +765,15 @@ export function rewriteChatGPTBody(
         routed.replaceAll("/", "\\/"),
       );
   }
+  out = out
+    .replace(
+      /https:\/\/([a-z0-9-]+\.oaiusercontent\.com)/g,
+      `${absoluteBase}/__host/$1`,
+    )
+    .replace(
+      /https:\\\/\\\/([a-z0-9-]+\.oaiusercontent\.com)/g,
+      `${absoluteBase.replaceAll("/", "\\/")}\\/__host\\/$1`,
+    );
 
   if (contentType.includes("text/html")) {
     out = out
@@ -799,7 +821,7 @@ export function rewriteChatGPTLocation(
   }
   if (
     absolute.protocol === "https:" &&
-    chatgptAllowedAssetHosts().includes(absolute.hostname)
+    isAllowedChatGPTRoutedHost(absolute.hostname)
   ) {
     return `${proxyBase}/__host/${absolute.hostname}${absolute.pathname}${absolute.search}${absolute.hash}`;
   }
@@ -859,6 +881,11 @@ export function upstreamHeaders(
   if (targetOrigin === CHATGPT_UPSTREAM_ORIGIN) {
     for (const [name, value] of request.headers) {
       if (value && isForwardedChatGPTClientHeader(name)) h.set(name, value);
+    }
+  } else if (isChatGPTUserContentHost(new URL(targetOrigin).host)) {
+    // Azure blob uploads need their x-ms-* headers (blob type, version, etc.).
+    for (const [name, value] of request.headers) {
+      if (value && name.toLowerCase().startsWith("x-ms-")) h.set(name, value);
     }
   }
 
@@ -1012,7 +1039,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   const routedHost = targetPath.match(/^\/__host\/([^/]+)(\/.*)?$/);
   if (routedHost) {
     const host = routedHost[1].toLowerCase();
-    if (!chatgptAllowedAssetHosts().includes(host)) {
+    if (!isAllowedChatGPTRoutedHost(host)) {
       return forbidden("This ChatGPT asset host is not allowed.");
     }
     targetOrigin = `https://${host}`;
@@ -1037,7 +1064,8 @@ export async function handleChatGPTProxyRequest(request: Request) {
   const publicOrigin = new URL(request.url).origin;
   const assetCacheable =
     request.method === "GET" &&
-    (isSecondaryHost || isImmutableChatGPTAssetPath(targetOrigin, target.pathname));
+    ((isSecondaryHost && !isChatGPTUserContentHost(target.host)) ||
+      isImmutableChatGPTAssetPath(targetOrigin, target.pathname));
   const assetKey = `${publicOrigin}${proxyBase}|${target.toString()}`;
   if (assetCacheable) {
     const hit = getCachedAsset(assetKey);

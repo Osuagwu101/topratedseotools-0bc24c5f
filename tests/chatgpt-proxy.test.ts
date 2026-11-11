@@ -13,6 +13,7 @@ import {
   isActiveChatGPTGrant,
   isActiveChatGPTOrder,
   isForwardedChatGPTClientHeader,
+  isChatGPTUserContentHost,
   isImmutableChatGPTAssetPath,
   mapChatGPTClientApiPath,
   upstreamHeaders,
@@ -399,6 +400,17 @@ assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/"), "pages are neve
   const src = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
   assert(src.includes("CHATGPT_SESSION_CACHE_MS = 30_000"), "writer-session validation cache is short-lived (30s)");
   assert(src.indexOf("request.arrayBuffer()") < src.indexOf("proxySession = await requireProxySession(request)"), "request body is read before slow session checks");
+}
+
+{
+  const json = '{"upload_url":"https://sdmntprcentralus.oaiusercontent.com/files/abc/raw?se=1&sig=x","esc":"https:\\/\\/sdmntprwestus.oaiusercontent.com\\/f"}';
+  const out = rewriteChatGPTBody(json, "application/json", "", "https://chatgpt.topratedseotools.com");
+  assert(out.includes('"https://chatgpt.topratedseotools.com/__host/sdmntprcentralus.oaiusercontent.com/files/abc/raw?se=1&sig=x"'), "routes OpenAI file-storage upload URLs through the proxy");
+  assert(out.includes("https:\\/\\/chatgpt.topratedseotools.com\\/__host\\/sdmntprwestus.oaiusercontent.com\\/f"), "routes JSON-escaped file-storage URLs");
+  assert(isChatGPTUserContentHost("sdmntprcentralus.oaiusercontent.com") && !isChatGPTUserContentHost("evil.com") && !isChatGPTUserContentHost("oaiusercontent.com.evil.com"), "file-storage host check is strict");
+  const req = new Request("https://chatgpt.topratedseotools.com/__host/sdmntprcentralus.oaiusercontent.com/files/abc/raw", { method: "PUT", headers: { "x-ms-blob-type": "BlockBlob", authorization: "Bearer t" } });
+  const up = upstreamHeaders(req, "", "https://sdmntprcentralus.oaiusercontent.com", false);
+  assert(up.get("x-ms-blob-type") === "BlockBlob" && up.get("authorization") === null, "forwards x-ms-* (not the bearer) to file storage");
 }
 
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
