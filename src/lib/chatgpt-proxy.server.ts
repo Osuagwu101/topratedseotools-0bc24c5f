@@ -10,6 +10,21 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash, randomBytes } from "node:crypto";
+import {
+  buildOwnedConversationPage,
+  claimConversation,
+  conversationIdFromApiPath,
+  conversationIdFromBody,
+  conversationIdFromDocumentPath,
+  deepFilterConversations,
+  filterServerRenderedHistory,
+  hiddenAccountSurface,
+  isBlockedConversationMutation,
+  isConversationListPath,
+  ownedConversationIds,
+  ownerOfConversation,
+  teeConversationOwnership,
+} from "@/lib/chatgpt-isolation.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   decryptChatGptSession,
@@ -20,6 +35,7 @@ import {
 import {
   assertChatGptLaunchRateLimit,
   ensureChatGptUserControls,
+  isBlockedChatGptApiRequest,
   isBlockedChatGptDocumentPath,
   isChatGptDocumentRequest,
   isValidChatGptDeviceFingerprint,
@@ -914,6 +930,13 @@ function forbidden(message = "ChatGPT access is not available.") {
   });
 }
 
+function jsonResponse(payload: unknown, status: number) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: standardHeaders("application/json; charset=utf-8"),
+  });
+}
+
 function unauthorized() {
   return new Response(
     "Open ChatGPT from your Top Rated SEO Tools account.",
@@ -1032,6 +1055,74 @@ export async function handleChatGPTProxyRequest(request: Request) {
     isBlockedChatGptDocumentPath(target.pathname)
   ) {
     return forbidden("This ChatGPT account, settings, or billing page is restricted.");
+  }
+
+  // ---- Shared-account protections and per-writer history isolation ----
+  const writerId = String(proxySession.user_id);
+  const isChatGptOrigin = targetOrigin === CHATGPT_UPSTREAM_ORIGIN;
+  const bodyText =
+    body && body.byteLength <= 2 * 1024 * 1024 &&
+    /json|text/i.test(request.headers.get("content-type") ?? "")
+      ? new TextDecoder().decode(body)
+      : null;
+  if (isChatGptOrigin) {
+    if (isBlockedChatGptApiRequest(request.method, target.pathname)) {
+      return forbidden("This action is disabled on the shared ChatGPT account.");
+    }
+    if (isBlockedConversationMutation(request.method, target.pathname, bodyText)) {
+      return jsonResponse({ detail: "Deleting or archiving chats is disabled on this shared account." }, 403);
+    }
+    const hidden = hiddenAccountSurface(request.method, target.pathname);
+    if (hidden) return jsonResponse(hidden, 200);
+
+    const isDocument = isChatGptDocumentRequest(request) && request.method === "GET";
+    const addressed =
+      conversationIdFromApiPath(target.pathname) ??
+      (isDocument ? conversationIdFromDocumentPath(target.pathname) : null) ??
+      (request.method === "POST" ? conversationIdFromBody(bodyText) : null);
+    if (addressed) {
+      let owner: string | null = null;
+      try {
+        owner = await ownerOfConversation(addressed);
+      } catch {
+        return unavailable();
+      }
+      // A writer's first POST that names a brand-new conversation claims it.
+      if (!owner && request.method === "POST") {
+        const claimed = await claimConversation(addressed, writerId);
+        owner = claimed ? writerId : await ownerOfConversation(addressed);
+      }
+      if (owner !== writerId) {
+        if (isDocument) {
+          const h = standardHeaders();
+          h.set("Location", `${proxyBase}/`);
+          return new Response(null, { status: 302, headers: h });
+        }
+        return jsonResponse({ detail: "Conversation not found" }, 404);
+      }
+    }
+  }
+  const listPage =
+    isChatGptOrigin && request.method === "GET" && isConversationListPath(target.pathname)
+      ? {
+          offset: Math.max(0, Number(target.searchParams.get("offset") ?? 0) || 0),
+          limit: Math.min(100, Math.max(1, Number(target.searchParams.get("limit") ?? 28) || 28)),
+        }
+      : null;
+  let ownedIds: Set<string> | null = null;
+  if (isChatGptOrigin && request.method === "GET" && !isImmutableChatGPTAssetPath(targetOrigin, target.pathname)) {
+    try {
+      ownedIds = await ownedConversationIds(writerId);
+    } catch {
+      return unavailable();
+    }
+  }
+  if (listPage && ownedIds && ownedIds.size === 0) {
+    return jsonResponse(buildOwnedConversationPage([], ownedIds, listPage.offset, listPage.limit), 200);
+  }
+  if (listPage) {
+    target.searchParams.set("offset", "0");
+    target.searchParams.set("limit", "100");
   }
 
   const publicOrigin = new URL(request.url).origin;
@@ -1176,10 +1267,43 @@ export async function handleChatGPTProxyRequest(request: Request) {
   // incrementally. Binary/non-rewriteable bodies are streamed for the same reason.
   if (contentType.includes("text/event-stream")) {
     headers.set("Cache-Control", "no-store");
-    return new Response(upstream.body, {
+    const streamBody =
+      isChatGptOrigin && request.method === "POST" && upstream.body &&
+      /^\/backend-api\/(?:f\/)?conversation\/?$/i.test(target.pathname)
+        ? teeConversationOwnership(upstream.body, writerId)
+        : upstream.body;
+    return new Response(streamBody, {
       status: upstream.status,
       headers,
     });
+  }
+
+  if (listPage && ownedIds && upstream.ok && contentType.includes("application/json")) {
+    const pages: any[] = [];
+    try {
+      pages.push(JSON.parse(rewriteChatGPTBody(await upstream.text(), contentType, proxyBase, publicOrigin)));
+      // Keep reading upstream pages until every owned chat is found (max 5 pages).
+      const seen = () => pages.flatMap((p) => (Array.isArray(p?.items) ? p.items : [])).filter((i: any) => ownedIds!.has(String(i?.id).toLowerCase())).length;
+      for (let pageNo = 1; pageNo < 5; pageNo++) {
+        const last = pages[pages.length - 1];
+        if (!Array.isArray(last?.items) || last.items.length < 100 || seen() >= ownedIds.size) break;
+        const nextUrl = new URL(target);
+        nextUrl.searchParams.set("offset", String(pageNo * 100));
+        const next = await fetch(nextUrl, {
+          method: "GET",
+          headers: upstreamHeaders(request, cookieHeader, targetOrigin, !!cookieHeader, proxyBase),
+          redirect: "manual",
+        });
+        if (!next.ok) break;
+        pages.push(JSON.parse(rewriteChatGPTBody(await next.text(), contentType, proxyBase, publicOrigin)));
+      }
+    } catch {
+      return unavailable();
+    }
+    return new Response(
+      JSON.stringify(buildOwnedConversationPage(pages, ownedIds, listPage.offset, listPage.limit)),
+      { status: 200, headers },
+    );
   }
 
   const isRewriteableText =
@@ -1194,7 +1318,18 @@ export async function handleChatGPTProxyRequest(request: Request) {
 
   if (isRewriteableText) {
     const text = await upstream.text();
-    const rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
+    let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
+    if (isChatGptOrigin && ownedIds && !storeAsset) {
+      if (contentType.includes("text/html")) {
+        rewritten = filterServerRenderedHistory(rewritten, ownedIds);
+      } else if (contentType.includes("application/json") && target.pathname.startsWith("/backend-api/")) {
+        try {
+          rewritten = JSON.stringify(deepFilterConversations(JSON.parse(rewritten), ownedIds));
+        } catch {
+          /* not JSON after all: leave untouched */
+        }
+      }
+    }
     if (storeAsset) {
       putCachedAsset(assetKey, { body: rewritten, contentType, bytes: rewritten.length * 2 });
     }
