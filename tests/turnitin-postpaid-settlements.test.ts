@@ -177,14 +177,14 @@ assert(
     workspace.includes("turnitin-postpaid-settlement-reference") &&
     workspace.includes("settlePostpaidBalance") &&
     workspace.includes("Retry last Postpaid payment verification"),
-  "Postpaid customer page supports online full/partial settlement and recovery",
+  "Postpaid customer page supports online full-balance settlement and recovery",
 );
 
 assert(
   workspace.includes("Settlement history") &&
     workspace.includes("allocatedAmountNgn") &&
-    workspace.includes("Confirmed money is allocated to your oldest unpaid checks first"),
-  "customer sees permanent Postpaid settlement history and allocation behavior",
+    workspace.includes("Partial online payments are not accepted"),
+  "customer sees permanent Postpaid settlement history and the full-balance-only payment rule",
 );
 
 assert(

@@ -210,8 +210,8 @@ export const initializeTurnitinPostpaidSettlement = createServerFn({ method: "PO
     if (outstanding <= 0) {
       throw new Error("There is no outstanding Postpaid balance to settle.");
     }
-    if (data.amountNgn > outstanding) {
-      throw new Error("Settlement amount cannot exceed your outstanding balance.");
+    if (data.amountNgn !== outstanding) {
+      throw new Error("Postpaid payment must cover your full outstanding balance. Partial payments are not available.");
     }
 
     const { data: pending } = await admin
