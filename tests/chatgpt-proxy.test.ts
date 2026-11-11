@@ -12,6 +12,8 @@ import {
   hashChatGPTProxyToken,
   isActiveChatGPTGrant,
   isActiveChatGPTOrder,
+  isForwardedChatGPTClientHeader,
+  upstreamHeaders,
   rewriteChatGPTBody,
   rewriteChatGPTLocation,
 } from "../src/lib/chatgpt-proxy.server";
@@ -348,6 +350,29 @@ assert(
     migration.includes("service_role"),
   "adds a server-only ChatGPT proxy-session table with safe diagnostics",
 );
+
+{
+  const req = new Request("https://topratedseotools.com/api/chatgpt-proxy/backend-api/conversations", {
+    headers: {
+      authorization: "Bearer test-access-token",
+      "oai-device-id": "dev-1",
+      "oai-client-version": "prod-abc",
+      "openai-sentinel-chat-requirements-token": "req-1",
+      "openai-sentinel-proof-token": "proof-1",
+      cookie: "trst_cg_proxy=browser-cookie",
+      "x-forwarded-for": "1.2.3.4",
+    },
+  });
+  const up = upstreamHeaders(req, "__Secure-next-auth.session-token=abc");
+  assert(up.get("authorization") === "Bearer test-access-token", "forwards ChatGPT bearer token to chatgpt.com");
+  assert(up.get("oai-device-id") === "dev-1" && up.get("oai-client-version") === "prod-abc", "forwards oai-* client headers");
+  assert(up.get("openai-sentinel-chat-requirements-token") === "req-1" && up.get("openai-sentinel-proof-token") === "proof-1", "forwards sentinel headers");
+  assert(up.get("cookie") === "__Secure-next-auth.session-token=abc", "never forwards the browser's own cookies");
+  assert(up.get("x-forwarded-for") === null, "does not forward unrelated headers");
+  const asset = upstreamHeaders(req, "", "https://cdn.oaistatic.com", false);
+  assert(asset.get("authorization") === null && asset.get("oai-device-id") === null, "never sends bearer/client headers to asset hosts");
+  assert(isForwardedChatGPTClientHeader("Authorization") && !isForwardedChatGPTClientHeader("cookie"), "header allow-list is case-insensitive and excludes cookies");
+}
 
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

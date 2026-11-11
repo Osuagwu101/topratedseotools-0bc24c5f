@@ -724,7 +724,21 @@ export function rewriteChatGPTLocation(
   return null;
 }
 
-function upstreamHeaders(
+// ChatGPT's web app authenticates every /backend-api call with
+// `Authorization: Bearer <accessToken>` (obtained from /api/auth/session) and
+// attaches device, client-version and sentinel headers. The session cookie
+// alone is rejected with 401, so these must pass through to chatgpt.com.
+const CHATGPT_FORWARDED_HEADER_PREFIXES = ["oai-", "openai-sentinel-", "x-openai-"];
+
+export function isForwardedChatGPTClientHeader(name: string) {
+  const lower = name.toLowerCase();
+  return (
+    lower === "authorization" ||
+    CHATGPT_FORWARDED_HEADER_PREFIXES.some((prefix) => lower.startsWith(prefix))
+  );
+}
+
+export function upstreamHeaders(
   request: Request,
   cookieHeader: string,
   targetOrigin = CHATGPT_UPSTREAM_ORIGIN,
@@ -757,6 +771,13 @@ function upstreamHeaders(
   for (const name of copy) {
     const value = request.headers.get(name);
     if (value) h.set(name, value);
+  }
+  // Only first-party chatgpt.com calls carry the account's bearer token;
+  // never leak it to secondary asset hosts.
+  if (targetOrigin === CHATGPT_UPSTREAM_ORIGIN) {
+    for (const [name, value] of request.headers) {
+      if (value && isForwardedChatGPTClientHeader(name)) h.set(name, value);
+    }
   }
 
   const userAgent = request.headers.get("user-agent");
