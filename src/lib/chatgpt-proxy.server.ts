@@ -20,6 +20,7 @@ import {
 import {
   assertChatGptLaunchRateLimit,
   ensureChatGptUserControls,
+  isBlockedChatGptApiRequest,
   isBlockedChatGptDocumentPath,
   isChatGptDocumentRequest,
   isValidChatGptDeviceFingerprint,
@@ -1059,6 +1060,13 @@ export async function handleChatGPTProxyRequest(request: Request) {
     isBlockedChatGptDocumentPath(target.pathname)
   ) {
     return forbidden("This ChatGPT account, settings, or billing page is restricted.");
+  }
+
+  if (
+    targetOrigin === CHATGPT_UPSTREAM_ORIGIN &&
+    isBlockedChatGptApiRequest(request.method, target.pathname)
+  ) {
+    return forbidden("This action is disabled on the shared ChatGPT account.");
   }
 
   const publicOrigin = new URL(request.url).origin;

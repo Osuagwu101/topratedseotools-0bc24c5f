@@ -413,6 +413,15 @@ assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/"), "pages are neve
   assert(up.get("x-ms-blob-type") === "BlockBlob" && up.get("authorization") === null, "forwards x-ms-* (not the bearer) to file storage");
 }
 
+{
+  const { isBlockedChatGptApiRequest: b } = await import("../src/lib/chatgpt-controls.server");
+  assert(b("POST", "/api/auth/signout") && b("GET", "/auth/logout") && b("POST", "/backend-api/accounts/logout_all"), "logout/sign-out is always blocked");
+  assert(b("POST", "/backend-api/settings/account_user_setting") && b("PATCH", "/backend-api/me") && b("POST", "/backend-api/user_system_messages") && b("DELETE", "/backend-api/memories"), "shared-profile/account changes are blocked");
+  assert(b("POST", "/backend-api/payments/checkout") && b("POST", "/backend-api/subscriptions") && b("POST", "/backend-api/accounts/deactivate"), "billing and account removal are blocked");
+  assert(!b("GET", "/backend-api/me") && !b("GET", "/backend-api/settings/user") && !b("GET", "/backend-api/memories"), "reads still work");
+  assert(!b("POST", "/backend-api/f/conversation") && !b("POST", "/backend-api/files") && !b("POST", "/backend-api/sentinel/chat-requirements/prepare") && !b("POST", "/backend-api/conversation/init"), "chatting and uploads are not blocked");
+}
+
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   console.error(failures.join("\n"));

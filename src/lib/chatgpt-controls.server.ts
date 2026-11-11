@@ -36,6 +36,23 @@ export function isBlockedChatGptDocumentPath(pathname: string) {
   );
 }
 
+// The ChatGPT login is shared by every writer, so in-app actions that would
+// end or alter it for everyone are refused regardless of how they are
+// requested (the SPA navigates client-side, so document blocking alone is not
+// enough). Logout is blocked for every method; account/billing/security and
+// shared-profile changes are blocked for non-GET methods.
+const ALWAYS_BLOCKED_API = /(?:^|\/)(?:logout|logout_all|log_out|signout|sign_out|sign-out)(?:\/|$)/i;
+const MUTATION_BLOCKED_API =
+  /^\/(?:backend-api|backend-anon)\/(?:accounts?\/|me$|user$|settings\/|user_system_messages|memories|memory|billing|payments|subscriptions?|checkout|customer_portal|mfa|password|data_export|delete_account|privacy|sessions)/i;
+
+export function isBlockedChatGptApiRequest(method: string, pathname: string) {
+  if (ALWAYS_BLOCKED_API.test(pathname)) return true;
+  if (pathname === "/api/auth/signout" || pathname.startsWith("/api/auth/signout/")) return true;
+  const m = method.toUpperCase();
+  if (m === "GET" || m === "HEAD" || m === "OPTIONS") return false;
+  return MUTATION_BLOCKED_API.test(pathname);
+}
+
 export function isChatGptDocumentRequest(request: Request) {
   const dest = String(request.headers.get("sec-fetch-dest") ?? "").toLowerCase();
   const accept = String(request.headers.get("accept") ?? "").toLowerCase();
