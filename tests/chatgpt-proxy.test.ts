@@ -13,6 +13,7 @@ import {
   isActiveChatGPTGrant,
   isActiveChatGPTOrder,
   isForwardedChatGPTClientHeader,
+  mapChatGPTClientApiPath,
   upstreamHeaders,
   rewriteChatGPTBody,
   rewriteChatGPTLocation,
@@ -383,6 +384,12 @@ assert(
   const path = rewriteChatGPTBody(js, "application/javascript", "/api/chatgpt-proxy", "https://topratedseotools.com");
   assert(path.includes('new URL("https://topratedseotools.com/api/chatgpt-proxy/backend-api")'), "path mode also keeps URLs absolute");
 }
+
+assert(mapChatGPTClientApiPath("/__codex-api/me") === "/backend-api/me", "maps codex API base to /backend-api");
+assert(mapChatGPTClientApiPath("/__codex-api/sentinel/chat-requirements/prepare") === "/backend-api/sentinel/chat-requirements/prepare", "maps sentinel calls");
+assert(mapChatGPTClientApiPath("/__codex-anon-api/models") === "/backend-anon/models", "maps anon codex API base");
+assert(mapChatGPTClientApiPath("/__codex-apix/me") === "/__codex-apix/me", "does not map lookalike prefixes");
+assert(mapChatGPTClientApiPath("/c/123") === "/c/123" && mapChatGPTClientApiPath("/") === "/", "leaves page routes alone");
 
 console.log(`chatgpt-proxy: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
