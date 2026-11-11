@@ -655,14 +655,20 @@ export function rewriteChatGPTBody(
   text: string,
   contentType: string,
   proxyBase = CHATGPT_PROXY_BASE,
+  publicOrigin = "",
 ) {
-  const escapedProxy = proxyBase.replaceAll("/", "\\/");
+  // Absolute upstream URLs must stay absolute: ChatGPT's client calls
+  // `new URL("https://chatgpt.com/...")` without a base, so rewriting the
+  // origin to "" (dedicated host) or a bare path throws "Invalid URL" and
+  // the app never hydrates. Pass the proxy's public origin to keep them valid.
+  const absoluteBase = `${publicOrigin}${proxyBase}`;
+  const escapedProxy = absoluteBase.replaceAll("/", "\\/");
   let out = text
-    .replaceAll(CHATGPT_UPSTREAM_ORIGIN, proxyBase)
+    .replaceAll(CHATGPT_UPSTREAM_ORIGIN, absoluteBase)
     .replaceAll("https:\\/\\/chatgpt.com", escapedProxy);
 
   for (const host of chatgptAllowedAssetHosts()) {
-    const routed = `${proxyBase}/__host/${host}`;
+    const routed = `${absoluteBase}/__host/${host}`;
     out = out
       .replaceAll(`https://${host}`, routed)
       .replaceAll(
@@ -1083,7 +1089,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   if (isRewriteableText) {
     const text = await upstream.text();
     return new Response(
-      rewriteChatGPTBody(text, contentType, proxyBase),
+      rewriteChatGPTBody(text, contentType, proxyBase, new URL(request.url).origin),
       {
         status: upstream.status,
         headers,
