@@ -12,8 +12,8 @@
  *  - DOC (legacy binary): not supported; returns null.
  */
 
-export const TURNITIN_AI_MAX_WORDS = 30_000;
-export const TURNITIN_AI_MIN_WORDS = 300;
+export const MAX_WORDS_FOR_AI = 30_000;
+export const MIN_WORDS_FOR_AI = 300;
 
 export type WordCountResult = {
   words: number;

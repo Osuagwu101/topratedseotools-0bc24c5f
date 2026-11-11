@@ -51,7 +51,7 @@ import {
   TURNITIN_CREDIT_MAX_QUANTITY,
   TURNITIN_CREDIT_UNIT_PRICE_NGN,
 } from "@/lib/turnitin-pricing";
-import { countDocumentWords, TURNITIN_AI_MAX_WORDS } from "@/lib/turnitin-word-count";
+import { countDocumentWords, MAX_WORDS_FOR_AI } from "@/lib/turnitin-word-count";
 import {
   getMyTurnitinPostpaidSettlements,
   initializeTurnitinPostpaidSettlement,
@@ -632,7 +632,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         ]);
         setSubmitting(false);
       }
-      if (words != null && words > TURNITIN_AI_MAX_WORDS) {
+      if (words != null && words > MAX_WORDS_FOR_AI) {
         setOverLimitConfirmOpen(true);
         return;
       }
@@ -1234,7 +1234,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             </button>
           )}
 
-          {selectedFile && wordCount.status === "done" && (wordCount.words ?? 0) > TURNITIN_AI_MAX_WORDS ? (
+          {selectedFile && wordCount.status === "done" && (wordCount.words ?? 0) > MAX_WORDS_FOR_AI ? (
             <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs leading-5 text-amber-700">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               Over 30,000 words: AI detection will not be available for this document. You will get the similarity report only, and the check is charged as normal.
