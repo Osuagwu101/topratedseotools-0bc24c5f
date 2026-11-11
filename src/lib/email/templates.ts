@@ -22,6 +22,33 @@ export function renderTemplate(template: string, vars: TemplateVars): string {
 }
 
 /**
+ * Customer-facing amount, e.g. "₦17,000" for NGN or "USD 25.00" otherwise.
+ * Numeric strings are grouped with thousands separators.
+ */
+export function formatAmountDisplay(currency: unknown, amount: unknown): string {
+  const raw = String(amount ?? "").trim();
+  if (!raw) return "";
+  const n = Number(raw.replace(/,/g, ""));
+  const num = Number.isFinite(n) && /^[\d.,\s]+$/.test(raw)
+    ? n.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })
+    : raw;
+  const cur = String(currency ?? "").trim().toUpperCase();
+  if (!cur || cur === "NGN" || cur === "₦") return `₦${num}`;
+  return `${cur} ${num}`;
+}
+
+/**
+ * Templates may declare inbox preview text as `<!--preheader: ... -->`.
+ * Returns the preview with {{vars}} filled in (plain text; the layout escapes it).
+ */
+export function extractPreheader(template: string, vars: TemplateVars): string | undefined {
+  const m = /<!--\s*preheader:([\s\S]*?)-->/.exec(template ?? "");
+  if (!m) return undefined;
+  const text = m[1].replace(/\{\{\{?\s*([\w.]+)\s*\}?\}\}/g, (_, key) => String(vars[key as string] ?? "")).trim();
+  return text || undefined;
+}
+
+/**
  * Wraps an email body in the shared branded layout. Branding comes from the
  * admin Email Branding settings; omitted fields fall back to defaults.
  */

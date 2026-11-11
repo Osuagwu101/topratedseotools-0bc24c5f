@@ -6,7 +6,7 @@
  * cannot send duplicate emails.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { renderTemplate, wrapHtmlEmail, type TemplateVars } from "./templates";
+import { extractPreheader, formatAmountDisplay, renderTemplate, wrapHtmlEmail, type TemplateVars } from "./templates";
 import { normalizeBranding } from "./branding";
 import { resolveToolDisplay } from "./tool-display";
 
@@ -159,6 +159,7 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
     brand_color: branding.brandColor,
     support_email: branding.supportEmail,
     site_url: String(payload.site_url ?? branding.websiteUrl),
+    amount_display: formatAmountDisplay(payload.currency, payload.amount),
   };
   const subject = renderTemplate(tpl.subject, vars);
   const bodyInner = renderTemplate(tpl.html_body, vars);
@@ -166,6 +167,7 @@ export async function dispatchOne(admin: any, id: string): Promise<{ ok: boolean
     senderName: settings.sender_name,
     siteUrl: (row.payload as any)?.site_url ?? branding.websiteUrl,
     branding,
+    preheader: extractPreheader(tpl.html_body, vars),
   });
 
 
