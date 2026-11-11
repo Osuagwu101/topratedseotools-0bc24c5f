@@ -103,6 +103,16 @@ async function getTurnitinBillingMode(
   return { billingMode: "prepaid", postpaidRateNgn: null };
 }
 
+async function maybeGenerateCycleInvoice(admin: any, userId: string) {
+  // A billing-notice error must never invalidate an already-accepted, successfully charged job.
+  try {
+    const { error } = await admin.rpc("turnitin_postpaid_maybe_create_cycle_invoice", { _user_id: userId });
+    if (error) console.error("Postpaid cycle invoice creation failed:", error.message);
+  } catch (error) {
+    console.error("Postpaid cycle invoice creation failed:", error instanceof Error ? error.message : "Unknown error");
+  }
+}
+
 async function releaseReservation(
   admin: any,
   userId: string,
@@ -212,7 +222,13 @@ export const createTurnitinUploadIntent = createServerFn({ method: "POST" })
       author_last_name: data.options.authorLastName?.trim() || null,
       billing_mode: billing.billingMode,
     });
-    if (jobError) throw new Error(jobError.message);
+    if (jobError) {
+      if (/TURNITIN_POSTPAID_PAYMENT_REQUIRED/i.test(jobError.message))
+        throw new Error("Your postpaid billing threshold has been reached. Please settle your outstanding balance or contact Admin.");
+      if (/TURNITIN_POSTPAID_FILE_LIMIT_PENDING/i.test(jobError.message))
+        throw new Error("Your postpaid file allowance is already used or reserved by pending checks. Complete those checks or contact Admin.");
+      throw new Error(jobError.message);
+    }
 
     if (billing.billingMode === "prepaid") {
       const { error: reserveError } = await admin.rpc("turnitin_reserve_credit", {
@@ -335,6 +351,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
           },
         );
         if (chargeError) throw new Error(chargeError.message);
+        await maybeGenerateCycleInvoice(admin, context.userId);
       } else if (job.credit_state === "reserved") {
         const { error: consumeError } = await admin.rpc(
           "turnitin_consume_reserved_credit",
@@ -445,6 +462,7 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
             `Upstream accepted the document but Postpaid charge finalisation failed: ${chargeError.message}`,
           );
         }
+        await maybeGenerateCycleInvoice(admin, context.userId);
       } else {
         const { error: consumeError } = await admin.rpc(
           "turnitin_consume_reserved_credit",

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CreditCard, Download, Receipt } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { TurnitinBillingHistory } from "@/components/turnitin/TurnitinBillingHistory";
 
 export const Route = createFileRoute("/_authenticated/billing")({
   head: () => ({
@@ -58,6 +59,8 @@ function BillingPage() {
             </Link>
           </div>
         </div>
+
+        <TurnitinBillingHistory />
 
         <div className="mt-6 rounded-2xl border bg-card p-6 shadow-card">
           <div className="mb-3 flex items-center gap-2">

@@ -38,6 +38,8 @@ import {
   syncMyTurnitinJobs,
 } from "@/lib/turnitin-jobs.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyTurnitinPostpaidInvoiceOverview } from "@/lib/turnitin-postpaid-invoices.functions";
+import { downloadTopRatedInvoice } from "@/lib/turnitin-postpaid-invoice-pdf";
 import { getActiveGatewayInfo } from "@/lib/active-gateway.functions";
 import { shouldShowOriginalityAsteriskPercent } from "@/lib/turnitin-ai-score";
 import { TurnitinReportSettingsButton } from "@/components/turnitin/TurnitinReportSettingsButton";
@@ -170,7 +172,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [settlingPostpaid, setSettlingPostpaid] = useState(false);
-  const [settlementAmount, setSettlementAmount] = useState(0);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [reconcilingPayment, setReconcilingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
@@ -212,9 +213,29 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     settingsApplied.current = true;
   }, [reportPreferences.data, selectedFile, submitting]);
 
+  const postpaidInvoices = useQuery({
+    queryKey: ["turnitin-postpaid-invoices"],
+    queryFn: () => getMyTurnitinPostpaidInvoiceOverview(),
+    enabled: isAuthenticated && workspace.data?.account.billing_mode === "postpaid",
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
+  const billingPolicy = postpaidInvoices.data?.policy;
+  const isPostpaidForBilling = workspace.data?.account.billing_mode === "postpaid";
+  const billingUnverified = !!isPostpaidForBilling &&
+    (postpaidInvoices.isPending || postpaidInvoices.isError || !billingPolicy);
+  const billingPaymentRequired = !!isPostpaidForBilling && !!billingPolicy?.blocked;
+  const billingPendingCapacity = !!isPostpaidForBilling && !!billingPolicy?.enforced &&
+    !billingPolicy?.manual_override && !billingPaymentRequired &&
+    (billingPolicy?.trigger_mode === "files" || billingPolicy?.trigger_mode === "hybrid") &&
+    Number(billingPolicy?.charge_count ?? 0) + Number(billingPolicy?.pending_count ?? 0) >=
+      Number(billingPolicy?.file_threshold ?? Number.MAX_SAFE_INTEGER);
+  const cannotSubmitForBilling = billingUnverified || billingPaymentRequired || billingPendingCapacity;
+
   const canSubmitNow = !!selectedFile && !!workspace.data?.foundationReady &&
     (workspace.data.account.billing_mode === "postpaid" ||
-      workspace.data.summary.available_credits > 0) && !submitting;
+      workspace.data.summary.available_credits > 0) && !cannotSubmitForBilling && !submitting;
   useEffect(() => {
     onSubmitStateChange?.(canSubmitNow, submitting);
   }, [canSubmitNow, submitting, onSubmitStateChange]);
@@ -281,6 +302,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             qc.invalidateQueries({
               queryKey: ["turnitin-postpaid-settlements"],
             }),
+            qc.invalidateQueries({ queryKey: ["turnitin-postpaid-invoices"] }),
           ]);
         } else if (result.status === "pending") {
           setPaymentMessage(
@@ -339,19 +361,6 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     };
   }, [isAuthenticated, qc]);
 
-  useEffect(() => {
-    if (workspace.data?.account.billing_mode !== "postpaid") return;
-    const outstanding = workspace.data.postpaid.outstanding_ngn;
-    setSettlementAmount((current) => {
-      if (outstanding <= 0) return 0;
-      if (current <= 0 || current > outstanding) return outstanding;
-      return current;
-    });
-  }, [
-    workspace.data?.account.billing_mode,
-    workspace.data?.postpaid.outstanding_ngn,
-  ]);
-
   const buyCredits = async () => {
     if (!workspace.data?.foundationReady) {
       setPaymentError("The Turnitin credit system is not ready in this environment.");
@@ -386,21 +395,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       setPaymentError("There is no outstanding Postpaid balance to settle.");
       return;
     }
-    if (
-      !Number.isInteger(settlementAmount) ||
-      settlementAmount < 1 ||
-      settlementAmount > outstanding
-    ) {
-      setPaymentError("Enter a settlement amount within your outstanding balance.");
-      return;
-    }
-
     setSettlingPostpaid(true);
     setPaymentError(null);
     setPaymentMessage(null);
     try {
       const checkout = await initializeTurnitinPostpaidSettlement({
-        data: { amountNgn: settlementAmount },
+        data: { amountNgn: outstanding },
       });
       window.sessionStorage.setItem(
         "turnitin-postpaid-settlement-reference",
@@ -432,6 +432,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
           qc.invalidateQueries({
             queryKey: ["turnitin-postpaid-settlements"],
           }),
+          qc.invalidateQueries({ queryKey: ["turnitin-postpaid-invoices"] }),
         ]);
       } else if (result.status === "pending") {
         setPaymentMessage(
@@ -519,6 +520,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   }, [jobs, search, statusFilter]);
 
   const onFile = (file: File | null) => {
+    if (cannotSubmitForBilling) {
+      setSelectedFile(null);
+      setFileError(billingPaymentRequired
+        ? "Payment is required before another document can be selected."
+        : "Please wait until your billing access is available.");
+      return;
+    }
     if (!file) return;
     const error = validateFile(file);
     setFileError(error);
@@ -601,6 +609,14 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   };
 
   const runCheck = async (confirmedOverLimit = false) => {
+    if (cannotSubmitForBilling) {
+      setSubmitError(billingPaymentRequired
+        ? "Payment required: your postpaid billing limit has been reached. Pay your outstanding balance to submit another file."
+        : billingPendingCapacity
+          ? "Your remaining file allowance is reserved by processing checks. Review your check history before submitting another file."
+          : "Your billing access could not be verified. Retry the billing check before submitting.");
+      return;
+    }
     if (!selectedFile) {
       setSubmitError("Choose a PDF, DOC or DOCX file first.");
       return;
@@ -804,6 +820,39 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         </div>
       ) : null}
 
+      {isPostpaid && postpaidInvoices.data?.policy?.triggered &&
+       postpaidInvoices.data?.totalOutstandingNgn > 0 &&
+       (view === "all" || view === "overview" || view === "buy" || view === "submit" || view === "history") ? (
+        <section role="alert" className="rounded-xl border border-amber-500/40 bg-amber-50/70 p-5 text-amber-950">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertCircle className="h-5 w-5" />
+            {postpaidInvoices.data.policy.blocked ? "Checks paused - payment required" : "Postpaid invoice due"}
+          </div>
+          <p className="mt-2 text-sm">
+            Your billing threshold has been reached. Your total outstanding balance is
+            {" "}<strong>{formatNaira(postpaidInvoices.data.totalOutstandingNgn)}</strong>.
+            {postpaidInvoices.data.policy.blocked
+              ? " New checks are restricted until your outstanding balance is paid."
+              : " Your outstanding invoice remains payable."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => void settlePostpaidBalance()}
+              disabled={settlingPostpaid || verifyingPayment}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              {settlingPostpaid ? "Opening payment..." :
+                "Pay "+formatNaira(postpaidInvoices.data.totalOutstandingNgn)+" now"}
+            </button>
+            <Link to="/billing" className="rounded-lg border border-amber-600/40 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white">
+              View billing history
+            </Link>
+            <Link to="/turnitin/buy" className="rounded-lg border px-4 py-2 text-sm font-semibold">
+              View invoices
+            </Link>
+          </div>
+          {paymentError && <p className="mt-2 text-xs text-destructive">{paymentError}</p>}
+        </section>
+      ) : null}
+
       {(view === "all" || view === "overview") ? (
       <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {isPostpaid ? (
@@ -927,31 +976,10 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               <div className="mt-5 rounded-xl border bg-muted/20 p-4">
                 <div className="text-sm font-semibold">Settle your balance</div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Pay all or part of your outstanding balance through the active payment provider.
-                  Confirmed money is allocated to your oldest unpaid checks first.
+                  Settle your entire outstanding balance securely. Partial online payments are not accepted.
+                  Your outstanding charges are allocated oldest first after gateway confirmation.
                 </p>
-                <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Amount to pay
-                </label>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    type="number"
-                    min={1}
-                    max={postpaid.outstanding_ngn}
-                    value={settlementAmount}
-                    onChange={(e) =>
-                      setSettlementAmount(
-                        Math.max(
-                          1,
-                          Math.min(
-                            postpaid.outstanding_ngn,
-                            Math.floor(Number(e.target.value) || 1),
-                          ),
-                        ),
-                      )
-                    }
-                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 sm:max-w-[220px]"
-                  />
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => void settlePostpaidBalance()}
@@ -959,7 +987,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                       settlingPostpaid ||
                       verifyingPayment ||
                       !foundationReady ||
-                      settlementAmount < 1
+                      postpaid.outstanding_ngn < 1
                     }
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -970,7 +998,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                     )}
                     {settlingPostpaid
                       ? "Opening payment…"
-                      : `Pay ${formatNaira(settlementAmount)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
+                      : `Pay ${formatNaira(postpaid.outstanding_ngn)} with ${activeGateway.data?.displayName ?? "payment provider"}`}
                   </button>
                 </div>
                 <button
@@ -1008,6 +1036,33 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                 {paymentError}
               </div>
             ) : null}
+
+            <div className="mt-5 overflow-hidden rounded-xl border" id="postpaid-invoices">
+              <div className="border-b px-4 py-3">
+                <div className="text-sm font-semibold">TopRated invoices</div>
+                <p className="text-xs text-muted-foreground">View payment status and download a PDF invoice. Full account settlement is required to restore restricted checks.</p>
+              </div>
+              {postpaidInvoices.data?.invoices?.length ? (
+                <div className="divide-y">
+                  {postpaidInvoices.data.invoices.map((inv) => (
+                    <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+                      <div>
+                        <strong>{inv.invoiceRef}</strong>
+                        <div className="text-xs text-muted-foreground">
+                          {inv.fileCount} checks | {new Date(inv.issuedAt).toLocaleDateString()} | {inv.status}
+                        </div>
+                        <div>Invoiced: {formatNaira(inv.billedNgn)} | Remaining: {formatNaira(inv.outstandingNgn)}</div>
+                      </div>
+                      <button type="button" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold"
+                        onClick={() => downloadTopRatedInvoice(inv,postpaidInvoices.data?.customerName ?? "",
+                          postpaidInvoices.data?.totalOutstandingNgn ?? 0)}>
+                        <Download className="h-4 w-4" /> Download invoice PDF
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="p-4 text-xs text-muted-foreground">No automatic invoices yet.</p>}
+            </div>
 
             <div className="mt-5 overflow-hidden rounded-xl border">
               <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -1168,6 +1223,58 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
       {(view === "all" || view === "submit") ? (
         <div className={compactSubmit ? "rounded-xl border bg-card p-3 sm:p-4" : "rounded-2xl border bg-card p-6 shadow-card"}>
+          {billingPaymentRequired ? (
+            <div role="alert" className="mb-5 rounded-xl border border-amber-500/50 bg-amber-50 p-4 text-amber-950 sm:p-5">
+              <div className="flex items-center gap-2 text-lg font-semibold">
+                <AlertCircle className="h-5 w-5 shrink-0" /> Payment Required
+              </div>
+              <p className="mt-2 text-sm leading-6">
+                Your postpaid billing threshold has been reached. New document checks are paused
+                until your full outstanding balance is paid.
+              </p>
+              <div className="mt-3 flex flex-wrap justify-between gap-2 rounded-lg bg-white/80 p-3 text-sm">
+                <span>
+                  Checks: <strong>{billingPolicy?.charge_count ?? 0} / {billingPolicy?.file_threshold ?? "Monthly"}</strong>
+                </span>
+                <span>
+                  Outstanding: <strong>{formatNaira(postpaidInvoices.data?.totalOutstandingNgn ?? 0)}</strong>
+                </span>
+              </div>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button type="button"
+                  onClick={() => void settlePostpaidBalance()}
+                  disabled={settlingPostpaid || verifyingPayment || !(postpaidInvoices.data?.totalOutstandingNgn > 0)}
+                  className="rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                  {settlingPostpaid ? "Opening payment..." :
+                   "Pay "+formatNaira(postpaidInvoices.data?.totalOutstandingNgn ?? 0)+" now"}
+                </button>
+                <Link to="/turnitin/buy"
+                  className="rounded-lg border px-4 py-3 text-center text-sm font-semibold">
+                  View and download invoice
+                </Link>
+              </div>
+              <p className="mt-3 text-xs">Your existing reports and completed checks remain available.</p>
+              {paymentError && <p role="alert" className="mt-2 text-xs text-destructive">{paymentError}</p>}
+            </div>
+          ) : billingPendingCapacity ? (
+            <div role="alert" className="mb-5 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm text-amber-950">
+              <strong>File allowance currently reserved</strong>
+              <p className="mt-2">Your pending checks have used the available file slots.
+                Check your processing history; payment is due only when successful checks reach the billing threshold.</p>
+            </div>
+          ) : billingUnverified ? (
+            <div role="status" className="mb-5 rounded-xl border p-4 text-sm">
+              <strong>Checking billing access</strong>
+              <p className="mt-2 text-muted-foreground">
+                {postpaidInvoices.isError
+                  ? "We could not verify your billing status. No file will be submitted."
+                  : "Please wait while we confirm your billing access."}
+              </p>
+              {postpaidInvoices.isError && <button type="button"
+                onClick={() => void postpaidInvoices.refetch()}
+                className="mt-3 rounded-lg border px-3 py-2 font-semibold">Retry billing check</button>}
+            </div>
+          ) : null}
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
               <UploadCloud className="h-5 w-5" />
@@ -1182,6 +1289,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
           <input
             ref={fileInputRef}
+            disabled={cannotSubmitForBilling}
             type="file"
             accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
@@ -1218,11 +1326,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
           ) : (
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              disabled={cannotSubmitForBilling}
+              onClick={() => { if (!cannotSubmitForBilling) fileInputRef.current?.click(); }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                onFile(e.dataTransfer.files?.[0] ?? null);
+                if (!cannotSubmitForBilling) onFile(e.dataTransfer.files?.[0] ?? null);
               }}
               className={`mt-4 flex w-full flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center transition hover:border-primary/50 hover:bg-primary/[0.02] ${compactSubmit ? "py-6" : "py-10"}`}
             >
@@ -1457,6 +1566,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               submitting ||
               !selectedFile ||
               !foundationReady ||
+              cannotSubmitForBilling ||
               (!isPostpaid && summary.available_credits < 1)
             }
             className={compactSubmit ? "sr-only" : "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"}

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  FileCheck2,
   Cog as CogIcon,
   CreditCard,
   LayoutDashboard,
@@ -139,6 +140,7 @@ function AdminSidebar() {
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
 
+  const [turnitinOpen, setTurnitinOpen] = useState(() => path.startsWith('/admin/turnitin'));
   const [fulfilmentOpen, setFulfilmentOpen] = useState(
     () => path.startsWith("/admin/awaiting-assignments") || path.startsWith("/admin/access-health"),
   );
@@ -246,6 +248,17 @@ function AdminSidebar() {
             <SidebarMenu>
               <SimpleItem to="/admin/dashboard" title="Overview" icon={LayoutDashboard} active={path === "/admin/dashboard"} />
               <SimpleItem to="/admin/tools" title="Tools" icon={Settings2} active={path.startsWith("/admin/tools")} />
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Turnitin Checks" isActive={path.startsWith("/admin/turnitin")} onClick={() => collapsed ? navigate({to: "/admin/turnitin"}) : setTurnitinOpen(v => !v)}>
+                  <FileCheck2 /><span>Turnitin Checks</span>
+                  {!collapsed && (turnitinOpen ? <ChevronDown className="ml-auto h-4 w-4" /> : <ChevronRight className="ml-auto h-4 w-4" />)}
+                </SidebarMenuButton>
+                {!collapsed && turnitinOpen && <SidebarMenuSub>
+                  {[["Dashboard","/admin/turnitin"],["All Submissions","/admin/turnitin?view=submissions"],["Reports & Results","/admin/turnitin?view=reports"],["Attention Queue","/admin/turnitin?view=attention"],["Customers & Slots","/admin/turnitin-credits"],["Purchases & Payments","/admin/turnitin-purchases"],["Postpaid Billing","/admin/turnitin-billing"]].map(([title,href])=><SidebarMenuSubItem key={title}>
+                    <SidebarMenuSubButton asChild isActive={href.startsWith("/admin/turnitin-") && path.startsWith(href)}><a href={href}>{title}</a></SidebarMenuSubButton>
+                  </SidebarMenuSubItem>)}
+                </SidebarMenuSub>}
+              </SidebarMenuItem>
               <SimpleItem to="/admin/customers" title="Customers" icon={Users} active={path.startsWith("/admin/customers")} />
               <SimpleItem to="/admin/orders" title="Orders" icon={ClipboardList} active={path === "/admin/orders"} />
               <SimpleItem to="/admin/transactions" title="Transactions" icon={CreditCard} active={path === "/admin/transactions"} />
