@@ -51,6 +51,7 @@ import {
   TURNITIN_CREDIT_MAX_QUANTITY,
   TURNITIN_CREDIT_UNIT_PRICE_NGN,
 } from "@/lib/turnitin-pricing";
+import { countDocumentWords, TURNITIN_AI_MAX_WORDS } from "@/lib/turnitin-word-count";
 import {
   getMyTurnitinPostpaidSettlements,
   initializeTurnitinPostpaidSettlement,
@@ -143,6 +144,9 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [quantity, setQuantity] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [wordCount, setWordCount] = useState<{ status: "idle" | "counting" | "done" | "unavailable"; words: number | null }>({ status: "idle", words: null });
+  const wordCountPromise = useRef<Promise<number | null> | null>(null);
+  const [overLimitConfirmOpen, setOverLimitConfirmOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const [reportTitle, setReportTitle] = useState("");
@@ -524,10 +528,28 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     }
     setSelectedFile(file);
     setReportTitle(file.name);
+    startWordCount(file);
+  };
+
+  // Count words in the browser so we can warn before upload when a document
+  // is over the 30,000-word AI-detection limit. Never blocks submission.
+  const startWordCount = (file: File) => {
+    setWordCount({ status: "counting", words: null });
+    const pending = countDocumentWords(file)
+      .then((result) => result?.words ?? null)
+      .catch(() => null);
+    wordCountPromise.current = pending;
+    void pending.then((words) => {
+      if (wordCountPromise.current !== pending) return; // a different file was chosen since
+      setWordCount(words == null ? { status: "unavailable", words: null } : { status: "done", words });
+    });
   };
 
   const removeFile = () => {
     setSelectedFile(null);
+    wordCountPromise.current = null;
+    setWordCount({ status: "idle", words: null });
+    setOverLimitConfirmOpen(false);
     setReportTitle("");
     setFileError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -578,7 +600,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     }
   };
 
-  const runCheck = async () => {
+  const runCheck = async (confirmedOverLimit = false) => {
     if (!selectedFile) {
       setSubmitError("Choose a PDF, DOC or DOCX file first.");
       return;
@@ -599,6 +621,23 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       setSubmitError("You need at least one available Turnitin check credit.");
       return;
     }
+
+    if (!confirmedOverLimit) {
+      let words = wordCount.words;
+      if (wordCount.status === "counting" && wordCountPromise.current) {
+        setSubmitting(true);
+        words = await Promise.race([
+          wordCountPromise.current,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000)),
+        ]);
+        setSubmitting(false);
+      }
+      if (words != null && words > TURNITIN_AI_MAX_WORDS) {
+        setOverLimitConfirmOpen(true);
+        return;
+      }
+    }
+    setOverLimitConfirmOpen(false);
 
     setSubmitting(true);
     setSubmitError(null);
@@ -1157,6 +1196,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                   <div className="truncate text-sm font-medium">{cleanName(selectedFile)}</div>
                   <div className="text-xs text-muted-foreground">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    {wordCount.status === "counting"
+                      ? " · counting words…"
+                      : wordCount.status === "done" && wordCount.words != null
+                        ? ` · about ${wordCount.words.toLocaleString()} words`
+                        : wordCount.status === "unavailable"
+                          ? " · word count unavailable for this file"
+                          : ""}
                   </div>
                 </div>
               </div>
@@ -1187,6 +1233,13 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               </span>
             </button>
           )}
+
+          {selectedFile && wordCount.status === "done" && (wordCount.words ?? 0) > TURNITIN_AI_MAX_WORDS ? (
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs leading-5 text-amber-700">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Over 30,000 words: AI detection will not be available for this document. You will get the similarity report only, and the check is charged as normal.
+            </p>
+          ) : null}
 
           {fileError ? (
             <p className="mt-2 flex items-center gap-1 text-xs text-destructive">
@@ -1415,6 +1468,24 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
             )}
             {submitting ? "Submitting…" : "Run Turnitin check"}
           </button>
+          <AlertDialog open={overLimitConfirmOpen} onOpenChange={(open) => { if (!submitting) setOverLimitConfirmOpen(open); }}>
+            <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>No AI report for this document</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This document has about {(wordCount.words ?? 0).toLocaleString()} words, which is over the 30,000-word limit for AI detection.
+                  Only the similarity report will be produced. Continuing still uses one check at the normal price
+                  {isPostpaid ? " on your Postpaid account" : " (1 credit)"}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={(e) => { e.preventDefault(); setOverLimitConfirmOpen(false); void runCheck(true); }}>
+                  Continue without AI report
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           {submitMessage ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
