@@ -183,9 +183,18 @@ if(document.cookie.indexOf("csrf-token=")<0)document.cookie="csrf-token=trst-pro
 const GRAMMARLY_DEBUG_CAPTURE = `
 window.addEventListener("error",function(e){console.warn("[trst] error",e.message,e.filename,e.lineno,e.error&&e.error.stack&&String(e.error.stack).slice(0,600))});
 window.addEventListener("unhandledrejection",function(e){var r=e.reason;console.warn("[trst] rejection",r&&(r.message||String(r)).slice(0,300),r&&r.stack&&String(r.stack).slice(0,600))});
-(function(){var F0=window.fetch;window.fetch=function(i,n){try{var u=String(typeof i==="string"?i:i&&i.url);if(/f-log|femetrics|logv2/.test(u)&&n&&typeof n.body==="string")console.warn("[trst] log-upload",u.slice(0,80),n.body.slice(0,4000))}catch(x){}return F0.apply(this,arguments)};
-var XO0=XMLHttpRequest.prototype.open,XS0=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__trstU=String(u);return XO0.apply(this,arguments)};XMLHttpRequest.prototype.send=function(b){try{if(/f-log|femetrics|logv2/.test(this.__trstU||"")&&typeof b==="string")console.warn("[trst] log-upload",this.__trstU.slice(0,80),b.slice(0,4000))}catch(x){}return XS0.apply(this,arguments)};
-if(navigator.sendBeacon){var SB0=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){try{if(typeof d==="string")console.warn("[trst] beacon",String(u).slice(0,80),d.slice(0,4000))}catch(x){}return SB0(u,d)}}})();
+(function(){
+function show(tag,u,b){try{
+var out=function(t){console.warn("[trst] "+tag,String(u).slice(0,80),String(t).slice(0,6000))};
+if(b==null)return;if(typeof b==="string")return out(b);
+var toBuf=b instanceof Blob?b.arrayBuffer():Promise.resolve(b instanceof ArrayBuffer?b:(b.buffer?b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength):null));
+toBuf.then(function(buf){if(!buf)return;var u8=new Uint8Array(buf);
+if(u8[0]===31&&u8[1]===139&&window.DecompressionStream){return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).text().then(out)}
+out(new TextDecoder().decode(u8))}).catch(function(){})}catch(x){}}
+var F0=window.fetch;window.fetch=function(i,n){try{var u=String(typeof i==="string"?i:i&&i.url);if(/f-log|logv2|crash/.test(u))show("log-upload",u,n&&n.body)}catch(x){}return F0.apply(this,arguments)};
+var XO0=XMLHttpRequest.prototype.open,XS0=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__trstU=String(u);return XO0.apply(this,arguments)};XMLHttpRequest.prototype.send=function(b){try{if(/f-log|logv2|crash/.test(this.__trstU||""))show("log-upload",this.__trstU,b)}catch(x){}return XS0.apply(this,arguments)};
+if(navigator.sendBeacon){var SB0=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){try{if(/f-log|logv2|crash/.test(String(u)))show("beacon",u,d)}catch(x){}return SB0(u,d)}}
+})();
 `;
 
 // --------------------------------------------------------------- the vault
