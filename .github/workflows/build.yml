@@ -42,6 +42,8 @@ jobs:
         run: bun tests/chatgpt-isolation.test.ts
       - name: Grammarly session vault
         run: bun tests/grammarly-session-vault.test.ts
+      - name: Grammarly proxy
+        run: bun tests/grammarly-proxy.test.ts
       - name: ChatGPT Phase 4 hardening tests
         run: bun tests/chatgpt-phase4-validation.test.ts
       - name: ChatGPT Phase 1-4 conformance audit

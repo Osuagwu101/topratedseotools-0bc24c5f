@@ -8,6 +8,7 @@ import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
 import { startChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.functions";
+import { startGrammarlyProxyLaunch } from "@/lib/grammarly-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
 import { isPhraslyToolSlug } from "@/lib/phrasly-proxy-policy";
@@ -46,6 +47,16 @@ function validateClientLaunchUrl(
     if (!localProxy && !dedicated) {
       throw new Error("The Phrasly proxy returned an invalid launch URL.");
     }
+    return launchUrl;
+  }
+  if (toolSlug === "grammarly") {
+    const launchUrl = new URL(rawUrl);
+    const dedicated =
+      !!trustedProxyOrigin &&
+      launchUrl.origin === trustedProxyOrigin &&
+      launchUrl.protocol === "https:" &&
+      launchUrl.pathname === "/__trst/enter";
+    if (!dedicated) throw new Error("The Grammarly proxy returned an invalid launch URL.");
     return launchUrl;
   }
   if (toolSlug === "chatgpt") {
@@ -130,6 +141,8 @@ export async function launchTool(
               })()
             : isPhraslyToolSlug(tool.slug)
               ? await startPhraslyProxyLaunch()
+              : tool.slug === "grammarly"
+                ? await startGrammarlyProxyLaunch()
               : tool.slug === "chatgpt"
                 ? await (async () => {
                     const deviceReady = await fetch("/api/chatgpt-device", {
@@ -151,7 +164,10 @@ export async function launchTool(
                 },
               });
       const trustedProxyOrigin =
-        (tool.slug === "stealthwriter" || tool.slug === "phrasly" || tool.slug === "chatgpt") &&
+        (tool.slug === "stealthwriter" ||
+          tool.slug === "phrasly" ||
+          tool.slug === "chatgpt" ||
+          tool.slug === "grammarly") &&
         "proxy_origin" in result &&
         typeof result.proxy_origin === "string"
           ? result.proxy_origin

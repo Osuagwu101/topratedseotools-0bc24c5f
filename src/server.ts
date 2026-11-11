@@ -19,6 +19,10 @@ import {
   isDedicatedChatGPTProxyRequest,
 } from "./lib/chatgpt-proxy.server";
 import { chatgptProxyBootstrapResponse } from "./lib/chatgpt-proxy-bootstrap.server";
+import {
+  handleGrammarlyProxyRequest,
+  isDedicatedGrammarlyProxyRequest,
+} from "./lib/grammarly-proxy.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -65,6 +69,10 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      // grammarly.topratedseotools.com serves only the Grammarly proxy.
+      if (isDedicatedGrammarlyProxyRequest(request)) {
+        return await handleGrammarlyProxyRequest(request);
+      }
       const dedicatedStealthWriterHost = isDedicatedStealthWriterProxyRequest(request);
       const dedicatedPhraslyHost = isDedicatedPhraslyProxyRequest(request);
       const dedicatedChatGPTHost = isDedicatedChatGPTProxyRequest(request);
