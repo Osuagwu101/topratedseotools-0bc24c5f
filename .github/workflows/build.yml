@@ -38,6 +38,8 @@ jobs:
         run: bun tests/chatgpt-phase2-foundation.test.ts
       - name: ChatGPT Phase 3 proxy tests
         run: bun tests/chatgpt-proxy.test.ts
+      - name: ChatGPT per-writer history isolation
+        run: bun tests/chatgpt-isolation.test.ts
       - name: ChatGPT Phase 4 hardening tests
         run: bun tests/chatgpt-phase4-validation.test.ts
       - name: ChatGPT Phase 1-4 conformance audit
