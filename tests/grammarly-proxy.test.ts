@@ -104,6 +104,8 @@ const launcher = readFileSync("src/lib/tool-launcher.ts", "utf8");
 assert(launcher.includes("startGrammarlyProxyLaunch") && launcher.includes('toolSlug === "grammarly"'), "dashboard launches Grammarly through the proxy");
 const migration = readFileSync("supabase/migrations/20261112000000_grammarly_proxy.sql", "utf8");
 assert(migration.includes("grammarly_proxy_sessions") && migration.includes("grammarly_document_owners") && migration.includes("one_click_auth_enabled, launch_mode)"), "migration creates sessions, document owners and settings");
+const relaySrc = readFileSync("scripts/grammarly-ws-relay.mjs", "utf8");
+assert(relaySrc.includes("process.env.pm_id !== undefined"), "relay starts under pm2");
 const deploy = readFileSync("scripts/deploy/ovh_deploy_main.py", "utf8");
 assert(deploy.includes("/etc/nginx/sites-enabled/grammarly-proxy") && deploy.includes("trst-grammarly-ws"), "deploys keep the Grammarly host and relay on the live build");
 

@@ -221,7 +221,10 @@ export function startRelay() {
   return server;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+// Start when run directly or under pm2 (pm2 wraps the script, so argv[1] is
+// its own container; it sets pm_id). Importing the module (tests) never starts it.
+const runDirectly = !!process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+if (runDirectly || process.env.pm_id !== undefined) {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
     process.exit(1);
