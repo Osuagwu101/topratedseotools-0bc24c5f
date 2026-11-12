@@ -151,8 +151,9 @@ export function rewriteGrammarlyBody(text: string, publicOrigin: string, debug =
     .replace(new RegExp(`(["'(=\\s])//${HOST_RE}`, "gi"), (_, pre, host) => `${pre}${httpTarget(host)}`)
     // The editor writes its cookies for ".grammarly.com"; on the proxy host the
     // browser would refuse them and the editor never finishes starting.
-    .replace(/("cookie"\s*:\s*")\.grammarly\.com(")/g, `$1${proxyHost}$2`)
-    .replace(/(\\"cookie\\"\s*:\s*\\")\.grammarly\.com(\\")/g, `$1${proxyHost}$2`)
+    // Keep the leading dot required by Grammarly's cookie-domain validator.
+    .replace(/("cookie"\s*:\s*")\.grammarly\.com(")/g, `$1.${proxyHost}$2`)
+    .replace(/(\\"cookie\\"\s*:\s*\\")\.grammarly\.com(\\")/g, `$1.${proxyHost}$2`)
     // Debug switch (cookie trst_debug=1): copy the editor's own log to the console.
     .replace(/"copyLogsToConsole"\s*:\s*false/g, debug ? '"copyLogsToConsole":true' : '"copyLogsToConsole":false');
 }

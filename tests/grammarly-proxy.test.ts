@@ -49,7 +49,9 @@ assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
 
 {
   const cfg = rewriteGrammarlyBody('{"domains":{"cookie":".grammarly.com"},"copyLogsToConsole":false}', O);
-  assert(cfg.includes('"cookie":"grammarly.topratedseotools.com"'), "editor cookies are written for the proxy host");
+  assert(cfg.includes('"cookie":".grammarly.topratedseotools.com"'), "editor cookies are written for the proxy host");
+  const escaped = rewriteGrammarlyBody(String.raw`{\"domains\":{\"cookie\":\".grammarly.com\"}}`, O);
+  assert(escaped.includes(String.raw`\"cookie\":\".grammarly.topratedseotools.com\"`), "escaped configuration preserves the leading cookie-domain dot");
   assert(cfg.includes('"copyLogsToConsole":false') && rewriteGrammarlyBody('"copyLogsToConsole":false', O, true).includes('"copyLogsToConsole":true'), "debug switch only when asked");
 }
 
