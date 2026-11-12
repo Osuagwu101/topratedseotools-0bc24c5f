@@ -53,6 +53,27 @@ export function documentIdFromFrame(text) {
   return m ? m[1] : null;
 }
 
+export function codaSocketDocument(target) {
+  try {
+    const u = new URL(target);
+    if (u.hostname !== "coda.grammarly.com" || !/^\/document_server\/?$/.test(u.pathname)) return null;
+    const raw = u.searchParams.get("params") || "";
+    if (raw.length > 8192) return null;
+    const p = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    return typeof p?.documentId === "string" && /^[A-Za-z0-9_-]{5,64}$/.test(p.documentId) ? p.documentId : null;
+  } catch { return null; }
+}
+
+export function codaFrameIsScoped(text, id) {
+  // A Coda connection is bound to one document in its initial handshake.
+  // Socket.IO's only supported namespace on this connection is /collab.
+  if (/^4[01]/.test(text) && !/^4[01]\/collab(?:,|$)/.test(text)) return false;
+  for (const m of String(text).matchAll(/"(?:docId|documentId|sourceDocId|targetDocId|containerDocId)"\s*:\s*"([A-Za-z0-9_-]+)"/g)) {
+    if (m[1] !== id) return false;
+  }
+  return true;
+}
+
 function rest(pathAndQuery) {
   const headers = { apikey: SERVICE_KEY };
   if (!SERVICE_KEY.startsWith("sb_secret_")) headers.Authorization = `Bearer ${SERVICE_KEY}`;
@@ -151,6 +172,12 @@ export function startRelay() {
       return reject(socket, 503, "Service Unavailable");
     }
     if (!session) return reject(socket, 401, "Unauthorized");
+    const codaDoc = route.host === "coda.grammarly.com" ? codaSocketDocument(route.target) : null;
+    if (route.host === "coda.grammarly.com") {
+      const preview = cookieValue(req.headers.cookie, "trst_coda_preview") === "1" || process.env.GRAMMARLY_CODA_ENABLED === "1";
+      if (!preview || !codaDoc || await documentOwner("coda:" + codaDoc).catch(() => null) !== String(session.user_id)) return reject(socket, 403, "Forbidden");
+      vault = null;
+    }
     // Dox names the document in the connection URL, before any frames arrive.
     const routeDoc = route.host === "dox.grammarly.com"
       ? new URL(route.target).pathname.match(/^\/documents\/(\d+)\/ws$/)?.[1]
@@ -165,10 +192,18 @@ export function startRelay() {
       return reject(socket, 503, "Service Unavailable");
     }
 
+    if (codaDoc) {
+      const target = new URL(route.target);
+      const params = JSON.parse(Buffer.from(target.searchParams.get("params"), "base64url").toString("utf8"));
+      params.csrfToken = state.cookies.find(c => c.name === "csrf_token")?.value || "";
+      target.searchParams.set("params", Buffer.from(JSON.stringify(params)).toString("base64url"));
+      route.target = target.toString();
+    }
+
     const upstream = new WebSocket(route.target, req.headers["sec-websocket-protocol"]?.split(",").map((s) => s.trim()) || [], {
       headers: {
         Cookie: cookieHeaderFor(state, route.host),
-        Origin: APP_ORIGIN,
+        Origin: codaDoc ? "https://coda.grammarly.com" : APP_ORIGIN,
         "User-Agent": req.headers["user-agent"] || "Mozilla/5.0",
       },
       perMessageDeflate: true,
@@ -189,6 +224,12 @@ export function startRelay() {
         const forward = async (data, isBinary) => {
           if (refused) return;
           if (!isBinary) {
+            if (codaDoc && !codaFrameIsScoped(data.toString(), codaDoc)) {
+              refused = true;
+              client.close(4403, "Document not available");
+              upstream.close();
+              return;
+            }
             const docId = documentIdFromFrame(data.toString());
             if (docId && !checked.has(docId)) {
               const owner = await documentOwner(docId).catch(() => null);
@@ -238,3 +279,4 @@ if (runDirectly || process.env.pm_id !== undefined) {
   }
   startRelay();
 }
+

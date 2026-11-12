@@ -21,7 +21,7 @@ import {
   type GrammarlySessionState,
 } from "@/lib/grammarly-session.server";
 
-import { CODA_HOST, codaAccess, codaDocumentId, codaOwnerKey, codaFormBody, filterCodaDocuments, isCodaRootPath } from "./grammarly-coda.server";
+import { CODA_HOST, codaAccess, codaDocumentId, codaOwnerKey, codaFormBody, filterCodaDocuments, isCodaRootPath, codaSocketParams, codaReferencedDocuments } from "./grammarly-coda.server";
 import { mergeGrammarlyCookies } from "./grammarly-cookie-rotation.server";
 
 export const GRAMMARLY_APP_ORIGIN = "https://app.grammarly.com";
@@ -171,7 +171,7 @@ export function grammarlyBootstrapScript(debug = false) {
   return `<script>(function(){try{${debug ? GRAMMARLY_DEBUG_CAPTURE : ""}
 var O=location.origin,W=O.replace(/^https:/,"wss:");
 var R=/^(https?|wss?):\\/\\/([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))(\\/[^]*)?$/i;
-function map(u){try{var s=String(u instanceof URL?u.href:u);var local=new URL(s,O);if(/^wss?:$/.test(local.protocol)&&local.host===location.host&&/^\\/documents\\/\\d+\\/ws$/.test(local.pathname))return W+"/__ws/dox.grammarly.com"+local.pathname+local.search;var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
+function map(u){try{var s=String(u instanceof URL?u.href:u);var local=new URL(s,O);if(/^wss?:$/.test(local.protocol)&&local.host===location.host&&/^\\/document_server\\/?$/.test(local.pathname))return W+"/__ws/coda.grammarly.com"+local.pathname+local.search;if(/^wss?:$/.test(local.protocol)&&local.host===location.host&&/^\\/documents\\/\\d+\\/ws$/.test(local.pathname))return W+"/__ws/dox.grammarly.com"+local.pathname+local.search;var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
 if(/^wss?$/i.test(m[1]))return W+"/__ws/"+h+r;if(h==="app.grammarly.com"||h==="coda.grammarly.com")return O+r;return O+"/__host/"+h+r;}catch(e){return u}}
 var F=window.fetch;window.fetch=function(i,n){if(typeof i==="string"||i instanceof URL)return F.call(this,map(i),n);if(i&&i.url){var t=map(i.url);if(t!==i.url)i=new Request(t,i)}return F.call(this,i,n)};
 var X=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=map(u);return X.apply(this,arguments)};
@@ -596,6 +596,16 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   const coda = host === CODA_HOST ? codaAccess(request.method, upstreamUrl) : null;
   if (coda && (!codaPreview || coda.kind === "blocked")) return json(403, { error: "This action is not available in the Grammarly AI editor." });
   if (coda?.id && await grammarlyDocumentOwner(codaOwnerKey(coda.id)).catch(() => null) !== writerId) return json(404, { error: "Document not found" });
+  if (coda) {
+    let refs = new Set<string>();
+    try {
+      const query = Object.fromEntries(upstreamUrl.searchParams);
+      refs = codaReferencedDocuments(query);
+      if (body && (request.headers.get("content-type") || "").includes("application/json")) codaReferencedDocuments(JSON.parse(new TextDecoder().decode(body)), refs);
+    } catch { return json(400, { error: "Invalid document request" }); }
+    for (const id of refs) if (await grammarlyDocumentOwner(codaOwnerKey(id)).catch(() => null) !== writerId) return json(404, { error: "Document not found" });
+  }
+
   if ((!coda && isBlockedGrammarlyRequest(request.method, host, upstreamUrl.pathname)) || (isDocument && host !== "app.grammarly.com" && host !== CODA_HOST)) {
     if (isDocument) {
       return new Response(null, { status: 302, headers: { Location: "/", "Cache-Control": "no-store" } });
@@ -652,7 +662,19 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     headers.set("x-csrf-token", csrf);
   }
 
-  if (coda?.kind === "new") body = codaFormBody(body, request.headers.get("content-type") || "", csrf);
+  if (coda?.kind === "new" && request.method === "POST") {
+    const type = request.headers.get("content-type") || "";
+    if (!type.includes("application/x-www-form-urlencoded")) return json(400, { error: "Invalid document creation request" });
+    const form = new URLSearchParams(new TextDecoder().decode(body));
+    if ([...form.keys()].some(k => k !== "csrfToken")) return json(400, { error: "Invalid document creation request" });
+    body = codaFormBody(body, type, csrf);
+  }
+  const socketParams = coda ? codaSocketParams(upstreamUrl) : null;
+  if (socketParams && csrf) {
+    socketParams.csrfToken = csrf;
+    upstreamUrl.searchParams.set("params", Buffer.from(JSON.stringify(socketParams)).toString("base64url"));
+  }
+
 
   let upstream: Response;
   try {
