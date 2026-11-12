@@ -6,6 +6,7 @@
  * Existing tool-management behaviour is preserved. StealthWriter adds one
  * private admin-only authorised-session tab for Phase 2.
  */
+import { launchClaudeNativeAdminPilot } from "@/lib/claude-native-launcher";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -1174,6 +1175,7 @@ function ClaudeSessionTab() {
   const revokeSession = useServerFn(adminRevokeClaudeSession);
   const testSession = useServerFn(adminTestClaudeSession);
   const [testing, setTesting] = useState(false);
+  const [nativeTesting, setNativeTesting] = useState(false);
   const qc = useQueryClient();
   const [sessionData, setSessionData] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1223,6 +1225,19 @@ function ClaudeSessionTab() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-primary/30 bg-card p-5 space-y-3">
+        <h3 className="text-sm font-semibold">Native Claude — Admin pilot</h3>
+        <p className="text-xs text-muted-foreground">This test opens the real Claude website in Chrome using the saved session. Use a separate Chrome test profile. It places the session in that browser; shared-account chat history is not isolated. Writer launch remains disabled.</p>
+        <p className="text-xs text-muted-foreground">Download and extract the extension, open chrome://extensions, enable Developer mode, choose Load unpacked, then select the extracted folder. Refresh this page after installation.</p>
+        <div className="flex flex-wrap gap-3">
+          <a className="rounded-full border px-4 py-2 text-sm" href="/downloads/toprated-claude-native-pilot.zip" download>Download pilot extension</a>
+          <button type="button" className="rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50" disabled={!data.can_manage || !data.configured || nativeTesting || saving || revoking}
+            onClick={async()=>{setNativeTesting(true);try{const result=await launchClaudeNativeAdminPilot();toast.success(result.mode==="imported"?"Saved session imported; Claude opened. Confirm that chat works.":"Claude opened using the same existing login. Use a clean test profile to verify a fresh import.");}catch(e){toast.error(e instanceof Error?e.message:"Native Claude test failed.");}finally{setNativeTesting(false);}}}>
+            {nativeTesting?"Opening Claude…":"Test native Claude in Chrome"}
+          </button>
+        </div>
+        {!data.can_manage && <p className="text-xs text-muted-foreground">Only a Super Admin can run this pilot.</p>}
+      </div>
       <div className="rounded-2xl border bg-card p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
