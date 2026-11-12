@@ -192,7 +192,7 @@ var toBuf=b instanceof Blob?b.arrayBuffer():Promise.resolve(b instanceof ArrayBu
 toBuf.then(function(buf){if(!buf)return;var u8=new Uint8Array(buf);
 if(u8[0]===31&&u8[1]===139&&window.DecompressionStream){return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).text().then(out)}
 out(new TextDecoder().decode(u8))}).catch(function(){})}catch(x){}}
-var F0=window.fetch;window.fetch=function(i,n){try{var u=String(typeof i==="string"?i:i&&i.url);if(/f-log|logv2|crash/.test(u))show("log-upload",u,n&&n.body)}catch(x){}return F0.apply(this,arguments)};
+var F0=window.fetch;window.fetch=function(i,n){try{var u=String(typeof i==="string"?i:i&&i.url);if(/f-log|logv2|crash/.test(u))show("log-upload",u,n&&n.body)}catch(x){}var pending=F0.apply(this,arguments);try{var label=new URL(String(typeof i==="string"?i:i&&i.url),location.href).pathname;console.warn("[trst] request",label);pending.then(function(r){console.warn("[trst] response",label,r.status)},function(e){console.warn("[trst] fetch-failed",label,String(e).slice(0,120))})}catch(x){}return pending};
 var XO0=XMLHttpRequest.prototype.open,XS0=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__trstU=String(u);return XO0.apply(this,arguments)};XMLHttpRequest.prototype.send=function(b){try{if(/f-log|logv2|crash/.test(this.__trstU||""))show("log-upload",this.__trstU,b)}catch(x){}return XS0.apply(this,arguments)};
 if(navigator.sendBeacon){var SB0=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){try{if(/f-log|logv2|crash/.test(String(u)))show("beacon",u,d)}catch(x){}return SB0(u,d)}}
 })();
