@@ -128,6 +128,18 @@ export const TOOLS: Tool[] = [
     ],
   },
   {
+    slug: "claude",
+    name: "Claude",
+    tagline: "AI writing, research and coding",
+    description: "Use Claude for writing, research, analysis and coding. OneClick access is available after Admin completes the authorised session setup and verification.",
+    icon: MessageSquare,
+    domain: "claude.ai",
+    category: "Writing",
+    access: "pro",
+    featured: false,
+    features: ["Writing, research and analysis", "Coding and problem solving", "Continue your own saved conversations", "Models and usage depend on the assigned account"],
+  },
+  {
     slug: "chatgpt",
     name: "ChatGPT",
     tagline: "The world's best AI assistant",
