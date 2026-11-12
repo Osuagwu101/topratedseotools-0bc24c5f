@@ -21,6 +21,9 @@ import {
   type GrammarlySessionState,
 } from "@/lib/grammarly-session.server";
 
+import { CODA_HOST, codaAccess, codaDocumentId, codaOwnerKey, codaFormBody, filterCodaDocuments, isCodaRootPath } from "./grammarly-coda.server";
+import { mergeGrammarlyCookies } from "./grammarly-cookie-rotation.server";
+
 export const GRAMMARLY_APP_ORIGIN = "https://app.grammarly.com";
 export const GRAMMARLY_PROXY_COOKIE = "trst_gr_proxy";
 const TOOL_SLUG = "grammarly";
@@ -117,7 +120,7 @@ export function toProxyUrl(absolute: string, publicOrigin: string): string | nul
   if (u.protocol === "wss:" || u.protocol === "ws:") {
     return publicOrigin.replace(/^https:/, "wss:") + "/__ws/" + host + rest;
   }
-  if (host === "app.grammarly.com") return publicOrigin + rest;
+  if (host === "app.grammarly.com" || host === CODA_HOST) return publicOrigin + rest;
   return publicOrigin + "/__host/" + host + rest;
 }
 
@@ -131,7 +134,8 @@ export function upstreamTarget(requestUrl: string): { url: URL; host: string } |
     const url = new URL(`https://${host}${m[2] || "/"}${req.search}`);
     return { url, host };
   }
-  return { url: new URL(`${GRAMMARLY_APP_ORIGIN}${req.pathname}${req.search}`), host: "app.grammarly.com" };
+  const host = isCodaRootPath(req.pathname) ? CODA_HOST : "app.grammarly.com";
+  return { url: new URL(`https://${host}${req.pathname}${req.search}`), host };
 }
 
 const HOST_RE = "([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))";
@@ -142,7 +146,7 @@ export function rewriteGrammarlyBody(text: string, publicOrigin: string, debug =
   const proxyHost = new URL(publicOrigin).hostname;
   const esc = (s: string) => s.replaceAll("/", "\\/");
   const httpTarget = (host: string) =>
-    host.toLowerCase() === "app.grammarly.com" ? publicOrigin : `${publicOrigin}/__host/${host.toLowerCase()}`;
+    (host.toLowerCase() === "app.grammarly.com" || host.toLowerCase() === CODA_HOST) ? publicOrigin : `${publicOrigin}/__host/${host.toLowerCase()}`;
   return text
     .replace(new RegExp(`https://${HOST_RE}`, "gi"), (_, host) => httpTarget(host))
     .replace(new RegExp(`https:\\\\/\\\\/${HOST_RE}`, "gi"), (_, host) => esc(httpTarget(host)))
@@ -168,7 +172,7 @@ export function grammarlyBootstrapScript(debug = false) {
 var O=location.origin,W=O.replace(/^https:/,"wss:");
 var R=/^(https?|wss?):\\/\\/([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))(\\/[^]*)?$/i;
 function map(u){try{var s=String(u instanceof URL?u.href:u);var local=new URL(s,O);if(/^wss?:$/.test(local.protocol)&&local.host===location.host&&/^\\/documents\\/\\d+\\/ws$/.test(local.pathname))return W+"/__ws/dox.grammarly.com"+local.pathname+local.search;var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
-if(/^wss?$/i.test(m[1]))return W+"/__ws/"+h+r;if(h==="app.grammarly.com")return O+r;return O+"/__host/"+h+r;}catch(e){return u}}
+if(/^wss?$/i.test(m[1]))return W+"/__ws/"+h+r;if(h==="app.grammarly.com"||h==="coda.grammarly.com")return O+r;return O+"/__host/"+h+r;}catch(e){return u}}
 var F=window.fetch;window.fetch=function(i,n){if(typeof i==="string"||i instanceof URL)return F.call(this,map(i),n);if(i&&i.url){var t=map(i.url);if(t!==i.url)i=new Request(t,i)}return F.call(this,i,n)};
 var X=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=map(u);return X.apply(this,arguments)};
 var S=window.WebSocket;function WS(u,p){return p===undefined?new S(map(u)):new S(map(u),p)}WS.prototype=S.prototype;["CONNECTING","OPEN","CLOSING","CLOSED"].forEach(function(k){WS[k]=S[k]});window.WebSocket=WS;
@@ -177,6 +181,7 @@ if(navigator.sendBeacon){var B=navigator.sendBeacon.bind(navigator);navigator.se
 var WO=window.open;window.open=function(u){if(u){var t=map(u);if(t===u&&/^https?:/i.test(String(u))&&!String(u).startsWith(O))return null;arguments[0]=t}return WO.apply(this,arguments)};
 var CD=Object.getOwnPropertyDescriptor(Document.prototype,"cookie");if(CD&&CD.set){Object.defineProperty(document,"cookie",{configurable:true,get:function(){return CD.get.call(document)},set:function(v){CD.set.call(document,String(v).replace(/;\\s*domain=[^;]*/ig,""))}})}
 if(document.cookie.indexOf("csrf-token=")<0)document.cookie="csrf-token=trst-proxy; path=/; secure; samesite=lax";
+if(document.cookie.indexOf("csrf_token=")<0)document.cookie="csrf_token=trst-proxy; path=/; secure; samesite=lax";
 }catch(e){}})();</script>`;
 }
 
@@ -233,33 +238,27 @@ export function grammarlyCookieHeader(state: GrammarlySessionState, host: string
 }
 
 /** Keep the vault in step when Grammarly rotates its auth cookies. */
-async function persistRotatedCookies(setCookies: string[]) {
-  if (!setCookies.length) return;
-  const state = await vaultState();
-  const names = new Set(state.cookies.map((c) => c.name));
-  let changed = false;
-  for (const raw of setCookies) {
-    const first = raw.split(";", 1)[0] ?? "";
-    const eq = first.indexOf("=");
-    if (eq <= 0) continue;
-    const name = first.slice(0, eq).trim();
-    const value = first.slice(eq + 1);
-    if (!names.has(name) || !value || /max-age=0|expires=thu, 01 jan 1970/i.test(raw)) continue;
-    const cookie = state.cookies.find((c) => c.name === name)!;
-    if (cookie.value !== value) {
-      cookie.value = value;
-      changed = true;
+let cookieRotationQueue: Promise<unknown> = Promise.resolve();
+function persistRotatedCookies(setCookies: string[], host: string) {
+  if (!setCookies.length) return Promise.resolve();
+  const task = cookieRotationQueue.catch(() => undefined).then(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      vaultCache = null;
+      const before = await loadEncryptedSession();
+      const state = JSON.parse(decryptGrammarlySession(before));
+      const next = mergeGrammarlyCookies(state, setCookies, host);
+      if (JSON.stringify(next) === JSON.stringify(state)) return;
+      const encrypted = encryptGrammarlySession(normaliseGrammarlySession(JSON.stringify(next)));
+      const { data, error } = await (supabaseAdmin as any).from("tool_authorized_sessions")
+        .update({ encrypted_payload: encrypted, updated_at: new Date().toISOString() })
+        .eq("tool_slug", TOOL_SLUG).eq("status", "stored").eq("encrypted_payload", before).select("tool_slug");
+      if (error) throw new Error("Could not refresh Grammarly session");
+      if (data?.length) { vaultCache = { value: encrypted, until: Date.now() + CACHE_MS }; return; }
     }
-  }
-  if (!changed) return;
-  const encrypted = encryptGrammarlySession(normaliseGrammarlySession(JSON.stringify(state)));
-  vaultCache = { value: encrypted, until: Date.now() + CACHE_MS };
-  const now = new Date().toISOString();
-  await (supabaseAdmin as any)
-    .from("tool_authorized_sessions")
-    .update({ encrypted_payload: encrypted, updated_at: now })
-    .eq("tool_slug", TOOL_SLUG)
-    .eq("status", "stored");
+    throw new Error("Grammarly session changed during refresh");
+  });
+  cookieRotationQueue = task;
+  return task;
 }
 
 // --------------------------------------------------------------- access
@@ -464,12 +463,12 @@ async function ownedDocumentIds(userId: string) {
 }
 
 async function claimDocument(documentId: string, userId: string) {
-  if (ownerCache.has(documentId)) return;
-  ownerCache.set(documentId, userId);
-  userDocsCache.get(userId)?.ids.add(documentId);
-  await (supabaseAdmin as any)
-    .from("grammarly_document_owners")
+  const { error } = await (supabaseAdmin as any).from("grammarly_document_owners")
     .upsert({ document_id: documentId, user_id: userId }, { onConflict: "document_id", ignoreDuplicates: true });
+  if (error) throw new Error("Could not save document ownership");
+  ownerCache.delete(documentId);
+  if (await grammarlyDocumentOwner(documentId) !== userId) throw new Error("Document belongs to another writer");
+  userDocsCache.get(userId)?.ids.add(documentId);
 }
 
 /** Document id addressed by a dox API path or an editor page URL. */
@@ -584,6 +583,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   }
   if (!session) return plain(401, "Open Grammarly from your Top Rated SEO Tools account.");
   const writerId = String(session.user_id);
+  const codaPreview = parseCookies(request).get("trst_coda_preview") === "1" || process.env.GRAMMARLY_CODA_ENABLED === "1";
 
   const target = upstreamTarget(request.url);
   if (!target) return plain(403, "This Grammarly address is not allowed.");
@@ -593,7 +593,10 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     ((request.headers.get("sec-fetch-dest") ?? "") === "document" ||
       (request.headers.get("accept") ?? "").includes("text/html"));
 
-  if (isBlockedGrammarlyRequest(request.method, host, upstreamUrl.pathname) || (isDocument && host !== "app.grammarly.com")) {
+  const coda = host === CODA_HOST ? codaAccess(request.method, upstreamUrl) : null;
+  if (coda && (!codaPreview || coda.kind === "blocked")) return json(403, { error: "This action is not available in the Grammarly AI editor." });
+  if (coda?.id && await grammarlyDocumentOwner(codaOwnerKey(coda.id)).catch(() => null) !== writerId) return json(404, { error: "Document not found" });
+  if ((!coda && isBlockedGrammarlyRequest(request.method, host, upstreamUrl.pathname)) || (isDocument && host !== "app.grammarly.com" && host !== CODA_HOST)) {
     if (isDocument) {
       return new Response(null, { status: 302, headers: { Location: "/", "Cache-Control": "no-store" } });
     }
@@ -641,13 +644,15 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   const cookie = grammarlyCookieHeader(state, host);
   if (cookie) headers.set("Cookie", cookie);
   if (request.headers.has("origin") || !["GET", "HEAD"].includes(request.method)) {
-    headers.set("Origin", GRAMMARLY_APP_ORIGIN);
+    headers.set("Origin", coda ? `https://${CODA_HOST}` : GRAMMARLY_APP_ORIGIN);
   }
-  headers.set("Referer", `${GRAMMARLY_APP_ORIGIN}/ddocs`);
-  const csrf = state.cookies.find((c) => c.name === "csrf-token")?.value;
+  headers.set("Referer", coda ? `https://${CODA_HOST}${upstreamUrl.pathname}` : `${GRAMMARLY_APP_ORIGIN}/ddocs`);
+  const csrf = state.cookies.find((c) => c.name === (coda ? "csrf_token" : "csrf-token"))?.value;
   if (csrf && (headers.has("x-csrf-token") || !["GET", "HEAD"].includes(request.method))) {
     headers.set("x-csrf-token", csrf);
   }
+
+  if (coda?.kind === "new") body = codaFormBody(body, request.headers.get("content-type") || "", csrf);
 
   let upstream: Response;
   try {
@@ -657,13 +662,20 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   }
 
   const setCookies = (upstream.headers as any).getSetCookie?.() ?? [];
-  if (setCookies.length) void persistRotatedCookies(setCookies).catch(() => undefined);
+  if (setCookies.length) {
+    try { await persistRotatedCookies(setCookies, host); } catch { return plain(503, "Grammarly session could not be refreshed. Please try again."); }
+  }
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
     const absolute = new URL(location, upstreamUrl).toString();
     if (/\/(?:signin|login)(?:[/?#]|$)/i.test(new URL(absolute).pathname)) {
       return plain(503, "Grammarly needs to be refreshed by Admin. Please try again later.");
+    }
+    if (coda?.kind === "new" && request.method === "POST" && upstream.ok === false && upstream.status >= 300 && upstream.status < 400) {
+      const created = new URL(absolute);
+      const id = created.hostname === CODA_HOST ? codaDocumentId(created.pathname) : null;
+      if (id) await claimDocument(codaOwnerKey(id), writerId);
     }
     const mapped = toProxyUrl(absolute, publicOrigin);
     if (!mapped) return plain(403, "This Grammarly link leads outside Grammarly.");
@@ -703,6 +715,11 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     out.set("Cache-Control", "no-store");
   }
 
+  if (coda?.kind === "list" && upstream.ok && type.includes("json")) {
+    try { text = JSON.stringify(filterCodaDocuments(JSON.parse(text), await ownedDocumentIds(writerId))); }
+    catch { return json(502, { error: "Could not read your Grammarly documents" }); }
+  }
+
   if (host === "dox.grammarly.com" && type.includes("json") && upstream.ok) {
     try {
       const payload = JSON.parse(text);
@@ -730,3 +747,4 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   }
   return new Response(text, { status: upstream.status, headers: out });
 }
+
