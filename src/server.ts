@@ -26,6 +26,8 @@ import {
 
 import { handleClaudeProxyRequest, isDedicatedClaudeProxyRequest } from "./lib/claude-proxy.server";
 
+import { handleClaudeNativeRedeem } from "./lib/claude-native.server";
+
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
@@ -71,6 +73,7 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/api/claude-native/redeem") return await handleClaudeNativeRedeem(request);
       if (isDedicatedClaudeProxyRequest(request)) return await handleClaudeProxyRequest(request);
       // grammarly.topratedseotools.com serves only the Grammarly proxy.
       if (isDedicatedGrammarlyProxyRequest(request)) {
