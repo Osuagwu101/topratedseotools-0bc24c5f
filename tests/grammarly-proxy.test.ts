@@ -74,6 +74,22 @@ assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
   assert(dbgOk && dbg.includes("[trst] error") && !js.includes("[trst] error"), "debug capture compiles and is only added on request");
 }
 
+// Runtime Dox code rebuilds the socket with an absolute path, dropping /__ws/.
+{
+  let opened = "";
+  class Socket { constructor(url: string) { opened = String(url); } }
+  class Xhr { open() {} }
+  class Doc {}
+  const win: any = { fetch() {}, WebSocket: Socket, open() {} };
+  const ctx = { window: win, location: { origin: O, host: new URL(O).host }, URL,
+    XMLHttpRequest: Xhr, Document: Doc, document: { cookie: "csrf-token=test" }, navigator: {} };
+  new vm.Script(grammarlyBootstrapScript().replace(/^<script>/, "").replace(/<\/script>$/, "")).runInNewContext(ctx);
+  new win.WebSocket("wss://grammarly.topratedseotools.com/documents/3007201371/ws?x=1");
+  assert(opened === "wss://grammarly.topratedseotools.com/__ws/dox.grammarly.com/documents/3007201371/ws?x=1", "restores the relay prefix for document sockets built from an absolute path");
+  new win.WebSocket("wss://capi.grammarly.com/freews");
+  assert(opened === "wss://grammarly.topratedseotools.com/__ws/capi.grammarly.com/freews", "checking sockets still use the relay");
+}
+
 // ---- shared-account blocks
 assert(isBlockedGrammarlyRequest("GET", "account.grammarly.com", "/subscription"), "account site blocked");
 assert(isBlockedGrammarlyRequest("POST", "api.payments.grammarly.com", "/x"), "payments blocked");

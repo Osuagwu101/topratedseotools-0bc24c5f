@@ -167,7 +167,7 @@ export function grammarlyBootstrapScript(debug = false) {
   return `<script>(function(){try{${debug ? GRAMMARLY_DEBUG_CAPTURE : ""}
 var O=location.origin,W=O.replace(/^https:/,"wss:");
 var R=/^(https?|wss?):\\/\\/([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io))(\\/[^]*)?$/i;
-function map(u){try{var s=String(u instanceof URL?u.href:u);var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
+function map(u){try{var s=String(u instanceof URL?u.href:u);var local=new URL(s,O);if(/^wss?:$/.test(local.protocol)&&local.host===location.host&&/^\\/documents\\/\\d+\\/ws$/.test(local.pathname))return W+"/__ws/dox.grammarly.com"+local.pathname+local.search;var m=s.match(R);if(!m)return u;var h=m[2].toLowerCase(),r=m[3]||"/";
 if(/^wss?$/i.test(m[1]))return W+"/__ws/"+h+r;if(h==="app.grammarly.com")return O+r;return O+"/__host/"+h+r;}catch(e){return u}}
 var F=window.fetch;window.fetch=function(i,n){if(typeof i==="string"||i instanceof URL)return F.call(this,map(i),n);if(i&&i.url){var t=map(i.url);if(t!==i.url)i=new Request(t,i)}return F.call(this,i,n)};
 var X=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=map(u);return X.apply(this,arguments)};
@@ -424,7 +424,7 @@ async function exchangeTicket(ticket: string) {
     .eq("id", row.id)
     .eq("status", "issued");
   if (error) return plain(503, "Grammarly is temporarily unavailable. Please try again.");
-  const h = new Headers({ Location: "/ddocs", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  const h = new Headers({ Location: "/", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   h.append(
     "Set-Cookie",
     `${GRAMMARLY_PROXY_COOKIE}=${sessionToken}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${SESSION_HOURS * 3600}`,
@@ -595,7 +595,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
 
   if (isBlockedGrammarlyRequest(request.method, host, upstreamUrl.pathname) || (isDocument && host !== "app.grammarly.com")) {
     if (isDocument) {
-      return new Response(null, { status: 302, headers: { Location: "/ddocs", "Cache-Control": "no-store" } });
+      return new Response(null, { status: 302, headers: { Location: "/", "Cache-Control": "no-store" } });
     }
     return json(403, { error: "This action is disabled on the shared Grammarly account." });
   }
@@ -606,7 +606,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     const owner = await grammarlyDocumentOwner(docId).catch(() => null);
     if (owner !== writerId) {
       if (isDocument) {
-        return new Response(null, { status: 302, headers: { Location: "/ddocs", "Cache-Control": "no-store" } });
+        return new Response(null, { status: 302, headers: { Location: "/", "Cache-Control": "no-store" } });
       }
       return json(404, { error: "Document not found" });
     }

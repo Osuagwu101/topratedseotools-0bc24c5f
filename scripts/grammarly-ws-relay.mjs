@@ -151,6 +151,13 @@ export function startRelay() {
       return reject(socket, 503, "Service Unavailable");
     }
     if (!session) return reject(socket, 401, "Unauthorized");
+    // Dox names the document in the connection URL, before any frames arrive.
+    const routeDoc = route.host === "dox.grammarly.com"
+      ? new URL(route.target).pathname.match(/^\/documents\/(\d+)\/ws$/)?.[1]
+      : null;
+    if (routeDoc && await documentOwner(routeDoc).catch(() => null) !== String(session.user_id)) {
+      return reject(socket, 403, "Forbidden");
+    }
     let state;
     try {
       state = await vaultCookies();
