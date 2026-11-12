@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TopRated Claude Native Pilot",
-  "version": "0.1.0",
-  "description": "Super Admin-only native Claude launch test. Does not isolate shared Claude history.",
+  "version": "0.2.0",
+  "description": "Native Claude launch for Admin and explicitly assigned test writers.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAthByn4/2WAw2pi/YRth8F2b8Kq1CWTdb+LXbNoI6yDNKpns8zAUFWTOVK5RNBVOZmhhCIvmbTLuX7w9cH7eaLSkH6TtpTRNoIB3aPGxp2kLFe1A4ftCPtRbFcZd3DvAm+M/7gCbgOH93eDZIOxBh/PO2KN4fFEKTR7MkV0qCXdYmOVsaXMdvKFLCxEyRT7BwIkpT2hvHO4YHnrrb9VGHARUEMXkF1IDeLwQpKW9bRE/fzqrsFZ4NnWrsqrZbip2S8X0SvIG+Z7kK562oZ5od4zcNlvseQQc559htkYtG69K/ojcfpbOQ8Vwen+Es5RSStr0+GuZtLuIcxcbNjJOdXwIDAQAB",
   "permissions": [
     "cookies"

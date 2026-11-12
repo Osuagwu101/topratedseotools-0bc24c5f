@@ -1,11 +1,11 @@
-/* Native Admin pilot only. Never return/store/log cookies or ticket values. */
+/* Native pilot: Admin and selected test writers. Never return/store/log cookies or ticket values. */
 const SITE = "https://topratedseotools.com";
 function allowedSender(sender) {
   try {
     const u = new URL(sender.url);
     return (
       u.origin === SITE &&
-      /^\/admin\/tools\/claude\/?$/.test(u.pathname) &&
+      /^\/(?:admin\/tools\/claude|tools\/claude|dashboard|orders)\/?$/.test(u.pathname) &&
       (sender.frameId === undefined || sender.frameId === 0)
     );
   } catch {
@@ -66,11 +66,11 @@ async function launch(ticket) {
 }
 chrome.runtime.onMessageExternal.addListener((message, sender, respond) => {
   if (!allowedSender(sender)) {
-    respond({ ok: false, error: "Open the Claude Admin session page first" });
+    respond({ ok: false, error: "Open Claude from your TopRated tools page" });
     return false;
   }
   if (message?.type === "trst_claude_pilot_ping") {
-    respond({ ok: true, version: "0.1.0" });
+    respond({ ok: true, version: "0.2.0" });
     return false;
   }
   if (message?.type !== "trst_claude_native_pilot") return false;

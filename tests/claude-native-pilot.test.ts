@@ -15,22 +15,27 @@ assert.deepEqual(manifest.externally_connectable.matches,[ORIGIN+"/*"]);
 process.env.CLAUDE_SESSION_ENCRYPTION_KEY="33".repeat(32);
 const stamp="2026-11-12T14:44:09.981Z";
 let isSuper=true,stored=true,vaultVersion=stamp,count=0,row:any=null;
+let writerActive=true,writerEnabled=true,allowlisted=true,pilotActive=true,grantActive=true;
+let pilotExpiry=new Date(Date.now()+86400000).toISOString();
 const encrypted=encryptClaudeSession(JSON.stringify({version:2,cookies:[{name:"sessionKey",value:secret,domain:".claude.ai",path:"/"}]}));
 const db={async rpc(){return {data:isSuper,error:null}},from(table:string){
  const filters:Record<string,any>={};let update:any=null;
  const q:any={select(){return q},eq(k:string,v:any){filters[k]=v;return q},gte(){return q},gt(){return q},
  update(v:any){update=v;return q},
- async insert(data:any){row={id:"handoff",...data};return {error:null}},
+ async insert(data:any){if(table==="claude_native_admin_handoffs")row={id:"handoff",...data};return {error:null}},
  async maybeSingle(){
+  if(table==="profiles")return {data:{account_status:writerActive?"active":"suspended"},error:null};
+  if(table==="tool_settings")return {data:{enabled:writerEnabled,one_click_auth_enabled:writerEnabled},error:null};
+  if(table==="claude_native_pilot_writers")return {data:allowlisted?{enabled:pilotActive,expires_at:pilotExpiry}:null,error:null};
   if(table==="tool_authorized_sessions")return {data:{status:stored?"stored":"revoked",updated_at:vaultVersion,encrypted_payload:encrypted},error:null};
   if(!row || (filters.token_hash && row.token_hash!==filters.token_hash) || (filters.status && row.status!==filters.status))return {data:null,error:null};
   if(update)Object.assign(row,update);
   return {data:{...row},error:null};
  },
- then(resolve:any){resolve({count,error:null})}};return q;
+ then(resolve:any){resolve(table==="tool_access_grants"?{data:grantActive?[{expires_at:null}]:[],error:null}:{count,error:null})}};return q;
 }};
 mock.module("../src/integrations/supabase/client.server",()=>({supabaseAdmin:db}));
-const {issueClaudeNativeAdminHandoff:issue,handleClaudeNativeRedeem:redeem}=await import("../src/lib/claude-native.server");
+const {issueClaudeNativeAdminHandoff:issue,issueClaudeNativeWriterHandoff:issueWriter,handleClaudeNativeRedeem:redeem}=await import("../src/lib/claude-native.server");
 function req(ticket:string,origin=`chrome-extension://${CLAUDE_NATIVE_EXTENSION_ID}`,method="POST") {
  return new Request(ORIGIN+CLAUDE_NATIVE_REDEEM_PATH,{method,headers:{Origin:origin,"Content-Type":"application/json"},body:method==="POST"?JSON.stringify({ticket}):undefined});
 }
@@ -50,6 +55,20 @@ try {
  handoff=await issue("admin");stored=false;assert.equal((await redeem(req(handoff.ticket))).status,403);stored=true;
  handoff=await issue("admin");vaultVersion="2026-11-12T15:00:00Z";assert.equal((await redeem(req(handoff.ticket))).status,409);vaultVersion=stamp;
  handoff=await issue("admin");const concurrent=await Promise.all([redeem(req(handoff.ticket)),redeem(req(handoff.ticket))]);assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,403]);
+
+ isSuper=false;
+ allowlisted=false;await assert.rejects(()=>issueWriter("writer"));allowlisted=true;
+ writerActive=false;await assert.rejects(()=>issueWriter("writer"));writerActive=true;
+ writerEnabled=false;await assert.rejects(()=>issueWriter("writer"));writerEnabled=true;
+ pilotActive=false;await assert.rejects(()=>issueWriter("writer"));pilotActive=true;
+ const futureExpiry=pilotExpiry;pilotExpiry=new Date(1).toISOString();await assert.rejects(()=>issueWriter("writer"));pilotExpiry=futureExpiry;
+ grantActive=false;await assert.rejects(()=>issueWriter("writer"));grantActive=true;
+ handoff=await issueWriter("writer");assert.equal(row.audience,"writer");response=await redeem(req(handoff.ticket));assert.equal(response.status,200);
+ const writerPayload=await response.json();assert.equal(writerPayload.cookie.expirationDate,Math.floor(Date.parse(pilotExpiry)/1000));
+ handoff=await issueWriter("writer");grantActive=false;assert.equal((await redeem(req(handoff.ticket))).status,403);grantActive=true;
+ handoff=await issueWriter("writer");pilotActive=false;assert.equal((await redeem(req(handoff.ticket))).status,403);pilotActive=true;
+ handoff=await issueWriter("writer");writerActive=false;assert.equal((await redeem(req(handoff.ticket))).status,403);writerActive=true;
+ handoff=await issueWriter("writer");row.audience="unknown";assert.equal((await redeem(req(handoff.ticket))).status,403);
 }finally{mock.restore()}
 
 // Background worker tests use mocked Chrome APIs, not a real browser/session.
@@ -61,7 +80,10 @@ const ticket="a".repeat(43);
 assert.equal((await send({type:"trst_claude_pilot_ping"})).ok,true);
 assert.equal((await send({type:"trst_claude_native_pilot",ticket},{url:"https://attacker.test/admin/tools/claude"})).ok,false);
 assert.equal(calls,0);
+for(const path of ["/tools/claude","/dashboard","/orders"])assert.equal((await send({type:"trst_claude_pilot_ping"},{url:ORIGIN+path,frameId:0})).version,"0.2.0");
+assert.equal((await send({type:"trst_claude_pilot_ping"},{url:ORIGIN+"/tools/claude",frameId:1})).ok,false);
+assert.equal((await send({type:"trst_claude_pilot_ping"},{url:ORIGIN+"/tools/other-tool"})).ok,false);
 existing=[{value:"different-session"}];assert.equal((await send({type:"trst_claude_native_pilot",ticket})).ok,false);assert.equal(saved.length,0);assert.equal(opened.length,0);
 existing=[];let result=await send({type:"trst_claude_native_pilot",ticket});assert.equal(result.mode,"imported");assert.equal(saved.length,1);assert.equal(saved[0].httpOnly,true);assert.equal(opened[0].url,"https://claude.ai/new");assert(!JSON.stringify(result).includes(secret));
 existing=[{value:secret}];result=await send({type:"trst_claude_native_pilot",ticket});assert.equal(result.mode,"existing");assert.equal(saved.length,1,"does not rewrite existing matching login");
-console.log("Claude native pilot: Admin-only access, version binding, expiry, one-use/concurrent redemption, sender checks and cookie isolation guards passed.");
+console.log("Claude native pilot: Admin and allowlisted writer access, expiry/revocation, audience/version binding, expiry, one-use/concurrent redemption, sender checks and cookie isolation guards passed.");
