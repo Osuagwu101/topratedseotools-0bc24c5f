@@ -40,6 +40,9 @@ jobs:
         run: bun tests/chatgpt-proxy.test.ts
       - name: ChatGPT per-writer history isolation
         run: bun tests/chatgpt-isolation.test.ts
+      - name: Claude OneClick security and isolation
+        run: bun tests/claude-oneclick.test.ts
+
       - name: Grammarly session vault
         run: bun tests/grammarly-session-vault.test.ts
       - name: Grammarly proxy

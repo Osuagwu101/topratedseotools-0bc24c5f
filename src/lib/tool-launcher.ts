@@ -8,6 +8,7 @@ import { startSneakWriteDirectSso } from "@/lib/direct-sso.functions";
 import { startStealthWriterProxyLaunch } from "@/lib/stealthwriter-proxy.functions";
 import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
 import { startChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.functions";
+import { startClaudeProxyLaunch } from "@/lib/claude-proxy.functions";
 import { startGrammarlyProxyLaunch } from "@/lib/grammarly-proxy.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
@@ -49,14 +50,14 @@ function validateClientLaunchUrl(
     }
     return launchUrl;
   }
-  if (toolSlug === "grammarly") {
+  if (toolSlug === "grammarly" || toolSlug === "claude") {
     const launchUrl = new URL(rawUrl);
     const dedicated =
       !!trustedProxyOrigin &&
       launchUrl.origin === trustedProxyOrigin &&
       launchUrl.protocol === "https:" &&
       launchUrl.pathname === "/__trst/enter";
-    if (!dedicated) throw new Error("The Grammarly proxy returned an invalid launch URL.");
+    if (!dedicated) throw new Error("The tool proxy returned an invalid launch URL.");
     return launchUrl;
   }
   if (toolSlug === "chatgpt") {
@@ -141,6 +142,8 @@ export async function launchTool(
               })()
             : isPhraslyToolSlug(tool.slug)
               ? await startPhraslyProxyLaunch()
+              : tool.slug === "claude"
+                ? await startClaudeProxyLaunch()
               : tool.slug === "grammarly"
                 ? await startGrammarlyProxyLaunch()
               : tool.slug === "chatgpt"
@@ -167,7 +170,7 @@ export async function launchTool(
         (tool.slug === "stealthwriter" ||
           tool.slug === "phrasly" ||
           tool.slug === "chatgpt" ||
-          tool.slug === "grammarly") &&
+          tool.slug === "grammarly" || tool.slug === "claude") &&
         "proxy_origin" in result &&
         typeof result.proxy_origin === "string"
           ? result.proxy_origin

@@ -27,11 +27,13 @@ NGINX_CFG = Path("/etc/nginx/sites-enabled/topratedseotools")
 EXTRA_NGINX_CFGS = [
     Path("/etc/nginx/sites-enabled/chatgpt-proxy"),
     Path("/etc/nginx/sites-enabled/grammarly-proxy"),
+    Path("/etc/nginx/sites-enabled/claude-proxy"),
 ]
 # Dedicated hosts answer 401 to an anonymous request (no proxy session) when
 # healthy. Only hosts whose nginx file actually points at the app are checked.
 DEDICATED_HOST_CHECKS = {
     "/etc/nginx/sites-enabled/chatgpt-proxy": ("https://chatgpt.topratedseotools.com/", {"401"}),
+    "/etc/nginx/sites-enabled/claude-proxy": ("https://claude.topratedseotools.com/", {"401"}),
     "/etc/nginx/sites-enabled/grammarly-proxy": ("https://grammarly.topratedseotools.com/", {"401"}),
 }
 # Grammarly live-checking WebSocket relay (nginx /__ws/ on the Grammarly host).
