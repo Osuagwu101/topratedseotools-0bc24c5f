@@ -142,13 +142,23 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
           icon={Rocket}
           title="You have access"
           body={
-            effective.one_click_auth_enabled
+            tool.slug==="claude" && effective.one_click_auth_enabled
+              ? "Your Claude test access is active. Use the Chrome extension below to open Claude."
+              : effective.one_click_auth_enabled
               ? "Click below to open a secure One-Click session. Your assigned login credentials stay hidden."
               : hasGrant
                 ? "Lifetime access is active for this tool."
                 : "Your subscription is active for this tool. Launch it below."
           }
         >
+          {tool.slug==="claude" && effective.one_click_auth_enabled && (
+            <div className="mt-4 rounded-xl border bg-muted/30 p-4 text-sm space-y-2">
+              <p className="font-semibold">Set up Claude in Chrome</p>
+              <p>Install the Claude extension once in the Chrome profile you use for work, then refresh this page. If another Claude account is already signed in, use a separate Chrome profile.</p>
+              <a href="/downloads/toprated-claude-native-pilot.zip" download className="inline-flex underline font-medium">Download Claude extension 0.2.0</a>
+              <p className="text-xs text-muted-foreground">Extract the ZIP, open chrome://extensions, enable Developer mode and choose Load unpacked. Select the extracted folder. If updating, replace the extracted files and click Reload on the Claude extension card.</p>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"

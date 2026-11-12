@@ -1,6 +1,11 @@
 import { CLAUDE_NATIVE_EXTENSION_ID } from "@/lib/claude-native-config";
-import { adminStartClaudeNativePilot } from "@/lib/claude-native.functions";
-export async function launchClaudeNativeAdminPilot() {
+import {
+  adminStartClaudeNativePilot,
+  startClaudeNativeWriterLaunch,
+} from "@/lib/claude-native.functions";
+export const launchClaudeNativeAdminPilot = () => launchClaudeNative(false);
+export const launchClaudeNativeWriterPilot = () => launchClaudeNative(true);
+async function launchClaudeNative(writer: boolean) {
   const runtime = (
     window as unknown as {
       chrome?: {
@@ -27,8 +32,14 @@ export async function launchClaudeNativeAdminPilot() {
         resolve(response);
       });
     });
-  await send({ type: "trst_claude_pilot_ping" });
-  const { ticket } = await adminStartClaudeNativePilot();
+  const ping = await send({ type: "trst_claude_pilot_ping" });
+  if (writer && ping.version !== "0.2.0")
+    throw new Error(
+      "Update the Claude extension from the download on this page, then refresh TopRated.",
+    );
+  const { ticket } = await (writer
+    ? startClaudeNativeWriterLaunch()
+    : adminStartClaudeNativePilot());
   const result = await send({ type: "trst_claude_native_pilot", ticket });
   return { mode: result.mode as "existing" | "imported" };
 }
