@@ -452,9 +452,10 @@ function Dashboard() {
                       <div className="truncate font-medium">{t.name}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
                         <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
-                          Lifetime
+                          {g.expires_at ? "Active" : "Lifetime"}
                         </span>
                         <span className="capitalize">{g.access_type}</span>
+                        {g.expires_at && <span>· Until {new Date(g.expires_at).toLocaleDateString()}</span>}
                       </div>
                     </div>
                     <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
