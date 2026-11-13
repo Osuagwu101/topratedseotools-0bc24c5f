@@ -126,7 +126,7 @@ async function requireToolEnabled() {
     data.enabled === false ||
     !data.one_click_auth_enabled
   ) {
-    throw new Error("Claude One-Click Login is not enabled yet.");
+    throw new Error("Claude OneClick on claude.topratedseotools.com is awaiting server verification (CL-01).");
   }
 }
 
