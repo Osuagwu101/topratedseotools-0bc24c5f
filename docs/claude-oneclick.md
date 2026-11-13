@@ -6,18 +6,27 @@ proxy hostname with an HttpOnly local session cookie. Claude credentials stay
 server-side. The server validates the writer's paid order or active grant on
 requests, and checks conversation ownership before forwarding chat requests.
 
-## Current blocker
+## Current status (13 November 2026)
 
-On 12 November 2026 the existing OVH host returned HTTP 403 and
-`cf-mitigated: challenge` for `https://claude.ai/new` using a direct unauthenticated
-HTTP request. No authenticated Claude session was imported or tested during this
-implementation. This proves a challenge on that request, not that every
-possible authenticated request is blocked. Live native UI compatibility remains
-unverified. The newer Grammarly editor work was in a separate server preview;
-this change uses the deployed Grammarly foundation from main at `16ed0c1`.
+Claude uses the Grammarly-style dedicated-host proxy at
+`https://claude.topratedseotools.com`. The native extension experiment is retired:
+writer and Admin issuance reject it, redemption returns 410, and its public ZIP
+and setup prompts are removed. Existing native sessions already delivered to a
+browser cannot be withdrawn by removing the extension flow.
 
-The draft must stay disabled. It is not a completed working Claude deployment.
-There is no CAPTCHA/challenge workaround, browser engine, or API-based substitute.
+DNS resolves to OVH. Provision the dedicated certificate and Nginx virtual host
+with `sudo python3 scripts/claude/setup-proxy-host.py prepare`, deploy the app,
+then run the script with `activate`. Nginx uses the main app's active blue/green
+port with response buffering disabled; subsequent deployments already track this
+host. The preparation step sets the server origin and keeps
+`CLAUDE_PROXY_VERIFIED=false`.
+
+A fresh authenticated VPS diagnostic using the saved authorised session still
+returned `cf-mitigated: challenge` (CL-02). The prior native-browser success does
+not establish reverse-proxy compatibility. Writer launch remains gated until
+that upstream verification and live native UI tests pass. DNS/TLS and ticket
+routing alone cannot resolve an upstream browser-verification challenge.
+There is no extension fallback, challenge bypass, or official API substitute.
 
 ## Included
 
