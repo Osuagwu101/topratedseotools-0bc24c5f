@@ -1,0 +1,32 @@
+import {strict as assert} from "node:assert";
+import {fetchClaudeProvider,claudeSharedBrowserTransport,BROWSER_RELAY_URL} from "../src/lib/claude-browser-fetch.server";
+import {claudeBrowserRoutePolicy as route} from "../src/lib/claude-browser-route-policy";
+const original=globalThis.fetch;const previous={url:process.env.CLAUDE_BROWSER_RELAY_URL,key:process.env.CLAUDE_BROWSER_RELAY_KEY,shared:process.env.CLAUDE_SHARED_BROWSER_TRANSPORT};
+let captured:any;
+globalThis.fetch=(async(input:any,init:any)=>{captured={input,init};return new Response("data: test\n\n",{headers:{"Content-Type":"text/event-stream"}});}) as typeof fetch;
+try{
+  process.env.CLAUDE_BROWSER_RELAY_URL=BROWSER_RELAY_URL;process.env.CLAUDE_BROWSER_RELAY_KEY="test-only-relay-secret-12345678901234567890";
+  process.env.CLAUDE_SHARED_BROWSER_TRANSPORT="true";assert(claudeSharedBrowserTransport());
+  const response=await fetchClaudeProvider("https://claude.ai/api/organizations",{method:"POST",headers:{Cookie:"provider-cookie",Authorization:"Bearer writer-token","User-Agent":"writer-user-agent","Content-Type":"application/json"},body:'{"text":"₦ café"}'});
+  assert.equal(captured.input,BROWSER_RELAY_URL);const sent=JSON.parse(captured.init.body);
+  assert.equal(sent.path,"/api/organizations");assert.equal(sent.body,'{"text":"₦ café"}');
+  for(const name of ["cookie","authorization","user-agent"])assert.equal(sent.headers[name],undefined);
+  assert.equal(response.headers.get("content-type"),"text/event-stream");assert.equal(await response.text(),"data: test\n\n");
+  const binary=new Uint8Array([0,255,0,128]);
+  await fetchClaudeProvider("https://claude.ai/claudeai-rpc/anthropic.bard.api.v1alpha.ConversationService/StreamTimeline",{method:"POST",headers:{"Content-Type":"application/connect+proto","connect-protocol-version":"1","x-organization-uuid":"org"},body:binary});
+  const rpc=JSON.parse(captured.init.body);assert.equal(rpc.body,undefined);assert.equal(rpc.bodyBase64,Buffer.from(binary).toString("base64"));
+  assert.equal(rpc.headers["connect-protocol-version"],"1");assert.equal(rpc.headers["x-organization-uuid"],"org");
+  assert.equal(route("POST","/claudeai-rpc/anthropic.bard.api.v1alpha.ConversationService/StreamTimeline")?.kind,"rpc");
+  assert.equal(route("POST","/claudeai-rpc/anthropic.bard.api.v1alpha.AccountService/GetApiKeys"),null);
+  await assert.rejects(()=>fetchClaudeProvider("https://attacker.test/api"));
+  process.env.CLAUDE_BROWSER_RELAY_URL="https://attacker.test/request";await assert.rejects(()=>fetchClaudeProvider("https://claude.ai/new"));
+  delete process.env.CLAUDE_BROWSER_RELAY_URL;assert(!claudeSharedBrowserTransport());
+  await fetchClaudeProvider("https://claude.ai/new",{method:"GET"});assert.equal(captured.input,"https://claude.ai/new");
+  assert.equal(route("GET","/api/bootstrap")?.kind,"bootstrap");
+  assert.equal(route("GET","/edge-api/bootstrap")?.kind,"bootstrap");
+  assert.equal(route("GET","/edge-api/auth/session"),null);
+  assert.equal(route("POST","/edge-api/organizations/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/chat_conversations")?.kind,"create");
+  for(const p of ["/api/auth/session","/api/secrets","/api/organizations/x/api_keys","/api/../settings","/api/%2f%2fattacker"])assert.equal(route("GET",p),null,p);
+  assert.equal(route("POST","/api/account"),null);assert.equal(route("DELETE","/api/bootstrap"),null);
+  console.log("Native browser adapter: private origin, credential boundaries, Unicode bodies, streaming, default transport and restricted read routes passed.");
+}finally{globalThis.fetch=original;for(const [name,value] of [["CLAUDE_BROWSER_RELAY_URL",previous.url],["CLAUDE_BROWSER_RELAY_KEY",previous.key],["CLAUDE_SHARED_BROWSER_TRANSPORT",previous.shared]]){if(value===undefined)delete process.env[name!];else process.env[name!]=value;}}

@@ -1,0 +1,15 @@
+[Unit]
+Description=TopRated Claude private native transport
+After=trst-claude-native-browser.service
+Requires=trst-claude-native-browser.service
+[Service]
+User=trst-claude-browser
+Group=trst-claude-browser
+EnvironmentFile=/etc/trst-claude-browser-relay.env
+ExecStart=/usr/bin/node /opt/trst-claude-native-relay/relay.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=128

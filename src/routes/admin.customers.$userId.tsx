@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {ClaudeControlsCard} from "@/components/admin/ClaudeControlsCard";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AssignToolDialog } from "@/components/admin/AssignToolDialog";
 import { Button } from "@/components/ui/button";
@@ -167,6 +168,7 @@ function CustomerPage() {
             <TurnitinCreditsCard userId={userId} />
             <StealthWriterControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
+            <ClaudeControlsCard userId={userId} />
 
             {/* Subscriptions */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">

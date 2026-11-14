@@ -1,3 +1,5 @@
+delete process.env.CLAUDE_BROWSER_RELAY_URL;
+delete process.env.CLAUDE_SHARED_BROWSER_TRANSPORT;
 import { strict as assert } from "node:assert";
 import vm from "node:vm";
 import {
@@ -115,7 +117,9 @@ const encryptedState = encryptClaudeSession(JSON.stringify(state), key);
 process.env.CLAUDE_SESSION_ENCRYPTION_KEY = key;
 process.env.CLAUDE_PROXY_VERIFIED = "true";
 process.env.CLAUDE_PROXY_PUBLIC_ORIGIN = "https://claude.topratedseotools.com";
+delete process.env.CLAUDE_BROWSER_RELAY_URL;
 const db = {
+  async rpc(){return {data:{allowed:true,limit:25,used:1,remaining:24},error:null};},
   from(table: string) {
     const filters: Record<string, unknown> = {};
     const q: any = {
@@ -218,6 +222,8 @@ try {
   const crossSite = request(`${base}/${mine}/completion`, "POST", "{}");
   crossSite.headers.set("Origin", "https://attacker.test");
   assert.equal((await handle(crossSite)).status, 403);
+  assert.equal((await handle(request(base,"POST",JSON.stringify({uuid:other})))).status,404);
+  assert.equal((await handle(request(base,"POST",JSON.stringify({uuid:"bad"})))).status,400);
   assert.equal(upstreamCalls, 0, "forbidden requests must never contact Claude");
   const stream = await handle(request(`${base}/${mine}/completion`, "POST", '{"prompt":"hello"}'));
   assert.equal(stream.status, 200);

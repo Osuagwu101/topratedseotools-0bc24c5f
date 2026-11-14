@@ -39,7 +39,7 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
   if (!chat) return null;
   const action = chat[2] ?? "";
   if (
-    (m === "GET" && action === "") ||
+    (m === "GET" && ["","/serving","/composer_notices"].includes(action)) ||
     (m === "POST" && ["/completion", "/retry_completion", "/stop", "/title"].includes(action)) ||
     (m === "PUT" && action === "")
   ) {
