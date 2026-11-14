@@ -1,10 +1,19 @@
+import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterHasExternalReferences,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
+import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
+import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
+import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
 /* Claude native OneClick, based on Grammarly's encrypted-vault and ticket setup.
  * Launch remains gated until real authenticated compatibility/isolation checks pass.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash, randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { decryptClaudeSession, type ClaudeSessionState } from "@/lib/claude-session.server";
+import {
+  decryptClaudeSession,
+  encryptClaudeSession,
+  normaliseClaudeSession,
+  type ClaudeSessionState,
+} from "@/lib/claude-session.server";
 import {
   claudeRoutePolicy,
   rewriteClaudeBody,
@@ -17,6 +26,7 @@ export {
   claudeBootstrapScript,
   claudeCookieHeader,
 } from "@/lib/claude-proxy-policy";
+import { claudeUpstreamHeaders, applyClaudeResponseCookies } from "@/lib/claude-upstream-policy";
 export const CLAUDE_APP_ORIGIN = "https://claude.ai";
 export const CLAUDE_PROXY_COOKIE = "trst_claude_proxy";
 const TOOL_SLUG = "claude";
@@ -34,7 +44,7 @@ export function claudeProxyPublicOrigin() {
 export function isDedicatedClaudeProxyRequest(request: Request) {
   return new URL(request.url).origin === claudeProxyPublicOrigin();
 }
-async function vaultState(): Promise<ClaudeSessionState> {
+async function vaultSnapshot(): Promise<{ state: ClaudeSessionState; encrypted: string }> {
   const { data, error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .select("encrypted_payload,status")
@@ -42,7 +52,34 @@ async function vaultState(): Promise<ClaudeSessionState> {
     .maybeSingle();
   if (error || data?.status !== "stored" || !data.encrypted_payload)
     throw new Error("Claude needs an authorised session from Admin.");
-  return JSON.parse(decryptClaudeSession(data.encrypted_payload));
+  return {
+    state: JSON.parse(decryptClaudeSession(data.encrypted_payload)),
+    encrypted: data.encrypted_payload,
+  };
+}
+async function vaultState(): Promise<ClaudeSessionState> {
+  return (await vaultSnapshot()).state;
+}
+async function persistClaudeResponseCookies(
+  snapshot: { state: ClaudeSessionState; encrypted: string },
+  response: Response,
+  path: string,
+) {
+  const rotated = applyClaudeResponseCookies(snapshot.state, response, path);
+  if (!rotated.changed) return snapshot.state;
+  const clean = normaliseClaudeSession(JSON.stringify(rotated.state));
+  const { error } = await (supabaseAdmin as any)
+    .from("tool_authorized_sessions")
+    .update({
+      encrypted_payload: encryptClaudeSession(clean),
+      rotated_at: new Date().toISOString(),
+    })
+    .eq("tool_slug", TOOL_SLUG)
+    .eq("status", "stored")
+    .eq("encrypted_payload", snapshot.encrypted);
+  if (error) throw new Error("Could not preserve the Claude session update.");
+  // Check bodies for both previous and newly rotated credentials.
+  return { ...snapshot.state, cookies: [...snapshot.state.cookies, ...rotated.state.cookies] };
 }
 function plain(status: number, message: string) {
   return new Response(message, {
@@ -126,7 +163,9 @@ async function requireToolEnabled() {
     data.enabled === false ||
     !data.one_click_auth_enabled
   ) {
-    throw new Error("Claude OneClick on claude.topratedseotools.com is awaiting server verification (CL-01).");
+    throw new Error(
+      "Claude OneClick on claude.topratedseotools.com is awaiting server verification (CL-01).",
+    );
   }
 }
 
@@ -251,7 +290,7 @@ async function exchangeTicket(ticket: string) {
 }
 
 /** Returns metadata only; never return account/session values to the admin browser. */
-export async function testClaudeUpstream() {
+export async function testClaudeUpstream(request?: Request) {
   let state: ClaudeSessionState;
   try {
     state = await vaultState();
@@ -259,11 +298,20 @@ export async function testClaudeUpstream() {
     return { ok: false, code: "CL-01", message: "Save an authorised Claude session first." };
   }
   try {
-    const response = await fetch(`${CLAUDE_APP_ORIGIN}/api/organizations`, {
-      headers: {
-        Cookie: claudeCookieHeader(state, "/api/organizations"),
-        Accept: "application/json",
-      },
+    const response = await fetchClaudeProvider(`${CLAUDE_APP_ORIGIN}/api/organizations`, {
+      headers: (() => {
+        const incoming =
+          request ??
+          new Request(
+            (claudeProxyPublicOrigin() ?? "https://claude.topratedseotools.com") + "/new",
+          );
+        const headers = claudeUpstreamHeaders(
+          incoming,
+          claudeCookieHeader(state, "/api/organizations"),
+        );
+        headers.set("Accept", "application/json");
+        return headers;
+      })(),
       redirect: "manual",
       signal: AbortSignal.timeout(20_000),
     });
@@ -310,6 +358,45 @@ async function ownsConversation(id: string, org: string | undefined, user: strin
   return !error && data?.user_id === user;
 }
 
+async function reserveWriterConversation(id:string,org:string,writer:string) {
+ if(!/^[0-9a-f-]{36}$/i.test(org))return false;
+ const existing=await (supabaseAdmin as any).from("claude_conversation_owners").select("user_id,organization_id").eq("conversation_id",id).maybeSingle();
+ if(existing.error)throw Error("Could not verify conversation ownership");
+ if(existing.data)return existing.data.user_id===writer&&existing.data.organization_id===org;
+ // A client may propose a fresh UUID, but can never claim an existing provider chat.
+ const probe=await fetchClaudeProvider(CLAUDE_APP_ORIGIN+"/api/organizations/"+org+"/chat_conversations/"+id,{signal:AbortSignal.timeout(20000)});
+ await probe.body?.cancel();
+ if(probe.status!==404)return false;
+ const result=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:id,organization_id:org,user_id:writer});
+ if(result.error)return ownsConversation(id,org,writer);
+ return true;
+}
+function writerBootstrap(writer:string){
+ const marker=hashClaudeProxyToken(writer).slice(0,16);
+ const code=`(()=>{
+ const marker=${JSON.stringify(marker)};
+ try{if(localStorage.getItem("trstClaudeWriter")!==marker){localStorage.clear();sessionStorage.clear();localStorage.setItem("trstClaudeWriter",marker)}}catch{}
+ function show(d){
+  if(d?.code!=="daily_limit"||document.getElementById("trst-claude-daily-limit"))return;
+  const e=document.createElement("div");e.id="trst-claude-daily-limit";e.setAttribute("role","alert");
+  e.style.cssText="position:fixed;inset:40% 12% auto;z-index:2147483647;padding:24px;background:#b91c1c;color:white;text-align:center;border-radius:12px;font:600 18px system-ui";
+  e.textContent="Daily limit reached. Your Claude messages reset at midnight Nigeria time.";
+  document.body?.append(e);setTimeout(()=>e.remove(),3000);
+ }
+ const F=window.fetch;
+ window.fetch=async function(...args){const r=await F.apply(this,args);if(r.status===429)r.clone().json().then(show).catch(()=>{});return r};
+ const S=XMLHttpRequest.prototype.send;
+ XMLHttpRequest.prototype.send=function(){
+  this.addEventListener("load",()=>{if(this.status!==429)return;try{show(this.responseType==="json"?this.response:JSON.parse(this.responseText))}catch{}});
+  return S.apply(this,arguments);
+ };
+ async function check(){try{const r=await F.call(window,"/__trst/usage",{credentials:"same-origin"});if(r.ok&&Number((await r.json()).remaining)===0)show({code:"daily_limit"})}catch{}}
+ document.addEventListener("click",e=>{const b=e.target instanceof Element?e.target.closest("button"):null;if(b?.getAttribute("aria-label")==="Send message")check()},true);
+ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&e.target instanceof Element&&e.target.closest("[contenteditable=true]"))check()},true);
+ })();`;
+ return "<script>"+code+"</script>";
+}
+
 import {
   claudeResponseContainsSecret,
   filterClaudeConversationList,
@@ -326,19 +413,39 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if (!session) return plain(401, "Open Claude from your Top Rated SEO Tools account.");
     if (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== url.origin)
       return plain(403, "Invalid request origin");
-    const route = claudeRoutePolicy(request.method, url.pathname);
+    if(url.pathname==="/__trst/usage"){if(request.method!=="GET")return plain(405,"Method not allowed");return json(200,await getClaudeUsage(String(session.user_id)));}
+    const shared = false;
+    const browser=claudeBrowserTransportEnabled();
+    const route = browser ? claudeBrowserRoutePolicy(request.method, url.pathname) : claudeRoutePolicy(request.method, url.pathname);
     if (!route || url.searchParams.has("_rsc") || request.headers.has("rsc"))
       return json(403, { error: "This Claude feature is not available through OneClick." });
+    const rpc=browser && route.kind==="rpc";
     const writer = String(session.user_id);
-    if (route.conversation && !(await ownsConversation(route.conversation, route.org, writer)))
-      return json(404, { error: "Conversation not found" });
-    let body: string | undefined;
+    if(route.conversation&&!await ownsConversation(route.conversation,route.org,writer)){
+      const firstMessage=browser&&request.method==="POST"&&/\/completion$/.test(url.pathname)&&route.org;
+      if(!firstMessage||!await reserveWriterConversation(route.conversation,route.org!,writer))return json(404,{error:"Conversation not found"});
+    }
+    let body: string | ArrayBuffer | undefined;
     let createId: string | undefined;
+    let messageKey:string|undefined;
     if (!["GET", "HEAD"].includes(request.method)) {
       if (Number(request.headers.get("content-length") ?? 0) > MAX_REQUEST_BYTES)
         return plain(413, "Request too large");
       const bytes = await request.arrayBuffer();
       if (bytes.byteLength > MAX_REQUEST_BYTES) return plain(413, "Request too large");
+      if(rpc){
+       let info:ReturnType<typeof inspectClaudeWriterRpc>;
+       try{info=inspectClaudeWriterRpc(url.pathname,new Uint8Array(bytes),request.headers.get("content-type")??"",request.headers.get("connect-content-encoding"));}
+       catch{return json(403,{error:"This Claude action is not available through writer access."});}
+       // RPC writes remain closed until all memory/tool semantics are verified.
+       // Fresh writer browser profiles use the supported REST text-chat path.
+       if(info.kind!=="read")return json(403,{error:"Refresh Claude from your dashboard to use writer text chat."});
+       const org=(request.headers.get("x-organization-uuid")??"").toLowerCase();
+       if(!await reserveWriterConversation(info.conversation,org,writer))return json(404,{error:"Conversation not found"});
+
+       body=bytes;
+      }
+      else {
       if (!(request.headers.get("content-type") ?? "").includes("application/json"))
         return plain(415, "JSON required");
       body = new TextDecoder().decode(bytes);
@@ -350,56 +457,56 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       }
       if (!payload || typeof payload !== "object" || Array.isArray(payload))
         return plain(400, "Invalid JSON object");
+      if(route.kind==="conversation"&&/\/(?:completion|retry_completion)$/.test(url.pathname)){
+       const requestId=typeof payload.completion_request_id==="string"&&payload.completion_request_id.length<=128?payload.completion_request_id:crypto.randomUUID();
+       messageKey=hashClaudeProxyToken(route.conversation+":"+requestId);
+       payload=isolateClaudeWriterPayload(payload);body=JSON.stringify(payload);
+      }
       // File/project/integration references require their own ownership tracking.
-      if (
-        /(?:"(?:project_uuid|project_id|file_uuid|file_id|attachment_uuid|sync_source|integration_id)"\s*:)/i.test(
-          body,
-        ) ||
-        ["attachments", "files", "sync_sources"].some(
-          (k) => payload[k] != null && (!Array.isArray(payload[k]) || payload[k].length),
-        )
-      )
+      if(claudeWriterHasExternalReferences(payload))
         return json(403, { error: "File, project and integration access has not been enabled." });
-      if (route.kind === "create") {
-        // Do not trust a browser-provided UUID: always generate and reserve it server-side.
-        createId = crypto.randomUUID();
-        payload.uuid = createId;
-        body = JSON.stringify(payload);
-        const { error } = await (supabaseAdmin as any)
-          .from("claude_conversation_owners")
-          .insert({ conversation_id: createId, organization_id: route.org, user_id: writer });
-        if (error) return plain(503, "Could not reserve the conversation. Try again.");
+      if (route.kind === "create" && !shared) {
+        payload.chat_memory_mode="disabled";payload.include_conversation_preferences=false;
+        // Native clients retain their proposed UUID. Reserve it only after verifying
+        // that it is fresh upstream; an existing shared chat can never be claimed.
+        if(payload.uuid!==undefined){
+          if(typeof payload.uuid!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.uuid))return plain(400,"Invalid conversation id");
+          createId=payload.uuid.toLowerCase();
+          if(!await reserveWriterConversation(createId!,route.org!,writer))return json(404,{error:"Conversation not found"});
+        }else{
+          createId=crypto.randomUUID();
+          const {error}=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:createId,organization_id:route.org,user_id:writer});
+          if(error)return plain(503,"Could not reserve the conversation. Try again.");
+        }
+        payload.uuid=createId;
+        body=JSON.stringify(payload);
+      }
       }
     }
-    const state = await vaultState();
-    const target = new URL(url.pathname + url.search, CLAUDE_APP_ORIGIN);
-    const headers = new Headers({
-      Cookie: claudeCookieHeader(state, target.pathname),
-      Accept: request.headers.get("accept") ?? "*/*",
-      "Accept-Encoding": "identity",
-    });
-    for (const name of [
-      "content-type",
-      "anthropic-client-sha",
-      "anthropic-client-version",
-      "anthropic-client-platform",
-    ]) {
-      const value = request.headers.get(name);
-      if (value) headers.set(name, value);
+    let quota:Awaited<ReturnType<typeof reserveClaudeMessage>>|undefined;
+    if(messageKey){
+     quota=await reserveClaudeMessage(writer,messageKey);
+     if(!quota.allowed)return json(quota.code==="duplicate"?409:429,{error:quota.code==="duplicate"?"This message was already submitted. Reload to see its reply.":"Daily limit reached. Your Claude messages reset at midnight Nigeria time.",...quota});
     }
-    headers.set("Origin", CLAUDE_APP_ORIGIN);
-    headers.set("Referer", CLAUDE_APP_ORIGIN + "/new");
-    const upstream = await fetch(target, {
+    const snapshot = await vaultSnapshot();
+    let state = snapshot.state;
+    // Serve a neutral SPA shell on owned chat pages. Provider chat HTML can
+    // preload account-wide state; the client loads the owned transcript via API.
+    const target = new URL(route.kind==="page"&&route.conversation?"/new":url.pathname+url.search,CLAUDE_APP_ORIGIN);
+    const headers = claudeUpstreamHeaders(request, claudeCookieHeader(state, target.pathname));
+    const upstream = await fetchClaudeProvider(target, {
       method: request.method,
       headers,
       body,
       redirect: "manual",
       signal: request.signal,
     });
+    if(messageKey&&!upstream.ok)await releaseClaudeMessage(writer,messageKey);
     if (upstream.headers.get("cf-mitigated") === "challenge")
       return plain(503, "Claude requires browser verification. Please contact Admin (CL-02).");
     if ([401, 403].includes(upstream.status))
       return plain(503, "Claude needs to be refreshed by Admin (CL-03).");
+    if (!claudeBrowserTransportEnabled()) state = await persistClaudeResponseCookies(snapshot, upstream, target.pathname);
     if (upstream.status >= 300 && upstream.status < 400) {
       const dest = new URL(upstream.headers.get("location") ?? "/new", target);
       if (dest.origin !== CLAUDE_APP_ORIGIN || !claudeRoutePolicy("GET", dest.pathname))
@@ -423,6 +530,12 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       "X-Robots-Tag": "noindex, nofollow",
       "X-Content-Type-Options": "nosniff",
     });
+    out.set("Content-Security-Policy","connect-src 'self' https://assets-proxy.anthropic.com; form-action 'self'; object-src 'none'; base-uri 'self'");
+    if(quota)out.set("X-TRST-Messages-Remaining",String(quota.remaining));
+    if(rpc) {
+      for(const name of ["connect-content-encoding","connect-accept-encoding","connect-protocol-version","grpc-status","grpc-message"]){const value=upstream.headers.get(name);if(value)out.set(name,value);}
+      return new Response(upstream.body,{status:upstream.status,headers:out});
+    }
     // Stream tokens without buffering the completion; only owned conversation routes reach here.
     if (type.includes("text/event-stream")) {
       if (route.kind !== "conversation") return plain(502, "Unexpected Claude stream");
@@ -444,7 +557,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       } catch {
         return plain(502, "Invalid Claude response");
       }
-      if (route.kind === "list") {
+      if (route.kind === "list" && !shared) {
         const { data, error } = await (supabaseAdmin as any)
           .from("claude_conversation_owners")
           .select("conversation_id")
@@ -452,7 +565,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
           .eq("organization_id", route.org);
         if (error) return plain(503, "Could not load your chat history");
         try {
-          payload = filterClaudeConversationList(
+          payload = filterClaudeWriterHistory(
             payload,
             new Set((data ?? []).map((r: any) => String(r.conversation_id))),
           );
@@ -462,14 +575,15 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       }
       if (createId && upstream.ok && payload?.uuid !== createId)
         return plain(502, "Claude conversation could not be verified (CL-06).");
+      if(route.kind==="bootstrap")payload=sanitizeClaudeBootstrap(payload);
       text = JSON.stringify(payload);
     }
     if (type.includes("text/html")) {
       // Until native hydration is verified, reject server-rendered chat state.
       // Unknown payload formats must never expose the shared account's history.
-      if (/chat_conversations|chat_messages|sessionKey|project_uuid|\\\\u0022chat_/i.test(text))
+      if ((!shared && /chat_conversations|chat_messages|project_uuid|\\\\u0022chat_/i.test(text)) || /["']sessionKey["']\s*:/.test(text))
         return plain(502, "Claude returned embedded private state. Contact Admin (CL-06).");
-      text = text.replace(/<head([^>]*)>/i, (m) => m + claudeBootstrapScript());
+      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer) + claudeBootstrapScript());
     }
     return new Response(rewriteClaudeBody(text, url.origin), {
       status: upstream.status,

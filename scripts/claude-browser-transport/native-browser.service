@@ -1,0 +1,19 @@
+[Unit]
+Description=TopRated Claude native transport browser
+After=trst-claude-display.service
+Requires=trst-claude-display.service
+[Service]
+User=trst-claude-browser
+Group=trst-claude-browser
+Environment=HOME=/var/lib/trst-claude-browser
+Environment=DISPLAY=:95
+Environment=XAUTHORITY=/var/lib/trst-claude-browser/.Xauthority
+ExecStart=/usr/bin/google-chrome-stable --remote-debugging-port=9225 --remote-debugging-address=127.0.0.1 --user-data-dir=/var/lib/trst-claude-browser/profile --no-first-run --no-default-browser-check --disable-dev-shm-usage --window-size=1280,900 --window-position=0,0 https://claude.ai/new
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=1200M
+CPUQuota=150%
+TasksMax=256
+[Install]
+WantedBy=multi-user.target
