@@ -1,3 +1,5 @@
+import {oneClickInfoScript} from "@/lib/oneclick-info.server";
+import {getStealthWriterUserLabel} from "@/lib/stealthwriter-controls.server";
 import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterHasExternalReferences,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
@@ -413,7 +415,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if (!session) return plain(401, "Open Claude from your Top Rated SEO Tools account.");
     if (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== url.origin)
       return plain(403, "Invalid request origin");
-    if(url.pathname==="/__trst/usage"){if(request.method!=="GET")return plain(405,"Method not allowed");return json(200,await getClaudeUsage(String(session.user_id)));}
+    if(url.pathname==="/__trst/usage"){if(request.method!=="GET")return plain(405,"Method not allowed");return json(200,{...await getClaudeUsage(String(session.user_id)),user_label:await getStealthWriterUserLabel(String(session.user_id))});}
     const shared = false;
     const browser=claudeBrowserTransportEnabled();
     const route = browser ? claudeBrowserRoutePolicy(request.method, url.pathname) : claudeRoutePolicy(request.method, url.pathname);
@@ -583,7 +585,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       // Unknown payload formats must never expose the shared account's history.
       if ((!shared && /chat_conversations|chat_messages|project_uuid|\\\\u0022chat_/i.test(text)) || /["']sessionKey["']\s*:/.test(text))
         return plain(502, "Claude returned embedded private state. Contact Admin (CL-06).");
-      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer) + claudeBootstrapScript());
+      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer) + claudeBootstrapScript() + oneClickInfoScript("/__trst/usage",true));
     }
     return new Response(rewriteClaudeBody(text, url.origin), {
       status: upstream.status,

@@ -1,3 +1,5 @@
+import {oneClickInfoScript} from "@/lib/oneclick-info.server";
+import {getStealthWriterUserLabel} from "@/lib/stealthwriter-controls.server";
 /*
  * Phase 3 — ChatGPT server-side one-click proxy for authorised internal writers.
  *
@@ -1028,6 +1030,11 @@ export async function handleChatGPTProxyRequest(request: Request) {
       ? url.pathname.slice(CHATGPT_PROXY_BASE.length)
       : "";
 
+  if(suffix === "/__trst/usage") {
+    if(request.method !== "GET")return jsonResponse({error:"Method not allowed"},405);
+    try{return jsonResponse({user_label:await getStealthWriterUserLabel(String(proxySession.user_id)),unlimited:true},200)}
+    catch{return unavailable()}
+  }
   let targetOrigin = CHATGPT_UPSTREAM_ORIGIN;
   let targetPath = mapChatGPTClientApiPath(suffix || CHATGPT_LANDING_PATH);
   let isSecondaryHost = false;
@@ -1329,6 +1336,9 @@ export async function handleChatGPTProxyRequest(request: Request) {
           /* not JSON after all: leave untouched */
         }
       }
+    }
+    if (isChatGptOrigin && contentType.includes("text/html") && !storeAsset) {
+      rewritten=rewritten.replace(/<head([^>]*)>/i,(m)=>m+oneClickInfoScript(proxyBase+"/__trst/usage",false));
     }
     if (storeAsset) {
       putCachedAsset(assetKey, { body: rewritten, contentType, bytes: rewritten.length * 2 });
