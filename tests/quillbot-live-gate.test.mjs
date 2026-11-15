@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const base = "https://chatgpt.topratedseotools.com/__qbtest";
+const base = "https://quillbot.topratedseotools.com/__qbtest";
 const paths = [
   "/paraphrasing-tool",
   "/ssrprops",
