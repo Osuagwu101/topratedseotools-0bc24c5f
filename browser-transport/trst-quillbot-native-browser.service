@@ -1,0 +1,19 @@
+[Unit]
+Description=TopRated QuillBot native transport browser
+After=trst-quillbot-display.service
+Requires=trst-quillbot-display.service
+[Service]
+User=trst-quillbot-browser
+Group=trst-quillbot-browser
+Environment=HOME=/var/lib/trst-quillbot-browser
+Environment=DISPLAY=:96
+Environment=XAUTHORITY=/var/lib/trst-quillbot-browser/.Xauthority
+ExecStart=/usr/bin/google-chrome-stable --remote-debugging-port=9226 --remote-debugging-address=127.0.0.1 --user-data-dir=/var/lib/trst-quillbot-browser/profile --no-first-run --no-default-browser-check --disable-dev-shm-usage --window-size=1280,900 --window-position=0,0 https://quillbot.com/paraphrasing-tool
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=1200M
+CPUQuota=150%
+TasksMax=256
+[Install]
+WantedBy=multi-user.target

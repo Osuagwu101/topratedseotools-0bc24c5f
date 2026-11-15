@@ -1,0 +1,2 @@
+import {build} from '/home/ubuntu/releases/trst-claude-writers-20261114/node_modules/esbuild/lib/main.js';
+await build({entryPoints:['/home/ubuntu/worktrees/quillbot-feasibility-20261006/browser-transport/dashboard-bridge.js'],bundle:true,minify:true,format:'iife',platform:'browser',target:'es2020',nodePaths:['/home/ubuntu/releases/trst-claude-writers-20261114/node_modules'],outfile:'/home/ubuntu/worktrees/quillbot-feasibility-20261006/runtime/.state/quillbot-dashboard.js',define:{'process.env.NODE_ENV':'"production"'}});

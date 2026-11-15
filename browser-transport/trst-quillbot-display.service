@@ -1,0 +1,18 @@
+[Unit]
+Description=TopRated QuillBot Admin browser display
+
+[Service]
+User=trst-quillbot-browser
+Group=trst-quillbot-browser
+Environment=HOME=/var/lib/trst-quillbot-browser
+Environment=DISPLAY=:96
+Environment=XAUTHORITY=/var/lib/trst-quillbot-browser/.Xauthority
+ExecStart=/usr/bin/Xvfb :96 -screen 0 1280x900x24 -nolisten tcp -auth /var/lib/trst-quillbot-browser/.Xauthority
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=256M
+CPUQuota=150%
+TasksMax=256
+[Install]
+WantedBy=multi-user.target
