@@ -100,10 +100,11 @@ export const adminVerifyGrammarlyAccount=createServerFn({method:"POST"}).middlew
  const admin=await assertSuperAdmin(context);
  const {data:row,error}=await admin.from("grammarly_provider_accounts").select("encrypted_payload,status").eq("account_key",data.account_key).maybeSingle();
  if(error||row?.status!=="stored"||!row.encrypted_payload)throw Error("Save this account's session first.");
- const {verifyGrammarlySession}=await import("./grammarly-proxy.server");
- try{if(!await verifyGrammarlySession(row.encrypted_payload))return {ok:false,message:"This Grammarly account could not be verified. Refresh its session and retry."};}
+ const {verifyGrammarlyAccountSession}=await import("./grammarly-proxy.server");
+ let verifiedSnapshot:string;
+ try{const check=await verifyGrammarlyAccountSession(row.encrypted_payload,data.account_key);if(!check.ok)return {ok:false,message:"This Grammarly account could not be verified. Refresh its session and retry."};verifiedSnapshot=check.encrypted;}
  catch{return {ok:false,message:"Grammarly could not be reached. Please retry."};}
- const saved=await admin.from("grammarly_provider_accounts").update({verified_at:new Date().toISOString()}).eq("account_key",data.account_key).eq("encrypted_payload",row.encrypted_payload).select("account_key").maybeSingle();
+ const saved=await admin.from("grammarly_provider_accounts").update({verified_at:new Date().toISOString()}).eq("account_key",data.account_key).eq("encrypted_payload",verifiedSnapshot).select("account_key").maybeSingle();
  if(saved.error||!saved.data)throw Error("Session changed during verification. Verify again.");
  await logAdminActivity(context,{action:"grammarly.provider_session_verify",area:"tools",target_type:"grammarly_provider_account",target_id:data.account_key,details:"Upstream authentication verified."});
  return {ok:true,message:"Grammarly account verified."};

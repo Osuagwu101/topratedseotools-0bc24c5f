@@ -223,7 +223,7 @@ export function grammarlyCookieHeader(state: GrammarlySessionState, host: string
 
 /** Keep the vault in step when Grammarly rotates its auth cookies. */
 export async function persistRotatedCookies(setCookies: string[],account:GrammarlyProviderAccount,snapshot:string) {
-  if (!setCookies.length) return;
+  if (!setCookies.length) return snapshot;
   const state:GrammarlySessionState = JSON.parse(decryptGrammarlySession(snapshot));
   const names = new Set(state.cookies.map((c) => c.name));
   let changed = false;
@@ -240,7 +240,7 @@ export async function persistRotatedCookies(setCookies: string[],account:Grammar
       changed = true;
     }
   }
-  if (!changed) return;
+  if (!changed) return snapshot;
   const encrypted = encryptGrammarlySession(normaliseGrammarlySession(JSON.stringify(state)));
   const now = new Date().toISOString();
   const {error}=await (supabaseAdmin as any)
@@ -249,6 +249,7 @@ export async function persistRotatedCookies(setCookies: string[],account:Grammar
     .eq(account==="account_1"?"tool_slug":"account_key",account==="account_1"?TOOL_SLUG:account)
     .eq("status", "stored").eq("encrypted_payload",snapshot);
   if(error)throw Error("Could not preserve Grammarly session rotation.");
+  return encrypted;
 }
 
 // --------------------------------------------------------------- access
@@ -710,10 +711,20 @@ export function grammarlyWriterMarker(writer:string,account:GrammarlyProviderAcc
  const marker=hashGrammarlyProxyToken(writer+":"+account).slice(0,24);
  return "<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstGrammarlyAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstGrammarlyAccount',m)}}catch{}})();</script>";
 }
-export async function verifyGrammarlySession(snapshot:string){
+async function authenticatedGrammarlyResponse(snapshot:string){
  const state:GrammarlySessionState=JSON.parse(decryptGrammarlySession(snapshot));
  const response=await fetch("https://auth.grammarly.com/v3/user",{headers:{Cookie:grammarlyCookieHeader(state,"auth.grammarly.com"),Accept:"application/json",Origin:GRAMMARLY_APP_ORIGIN,Referer:GRAMMARLY_APP_ORIGIN+"/", "x-csrf-token":state.cookies.find(c=>c.name==="csrf-token")?.value??"", "User-Agent":"Mozilla/5.0"},redirect:"manual",signal:AbortSignal.timeout(20000)});
- if(!response.ok||!(response.headers.get("content-type")??"").includes("json"))return false;
+ if(!response.ok||!(response.headers.get("content-type")??"").includes("json"))return {ok:false,response};
  const payload=await response.json();
- return !!payload && !!payload.id && payload.id!=="0" && (typeof payload.id==="number"||typeof payload.id==="string") && !payload.anonymous && !payload.isAnonymous;
+ const ok=!!payload && !!payload.id && payload.id!=="0" && (typeof payload.id==="number"||typeof payload.id==="string") && !payload.anonymous && !payload.isAnonymous && !payload.disabled;
+ return {ok,response};
+}
+export async function verifyGrammarlySession(snapshot:string){return (await authenticatedGrammarlyResponse(snapshot)).ok;}
+export async function verifyGrammarlyAccountSession(snapshot:string,account:GrammarlyProviderAccount){
+ const {ok,response}=await authenticatedGrammarlyResponse(snapshot);
+ if(!ok)return {ok:false,encrypted:snapshot};
+ const headers=response.headers as Headers & {getSetCookie?:()=>string[]};
+ const cookies=headers.getSetCookie?.()??[];
+ const encrypted=await persistRotatedCookies(cookies,account,snapshot);
+ return {ok:true,encrypted};
 }

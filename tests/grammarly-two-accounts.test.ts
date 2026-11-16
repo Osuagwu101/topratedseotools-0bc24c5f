@@ -19,13 +19,13 @@ mock.module("../src/integrations/supabase/client.server",()=>({supabaseAdmin:{fr
  return {data:rows,error:null};};
  const q:any={select(){return q},eq(k:string,v:any){filters[k]=v;return q},limit(){return q},order(){return q},update(v:any){patch=v;return q},upsert(v:any){insert=v;return q},async maybeSingle(){const r=result();return {...r,data:r.data?.[0]??null}},then(fn:any){return Promise.resolve(result()).then(fn)}};return q;
 }}}));
-const {handleGrammarlyProxyRequest:handle,hashGrammarlyProxyToken,grammarlyDocumentOwner,claimDocument,persistRotatedCookies,verifyGrammarlySession}=await import("../src/lib/grammarly-proxy.server");
+const {handleGrammarlyProxyRequest:handle,hashGrammarlyProxyToken,grammarlyDocumentOwner,claimDocument,persistRotatedCookies,verifyGrammarlySession,verifyGrammarlyAccountSession}=await import("../src/lib/grammarly-proxy.server");
 sessions.forEach((s,i)=>s.token_hash=hashGrammarlyProxyToken(String(i+1).repeat(43)));
 const original=globalThis.fetch,calls:any[]=[];
 globalThis.fetch=(async(input:any,init:any)=>{
  const h=new Headers(init?.headers),account=(h.get("cookie")??"").includes("account-session-2")?2:1;
  calls.push({url:String(input),account,auth:h.get("authorization"),csrf:h.get("x-csrf-token")});
- if(String(input).includes("auth.grammarly.com/v3/user"))return Response.json({id:anonymous?0:account,anonymous});
+ if(String(input).includes("auth.grammarly.com/v3/user"))return Response.json({id:anonymous?0:account,anonymous},{headers:{"Set-Cookie":"csrf-token=verification-csrf; Path=/; Secure"}});
  if(String(input).includes("dox.grammarly.com")){
   if(init.method==="POST")return Response.json({id:account===1?1001:2002,user_id:account,title:"Private document"});
   return Response.json([{id:1001,user_id:1,title:"One"},{id:2002,user_id:2,title:"Two"}]);
@@ -46,7 +46,9 @@ try{
  const before=calls.length;controls[0].provider_account_key="account_2";assert.equal((await handle(req(0))).status,401);assert.equal(calls.length,before);controls[0].provider_account_key="account_1";
  accounts[1].status="revoked";assert.equal((await handle(req(1))).status,503);assert.equal(calls.length,before);accounts[1].status="stored";
  dbError=true;assert.equal((await handle(req(0,"/__host/dox.grammarly.com/documents"))).status,503);await assert.rejects(()=>grammarlyDocumentOwner("1001","account_1"));await assert.rejects(()=>claimDocument("1234","writer1","account_1"));dbError=false;
- const a1=accounts[0].encrypted_payload,a2=accounts[1].encrypted_payload;
+ const a1=accounts[0].encrypted_payload;
+ const checked=await verifyGrammarlyAccountSession(accounts[1].encrypted_payload,"account_2");assert(checked.ok);assert.equal(checked.encrypted,accounts[1].encrypted_payload);assert(decryptGrammarlySession(checked.encrypted).includes("verification-csrf"));assert.equal(accounts[0].encrypted_payload,a1);
+ const a2=accounts[1].encrypted_payload;
  await persistRotatedCookies(["grauth=new-account-two; Path=/; Secure"],"account_2",a2);assert.equal(accounts[0].encrypted_payload,a1);assert(decryptGrammarlySession(accounts[1].encrypted_payload).includes("new-account-two"));
  const fresh=accounts[1].encrypted_payload;await persistRotatedCookies(["grauth=stale-value; Path=/; Secure"],"account_2",a2);assert.equal(accounts[1].encrypted_payload,fresh);
  console.log("Grammarly two-account HTTP: isolated cookies/CSRF, stripped bearer, documents, assignment/revocation, database failure, browser reset and scoped stale-safe rotation passed.");
