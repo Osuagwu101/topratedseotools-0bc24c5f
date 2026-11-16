@@ -31,7 +31,6 @@ const SUPABASE_URL = String(process.env.SUPABASE_URL || "").trim();
 const SERVICE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const COOKIE = "trst_gr_proxy";
 const APP_ORIGIN = "https://app.grammarly.com";
-const CACHE_MS = 30_000;
 const BLOCKED_HOSTS = new Set(["account.grammarly.com", "api.payments.grammarly.com", "sso.grammarly.com"]);
 
 export function isGrammarlyHost(host) {
@@ -61,38 +60,42 @@ function rest(pathAndQuery) {
   );
 }
 
-const sessions = new Map();
-async function proxySession(token) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token || "")) return null;
-  const hash = createHash("sha256").update(token, "utf8").digest("hex");
-  const hit = sessions.get(hash);
-  if (hit && hit.until > Date.now()) return hit.row;
-  const rows = await rest(
-    `grammarly_proxy_sessions?select=id,user_id,status,expires_at&token_hash=eq.${hash}&status=eq.active&limit=1`,
-  );
-  const row = rows[0];
-  if (!row || new Date(row.expires_at).getTime() <= Date.now()) return null;
-  if (sessions.size > 5000) sessions.clear();
-  sessions.set(hash, { row, until: Date.now() + CACHE_MS });
-  return row;
+export async function proxySession(token) {
+ if (!/^[A-Za-z0-9_-]{43}$/.test(token || "")) return null;
+ const hash=createHash("sha256").update(token,"utf8").digest("hex");
+ const rows=await rest(`grammarly_proxy_sessions?select=id,user_id,status,expires_at,source_kind,source_id,provider_account_key&token_hash=eq.${hash}&status=eq.active&limit=1`);
+ const row=rows[0];
+ if(!row||Date.parse(row.expires_at)<=Date.now()||!["account_1","account_2"].includes(row.provider_account_key))return null;
+ const uid=encodeURIComponent(row.user_id),key=row.provider_account_key;
+ const [controls,settings,accounts,source]=await Promise.all([
+ rest(`grammarly_user_controls?select=provider_account_key&user_id=eq.${uid}&limit=1`),
+ rest('tool_settings?select=enabled,one_click_auth_enabled&tool_slug=eq.grammarly&limit=1'),
+ rest(`grammarly_provider_accounts?select=status,verified_at&account_key=eq.${key}&limit=1`),
+ row.source_kind==='grant'
+ ?rest(`tool_access_grants?select=status,expires_at&id=eq.${encodeURIComponent(row.source_id)}&user_id=eq.${uid}&tool_slug=eq.grammarly&limit=1`)
+ :row.source_kind==='order'?rest(`tool_orders?select=status,payment_status,access_type,fulfilment_status,expires_at&id=eq.${encodeURIComponent(row.source_id)}&user_id=eq.${uid}&tool_slug=eq.grammarly&limit=1`):Promise.resolve([])
+ ]);
+ if((controls[0]?.provider_account_key??"account_1")!==key||!settings[0]?.one_click_auth_enabled||settings[0]?.enabled===false||accounts[0]?.status!=="stored"||(key==="account_2"&&!accounts[0]?.verified_at))return null;
+ const grant=source[0];if(!grant||(grant.expires_at&&Date.parse(grant.expires_at)<=Date.now()))return null;
+ if(row.source_kind==='grant'&&grant.status!=='active')return null;
+ if(row.source_kind==='order'&&(grant.status!=='approved'||grant.payment_status!=='successful'||(grant.access_type==='private'&&grant.fulfilment_status!=='active')))return null;
+ return row;
 }
 
-let vault = null;
 function vaultKey() {
   const raw = String(process.env.GRAMMARLY_SESSION_ENCRYPTION_KEY || "").trim();
   if (raw) return /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
   return Buffer.from(hkdfSync("sha256", Buffer.from(SERVICE_KEY), Buffer.from("topratedseotools"), Buffer.from("grammarly-session-encryption:v1"), 32));
 }
-async function vaultCookies() {
-  if (vault && vault.until > Date.now()) return vault.state;
-  const rows = await rest("tool_authorized_sessions?select=encrypted_payload,status&tool_slug=eq.grammarly&limit=1");
-  if (!rows[0] || rows[0].status !== "stored") throw new Error("vault not configured");
+export async function vaultCookies(account) {
+  if(!["account_1","account_2"].includes(account))throw Error("Invalid provider account");
+  const rows = await rest(`grammarly_provider_accounts?select=encrypted_payload,status,verified_at&account_key=eq.${account}&limit=1`);
+  if (!rows[0] || rows[0].status !== "stored" || (account==="account_2"&&!rows[0].verified_at)) throw new Error("vault not configured");
   const env = JSON.parse(rows[0].encrypted_payload);
   const d = createDecipheriv("aes-256-gcm", vaultKey(), Buffer.from(env.iv, "base64"));
   d.setAAD(Buffer.from("topratedseotools:grammarly:session_state_json:v1"));
   d.setAuthTag(Buffer.from(env.tag, "base64"));
   const state = JSON.parse(d.update(Buffer.from(env.ct, "base64")).toString("utf8") + d.final("utf8"));
-  vault = { state, until: Date.now() + CACHE_MS };
   return state;
 }
 
@@ -101,19 +104,16 @@ export function cookieHeaderFor(state, host) {
   return state.cookies
     .filter((c) => {
       const d = String(c.domain || "").toLowerCase().replace(/^\./, "");
-      return h === d || h.endsWith("." + d);
+      return (h === d || h.endsWith("." + d)) && !(c.expires && c.expires>0 && c.expires*1000<=Date.now());
     })
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 }
 
-const owners = new Map();
-async function documentOwner(id) {
-  if (owners.has(id)) return owners.get(id);
-  const rows = await rest(`grammarly_document_owners?select=user_id&document_id=eq.${encodeURIComponent(id)}&limit=1`);
-  const owner = rows[0]?.user_id ?? null;
-  if (owner) owners.set(id, owner);
-  return owner;
+export async function documentOwner(id,account) {
+ if(!["account_1","account_2"].includes(account))throw Error("Invalid provider account");
+ const rows=await rest(`grammarly_document_owners?select=user_id&provider_account_key=eq.${account}&document_id=eq.${encodeURIComponent(id)}&limit=1`);
+ return rows[0]?.user_id??null;
 }
 
 function cookieValue(header, name) {
@@ -133,8 +133,9 @@ function log(event) {
   console.log(JSON.stringify({ component: "grammarly_ws_relay", at: new Date().toISOString(), ...event }));
 }
 
-export function startRelay() {
+export function startRelay({port=PORT,UpstreamWebSocket}={}) {
   loadWs();
+  const ProviderSocket=UpstreamWebSocket??WebSocket;
   const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 16 * 1024 * 1024 });
   const server = http.createServer((req, res) => {
     res.writeHead(req.url === "/__health" ? 200 : 426, { "Content-Type": "text/plain" });
@@ -144,9 +145,12 @@ export function startRelay() {
   server.on("upgrade", async (req, socket, head) => {
     const route = parseRelayPath(req.url || "");
     if (!route) return reject(socket, 403, "Forbidden");
+    const expectedOrigin=process.env.GRAMMARLY_PROXY_PUBLIC_ORIGIN ? new URL(process.env.GRAMMARLY_PROXY_PUBLIC_ORIGIN).origin : "https://"+req.headers.host;
+    if(req.headers.origin!==expectedOrigin)return reject(socket,403,"Forbidden");
+    const token=cookieValue(req.headers.cookie, COOKIE);
     let session;
     try {
-      session = await proxySession(cookieValue(req.headers.cookie, COOKIE));
+      session = await proxySession(token);
     } catch {
       return reject(socket, 503, "Service Unavailable");
     }
@@ -155,17 +159,17 @@ export function startRelay() {
     const routeDoc = route.host === "dox.grammarly.com"
       ? new URL(route.target).pathname.match(/^\/documents\/(\d+)\/ws$/)?.[1]
       : null;
-    if (routeDoc && await documentOwner(routeDoc).catch(() => null) !== String(session.user_id)) {
+    if (routeDoc && await documentOwner(routeDoc,session.provider_account_key).catch(() => null) !== String(session.user_id)) {
       return reject(socket, 403, "Forbidden");
     }
     let state;
     try {
-      state = await vaultCookies();
+      state = await vaultCookies(session.provider_account_key);
     } catch {
       return reject(socket, 503, "Service Unavailable");
     }
 
-    const upstream = new WebSocket(route.target, req.headers["sec-websocket-protocol"]?.split(",").map((s) => s.trim()) || [], {
+    const upstream = new ProviderSocket(route.target, req.headers["sec-websocket-protocol"]?.split(",").map((s) => s.trim()) || [], {
       headers: {
         Cookie: cookieHeaderFor(state, route.host),
         Origin: APP_ORIGIN,
@@ -176,22 +180,24 @@ export function startRelay() {
     });
 
     upstream.once("error", (err) => {
-      log({ event: "upstream_error", host: route.host, message: String(err?.message || err).slice(0, 120) });
+      log({ event: "upstream_error", host: route.host, message: "Provider connection failed" });
       if (!socket.destroyed) reject(socket, 502, "Bad Gateway");
     });
 
     upstream.once("open", () => {
       wss.handleUpgrade(req, socket, head, (client) => {
         log({ event: "open", host: route.host });
-        const checked = new Set();
         let refused = false;
         let queue = Promise.resolve();
         const forward = async (data, isBinary) => {
           if (refused) return;
+          const current=await proxySession(token).catch(()=>null);
+          if(!current||current.id!==session.id||current.provider_account_key!==session.provider_account_key){refused=true;client.close(4401,"Launch Grammarly again from your dashboard");upstream.close();return;}
+          if(isBinary&&!routeDoc){refused=true;client.close(4403,"Unsupported checking frame");upstream.close();return;}
           if (!isBinary) {
             const docId = documentIdFromFrame(data.toString());
-            if (docId && !checked.has(docId)) {
-              const owner = await documentOwner(docId).catch(() => null);
+            if (docId) {
+              const owner = await documentOwner(docId,session.provider_account_key).catch(() => null);
               if (owner !== String(session.user_id)) {
                 refused = true;
                 log({ event: "foreign_document_refused" });
@@ -199,7 +205,6 @@ export function startRelay() {
                 upstream.close();
                 return;
               }
-              checked.add(docId);
             }
           }
           if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
@@ -216,15 +221,24 @@ export function startRelay() {
           try { if (client.readyState === WebSocket.OPEN) client.close(c, String(reason || "").slice(0, 120)); } catch {}
           try { if (upstream.readyState === WebSocket.OPEN) upstream.close(c, String(reason || "").slice(0, 120)); } catch {}
         };
-        client.on("close", (code, reason) => closeBoth(code, reason));
-        upstream.on("close", (code, reason) => closeBoth(code, reason));
+        let validating=false;
+        const timer=setInterval(async()=>{
+          if(validating)return;validating=true;
+          try{
+            const current=await proxySession(token);
+            if(!current||current.id!==session.id||current.provider_account_key!==session.provider_account_key)closeBoth(4401,"Launch Grammarly again from your dashboard");
+          }catch{closeBoth(1011,"Could not verify Grammarly access");}finally{validating=false;}
+        },2000);
+        timer.unref?.();
+        client.on("close", (code, reason) => {clearInterval(timer);closeBoth(code, reason);});
+        upstream.on("close", (code, reason) => {clearInterval(timer);closeBoth(code, reason);});
         client.on("error", () => closeBoth(1011));
         upstream.on("error", () => closeBoth(1011));
       });
     });
   });
 
-  server.listen(PORT, "127.0.0.1", () => log({ event: "listening", port: PORT }));
+  server.listen(port, "127.0.0.1", () => log({ event: "listening", port: server.address().port }));
   return server;
 }
 
