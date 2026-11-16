@@ -712,7 +712,7 @@ export function grammarlyWriterMarker(writer:string,account:GrammarlyProviderAcc
 }
 export async function verifyGrammarlySession(snapshot:string){
  const state:GrammarlySessionState=JSON.parse(decryptGrammarlySession(snapshot));
- const response=await fetch("https://auth.grammarly.com/v3/user",{headers:{Cookie:grammarlyCookieHeader(state,"auth.grammarly.com"),Accept:"application/json"},redirect:"manual",signal:AbortSignal.timeout(20000)});
+ const response=await fetch("https://auth.grammarly.com/v3/user",{headers:{Cookie:grammarlyCookieHeader(state,"auth.grammarly.com"),Accept:"application/json",Origin:GRAMMARLY_APP_ORIGIN,Referer:GRAMMARLY_APP_ORIGIN+"/", "x-csrf-token":state.cookies.find(c=>c.name==="csrf-token")?.value??"", "User-Agent":"Mozilla/5.0"},redirect:"manual",signal:AbortSignal.timeout(20000)});
  if(!response.ok||!(response.headers.get("content-type")??"").includes("json"))return false;
  const payload=await response.json();
  return !!payload && !!payload.id && payload.id!=="0" && (typeof payload.id==="number"||typeof payload.id==="string") && !payload.anonymous && !payload.isAnonymous;
