@@ -50,6 +50,17 @@ jobs:
         run: bun tests/grammarly-session-vault.test.ts
       - name: Grammarly proxy
         run: bun tests/grammarly-proxy.test.ts
+
+      - name: QuillBot launch service
+        run: bun test ./tests/quillbot-launch.test.ts
+      - name: QuillBot provider host rules
+        run: bun tests/quillbot-provider.test.ts
+      - name: QuillBot proxy
+        run: bun test ./tests/quillbot-proxy.test.ts
+      - name: QuillBot session expiry
+        run: bun test ./tests/quillbot-session-expiry.test.ts
+      - name: QuillBot session vault
+        run: bun tests/quillbot-session-vault.test.ts
       - name: ChatGPT Phase 4 hardening tests
         run: bun tests/chatgpt-phase4-validation.test.ts
       - name: ChatGPT Phase 1-4 conformance audit

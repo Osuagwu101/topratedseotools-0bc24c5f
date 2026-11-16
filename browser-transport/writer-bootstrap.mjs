@@ -1,0 +1,45 @@
+export function bootstrapPrelude(user){
+ return `(() => {
+ window.__trstQbProxy=true;
+ const PREFIX="trst-qb:"+${JSON.stringify(user)}+":";
+ const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem,key=Storage.prototype.key,clear=Storage.prototype.clear;
+ Storage.prototype.getItem=function(k){return get.call(this,PREFIX+k)};
+ Storage.prototype.setItem=function(k,v){return set.call(this,PREFIX+k,v)};
+ Storage.prototype.removeItem=function(k){return remove.call(this,PREFIX+k)};
+ Storage.prototype.clear=function(){const keys=[];for(let i=0;i<this.length;i++){const k=key.call(this,i);if(k?.startsWith(PREFIX))keys.push(k);}for(const k of keys)remove.call(this,k)};
+
+ const dbOpen=IDBFactory.prototype.open,dbDelete=IDBFactory.prototype.deleteDatabase;
+ IDBFactory.prototype.open=function(name,...args){return dbOpen.call(this,PREFIX+name,...args)};
+ IDBFactory.prototype.deleteDatabase=function(name){return dbDelete.call(this,PREFIX+name)};
+ if(IDBFactory.prototype.databases){const list=IDBFactory.prototype.databases;IDBFactory.prototype.databases=async function(){return (await list.call(this)).filter(db=>db.name?.startsWith(PREFIX)).map(db=>({...db,name:db.name.slice(PREFIX.length)}))};}
+ if(window.caches){for(const method of ['open','has','delete']){const fn=caches[method].bind(caches);caches[method]=(name,...args)=>fn(PREFIX+name,...args);}const list=caches.keys.bind(caches);caches.keys=async()=> (await list()).filter(k=>k.startsWith(PREFIX)).map(k=>k.slice(PREFIX.length));}
+ let operation='';
+ function logical(url){try{return new URL(url,location.href).pathname.replace(/^\\/__qbtest/,'').replace('/__host/media.quillbot.com','')}catch{return ''}}
+ function note(response){const id=response.headers.get('x-trst-operation');if(id){operation=id;window.__trstQbHistorySaved=false;window.dispatchEvent(new Event('trst-qb-usage'));}if(response.status===429)alert('Daily limit reached');return response}
+ const fetch0=window.fetch.bind(window);
+ window.fetch=async(input,init={})=>{const p=logical(input instanceof Request?input.url:input);if(p.startsWith('/api/paraphraser/')){const headers=new Headers(input instanceof Request?input.headers:init.headers);headers.set('x-trst-operation',operation);init={...init,headers};}return note(await fetch0(input,init));};
+
+ function openHistory(){
+  let panel=document.querySelector('#trst-qb-history');if(panel){panel.remove();return;}
+  panel=document.createElement('section');panel.id='trst-qb-history';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','My QuillBot history');panel.style.cssText='position:fixed;right:0;top:0;height:100vh;width:min(520px,100vw);overflow:auto;background:#fff;box-shadow:-6px 0 30px #1233;padding:24px;z-index:2147483647;font:14px/1.5 system-ui;color:#183b25';document.body.append(panel);
+  const heading=document.createElement('h2');heading.textContent='My QuillBot history';const close=document.createElement('button');close.textContent='Close';close.onclick=()=>panel.remove();const note=document.createElement('p');note.textContent='Only your results appear here. Showing your most recent 50 results.';panel.append(close,heading,note);
+  fetch0('/__qbtest/__trst/history',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('History unavailable');return r.json()}).then(data=>{if(!data.items.length){const empty=document.createElement('p');empty.textContent='Your completed results will appear here.';panel.append(empty);}for(const item of data.items){const card=document.createElement('article');card.style.cssText='border:1px solid #dce8df;border-radius:10px;padding:16px;margin:16px 0';const date=document.createElement('small');date.textContent=new Date(item.created_at).toLocaleString();card.append(date);for(const [label,text] of [['Original',item.input],['Result',item.output]]){const title=document.createElement('h3'),body=document.createElement('p'),copy=document.createElement('button');title.textContent=label;body.textContent=text;body.style.whiteSpace='pre-wrap';copy.textContent='Copy '+label.toLowerCase();copy.onclick=()=>navigator.clipboard.writeText(text).then(()=>{copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy '+label.toLowerCase(),1200)});card.append(title,body,copy);}panel.append(card);}}).catch(e=>{const error=document.createElement('p');error.textContent=e.message;panel.append(error)});
+ }
+ window.__trstOpenHistory=openHistory;
+ let savedSnapshot='',saveTimer,observedOutput=null,outputObserver=null;
+ function observeOutput(){
+  const output=document.querySelector('#paraphraser-output-box');if(!output||output===observedOutput){setTimeout(observeOutput,500);return;}observedOutput=output;outputObserver?.disconnect();
+  const capture=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{const input=document.querySelector('#paraphraser-input-box')?.innerText||'',result=output.innerText||'';if(!input.trim()||!result.trim()||input.trim()===result.trim())return;const signature=JSON.stringify([input,result]);if(signature===savedSnapshot)return;try{const response=await fetch0('/__qbtest/__trst/history',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input,output:result})});if(response.ok){savedSnapshot=signature;window.__trstQbHistorySaved=true;}}catch{}},1800)};
+  outputObserver=new MutationObserver(capture);outputObserver.observe(output,{subtree:true,childList:true,characterData:true});capture();setTimeout(observeOutput,500);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observeOutput,{once:true});else observeOutput();
+
+ const open=XMLHttpRequest.prototype.open,send=XMLHttpRequest.prototype.send;
+ XMLHttpRequest.prototype.open=function(method,url,...rest){this.trstPath=logical(url);return open.call(this,method,url,...rest)};
+ XMLHttpRequest.prototype.send=function(body){if(this.trstPath?.startsWith('/api/paraphraser/'))this.setRequestHeader('x-trst-operation',operation);this.addEventListener('readystatechange',()=>{if(this.readyState===4){const id=this.getResponseHeader('x-trst-operation');if(id){operation=id;window.__trstQbHistorySaved=false;window.dispatchEvent(new Event('trst-qb-usage'));}if(this.status===429)alert('Daily limit reached');}});return send.call(this,body)};
+ const style=document.createElement('style');style.textContent='[title="Log in"],[data-testid*="profile"],[data-testid*="account"]{display:none!important}';document.head.append(style);
+ document.addEventListener('click',e=>{const target=e.target.closest('button,a,[role="button"]');if(target&&target.innerText.trim()==='History'){e.preventDefault();e.stopImmediatePropagation();window.__trstOpenHistory?.();return;}if(target&&/^(Projects|Settings|Apps and Extensions)$/.test(target.innerText.trim())){e.preventDefault();e.stopImmediatePropagation();}},true);
+ const ready=()=>{const loader=document.createElement('div');loader.id='trst-qb-loader';loader.style.cssText='position:fixed;inset:0;background:#f6fbf7;z-index:2147483646;display:grid;place-items:center;font:17px Arial;color:#185629';loader.textContent='Opening your QuillBot workspace...';document.body.append(loader);let stable=0,previous=null;const watch=setInterval(()=>{const editor=document.querySelector('#paraphraser-input-box');const mounted=editor&&Object.keys(editor).some(k=>k.startsWith('__reactFiber')||k.startsWith('__reactProps'));if(mounted&&window.__trstQbAuthReady){if(previous===editor)stable++;else stable=0;if(stable>=15){loader.remove();window.__trstQbUiReady=true;clearInterval(watch);}}else stable=0;previous=editor;},100);setTimeout(()=>{if(loader.isConnected)loader.textContent='QuillBot is taking longer to open. Please reload this page.';},90000);const badge=document.createElement('div');badge.style.cssText='position:fixed;bottom:12px;right:12px;background:#fff;border:1px solid #1b5e20;border-radius:10px;padding:12px;z-index:2147483647;font:13px Arial;color:#123';document.body.append(badge);const history=document.createElement('button');history.textContent='My history';history.style.cssText='position:fixed;bottom:66px;right:12px;z-index:2147483645;padding:8px 14px;background:#175f34;color:white;border:0;border-radius:8px;cursor:pointer';history.onclick=openHistory;document.body.append(history);const update=()=>fetch0('/__qbtest/__trst/usage').then(r=>r.ok?r.json():Promise.reject()).then(s=>badge.textContent='TopRated SEO Tools ? '+(window.__trstQbWriter?.name||'Writer')+' ? '+s.used+'/'+s.daily_limit+' daily paraphrases').catch(()=>badge.textContent='TopRated SEO Tools ? Access unavailable');update();setInterval(update,15000);};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
+})();\n`;
+}

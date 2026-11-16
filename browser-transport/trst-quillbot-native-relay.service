@@ -1,0 +1,16 @@
+[Unit]
+Description=TopRated QuillBot private transport preflight
+After=trst-quillbot-native-browser.service
+Requires=trst-quillbot-native-browser.service
+[Service]
+User=trst-quillbot-browser
+Group=trst-quillbot-browser
+EnvironmentFile=/var/lib/trst-quillbot-browser/relay.env
+ExecStart=/usr/bin/node /var/lib/trst-quillbot-browser/relay.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=256M
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target
