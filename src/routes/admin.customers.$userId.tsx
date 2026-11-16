@@ -1117,7 +1117,6 @@ function StealthWriterControlsCard({ userId }: { userId: string }) {
         data.controls.provider_account_key === "account_2" ? "account_2" : "account_1",
       status: data.controls.status,
       device_limit: data.controls.device_limit,
-      provider_account_key:data.controls.provider_account_key,
       humanizer_enabled: data.controls.humanizer_enabled,
       humanizer_daily_limit: data.controls.humanizer_daily_limit,
       ai_detector_enabled: data.controls.ai_detector_enabled,
