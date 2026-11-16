@@ -13,12 +13,16 @@ export const adminGetClaudeControls=createServerFn({method:"GET"}).middleware([r
   await admin(context);return (await import("./claude-controls.server")).getClaudeUsage(data.userId);
  });
 export const adminUpdateClaudeControls=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
- .inputValidator(input=>userInput.extend({daily_message_limit:z.number().int().min(0).max(10000)}).parse(input))
+ .inputValidator(input=>userInput.extend({daily_message_limit:z.number().int().min(0).max(10000),provider_account_key:z.enum(["account_1","account_2"])}).parse(input))
  .handler(async({data,context})=>{
   const db=await admin(context);
-  const {error}=await db.from("claude_user_controls").upsert({user_id:data.userId,daily_message_limit:data.daily_message_limit,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+  const {requireClaudeAccount}=await import("./claude-accounts.server");
+  await requireClaudeAccount(data.provider_account_key);
+  const {error}=await db.from("claude_user_controls").upsert({user_id:data.userId,daily_message_limit:data.daily_message_limit,provider_account_key:data.provider_account_key,updated_at:new Date().toISOString()},{onConflict:"user_id"});
   if(error)throw Error("Could not save Claude daily limit.");
-  await logAdminActivity(context,{action:"claude.customer_limit_update",area:"customers",target_type:"user",target_id:data.userId,details:"Claude daily messages="+data.daily_message_limit});
+  const {error:revokeError}=await db.from("claude_proxy_sessions").update({status:"revoked"}).eq("user_id",data.userId).neq("provider_account_key",data.provider_account_key).in("status",["issued","active"]);
+  if(revokeError)throw Error("Assignment saved; could not revoke old launches. Retry saving.");
+  await logAdminActivity(context,{action:"claude.customer_limit_update",area:"customers",target_type:"user",target_id:data.userId,details:"Claude daily messages="+data.daily_message_limit+"; account="+data.provider_account_key});
   return {ok:true};
  });
 export const getMyClaudeUsage=createServerFn({method:"GET"}).middleware([requireSupabaseAuth])

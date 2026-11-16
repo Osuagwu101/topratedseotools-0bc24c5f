@@ -37,7 +37,7 @@ class BrowserConnection {
     try {await this.connecting;} finally {this.connecting=null;}
   }
   async connect() {
-    const targets=await fetch('http://127.0.0.1:9225/json/list',{signal:AbortSignal.timeout(5000)}).then(r=>r.json());
+    const targets=await fetch(`http://127.0.0.1:${process.env.CLAUDE_BROWSER_CDP_PORT || '9225'}/json/list`,{signal:AbortSignal.timeout(5000)}).then(r=>r.json());
     const target=targets.find(t=>t.type==='page' && new URL(t.url).origin===ORIGIN);
     if(!target) throw Error('Sign in to the dedicated Claude browser.');
     if(this.socket) this.socket.close();
@@ -150,4 +150,4 @@ export function startRelay({port=6101}={}) {
     catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Claude browser transport is unavailable.');}
   }).listen(port,'127.0.0.1');
 }
-if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)startRelay();
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)startRelay({port:Number(process.env.CLAUDE_RELAY_PORT || 6101)});

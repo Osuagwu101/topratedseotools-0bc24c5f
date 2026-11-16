@@ -1,3 +1,4 @@
+import { isClaudeProviderAccount, type ClaudeProviderAccountKey } from "./claude-account-policy";
 /* Browser-owned authentication stays in the private browser profile. */
 export const BROWSER_RELAY_URL = "http://127.0.0.1:6101/request";
 export function claudeBrowserTransportEnabled() {
@@ -11,12 +12,14 @@ const allowedHeaders = new Set([
   "accept", "accept-language", "content-type", "range", "if-none-match", "if-modified-since",
   "anthropic-client-sha", "anthropic-client-version", "anthropic-client-platform",
 ]);
-export async function fetchClaudeProvider(target: URL | string, init: RequestInit = {}) {
-  const configured = process.env.CLAUDE_BROWSER_RELAY_URL;
-  if (!configured) return fetch(target, init);
+export async function fetchClaudeProvider(target: URL | string, init: RequestInit = {}, account: ClaudeProviderAccountKey = "account_1") {
+  if(!isClaudeProviderAccount(account))throw Error("Invalid Claude account.");
+  const configured = account === "account_1" ? process.env.CLAUDE_BROWSER_RELAY_URL : process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
+  const relayUrl = account === "account_1" ? BROWSER_RELAY_URL : "http://127.0.0.1:6102/request";
+  if (!configured) { if(account !== "account_1") throw Error("Claude Account 2 is not connected."); return fetch(target, init); }
   const url = new URL(target);
-  if (configured !== BROWSER_RELAY_URL || url.origin !== "https://claude.ai") throw new Error("Invalid Claude browser transport configuration.");
-  const key = process.env.CLAUDE_BROWSER_RELAY_KEY;
+  if (configured !== relayUrl || url.origin !== "https://claude.ai") throw new Error("Invalid Claude browser transport configuration.");
+  const key = account === "account_1" ? process.env.CLAUDE_BROWSER_RELAY_KEY : process.env.CLAUDE_ACCOUNT_2_RELAY_KEY;
   if (!key || key.length < 32) throw new Error("Claude browser transport is not configured.");
   let body: string | undefined, bodyBase64: string | undefined;
   if(typeof init.body==="string") body=init.body;
@@ -25,7 +28,7 @@ export async function fetchClaudeProvider(target: URL | string, init: RequestIni
   else if(init.body!=null)throw new Error("Unsupported browser transport body.");
   const headers: Record<string,string> = {};
   for (const [name,value] of new Headers(init.headers)) if (allowedHeaders.has(name.toLowerCase())) headers[name]=value;
-  return fetch(BROWSER_RELAY_URL, {
+  return fetch(relayUrl, {
     method: "POST", headers: {Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
     body: JSON.stringify({path:url.pathname+url.search,method:init.method??"GET",headers,body,bodyBase64}),
     signal: init.signal,

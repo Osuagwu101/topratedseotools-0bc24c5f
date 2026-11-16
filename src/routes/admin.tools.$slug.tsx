@@ -1,3 +1,4 @@
+import {ClaudeAccountsCard} from "@/components/admin/ClaudeAccountsCard";
 /**
  * Admin — per-tool management at /admin/tools/$slug.
  *
@@ -293,7 +294,7 @@ function AdminToolPage() {
           {tab === "session" && tool.slug === "phrasly" && (
             <PhraslySessionTab />
           )}
-          {tab === "session" && tool.slug === "claude" && <ClaudeSessionTab />}
+          {tab === "session" && tool.slug === "claude" && <><ClaudeAccountsCard /><ClaudeSessionTab /></>}
           {tab === "session" && tool.slug === "grammarly" && (
             <GrammarlySessionTab />
           )}

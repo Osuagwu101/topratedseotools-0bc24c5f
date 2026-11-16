@@ -1,0 +1,19 @@
+[Unit]
+Description=TopRated Claude Account 2 private relay
+After=trst-claude-account-2-browser.service
+Requires=trst-claude-account-2-browser.service
+[Service]
+User=trst-claude-browser
+Group=trst-claude-browser
+EnvironmentFile=/etc/trst-claude-account-2-relay.env
+Environment=CLAUDE_BROWSER_CDP_PORT=9227
+Environment=CLAUDE_RELAY_PORT=6102
+ExecStart=/usr/bin/node /opt/trst-claude-account-2-relay/relay.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=128
+[Install]
+WantedBy=multi-user.target
