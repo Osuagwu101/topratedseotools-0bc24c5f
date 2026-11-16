@@ -10,6 +10,7 @@ import { startPhraslyProxyLaunch } from "@/lib/phrasly-proxy.functions";
 import { startChatGPTProxyLaunch } from "@/lib/chatgpt-proxy.functions";
 import { startClaudeProxyLaunch } from "@/lib/claude-proxy.functions";
 import { startGrammarlyProxyLaunch } from "@/lib/grammarly-proxy.functions";
+import { startQuillBotProxyLaunch } from "@/lib/quillbot-app-launch.functions";
 import { validateSneakWriteLaunchUrl } from "@/lib/direct-sso-url";
 import { resolveBrowserViewport } from "@/lib/browser-viewer";
 import { isPhraslyToolSlug } from "@/lib/phrasly-proxy-policy";
@@ -50,7 +51,7 @@ function validateClientLaunchUrl(
     }
     return launchUrl;
   }
-  if (toolSlug === "grammarly" || toolSlug === "claude") {
+  if (toolSlug === "grammarly" || toolSlug === "claude" || toolSlug === "quillbot") {
     const launchUrl = new URL(rawUrl);
     const dedicated =
       !!trustedProxyOrigin &&
@@ -146,6 +147,8 @@ export async function launchTool(
                 ? await startClaudeProxyLaunch()
               : tool.slug === "grammarly"
                 ? await startGrammarlyProxyLaunch()
+              : tool.slug === "quillbot"
+                ? await startQuillBotProxyLaunch()
               : tool.slug === "chatgpt"
                 ? await (async () => {
                     const deviceReady = await fetch("/api/chatgpt-device", {
@@ -171,7 +174,8 @@ export async function launchTool(
           tool.slug === "phrasly" ||
           tool.slug === "chatgpt" ||
           tool.slug === "grammarly" ||
-          tool.slug === "claude") &&
+          tool.slug === "claude" ||
+          tool.slug === "quillbot") &&
         "proxy_origin" in result &&
         typeof result.proxy_origin === "string"
           ? result.proxy_origin

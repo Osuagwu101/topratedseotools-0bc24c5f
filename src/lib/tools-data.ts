@@ -160,9 +160,9 @@ export const TOOLS: Tool[] = [
   {
     slug: "quillbot",
     name: "QuillBot",
-    tagline: "Paraphrase, summarize & rewrite",
+    tagline: "Paraphrase & rewrite",
     description:
-      "QuillBot Premium unlocks unlimited paraphrasing modes, a powerful summarizer, grammar checker, plagiarism scanner and citation generator. Rewrite sentences, condense long documents and refine fluency without losing the original meaning.",
+      "QuillBot Premium's Paraphraser unlocks unlimited paraphrasing modes, including Fluency and Formal. Rewrite sentences and refine fluency without losing the original meaning.",
     icon: PenLine,
     domain: "quillbot.com",
     category: "Writing",
@@ -170,10 +170,12 @@ export const TOOLS: Tool[] = [
     featured: true,
     features: [
       "Unlimited paraphrasing modes, including Fluency and Formal",
-      "Summariser condenses long documents into key points",
-      "Grammar checker and citation generator",
-      "Plagiarism scanner included on Premium",
+      "Separate saved history per writer",
     ],
+    // NOTE: only the Paraphraser is verified against the live one-click
+    // launch. Grammar Checker, Summarizer, plagiarism scanner, citation
+    // generator, Humanizer, projects and uploads are not verified and must
+    // not be advertised here until they are (see browser-transport/STATUS.md).
   },
   {
     slug: "grammarly",

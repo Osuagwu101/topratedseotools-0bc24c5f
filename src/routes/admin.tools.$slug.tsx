@@ -75,6 +75,11 @@ import {
   adminRevokeGrammarlySession,
 } from "@/lib/grammarly-session.functions";
 import {
+  adminGetQuillBotSessionStatus,
+  adminSaveQuillBotSession,
+  adminRevokeQuillBotSession,
+} from "@/lib/quillbot-session.functions";
+import {
   adminGetTurnitinOriginalitySessionStatus,
   adminSaveTurnitinOriginalitySession,
   adminTestTurnitinOriginalitySession,
@@ -119,6 +124,10 @@ const chatGptSessionQuery = queryOptions({
   queryKey: ["admin-chatgpt-authorized-session"],
   queryFn: () => adminGetChatGptSessionStatus(),
 });
+const quillbotSessionQuery = queryOptions({
+  queryKey: ["admin-quillbot-authorized-session"],
+  queryFn: () => adminGetQuillBotSessionStatus(),
+});
 const turnitinOriginalitySessionQuery = queryOptions({
   queryKey: ["admin-turnitin-originality-session"],
   queryFn: () => adminGetTurnitinOriginalitySessionStatus(),
@@ -156,6 +165,9 @@ export const Route = createFileRoute("/admin/tools/$slug")({
         : []),
       ...(tool.slug === "chatgpt"
         ? [context.queryClient.ensureQueryData(chatGptSessionQuery)]
+        : []),
+      ...(tool.slug === "quillbot"
+        ? [context.queryClient.ensureQueryData(quillbotSessionQuery)]
         : []),
       ...(tool.slug === "turnitin"
         ? [context.queryClient.ensureQueryData(turnitinOriginalitySessionQuery)]
@@ -202,7 +214,7 @@ function AdminToolPage() {
     { id: "credentials", label: "Credentials (legacy)", icon: KeyRound },
     { id: "orders", label: "Orders & Subscribers", icon: Users },
   ];
-  if (tool.slug === "phrasly" || tool.slug === "chatgpt" || tool.slug === "grammarly" || tool.slug === "claude") {
+  if (tool.slug === "phrasly" || tool.slug === "chatgpt" || tool.slug === "grammarly" || tool.slug === "claude" || tool.slug === "quillbot") {
     for (let i = tabs.length - 1; i >= 0; i--) {
       if (tabs[i].id === "accounts" || tabs[i].id === "credentials") tabs.splice(i, 1);
     }
@@ -296,6 +308,9 @@ function AdminToolPage() {
           {tab === "session" && tool.slug === "claude" && <ClaudeSessionTab />}
           {tab === "session" && tool.slug === "grammarly" && (
             <GrammarlySessionTab />
+          )}
+          {tab === "session" && tool.slug === "quillbot" && (
+            <QuillBotSessionTab />
           )}
           {tab === "session" && tool.slug === "chatgpt" && (
             <ChatGptSessionTab />
@@ -1129,6 +1144,152 @@ function GrammarlySessionTab() {
           {!data.can_manage ? (
             <span className="text-xs text-muted-foreground">
               Only a Super Admin can replace or revoke the Grammarly authorised session.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Stored data is write-only here and encrypted before database storage.
+            </span>
+          )}
+          <div className="flex gap-2">
+            {data.configured ? (
+              <button
+                type="button"
+                onClick={revoke}
+                disabled={!data.can_manage || saving || revoking}
+                className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {revoking ? "Revoking…" : "Revoke session"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={save}
+              disabled={!data.can_manage || saving || revoking || !sessionData.trim()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-90 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatQuillBotSessionTime(value: string | null) {
+  return value
+    ? new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC")
+    : "Never";
+}
+
+function QuillBotSessionTab() {
+  const { data } = useSuspenseQuery(quillbotSessionQuery);
+  const saveSession = useServerFn(adminSaveQuillBotSession);
+  const revokeSession = useServerFn(adminRevokeQuillBotSession);
+  const qc = useQueryClient();
+  const [sessionData, setSessionData] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  async function save() {
+    if (!sessionData.trim()) {
+      toast.error("Paste the authorised QuillBot session JSON first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveSession({ data: { session_data: sessionData.trim() } });
+      setSessionData("");
+      await qc.invalidateQueries({ queryKey: ["admin-quillbot-authorized-session"] });
+      toast.success("QuillBot authorised session saved securely.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the QuillBot session.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revoke() {
+    if (!confirm("Revoke the stored QuillBot authorised session? This also turns off QuillBot one-click launch.")) return;
+    setRevoking(true);
+    try {
+      await revokeSession();
+      setSessionData("");
+      await qc.invalidateQueries({ queryKey: ["admin-quillbot-authorized-session"] });
+      toast.success("QuillBot authorised session revoked.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not revoke the QuillBot session.");
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">QuillBot authorised session ({data.account_key})</h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Stores one encrypted {"{cookie, useridtoken}"} bundle for the shared QuillBot
+              Premium account. Only the Paraphraser is verified against this session —
+              see browser-transport/STATUS.md before advertising other QuillBot features.
+            </p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                data.configured
+                  ? "bg-success/15 text-success"
+                  : data.status === "disabled"
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {data.configured ? "Stored" : data.status === "disabled" ? "Disabled" : "Not configured"}
+            </span>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Last changed: {formatQuillBotSessionTime(data.updated_at)}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              One-click launch: {data.one_click_enabled ? "On" : "Off"}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Capture the cookie header and Useridtoken from a browser signed in to the
+          shared QuillBot Premium account. Revoking here also turns off one-click
+          launch for writers until a fresh session is saved.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 shadow-card">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          QuillBot session JSON
+        </div>
+        <textarea
+          value={sessionData}
+          onChange={(e) => setSessionData(e.target.value)}
+          rows={12}
+          autoComplete="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          disabled={!data.can_manage || saving || revoking}
+          placeholder={'{"cookie":"...","useridtoken":"..."}'}
+          className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+        />
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Paste the two-field QuillBot authorised session JSON here. Do not paste
+          secret session values into chat.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {!data.can_manage ? (
+            <span className="text-xs text-muted-foreground">
+              Only a Super Admin can replace or revoke the QuillBot authorised session.
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">

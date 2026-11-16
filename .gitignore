@@ -30,3 +30,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# QuillBot private runtime and validation state
+.secrets/
+runtime/.env
+runtime/.state/
+runtime/node_modules/
+__pycache__/
+*.pyc
