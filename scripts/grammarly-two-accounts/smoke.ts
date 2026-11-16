@@ -1,0 +1,44 @@
+// Read-only provider verification plus a permitted writer launch/socket handshake.
+// Run with the private production environment; never print IDs, cookies or tokens.
+import {strict as assert} from "node:assert";
+import {createRequire} from "node:module";
+import {once} from "node:events";
+import {supabaseAdmin} from "../../src/integrations/supabase/client.server";
+import {loadEncryptedSession,verifyGrammarlySession,createGrammarlyProxyLaunch,hashGrammarlyProxyToken} from "../../src/lib/grammarly-proxy.server";
+const db=supabaseAdmin as any;
+if(process.argv.includes("--diagnose-auth")){
+ const {decryptGrammarlySession}=await import("../../src/lib/grammarly-session.server");
+ const {grammarlyCookieHeader}=await import("../../src/lib/grammarly-proxy.server");
+ const state=JSON.parse(decryptGrammarlySession(await loadEncryptedSession("account_1")));
+ const response=await fetch("https://auth.grammarly.com/v3/user",{headers:{Cookie:grammarlyCookieHeader(state,"auth.grammarly.com"),Accept:"application/json",Origin:"https://app.grammarly.com",Referer:"https://app.grammarly.com/", "x-csrf-token":state.cookies.find((c:any)=>c.name==="csrf-token")?.value??"", "User-Agent":"Mozilla/5.0"},redirect:"manual"});
+ const payload=(response.headers.get("content-type")??"").includes("json")?await response.json():null;
+ console.log(JSON.stringify({status:response.status,type:response.headers.get("content-type"),cookie_names:state.cookies.map((c:any)=>c.name),keys:payload?Object.keys(payload):[],id_type:typeof payload?.id,user_keys:payload?.user?Object.keys(payload.user):[],data_keys:payload?.data?Object.keys(payload.data):[]}));process.exit(0);
+}
+assert(await verifyGrammarlySession(await loadEncryptedSession("account_1")));
+console.log("Account 1 authenticated provider check passed.");
+if(process.argv.includes("--auth-only"))process.exit(0);
+const grants=await db.from("tool_access_grants").select("user_id,expires_at").eq("tool_slug","grammarly").eq("status","active");
+if(grants.error)throw Error("Could not find an authorized test writer.");
+let writer=grants.data.find((g:any)=>!g.expires_at||Date.parse(g.expires_at)>Date.now())?.user_id;
+if(!writer){
+ const orders=await db.from("tool_orders").select("user_id,expires_at,access_type,fulfilment_status").eq("tool_slug","grammarly").eq("status","approved").eq("payment_status","successful");
+ if(orders.error)throw Error("Could not check existing Grammarly orders.");
+ writer=orders.data.find((o:any)=>(!o.expires_at||Date.parse(o.expires_at)>Date.now())&&(o.access_type!=="private"||o.fulfilment_status==="active"))?.user_id;
+}
+assert(writer,"An existing active Grammarly grant or paid order is required for live writer verification.");
+const launch=await createGrammarlyProxyLaunch(writer);
+let sessionHash=hashGrammarlyProxyToken(new URL(launch.launchUrl).searchParams.get("ticket")!);
+try{
+const entry=await fetch(launch.launchUrl,{redirect:"manual"});assert.equal(entry.status,302);
+const cookie=entry.headers.get("set-cookie")!.split(";")[0];
+sessionHash=hashGrammarlyProxyToken(cookie.slice(cookie.indexOf("=")+1));
+const page=await fetch(launch.proxyPublicOrigin+"/",{headers:{Cookie:cookie},redirect:"manual"});assert.equal(page.status,200);assert((await page.text()).includes("trstGrammarlyAccount"));
+console.log("Account 1 fresh authorized writer launch and account-marked page passed.");
+const WS=createRequire(import.meta.url)("ws");
+const socket=new WS(launch.proxyPublicOrigin.replace("https:","wss:")+"/__ws/capi.grammarly.com/freews",{headers:{Cookie:cookie,Origin:launch.proxyPublicOrigin},handshakeTimeout:20000});
+try{await once(socket,"open");console.log("Account 1 live checking WebSocket handshake passed.");}finally{socket.close();}
+
+}finally{
+ const {error}=await db.from("grammarly_proxy_sessions").update({status:"revoked"}).eq("token_hash",sessionHash);
+ if(error)throw Error("Could not clean up the temporary QA launch.");
+}

@@ -1,3 +1,4 @@
+import {GrammarlyControlsCard} from "@/components/admin/GrammarlyControlsCard";
 /**
  * Admin — single customer page. Shows details, assigned tools, active vs
  * expired subscriptions, online vs offline payments, admin notes, and audit
@@ -169,6 +170,7 @@ function CustomerPage() {
             <StealthWriterControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
             <ClaudeControlsCard userId={userId} />
+            <GrammarlyControlsCard userId={userId} />
 
             {/* Subscriptions */}
             <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
