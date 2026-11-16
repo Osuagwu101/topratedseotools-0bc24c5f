@@ -15,7 +15,7 @@ const allowedHeaders = new Set([
 export async function fetchClaudeProvider(target: URL | string, init: RequestInit = {}, account: ClaudeProviderAccountKey = "account_1") {
   if(!isClaudeProviderAccount(account))throw Error("Invalid Claude account.");
   const configured = account === "account_1" ? process.env.CLAUDE_BROWSER_RELAY_URL : process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
-  const relayUrl = account === "account_1" ? BROWSER_RELAY_URL : "http://127.0.0.1:6102/request";
+  const relayUrl = account === "account_1" ? BROWSER_RELAY_URL : "http://127.0.0.1:6112/request";
   if (!configured) { if(account !== "account_1") throw Error("Claude Account 2 is not connected."); return fetch(target, init); }
   const url = new URL(target);
   if (configured !== relayUrl || url.origin !== "https://claude.ai") throw new Error("Invalid Claude browser transport configuration.");

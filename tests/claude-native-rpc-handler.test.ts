@@ -52,10 +52,10 @@ try{
  assigned="account_2";
  assert.equal((await handle(req())).status,503);assert.equal(calls,beforeSwitch);
  sessionAccount="account_2";
- process.env.CLAUDE_ACCOUNT_2_RELAY_URL="http://127.0.0.1:6102/request";
+ process.env.CLAUDE_ACCOUNT_2_RELAY_URL="http://127.0.0.1:6112/request";
  process.env.CLAUDE_ACCOUNT_2_RELAY_KEY="second-test-key-123456789012345678901234";
  const second=await handle(req());assert.equal(second.status,200);await second.body?.cancel();
- assert.equal(last.input,"http://127.0.0.1:6102/request");
+ assert.equal(last.input,"http://127.0.0.1:6112/request");
  delete process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
  const beforeMissing=calls;assert.equal((await handle(req())).status,503);assert.equal(calls,beforeMissing);
  console.log("Native RPC handler: authentication, origin checks, route boundaries, binary integrity, streamed frames, response headers and revocation passed.");

@@ -8,7 +8,7 @@ globalThis.fetch=(async(input:any,init:any)=>{calls.push({input,init});return ne
 try{
  process.env.CLAUDE_BROWSER_RELAY_URL=BROWSER_RELAY_URL;
  process.env.CLAUDE_BROWSER_RELAY_KEY="one-private-test-key-12345678901234567890";
- process.env.CLAUDE_ACCOUNT_2_RELAY_URL="http://127.0.0.1:6102/request";
+ process.env.CLAUDE_ACCOUNT_2_RELAY_URL="http://127.0.0.1:6112/request";
  process.env.CLAUDE_ACCOUNT_2_RELAY_KEY="two-private-test-key-12345678901234567890";
  await Promise.all([fetchClaudeProvider("https://claude.ai/new",{},"account_1"),fetchClaudeProvider("https://claude.ai/new",{},"account_2")]);
  assert.equal(calls[0].input,BROWSER_RELAY_URL);assert.equal(calls[1].input,process.env.CLAUDE_ACCOUNT_2_RELAY_URL);

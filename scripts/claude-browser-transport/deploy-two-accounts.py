@@ -26,11 +26,16 @@ env=dict(old['pm2_env'].get('env',{}))
 # PM2 retains server-side environment alongside env on some versions.
 for k,v in old['pm2_env'].items():
  if isinstance(v,str) and (k.startswith(('SUPABASE_','VITE_','CLAUDE_','CHATGPT_','GRAMMARLY_','STEALTHWRITER_','PHRASLY_','PAYSTACK_','TURNITIN_'))):env[k]=v
-env.update(PORT='3280',HOST='127.0.0.1',CLAUDE_ACCOUNT_2_RELAY_URL='http://127.0.0.1:6102/request',CLAUDE_ACCOUNT_2_RELAY_KEY=key)
+env.update(NITRO_PORT='3280',NITRO_HOST='127.0.0.1',PORT='3280',HOST='127.0.0.1',CLAUDE_ACCOUNT_2_RELAY_URL='http://127.0.0.1:6112/request',CLAUDE_ACCOUNT_2_RELAY_KEY=key)
 config=root/'.deploy-private.json'
-config.write_text(json.dumps({'apps':[{'name':'trst-claude-two-accounts','cwd':str(root),'script':'.output/server/index.mjs','env':env}]}));config.chmod(0o600)
-try: subprocess.check_call(['pm2','start',str(config)])
+config.write_text(json.dumps({'apps':[{'name':'trst-claude-two-accounts','cwd':str(root),'script':'.output/server/index.mjs','node_args':old['pm2_env'].get('node_args',[]),'env':env}]}));config.chmod(0o600)
+try:
+ subprocess.run(['pm2','delete','trst-claude-two-accounts'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+ subprocess.check_call(['pm2','start',str(config)],stdout=subprocess.DEVNULL)
 finally: config.unlink()
+subprocess.check_call(['sudo','systemctl','restart','trst-claude-account-2-relay'])
+# Publish new hashed assets without removing the assets used by other releases.
+subprocess.check_call(['sudo','cp','-an',str(root/'.output/public/assets')+'/.','/var/www/trst-assets-unified-20261015/assets/'])
 # Verify app before making the vhost change.
 import urllib.request,urllib.error
 for attempt in range(15):
