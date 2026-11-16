@@ -8,13 +8,13 @@ assert (root/'.output/server/index.mjs').exists()
 processes=json.loads(run('pm2','jlist'))
 for name,source,port,script in [
  ('trst-grammarly-two-main','trst-two-accounts-main','3283','.output/server/index.mjs'),
- ('trst-grammarly-two-http','trst-main-3270','3284','.output/server/index.mjs'),
+ ('trst-grammarly-two-http','trst-grammarly-ws','3284','.output/server/index.mjs'),
  ('trst-grammarly-two-ws','trst-grammarly-ws','3293','scripts/grammarly-ws-relay.mjs')]:
  old=next(p for p in processes if p['name']==source)
  env=dict(old['pm2_env'].get('env',{}))
  for k,v in old['pm2_env'].items():
   if isinstance(v,str) and k.startswith(('SUPABASE_','VITE_','CLAUDE_','CHATGPT_','GRAMMARLY_','STEALTHWRITER_','PHRASLY_','PAYSTACK_','TURNITIN_')):env[k]=v
- env.update(PORT=port,NITRO_PORT=port,HOST='127.0.0.1',NITRO_HOST='127.0.0.1')
+ env.update(PORT=port,NITRO_PORT=port,HOST='127.0.0.1',NITRO_HOST='127.0.0.1',GRAMMARLY_PROXY_PUBLIC_ORIGIN='https://grammarly.topratedseotools.com')
  if script.endswith('relay.mjs'):env['GRAMMARLY_WS_RELAY_PORT']=port
  private=root/'.deploy-private.json'
  private.write_text(json.dumps({'apps':[{'name':name,'cwd':str(root),'script':script,'node_args':old['pm2_env'].get('node_args',[]),'env':env}]}));private.chmod(0o600)

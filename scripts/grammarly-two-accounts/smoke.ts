@@ -19,9 +19,14 @@ console.log("Account 1 authenticated provider check passed.");
 if(process.argv.includes("--auth-only"))process.exit(0);
 const grants=await db.from("tool_access_grants").select("user_id,expires_at").eq("tool_slug","grammarly").eq("status","active");
 if(grants.error)throw Error("Could not find an authorized test writer.");
-const grant=grants.data.find((g:any)=>!g.expires_at||Date.parse(g.expires_at)>Date.now());
-assert(grant,"An active Grammarly writer grant is required for live launch verification.");
-const launch=await createGrammarlyProxyLaunch(grant.user_id);
+let writer=grants.data.find((g:any)=>!g.expires_at||Date.parse(g.expires_at)>Date.now())?.user_id;
+if(!writer){
+ const orders=await db.from("tool_orders").select("user_id,expires_at,access_type,fulfilment_status").eq("tool_slug","grammarly").eq("status","approved").eq("payment_status","successful");
+ if(orders.error)throw Error("Could not check existing Grammarly orders.");
+ writer=orders.data.find((o:any)=>(!o.expires_at||Date.parse(o.expires_at)>Date.now())&&(o.access_type!=="private"||o.fulfilment_status==="active"))?.user_id;
+}
+assert(writer,"An existing active Grammarly grant or paid order is required for live writer verification.");
+const launch=await createGrammarlyProxyLaunch(writer);
 let sessionHash=hashGrammarlyProxyToken(new URL(launch.launchUrl).searchParams.get("ticket")!);
 try{
 const entry=await fetch(launch.launchUrl,{redirect:"manual"});assert.equal(entry.status,302);
