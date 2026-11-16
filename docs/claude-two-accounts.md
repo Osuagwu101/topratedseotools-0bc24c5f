@@ -9,3 +9,5 @@ Sign into the dedicated Account 2 profile before using Admin > Tools > Claude > 
 Validation: run tests/claude-two-accounts.test.ts, existing Claude policy suites, relay.test.mjs, tsc and the production build. Live acceptance requires two signed-in provider accounts and two authorized writer sessions. Do not claim Account 2 ready until simultaneous messages, reload, private histories and reassignment have passed.
 
 Rollback: restore the prior app and vhost upstreams; leave additive data intact. Stop only the Account 2 services if necessary. Do not delete conversation ownership, writer quota or billing data.
+
+Deploy from the verified clean GitHub checkout with `python3 scripts/claude-browser-transport/deploy-two-accounts.py`. The script preserves the existing main process environment, backs up both vhosts, tests the new app on loopback before cutover and restores vhost files if nginx validation fails.

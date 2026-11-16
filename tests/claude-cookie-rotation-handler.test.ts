@@ -37,13 +37,15 @@ const db = {
       async maybeSingle() {
         if (table === "tool_authorized_sessions")
           return { data: { status: "stored", encrypted_payload: encrypted } };
-        if (table === "tool_settings")
+        if(table==="claude_user_controls")return {data:{provider_account_key:"account_1"}};
+ if(table==="claude_provider_accounts")return {data:{status:"connected"}};
+ if (table === "tool_settings")
           return { data: { enabled: true, one_click_auth_enabled: true } };
         if (table === "tool_access_grants") return { data: { status: "active", expires_at: null } };
         if (table === "claude_proxy_sessions")
           return {
             data: {
-              id: "s",
+              id: "s", provider_account_key:"account_1",
               user_id: "writer",
               source_kind: "grant",
               source_id: "g",
