@@ -50,6 +50,23 @@ jobs:
         run: bun tests/grammarly-session-vault.test.ts
       - name: Grammarly proxy
         run: bun tests/grammarly-proxy.test.ts
+      - name: Grammarly two-account HTTP and document isolation
+        run: bun tests/grammarly-two-accounts.test.ts
+      - name: Grammarly two-account checking connections
+        run: node tests/grammarly-two-accounts-ws.test.mjs
+      - name: Grammarly private workspace transitions
+        run: bun tests/grammarly-storage-reset.test.ts
+
+      - name: QuillBot launch service
+        run: bun test ./tests/quillbot-launch.test.ts
+      - name: QuillBot provider host rules
+        run: bun tests/quillbot-provider.test.ts
+      - name: QuillBot proxy
+        run: bun test ./tests/quillbot-proxy.test.ts
+      - name: QuillBot session expiry
+        run: bun test ./tests/quillbot-session-expiry.test.ts
+      - name: QuillBot session vault
+        run: bun tests/quillbot-session-vault.test.ts
       - name: ChatGPT Phase 4 hardening tests
         run: bun tests/chatgpt-phase4-validation.test.ts
       - name: ChatGPT Phase 1-4 conformance audit
@@ -130,6 +147,9 @@ jobs:
         run: bunx tsc --noEmit
       - name: Production build
         run: bun run build
+
+      - name: Preserve production runtime configuration
+        run: python3 tests/deploy-runtime-environment.test.py
 
       - name: Validate release health gate scripts
         run: python3 -m py_compile scripts/check_public_asset_health.py scripts/check_nginx_release.py
