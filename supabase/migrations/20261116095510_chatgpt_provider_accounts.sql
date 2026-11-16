@@ -31,8 +31,9 @@ create trigger sync_chatgpt_account_1 after insert or update on public.tool_auth
 alter table public.chatgpt_user_controls add column if not exists provider_account_key text not null default 'account_1' references public.chatgpt_provider_accounts(account_key);
 alter table public.chatgpt_proxy_sessions add column if not exists provider_account_key text not null default 'account_1' references public.chatgpt_provider_accounts(account_key);
 alter table public.chatgpt_conversation_owners add column if not exists provider_account_key text not null default 'account_1' references public.chatgpt_provider_accounts(account_key);
-alter table public.chatgpt_conversation_owners drop constraint if exists chatgpt_conversation_owners_pkey;
-alter table public.chatgpt_conversation_owners add primary key(provider_account_key,conversation_id);
+-- Retain the legacy conversation_id key so the prior app remains usable on rollback.
+-- Duplicate upstream IDs across accounts fail closed instead of overwriting ownership.
+create unique index if not exists chatgpt_owners_account_conversation_unique on public.chatgpt_conversation_owners(provider_account_key,conversation_id);
 create index if not exists chatgpt_owner_account_user_idx on public.chatgpt_conversation_owners(provider_account_key,user_id);
 create or replace function public.revoke_reassigned_chatgpt_sessions() returns trigger language plpgsql security invoker set search_path=public as $$
 begin
