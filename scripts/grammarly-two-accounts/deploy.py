@@ -52,5 +52,8 @@ try:
 except Exception:
  for path,saved,staged in configs:subprocess.check_call(['sudo','cp',str(saved),path])
  subprocess.check_call(['sudo','nginx','-t']);subprocess.check_call(['sudo','systemctl','reload','nginx']);raise
+# Disconnect sockets still attached to account-unaware relays after Nginx reload.
+for legacy in ['trst-grammarly-ws','trst-grammarly-coda-preview-ws']:
+ subprocess.run(['pm2','stop',legacy],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 subprocess.check_call(['pm2','save'])
 print('Committed Grammarly two-account HTTP, Admin and checking relay release activated.')
