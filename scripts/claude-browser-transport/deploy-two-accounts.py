@@ -46,7 +46,7 @@ for attempt in range(15):
   if attempt==14:raise
   time.sleep(1)
 backup=Path('/home/ubuntu/deploy-backups/claude-two-accounts-20261116');backup.mkdir(exist_ok=True)
-files=['/etc/nginx/sites-available/topratedseotools','/etc/nginx/sites-available/claude-proxy']
+files=['/etc/nginx/sites-enabled/topratedseotools','/etc/nginx/sites-enabled/claude-proxy']
 for filename in files:
  target=Path(filename)
  original=run('sudo','cat',str(target))
