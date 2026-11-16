@@ -126,8 +126,8 @@ assert(
 const sessionFns = await Bun.file("src/lib/chatgpt-session.functions.ts").text();
 assert(
   sessionFns.includes('.from("chatgpt_proxy_sessions")') &&
-    sessionFns.includes('.in("status", ["issued", "active"])') &&
-    sessionFns.includes("existing ChatGPT proxy sessions were revoked"),
+    sessionFns.includes('.in("status",["issued","active"])') &&
+    sessionFns.includes("account launches revoked"),
   "master-session replacement/revocation invalidates writer proxy sessions",
 );
 

@@ -40,21 +40,20 @@ assert(
   "ChatGPT has dedicated admin-only status/save/revoke server functions",
 );
 assert(
-  funcs.includes("cookie/storage values were not logged") &&
+  funcs.includes("secret values not logged") &&
     funcs.includes("chatgpt_session_state_json_v2") &&
-    !funcs.includes("decryptChatGptSession"),
-  "admin functions use the v2 multi-cookie format without decrypting or logging the stored session",
+    funcs.includes('.select("account_key,status,updated_at,verified_at")'),
+  "admin metadata excludes session payloads and the v2 vault avoids secret logging",
 );
 assert(
-  funcs.includes("setChatGptOneClickEnabled(admin, true)") &&
-    funcs.includes("setChatGptOneClickEnabled(admin, false)") &&
+  funcs.includes("setChatGptOneClickEnabled(admin,true)") &&
+    funcs.includes('.eq("provider_account_key",data.account_key)') &&
     funcs.includes("one_click_auth_enabled: enabled"),
-  "ChatGPT one-click launch automatically follows authorised-session availability",
+  "ChatGPT launch saves enable access and revocation is account-scoped",
 );
 assert(
   adminRoute.includes("admin-chatgpt-authorized-session") &&
-    adminRoute.includes("function ChatGptSessionTab") &&
-    adminRoute.includes("ChatGPT authorised session"),
+    adminRoute.includes("<ChatGptAccountsCard />"),
   "Admin tool management exposes a dedicated ChatGPT authorised-session tab",
 );
 assert(

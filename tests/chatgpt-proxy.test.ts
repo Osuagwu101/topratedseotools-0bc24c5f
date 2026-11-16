@@ -397,7 +397,7 @@ assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/backend-api/me"), "
 assert(!isImmutableChatGPTAssetPath("https://chatgpt.com", "/"), "pages are never cached");
 {
   const src = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
-  assert(src.includes("CHATGPT_SESSION_CACHE_MS = 30_000"), "writer-session validation cache is short-lived (30s)");
+  assert(!src.includes("return cached.row") && src.includes("chatGptAccountMatches"), "writer sessions recheck account binding without a stale cache bypass");
   assert(src.indexOf("request.arrayBuffer()") < src.indexOf("proxySession = await requireProxySession(request)"), "request body is read before slow session checks");
 }
 

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export interface ChatGptUserControls {
   user_id: string;
+  provider_account_key: import("./chatgpt-account-policy").ChatGptProviderAccount;
   status: "active" | "suspended";
   device_limit: number;
   suspended_reason: string | null;
@@ -74,7 +75,7 @@ export async function ensureChatGptUserControls(
 ): Promise<ChatGptUserControls> {
   const { data: existing, error: readError } = await (supabaseAdmin as any)
     .from("chatgpt_user_controls")
-    .select("user_id,status,device_limit,suspended_reason,suspended_at")
+    .select("user_id,provider_account_key,status,device_limit,suspended_reason,suspended_at")
     .eq("user_id", userId)
     .maybeSingle();
   if (readError) throw new Error(readError.message);
@@ -87,7 +88,7 @@ export async function ensureChatGptUserControls(
       status: "active",
       device_limit: CHATGPT_DEFAULT_DEVICE_LIMIT,
     })
-    .select("user_id,status,device_limit,suspended_reason,suspended_at")
+    .select("user_id,provider_account_key,status,device_limit,suspended_reason,suspended_at")
     .single();
   if (error) throw new Error(error.message);
   return data as ChatGptUserControls;

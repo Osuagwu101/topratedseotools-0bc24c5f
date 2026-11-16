@@ -47,6 +47,7 @@ export const adminGetChatGptControls = createServerFn({ method: "GET" })
   });
 
 const updateInput = userInput.extend({
+  provider_account_key:z.enum(["account_1","account_2"]),
   device_limit: z.number().int().min(1).max(10),
   status: z.enum(["active", "suspended"]),
 });
@@ -57,12 +58,15 @@ export const adminUpdateChatGptControls = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context);
     const now = new Date().toISOString();
+    const {loadEncryptedChatGPTSession}=await import("./chatgpt-proxy.server");
+    await loadEncryptedChatGPTSession(data.provider_account_key);
 
     const { error } = await admin
       .from("chatgpt_user_controls")
       .upsert(
         {
           user_id: data.userId,
+          provider_account_key:data.provider_account_key,
           device_limit: data.device_limit,
           status: data.status,
           suspended_reason: data.status === "active" ? null : "admin_suspended",
@@ -87,7 +91,7 @@ export const adminUpdateChatGptControls = createServerFn({ method: "POST" })
       area: "customers",
       target_type: "user",
       target_id: data.userId,
-      details: `ChatGPT devices=${data.device_limit}, status=${data.status}`,
+      details: `ChatGPT devices=${data.device_limit}, status=${data.status}, account=${data.provider_account_key}`,
     });
 
     return { ok: true };

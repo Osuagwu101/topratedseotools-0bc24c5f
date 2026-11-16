@@ -8,13 +8,16 @@ process.env.CLAUDE_BROWSER_RELAY_KEY="test-only-relay-key-12345678901234567890";
 process.env.CLAUDE_SHARED_BROWSER_TRANSPORT="true";
 const encrypted=encryptClaudeSession(normaliseClaudeSession(JSON.stringify({cookies:[{name:"sessionKey",value:"test-only-session-1234",domain:".claude.ai",path:"/"}]})),key);
 let access=true,calls=0,last:any;
+let assigned="account_1",sessionAccount="account_1";
 mock.module("../src/integrations/supabase/client.server",()=>({supabaseAdmin:{from(table:string){
  const q:any={select(){return q;},eq(){return q;},update(){return q;},then(resolve:any){resolve({data:null,error:null});},
  async maybeSingle(){
-  if(table==="claude_proxy_sessions")return {data:{id:"s",user_id:"writer",source_kind:"grant",source_id:"g",expires_at:new Date(Date.now()+100000).toISOString()}};
+  if(table==="claude_proxy_sessions")return {data:{id:"s",provider_account_key:sessionAccount,user_id:"writer",source_kind:"grant",source_id:"g",expires_at:new Date(Date.now()+100000).toISOString()}};
   if(table==="claude_conversation_owners")return {data:{user_id:"writer",organization_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}};
   if(table==="tool_access_grants")return {data:{status:access?"active":"revoked",expires_at:null}};
-  if(table==="tool_settings")return {data:{enabled:true,one_click_auth_enabled:true}};
+  if(table==="claude_user_controls")return {data:{provider_account_key:assigned}};
+ if(table==="claude_provider_accounts")return {data:{status:"connected"}};
+ if(table==="tool_settings")return {data:{enabled:true,one_click_auth_enabled:true}};
   if(table==="tool_authorized_sessions")return {data:{status:"stored",encrypted_payload:encrypted}};
   return {data:null};
  }};return q;
@@ -45,5 +48,15 @@ try{
  const header=field(2,conversation),action=[...field(1,"cccccccc-cccc-4ccc-8ccc-cccccccccccc"),...field(2,"dddddddd-dddd-4ddd-8ddd-dddddddddddd"),...field(3,"hello")];
  const write=new Request(origin+"/claudeai-rpc/anthropic.bard.api.v1alpha.ConversationService/PerformAction",{method:"POST",headers:{"Content-Type":"application/proto",Origin:origin,"x-organization-uuid":org,Cookie:"trst_claude_proxy="+"a".repeat(43)},body:new Uint8Array([10,header.length,...header,18,action.length,...action])});
  const beforeWrite=calls;assert.equal((await handle(write)).status,403);assert.equal(calls,beforeWrite);
+ const beforeSwitch=calls;
+ assigned="account_2";
+ assert.equal((await handle(req())).status,503);assert.equal(calls,beforeSwitch);
+ sessionAccount="account_2";
+ process.env.CLAUDE_ACCOUNT_2_RELAY_URL="http://127.0.0.1:6112/request";
+ process.env.CLAUDE_ACCOUNT_2_RELAY_KEY="second-test-key-123456789012345678901234";
+ const second=await handle(req());assert.equal(second.status,200);await second.body?.cancel();
+ assert.equal(last.input,"http://127.0.0.1:6112/request");
+ delete process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
+ const beforeMissing=calls;assert.equal((await handle(req())).status,503);assert.equal(calls,beforeMissing);
  console.log("Native RPC handler: authentication, origin checks, route boundaries, binary integrity, streamed frames, response headers and revocation passed.");
 }finally{globalThis.fetch=original;mock.restore();}

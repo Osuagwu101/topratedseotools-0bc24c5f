@@ -1,3 +1,5 @@
+import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
+import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
 import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterHasExternalReferences,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
@@ -44,7 +46,8 @@ export function claudeProxyPublicOrigin() {
 export function isDedicatedClaudeProxyRequest(request: Request) {
   return new URL(request.url).origin === claudeProxyPublicOrigin();
 }
-async function vaultSnapshot(): Promise<{ state: ClaudeSessionState; encrypted: string }> {
+async function vaultSnapshot(account:ClaudeProviderAccountKey="account_1"): Promise<{ state: ClaudeSessionState; encrypted: string }> {
+  if(account==="account_2")return {state:{version:2,cookies:[],session_tokens:{storage:{localStorage:{},sessionStorage:{}}}},encrypted:""};
   const { data, error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .select("encrypted_payload,status")
@@ -179,10 +182,13 @@ export async function createClaudeProxyLaunch(userId: string) {
   const source = await findActiveAccess(userId);
   if (!source)
     throw new Error("An active Claude subscription or grant is required for One-Click Login.");
-  await vaultState();
+  const account = await assignedClaudeAccount(userId);
+  await requireClaudeAccount(account);
+  await vaultSnapshot(account);
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + HANDOFF_TTL_SECONDS * 1000).toISOString();
   const { error } = await (supabaseAdmin as any).from("claude_proxy_sessions").insert({
+    provider_account_key: account,
     token_hash: hashClaudeProxyToken(token),
     user_id: userId,
     source_kind: source.kind,
@@ -214,13 +220,19 @@ async function requireProxySession(request: Request) {
   const hash = hashClaudeProxyToken(token);
   const { data: row } = await (supabaseAdmin as any)
     .from("claude_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, status, expires_at")
+    .select("id, user_id, source_kind, source_id, status, expires_at, provider_account_key")
     .eq("token_hash", hash)
     .eq("status", "active")
     .maybeSingle();
   if (!row || new Date(String(row.expires_at)).getTime() <= Date.now()) return null;
   await requireToolEnabled();
-  await vaultState();
+  const assigned = await assignedClaudeAccount(String(row.user_id));
+  if(!claudeSessionMatchesAccount(assigned,row.provider_account_key)) {
+    await (supabaseAdmin as any).from("claude_proxy_sessions").update({status:"revoked"}).eq("id",row.id);
+    throw Error("Claude account changed. Launch again from your dashboard.");
+  }
+  await requireClaudeAccount(assigned);
+  await vaultSnapshot(assigned);
   const ok = await sourceStillActive(String(row.user_id), {
     kind: row.source_kind,
     id: String(row.source_id),
@@ -245,14 +257,20 @@ async function exchangeTicket(ticket: string) {
   const hash = hashClaudeProxyToken(ticket);
   const { data: row } = await (supabaseAdmin as any)
     .from("claude_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, status, expires_at")
+    .select("id, user_id, source_kind, source_id, status, expires_at, provider_account_key")
     .eq("token_hash", hash)
     .maybeSingle();
   if (!row || row.status !== "issued" || new Date(row.expires_at).getTime() <= Date.now()) {
     return plain(403, "This Claude link has expired. Launch again from your account.");
   }
   await requireToolEnabled();
-  await vaultState();
+  const assigned = await assignedClaudeAccount(String(row.user_id));
+  if(!claudeSessionMatchesAccount(assigned,row.provider_account_key)) {
+    await (supabaseAdmin as any).from("claude_proxy_sessions").update({status:"revoked"}).eq("id",row.id);
+    throw Error("Claude account changed. Launch again from your dashboard.");
+  }
+  await requireClaudeAccount(assigned);
+  await vaultSnapshot(assigned);
   if (
     !(await sourceStillActive(String(row.user_id), {
       kind: row.source_kind,
@@ -348,27 +366,27 @@ export async function testClaudeUpstream(request?: Request) {
   }
 }
 
-async function ownsConversation(id: string, org: string | undefined, user: string) {
+async function ownsConversation(id: string, org: string | undefined, user: string, account:ClaudeProviderAccountKey) {
   let query = (supabaseAdmin as any)
     .from("claude_conversation_owners")
     .select("user_id,organization_id")
-    .eq("conversation_id", id);
+    .eq("conversation_id", id).eq("provider_account_key",account);
   if (org) query = query.eq("organization_id", org);
   const { data, error } = await query.maybeSingle();
   return !error && data?.user_id === user;
 }
 
-async function reserveWriterConversation(id:string,org:string,writer:string) {
+async function reserveWriterConversation(id:string,org:string,writer:string,account:ClaudeProviderAccountKey) {
  if(!/^[0-9a-f-]{36}$/i.test(org))return false;
- const existing=await (supabaseAdmin as any).from("claude_conversation_owners").select("user_id,organization_id").eq("conversation_id",id).maybeSingle();
+ const existing=await (supabaseAdmin as any).from("claude_conversation_owners").select("user_id,organization_id").eq("conversation_id",id).eq("provider_account_key",account).maybeSingle();
  if(existing.error)throw Error("Could not verify conversation ownership");
  if(existing.data)return existing.data.user_id===writer&&existing.data.organization_id===org;
  // A client may propose a fresh UUID, but can never claim an existing provider chat.
- const probe=await fetchClaudeProvider(CLAUDE_APP_ORIGIN+"/api/organizations/"+org+"/chat_conversations/"+id,{signal:AbortSignal.timeout(20000)});
+ const probe=await fetchClaudeProvider(CLAUDE_APP_ORIGIN+"/api/organizations/"+org+"/chat_conversations/"+id,{signal:AbortSignal.timeout(20000)},account);
  await probe.body?.cancel();
  if(probe.status!==404)return false;
- const result=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:id,organization_id:org,user_id:writer});
- if(result.error)return ownsConversation(id,org,writer);
+ const result=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:id,organization_id:org,user_id:writer,provider_account_key:account});
+ if(result.error)return ownsConversation(id,org,writer,account);
  return true;
 }
 function writerBootstrap(writer:string){
@@ -421,9 +439,10 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       return json(403, { error: "This Claude feature is not available through OneClick." });
     const rpc=browser && route.kind==="rpc";
     const writer = String(session.user_id);
-    if(route.conversation&&!await ownsConversation(route.conversation,route.org,writer)){
+    const account:ClaudeProviderAccountKey = session.provider_account_key;
+    if(route.conversation&&!await ownsConversation(route.conversation,route.org,writer,account)){
       const firstMessage=browser&&request.method==="POST"&&/\/completion$/.test(url.pathname)&&route.org;
-      if(!firstMessage||!await reserveWriterConversation(route.conversation,route.org!,writer))return json(404,{error:"Conversation not found"});
+      if(!firstMessage||!await reserveWriterConversation(route.conversation,route.org!,writer,account))return json(404,{error:"Conversation not found"});
     }
     let body: string | ArrayBuffer | undefined;
     let createId: string | undefined;
@@ -441,7 +460,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
        // Fresh writer browser profiles use the supported REST text-chat path.
        if(info.kind!=="read")return json(403,{error:"Refresh Claude from your dashboard to use writer text chat."});
        const org=(request.headers.get("x-organization-uuid")??"").toLowerCase();
-       if(!await reserveWriterConversation(info.conversation,org,writer))return json(404,{error:"Conversation not found"});
+       if(!await reserveWriterConversation(info.conversation,org,writer,account))return json(404,{error:"Conversation not found"});
 
        body=bytes;
       }
@@ -472,10 +491,10 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
         if(payload.uuid!==undefined){
           if(typeof payload.uuid!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.uuid))return plain(400,"Invalid conversation id");
           createId=payload.uuid.toLowerCase();
-          if(!await reserveWriterConversation(createId!,route.org!,writer))return json(404,{error:"Conversation not found"});
+          if(!await reserveWriterConversation(createId!,route.org!,writer,account))return json(404,{error:"Conversation not found"});
         }else{
           createId=crypto.randomUUID();
-          const {error}=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:createId,organization_id:route.org,user_id:writer});
+          const {error}=await (supabaseAdmin as any).from("claude_conversation_owners").insert({conversation_id:createId,organization_id:route.org,user_id:writer,provider_account_key:account});
           if(error)return plain(503,"Could not reserve the conversation. Try again.");
         }
         payload.uuid=createId;
@@ -488,7 +507,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
      quota=await reserveClaudeMessage(writer,messageKey);
      if(!quota.allowed)return json(quota.code==="duplicate"?409:429,{error:quota.code==="duplicate"?"This message was already submitted. Reload to see its reply.":"Daily limit reached. Your Claude messages reset at midnight Nigeria time.",...quota});
     }
-    const snapshot = await vaultSnapshot();
+    const snapshot = await vaultSnapshot(account);
     let state = snapshot.state;
     // Serve a neutral SPA shell on owned chat pages. Provider chat HTML can
     // preload account-wide state; the client loads the owned transcript via API.
@@ -500,7 +519,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       body,
       redirect: "manual",
       signal: request.signal,
-    });
+    }, account);
     if(messageKey&&!upstream.ok)await releaseClaudeMessage(writer,messageKey);
     if (upstream.headers.get("cf-mitigated") === "challenge")
       return plain(503, "Claude requires browser verification. Please contact Admin (CL-02).");
@@ -562,7 +581,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
           .from("claude_conversation_owners")
           .select("conversation_id")
           .eq("user_id", writer)
-          .eq("organization_id", route.org);
+          .eq("organization_id", route.org).eq("provider_account_key",account);
         if (error) return plain(503, "Could not load your chat history");
         try {
           payload = filterClaudeWriterHistory(
@@ -583,7 +602,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       // Unknown payload formats must never expose the shared account's history.
       if ((!shared && /chat_conversations|chat_messages|project_uuid|\\\\u0022chat_/i.test(text)) || /["']sessionKey["']\s*:/.test(text))
         return plain(502, "Claude returned embedded private state. Contact Admin (CL-06).");
-      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer) + claudeBootstrapScript());
+      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer+":"+account) + claudeBootstrapScript());
     }
     return new Response(rewriteClaudeBody(text, url.origin), {
       status: upstream.status,

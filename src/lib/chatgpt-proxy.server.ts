@@ -1,3 +1,5 @@
+import {chatGptAccountAuthorization} from "./chatgpt-account-auth.server";
+import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccount} from "./chatgpt-account-policy";
 /*
  * Phase 3 — ChatGPT server-side one-click proxy for authorised internal writers.
  *
@@ -12,7 +14,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   buildOwnedConversationPage,
-  claimConversation,
   conversationIdFromApiPath,
   conversationIdFromBody,
   conversationIdFromDocumentPath,
@@ -51,17 +52,8 @@ export const CHATGPT_PROXY_COOKIE = "trst_cg_proxy";
 export const CHATGPT_HANDOFF_TTL_SECONDS = 60;
 const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
 
-// ---- Performance caches ----------------------------------------------------
-// Every ChatGPT page pulls ~40 assets and dozens of API calls through this
-// proxy. Re-validating the writer session (8+ database round trips) and
-// re-loading the vault on every one made first loads take 20s+. Validated
-// sessions and the vault are cached briefly; revocations still apply within
-// CHATGPT_SESSION_CACHE_MS.
-const CHATGPT_SESSION_CACHE_MS = 30_000;
-const CHATGPT_VAULT_CACHE_MS = 30_000;
+// Only immutable asset bytes are cached. Writer/account authorization is always fresh.
 const CHATGPT_ASSET_CACHE_MAX_BYTES = 96 * 1024 * 1024;
-const proxySessionCache = new Map<string, { row: any; until: number }>();
-let vaultCache: { value: string; until: number } | null = null;
 type CachedAsset = { body: string | ArrayBuffer; contentType: string; bytes: number };
 const assetCache = new Map<string, CachedAsset>();
 let assetCacheBytes = 0;
@@ -305,21 +297,12 @@ async function sourceStillActive(
   return !!(data && isActiveChatGPTGrant(data));
 }
 
-async function loadEncryptedChatGPTSession() {
-  if (vaultCache && vaultCache.until > Date.now()) return vaultCache.value;
-  const { data, error } = await (supabaseAdmin as any)
-    .from("tool_authorized_sessions")
-    .select("encrypted_payload, status")
-    .eq("tool_slug", "chatgpt")
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data?.encrypted_payload || data.status !== "stored") {
-    throw new Error(
-      "ChatGPT needs to be refreshed by Admin before writers can launch it.",
-    );
-  }
-  vaultCache = { value: String(data.encrypted_payload), until: Date.now() + CHATGPT_VAULT_CACHE_MS };
-  return vaultCache.value;
+export async function loadEncryptedChatGPTSession(account:ChatGptProviderAccount="account_1") {
+  if(!isChatGptProviderAccount(account))throw Error("Invalid ChatGPT account.");
+  const {data,error}=await (supabaseAdmin as any).from("chatgpt_provider_accounts")
+    .select("encrypted_payload,status,verified_at").eq("account_key",account).maybeSingle();
+  if(error||data?.status!=="stored"||!data.encrypted_payload||(account==="account_2"&&!data.verified_at))throw Error("Your assigned ChatGPT account needs an Admin refresh.");
+  return String(data.encrypted_payload);
 }
 
 export function extractChatGPTCookieRotations(
@@ -366,7 +349,7 @@ export function applyChatGPTCookieRotations(
   };
 }
 
-async function persistRotatedChatGPTCookies(upstream: Response) {
+export async function persistRotatedChatGPTCookies(upstream: Response, account:ChatGptProviderAccount, encrypted:string) {
   const headers = upstream.headers as Headers & { getSetCookie?: () => string[] };
   const setCookies =
     typeof headers.getSetCookie === "function"
@@ -377,23 +360,22 @@ async function persistRotatedChatGPTCookies(upstream: Response) {
         })();
   if (!setCookies.length) return;
 
-  const encrypted = await loadEncryptedChatGPTSession();
   const currentPlaintext = decryptChatGptSession(encrypted);
   const rotated = applyChatGPTCookieRotations(currentPlaintext, setCookies);
   if (!rotated.changed) return;
 
   const nowIso = new Date().toISOString();
   const nextEncrypted = encryptChatGptSession(rotated.plaintext);
-  vaultCache = { value: nextEncrypted, until: Date.now() + CHATGPT_VAULT_CACHE_MS };
+
   const { error } = await (supabaseAdmin as any)
-    .from("tool_authorized_sessions")
+    .from(account==="account_1"?"tool_authorized_sessions":"chatgpt_provider_accounts")
     .update({
       encrypted_payload: nextEncrypted,
       rotated_at: nowIso,
       updated_at: nowIso,
     })
-    .eq("tool_slug", "chatgpt")
-    .eq("status", "stored");
+    .eq(account==="account_1"?"tool_slug":"account_key",account==="account_1"?"chatgpt":account)
+    .eq("status", "stored").eq("encrypted_payload",encrypted);
   if (error) throw new Error(error.message);
 }
 
@@ -462,7 +444,8 @@ export async function createChatGPTProxyLaunch(
   }
 
   // Fail before issuing a ticket if Admin has not stored a usable session.
-  await loadEncryptedChatGPTSession();
+  if(!isChatGptProviderAccount(controls.provider_account_key))throw Error("Invalid ChatGPT account assignment.");
+  await loadEncryptedChatGPTSession(controls.provider_account_key);
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(
@@ -472,6 +455,7 @@ export async function createChatGPTProxyLaunch(
   const { error } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
     .insert({
+      provider_account_key: controls.provider_account_key,
       token_hash: hashChatGPTProxyToken(token),
       user_id: userId,
       source_kind: source.kind,
@@ -561,7 +545,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint, provider_account_key")
     .eq("token_hash", hashChatGPTProxyToken(ticket))
     .eq("status", "issued")
     .gt("expires_at", nowIso)
@@ -571,6 +555,8 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
 
   await requireToolEnabled();
   const userId = String(row.user_id);
+  const assignment = await ensureChatGptUserControls(userId);
+  if(!chatGptAccountMatches(assignment.provider_account_key,row.provider_account_key))return forbidden("ChatGPT account changed. Launch again from your dashboard.");
   const stillActive = await sourceStillActive(userId, {
     kind: row.source_kind as "order" | "grant",
     id: String(row.source_id),
@@ -606,7 +592,7 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
   }
 
   try {
-    await loadEncryptedChatGPTSession();
+    await loadEncryptedChatGPTSession(row.provider_account_key);
   } catch {
     return unavailable();
   }
@@ -656,17 +642,10 @@ async function requireProxySession(request: Request) {
   const deviceFingerprint = cookies.get(CHATGPT_DEVICE_COOKIE);
   if (!token || !isValidChatGptDeviceFingerprint(deviceFingerprint)) return null;
 
-  const cacheKey = `${hashChatGPTProxyToken(token)}:${deviceFingerprint}`;
-  const cached = proxySessionCache.get(cacheKey);
-  if (cached && cached.until > Date.now()) {
-    if (new Date(String(cached.row.expires_at)).getTime() > Date.now()) return cached.row;
-  }
-  proxySessionCache.delete(cacheKey);
-
   const nowIso = new Date().toISOString();
   const { data: row } = await (supabaseAdmin as any)
     .from("chatgpt_proxy_sessions")
-    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint")
+    .select("id, user_id, source_kind, source_id, expires_at, status, device_fingerprint, provider_account_key")
     .eq("token_hash", hashChatGPTProxyToken(token))
     .eq("status", "active")
     .maybeSingle();
@@ -683,7 +662,7 @@ async function requireProxySession(request: Request) {
   await requireToolEnabled();
 
   const controls = await ensureChatGptUserControls(String(row.user_id));
-  if (controls.status !== "active") {
+  if (controls.status !== "active" || !chatGptAccountMatches(controls.provider_account_key,row.provider_account_key)) {
     await (supabaseAdmin as any)
       .from("chatgpt_proxy_sessions")
       .update({ status: "revoked" })
@@ -728,8 +707,6 @@ async function requireProxySession(request: Request) {
     .update({ last_seen_at: nowIso })
     .eq("id", row.id);
 
-  if (proxySessionCache.size > 5000) proxySessionCache.clear();
-  proxySessionCache.set(cacheKey, { row, until: Date.now() + CHATGPT_SESSION_CACHE_MS });
   return row;
 }
 
@@ -1059,6 +1036,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
 
   // ---- Shared-account protections and per-writer history isolation ----
   const writerId = String(proxySession.user_id);
+  const account:ChatGptProviderAccount = proxySession.provider_account_key;
   const isChatGptOrigin = targetOrigin === CHATGPT_UPSTREAM_ORIGIN;
   const bodyText =
     body && body.byteLength <= 2 * 1024 * 1024 &&
@@ -1083,15 +1061,11 @@ export async function handleChatGPTProxyRequest(request: Request) {
     if (addressed) {
       let owner: string | null = null;
       try {
-        owner = await ownerOfConversation(addressed);
+        owner = await ownerOfConversation(addressed,account);
       } catch {
         return unavailable();
       }
-      // A writer's first POST that names a brand-new conversation claims it.
-      if (!owner && request.method === "POST") {
-        const claimed = await claimConversation(addressed, writerId);
-        owner = claimed ? writerId : await ownerOfConversation(addressed);
-      }
+      // A client-provided ID cannot claim an existing untracked provider chat.
       if (owner !== writerId) {
         if (isDocument) {
           const h = standardHeaders();
@@ -1112,7 +1086,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   let ownedIds: Set<string> | null = null;
   if (isChatGptOrigin && request.method === "GET" && !isImmutableChatGPTAssetPath(targetOrigin, target.pathname)) {
     try {
-      ownedIds = await ownedConversationIds(writerId);
+      ownedIds = await ownedConversationIds(writerId,account);
     } catch {
       return unavailable();
     }
@@ -1140,8 +1114,10 @@ export async function handleChatGPTProxyRequest(request: Request) {
   }
 
   let cookieHeader = "";
+  let sessionSnapshot = "";
   try {
-    const encrypted = await loadEncryptedChatGPTSession();
+    const encrypted = await loadEncryptedChatGPTSession(account);
+    sessionSnapshot=encrypted;
     const plaintext = decryptChatGptSession(encrypted);
     cookieHeader = buildChatGPTCookieHeader(
       plaintext,
@@ -1163,17 +1139,18 @@ export async function handleChatGPTProxyRequest(request: Request) {
     return unavailable();
   }
 
+  let providerHeaders:Headers;
+  try {
+    providerHeaders=upstreamHeaders(request,cookieHeader,targetOrigin,!!cookieHeader,proxyBase);
+    if(!isSecondaryHost && request.headers.has("authorization")){
+      providerHeaders.set("Authorization",await chatGptAccountAuthorization(account,sessionSnapshot,providerHeaders));
+    }
+  }catch{return unavailable();}
   let upstream: Response;
   try {
     upstream = await fetch(target, {
       method: request.method,
-      headers: upstreamHeaders(
-        request,
-        cookieHeader,
-        targetOrigin,
-        !!cookieHeader,
-        proxyBase,
-      ),
+      headers: providerHeaders,
       body,
       redirect: "manual",
     });
@@ -1186,7 +1163,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   }
 
   try {
-    await persistRotatedChatGPTCookies(upstream);
+    if(!isSecondaryHost)await persistRotatedChatGPTCookies(upstream,account,sessionSnapshot);
   } catch {
     return unavailable();
   }
@@ -1270,7 +1247,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     const streamBody =
       isChatGptOrigin && request.method === "POST" && upstream.body &&
       /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)
-        ? teeConversationOwnership(upstream.body, writerId)
+        ? teeConversationOwnership(upstream.body, writerId, account)
         : upstream.body;
     return new Response(streamBody, {
       status: upstream.status,
@@ -1291,7 +1268,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         nextUrl.searchParams.set("offset", String(pageNo * 100));
         const next = await fetch(nextUrl, {
           method: "GET",
-          headers: upstreamHeaders(request, cookieHeader, targetOrigin, !!cookieHeader, proxyBase),
+          headers: providerHeaders,
           redirect: "manual",
         });
         if (!next.ok) break;
@@ -1319,6 +1296,11 @@ export async function handleChatGPTProxyRequest(request: Request) {
   if (isRewriteableText) {
     const text = await upstream.text();
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
+    if(contentType.includes("text/html") && isChatGptOrigin){
+      const marker=hashChatGPTProxyToken(writerId+":"+account).slice(0,24);
+      const script="<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstChatGptAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstChatGptAccount',m)}}catch{}})();</script>";
+      rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script);
+    }
     if (isChatGptOrigin && ownedIds && !storeAsset) {
       if (contentType.includes("text/html")) {
         rewritten = filterServerRenderedHistory(rewritten, ownedIds);

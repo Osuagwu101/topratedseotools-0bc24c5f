@@ -148,7 +148,7 @@ assert(
   proxy.includes("isBlockedChatGptApiRequest(request.method, target.pathname)") &&
     proxy.includes("isBlockedConversationMutation(request.method, target.pathname, bodyText)") &&
     proxy.includes("filterServerRenderedHistory(rewritten, ownedIds)") &&
-    proxy.includes("teeConversationOwnership(upstream.body, writerId)") &&
+    proxy.includes("teeConversationOwnership(upstream.body, writerId, account)") &&
     proxy.includes("owner !== writerId"),
   "proxy enforces account blocks, delete/archive blocks and per-writer history",
 );

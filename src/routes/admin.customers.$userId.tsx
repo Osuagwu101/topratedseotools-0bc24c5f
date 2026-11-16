@@ -1349,6 +1349,7 @@ function ChatGptControlsCard({ userId }: { userId: string }) {
   const [draft, setDraft] = useState<null | {
     status: "active" | "suspended";
     device_limit: number;
+    provider_account_key:"account_1"|"account_2";
   }>(null);
 
   useEffect(() => {
@@ -1356,6 +1357,7 @@ function ChatGptControlsCard({ userId }: { userId: string }) {
     setDraft({
       status: data.controls.status,
       device_limit: data.controls.device_limit,
+      provider_account_key:data.controls.provider_account_key,
     });
   }, [data]);
 
@@ -1411,6 +1413,7 @@ function ChatGptControlsCard({ userId }: { userId: string }) {
         </div>
       ) : (
         <>
+          <div className="mt-4"><Label htmlFor="chatgpt-provider-account">ChatGPT proxy account</Label><select id="chatgpt-provider-account" className="ml-3 rounded border bg-background p-2" value={draft.provider_account_key} onChange={e=>setDraft({...draft,provider_account_key:e.target.value as "account_1"|"account_2"})}><option value="account_1">Account 1</option><option value="account_2">Account 2</option></select><p className="text-xs text-muted-foreground">Account changes revoke existing launches. Open ChatGPT again from the dashboard.</p></div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Allowed devices</Label>

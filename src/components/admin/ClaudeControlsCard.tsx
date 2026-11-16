@@ -8,10 +8,11 @@ import {adminGetClaudeControls,adminUpdateClaudeControls} from "@/lib/claude-con
 export function ClaudeControlsCard({userId}:{userId:string}){
  const qc=useQueryClient(),key=["admin-claude-controls",userId];
  const {data,error,isLoading}=useQuery({queryKey:key,queryFn:()=>adminGetClaudeControls({data:{userId}})});
+ const [account,setAccount]=useState<"account_1"|"account_2">("account_1");
  const [limit,setLimit]=useState("25");
- useEffect(()=>{if(data)setLimit(String(data.limit));},[data,userId]);
+ useEffect(()=>{if(data){setLimit(String(data.limit));setAccount(data.provider_account_key);}},[data,userId]);
  const value=Number(limit),valid=limit.trim()!==""&&Number.isInteger(value)&&value>=0&&value<=10000;
- const save=useMutation({mutationFn:()=>adminUpdateClaudeControls({data:{userId,daily_message_limit:value}}),
+ const save=useMutation({mutationFn:()=>adminUpdateClaudeControls({data:{userId,daily_message_limit:value,provider_account_key:account}}),
  onSuccess:()=>{toast.success("Claude daily limit saved");qc.invalidateQueries({queryKey:key});},
  onError:(e:Error)=>toast.error(e.message)});
  return <div className="mt-6 rounded-2xl border bg-card p-4">
@@ -22,7 +23,8 @@ export function ClaudeControlsCard({userId}:{userId:string}){
    <div className="mt-3 max-w-xs"><Label htmlFor="claude-message-limit">Daily messages</Label>
     <Input id="claude-message-limit" type="number" min={0} max={10000} step={1} value={limit} onChange={e=>setLimit(e.target.value)}/>
    </div>
-   <Button className="mt-3" size="sm" disabled={!valid||save.isPending} onClick={()=>save.mutate()}>{save.isPending?"Saving???":"Save Claude limit"}</Button>
+   <div className="mt-3"><Label htmlFor="claude-account">Claude proxy account</Label><select id="claude-account" className="ml-3 rounded border bg-background p-2" value={account} onChange={e=>setAccount(e.target.value as typeof account)}><option value="account_1">Account 1</option><option value="account_2">Account 2</option></select><p className="text-xs text-muted-foreground">Changing accounts requires a fresh dashboard launch. Daily usage stays unchanged.</p></div>
+   <Button className="mt-3" size="sm" disabled={!valid||save.isPending} onClick={()=>save.mutate()}>{save.isPending?"Saving???":"Save Claude controls"}</Button>
   </>}
  </div>;
 }
