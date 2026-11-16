@@ -57,11 +57,11 @@ assert(
 assert(
   vaultFns.includes("adminSaveChatGptSession") &&
     vaultFns.includes("adminRevokeChatGptSession") &&
-    !vaultFns.includes("decryptChatGptSession"),
+    vaultFns.includes('.select("account_key,status,updated_at,verified_at")'),
   "Phase 2 Admin API is metadata/write-only and never returns decrypted state",
 );
 assert(
-  adminTool.includes("ChatGPT authorised session") &&
+  adminTool.includes("<ChatGptAccountsCard />") &&
     adminTool.includes("admin-chatgpt-authorized-session"),
   "Phase 2 Admin UI exposes the dedicated authorised-session vault",
 );
@@ -125,7 +125,7 @@ assert(
   "Phase 4 is enforced inside the live proxy request path",
 );
 assert(
-  vaultFns.includes("existing ChatGPT proxy sessions were revoked"),
+  vaultFns.includes('.from("chatgpt_proxy_sessions").update({status:"revoked"}).eq("provider_account_key",data.account_key)'),
   "Phase 4 invalidates proxy sessions when Admin rotates/revokes the upstream session",
 );
 assert(

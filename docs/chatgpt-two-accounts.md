@@ -1,0 +1,13 @@
+# ChatGPT two provider accounts
+
+This release extends the existing encrypted cookie proxy. Account 1 is seeded byte-for-byte from the existing vault, and the compatibility trigger keeps legacy Account 1 writes and rotations current. Account 2 uses a separate encrypted payload. No browser transport or new external API is introduced.
+
+Admin > Tools > ChatGPT > Session now shows two account cards. Save each authorised session JSON there; secret values must never be committed or pasted into chat. Verify Account 2 before assigning it on a customer's ChatGPT proxy controls. Verification checks the selected session at /api/auth/session. Account 2 remains unavailable when unconfigured, unverified or revoked. Revoking or refreshing one account revokes only that account's writer launches. There is no fallback to the other account.
+
+Each launch and conversation ownership record includes provider_account_key. The reassignment trigger atomically revokes active and issued sessions. Every request checks current assignment and revocation rather than returning a cached authenticated session. Provider access tokens are resolved server-side from the selected encrypted session; an incoming client bearer cannot override the selection. The short bearer cache includes both account and ciphertext digest. Rotations use the request's snapshot and compare-and-swap the matching account only. Browser storage markers include both writer and account. Chat history queries and SSE ownership writes include provider account. Unknown client-supplied conversation IDs cannot claim untracked upstream chats. Ownership database errors reject access.
+
+Deployment: apply the committed migration, clone this GitHub branch into a new release, use the installed production dependency snapshot, run tsc and the production build, then run scripts/chatgpt-two-accounts/deploy.py. The deployment preserves the main and ChatGPT process environments separately, including node --env-file arguments. It tests loopback ports 3281 and 3282 before changing the enabled vhosts, adds hashed assets without removing old files, and retains all old processes. Account 1's current writer history and device settings remain intact.
+
+Rollback: restore the three saved vhosts in /home/ubuntu/deploy-backups/chatgpt-two-accounts-20261116, validate Nginx and reload. Keep the additive tables and ownership records. Do not delete data or change billing balances. The new records retain Account 1 compatibility with the old app.
+
+Validation includes tests/chatgpt-two-accounts.test.ts plus the existing proxy, isolation, vault and controls suites. Live two-provider simultaneous message acceptance requires a separately connected Account 2; do not report it complete before that login is provided.

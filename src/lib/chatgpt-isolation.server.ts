@@ -285,61 +285,24 @@ export function filterServerRenderedHistory(html: string, owned: Owned): string 
 
 // --------------------------------------------------------- ownership store
 
-const OWNER_CACHE_MAX = 20_000;
-const ownerCache = new Map<string, string>(); // conversation_id -> user_id
-const userSetCache = new Map<string, { ids: Set<string>; until: number }>();
-const USER_SET_TTL_MS = 30_000;
-
-function rememberOwner(conversationId: string, userId: string) {
-  if (ownerCache.size > OWNER_CACHE_MAX) ownerCache.clear();
-  ownerCache.set(conversationId, userId);
-  userSetCache.get(userId)?.ids.add(conversationId);
+export async function ownerOfConversation(conversationId:string,account:import("./chatgpt-account-policy").ChatGptProviderAccount="account_1"):Promise<string|null>{
+ const {data,error}=await (supabaseAdmin as any).from("chatgpt_conversation_owners").select("user_id")
+ .eq("provider_account_key",account).eq("conversation_id",conversationId.toLowerCase()).maybeSingle();
+ if(error)throw Error("Could not verify conversation ownership.");
+ return data?.user_id?String(data.user_id):null;
 }
-
-export async function ownerOfConversation(conversationId: string): Promise<string | null> {
-  const id = conversationId.toLowerCase();
-  const hit = ownerCache.get(id);
-  if (hit) return hit;
-  const { data } = await (supabaseAdmin as any)
-    .from("chatgpt_conversation_owners")
-    .select("user_id")
-    .eq("conversation_id", id)
-    .maybeSingle();
-  if (data?.user_id) {
-    rememberOwner(id, String(data.user_id));
-    return String(data.user_id);
-  }
-  return null;
+export async function ownedConversationIds(userId:string,account:import("./chatgpt-account-policy").ChatGptProviderAccount="account_1"):Promise<Set<string>>{
+ const {data,error}=await (supabaseAdmin as any).from("chatgpt_conversation_owners").select("conversation_id")
+ .eq("provider_account_key",account).eq("user_id",userId).order("created_at",{ascending:false}).limit(5000);
+ if(error)throw Error("Could not load private history.");
+ return new Set((data??[]).map((row:any)=>String(row.conversation_id).toLowerCase()));
 }
-
-export async function ownedConversationIds(userId: string): Promise<Set<string>> {
-  const cached = userSetCache.get(userId);
-  if (cached && cached.until > Date.now()) return cached.ids;
-  const { data, error } = await (supabaseAdmin as any)
-    .from("chatgpt_conversation_owners")
-    .select("conversation_id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(5000);
-  if (error) throw new Error(error.message);
-  const ids = new Set<string>(((data ?? []) as any[]).map((r) => String(r.conversation_id).toLowerCase()));
-  if (userSetCache.size > 5000) userSetCache.clear();
-  userSetCache.set(userId, { ids, until: Date.now() + USER_SET_TTL_MS });
-  return ids;
-}
-
-/** Record the creator of a new conversation. First writer wins. */
-export async function claimConversation(conversationId: string, userId: string) {
-  const id = conversationId.toLowerCase();
-  const existing = ownerCache.get(id);
-  if (existing) return existing === userId;
-  rememberOwner(id, userId);
-  const { error } = await (supabaseAdmin as any)
-    .from("chatgpt_conversation_owners")
-    .upsert({ conversation_id: id, user_id: userId }, { onConflict: "conversation_id", ignoreDuplicates: true });
-  if (error) console.warn("[chatgpt-isolation] could not record conversation owner", error.message);
-  const owner = await ownerOfConversation(id).catch(() => userId);
-  return owner === userId;
+export async function claimConversation(conversationId:string,userId:string,account:import("./chatgpt-account-policy").ChatGptProviderAccount="account_1"){
+ const {error}=await (supabaseAdmin as any).from("chatgpt_conversation_owners").upsert(
+ {provider_account_key:account,conversation_id:conversationId.toLowerCase(),user_id:userId},
+ {onConflict:"provider_account_key,conversation_id",ignoreDuplicates:true});
+ if(error)throw Error("Could not record conversation ownership.");
+ return (await ownerOfConversation(conversationId,account))===userId;
 }
 
 /**
@@ -376,24 +339,25 @@ export function rewriteStreamHandoffEvent(eventText: string): string {
 export function teeConversationOwnership(
   body: ReadableStream<Uint8Array>,
   userId: string,
+  account:import("./chatgpt-account-policy").ChatGptProviderAccount="account_1",
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let pending = "";
   let claimed = false;
-  const handle = (eventText: string) => {
+  const handle = async (eventText: string) => {
     if (!claimed) {
       const id = conversationIdFromStreamText(eventText);
       if (id) {
         claimed = true;
-        void claimConversation(id, userId);
+        if(!await claimConversation(id, userId, account))throw Error("Conversation ownership conflict.");
       }
     }
     return rewriteStreamHandoffEvent(eventText);
   };
   return body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
+      async transform(chunk, controller) {
         pending += decoder.decode(chunk, { stream: true });
         // Emit every complete SSE event (terminated by a blank line) at once.
         let cut = Math.max(pending.lastIndexOf("\n\n"), pending.lastIndexOf("\r\n\r\n"));
@@ -401,15 +365,15 @@ export function teeConversationOwnership(
         cut += pending.startsWith("\r\n", cut) ? 4 : 2;
         const complete = pending.slice(0, cut);
         pending = pending.slice(cut);
-        const out = complete
+        const out = (await Promise.all(complete
           .split(/(\r?\n\r?\n)/)
-          .map((part) => (/^\r?\n\r?\n$/.test(part) ? part : handle(part)))
+          .map((part) => (/^\r?\n\r?\n$/.test(part) ? part : handle(part)))))
           .join("");
         controller.enqueue(encoder.encode(out));
       },
-      flush(controller) {
+      async flush(controller) {
         pending += decoder.decode();
-        if (pending) controller.enqueue(encoder.encode(handle(pending)));
+        if (pending) controller.enqueue(encoder.encode(await handle(pending)));
       },
     }),
   );
