@@ -50,7 +50,7 @@ files=['/etc/nginx/sites-available/topratedseotools','/etc/nginx/sites-available
 for filename in files:
  target=Path(filename)
  original=run('sudo','cat',str(target))
- assert '127.0.0.1:3276' in original
+ assert '127.0.0.1:3276' in original or '127.0.0.1:3280' in original
  saved=backup/target.name
  if not saved.exists():saved.write_text(original)
  staged=backup/(target.name+'.candidate')

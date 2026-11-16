@@ -141,7 +141,7 @@ const db = {
           return {
             data: active
               ? {
-                  id: "session",
+                  id: "session", provider_account_key:"account_1",
                   user_id: "writer-a",
                   source_kind: "grant",
                   source_id: "grant",
@@ -152,6 +152,8 @@ const db = {
           };
         if (table === "tool_authorized_sessions")
           return { data: { status: "stored", encrypted_payload: encryptedState } };
+        if(table==="claude_user_controls")return {data:{provider_account_key:"account_1"}};
+        if(table==="claude_provider_accounts")return {data:{status:"connected"}};
         if (table === "tool_settings")
           return { data: { enabled: settings, one_click_auth_enabled: settings } };
         if (table === "tool_access_grants")
