@@ -4,7 +4,7 @@ import {strict as assert} from "node:assert";
 import {createRequire} from "node:module";
 import {once} from "node:events";
 import {supabaseAdmin} from "../../src/integrations/supabase/client.server";
-import {loadEncryptedSession,verifyGrammarlySession,createGrammarlyProxyLaunch} from "../../src/lib/grammarly-proxy.server";
+import {loadEncryptedSession,verifyGrammarlySession,createGrammarlyProxyLaunch,hashGrammarlyProxyToken} from "../../src/lib/grammarly-proxy.server";
 const db=supabaseAdmin as any;
 if(process.argv.includes("--diagnose-auth")){
  const {decryptGrammarlySession}=await import("../../src/lib/grammarly-session.server");
@@ -22,10 +22,18 @@ if(grants.error)throw Error("Could not find an authorized test writer.");
 const grant=grants.data.find((g:any)=>!g.expires_at||Date.parse(g.expires_at)>Date.now());
 assert(grant,"An active Grammarly writer grant is required for live launch verification.");
 const launch=await createGrammarlyProxyLaunch(grant.user_id);
+let sessionHash=hashGrammarlyProxyToken(new URL(launch.launchUrl).searchParams.get("ticket")!);
+try{
 const entry=await fetch(launch.launchUrl,{redirect:"manual"});assert.equal(entry.status,302);
 const cookie=entry.headers.get("set-cookie")!.split(";")[0];
+sessionHash=hashGrammarlyProxyToken(cookie.slice(cookie.indexOf("=")+1));
 const page=await fetch(launch.proxyPublicOrigin+"/",{headers:{Cookie:cookie},redirect:"manual"});assert.equal(page.status,200);assert((await page.text()).includes("trstGrammarlyAccount"));
 console.log("Account 1 fresh authorized writer launch and account-marked page passed.");
 const WS=createRequire(import.meta.url)("ws");
 const socket=new WS(launch.proxyPublicOrigin.replace("https:","wss:")+"/__ws/capi.grammarly.com/freews",{headers:{Cookie:cookie,Origin:launch.proxyPublicOrigin},handshakeTimeout:20000});
 try{await once(socket,"open");console.log("Account 1 live checking WebSocket handshake passed.");}finally{socket.close();}
+
+}finally{
+ const {error}=await db.from("grammarly_proxy_sessions").update({status:"revoked"}).eq("token_hash",sessionHash);
+ if(error)throw Error("Could not clean up the temporary QA launch.");
+}
