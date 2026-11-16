@@ -32,9 +32,10 @@ globalThis.fetch=(async(input:any,init:any)=>{
  }
  return new Response("<html><head></head><body>Editor</body></html>",{headers:{"Content-Type":"text/html"}});
 }) as typeof fetch;
-function req(i:number,path="/",body?:object){return new Request(origin+path,{method:body?"POST":"GET",headers:{Cookie:"trst_gr_proxy="+String(i+1).repeat(43),Origin:origin,Accept:path==="/"?"text/html":"application/json",Authorization:"Bearer foreign-token","Content-Type":"application/json","x-csrf-token":"wrong-csrf"},body:body?JSON.stringify(body):undefined});}
+function req(i:number,path="/",body?:object){return new Request(origin+path,{method:body?"POST":"GET",headers:{Cookie:"trst_gr_proxy="+String(i+1).repeat(43)+"; trst_gr_storage_marker="+hashGrammarlyProxyToken("writer"+(i+1)+":account_"+(i+1)).slice(0,24),Origin:origin,Accept:path==="/"?"text/html":"application/json",Authorization:"Bearer foreign-token","Content-Type":"application/json","x-csrf-token":"wrong-csrf"},body:body?JSON.stringify(body):undefined});}
 try{
  assert(await verifyGrammarlySession(accounts[0].encrypted_payload));anonymous=true;assert.equal(await verifyGrammarlySession(accounts[1].encrypted_payload),false);anonymous=false;
+ const reset=await handle(req(0,"/__trst/reset"));const resetHtml=await reset.text();assert.equal(reset.status,200);assert(resetHtml.includes("indexedDB.deleteDatabase"));assert(resetHtml.includes("serviceWorker.getRegistrations"));
  const html=await Promise.all([handle(req(0)),handle(req(1))].map(async r=>{const response=await r;assert.equal(response.status,200);return response.text()}));
  assert(html.every(s=>s.includes("trstGrammarlyAccount")));assert.notEqual(html[0],html[1]);assert(!calls.some(c=>c.auth));
  const docs=await Promise.all([handle(req(0,"/__host/dox.grammarly.com/documents",{title:"one"})),handle(req(1,"/__host/dox.grammarly.com/documents",{title:"two"}))]);

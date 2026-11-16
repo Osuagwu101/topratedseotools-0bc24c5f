@@ -418,7 +418,7 @@ async function exchangeTicket(ticket: string) {
     .eq("id", row.id)
     .eq("status", "issued").select("id").maybeSingle();
   if (error||!activated) return plain(503, "Grammarly is temporarily unavailable. Please try again.");
-  const h = new Headers({ Location: "/", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  const h = new Headers({ Location: "/__trst/reset", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   h.append(
     "Set-Cookie",
     `${GRAMMARLY_PROXY_COOKIE}=${sessionToken}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${SESSION_HOURS * 3600}`,
@@ -557,6 +557,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   if (!session) return plain(401, "Open Grammarly from your Top Rated SEO Tools account.");
   const writerId = String(session.user_id);
   const account:GrammarlyProviderAccount=session.provider_account_key;
+  if(url.pathname==="/__trst/reset")return grammarlyStorageResetPage(writerId,account);
   if(!["GET","HEAD"].includes(request.method)&&request.headers.get("origin")!==publicOrigin)return plain(403,"Invalid request origin.");
 
   const target = upstreamTarget(request.url);
@@ -566,6 +567,9 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     request.method === "GET" &&
     ((request.headers.get("sec-fetch-dest") ?? "") === "document" ||
       (request.headers.get("accept") ?? "").includes("text/html"));
+
+  const storageMarker=hashGrammarlyProxyToken(writerId+":"+account).slice(0,24);
+  if(isDocument&&parseCookies(request).get("trst_gr_storage_marker")!==storageMarker)return new Response(null,{status:302,headers:{Location:"/__trst/reset","Cache-Control":"no-store"}});
 
   if (isBlockedGrammarlyRequest(request.method, host, upstreamUrl.pathname) || (isDocument && host !== "app.grammarly.com")) {
     if (isDocument) {
@@ -727,4 +731,23 @@ export async function verifyGrammarlyAccountSession(snapshot:string,account:Gram
  const cookies=headers.getSetCookie?.()??[];
  const encrypted=await persistRotatedCookies(cookies,account,snapshot);
  return {ok:true,encrypted};
+}
+
+export function grammarlyStorageResetPage(writer:string,account:GrammarlyProviderAccount){
+ const marker=hashGrammarlyProxyToken(writer+":"+account).slice(0,24);
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>Opening Grammarly</title></head><body><p id="status">Preparing your Grammarly workspace…</p><script>
+(async()=>{try{
+ const marker=${JSON.stringify(marker)};
+ if(localStorage.getItem('trstGrammarlyAccount')!==marker){
+  localStorage.clear();sessionStorage.clear();
+  if('serviceWorker' in navigator)await Promise.all((await navigator.serviceWorker.getRegistrations()).map(r=>r.unregister()));
+  if('caches' in window)await Promise.all((await caches.keys()).map(k=>caches.delete(k)));
+  if(indexedDB.databases){for(const db of await indexedDB.databases()){if(!db.name)continue;await new Promise((resolve,reject)=>{const request=indexedDB.deleteDatabase(db.name);request.onsuccess=resolve;request.onerror=reject;request.onblocked=()=>{document.getElementById('status').textContent='Close other Grammarly tabs, then reload this page to finish switching accounts.';};});}}
+  localStorage.setItem('trstGrammarlyAccount',marker);
+ }
+ document.cookie='trst_gr_storage_marker='+marker+'; Path=/; Secure; SameSite=Lax';
+ location.replace('/');
+}catch{document.getElementById('status').textContent='Could not prepare your private workspace. Reload this page to try again.';}})();
+</script></body></html>`;
+ return new Response(html,{headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"}});
 }
