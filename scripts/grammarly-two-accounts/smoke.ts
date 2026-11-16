@@ -8,6 +8,7 @@ import {loadEncryptedSession,verifyGrammarlySession,createGrammarlyProxyLaunch} 
 const db=supabaseAdmin as any;
 assert(await verifyGrammarlySession(await loadEncryptedSession("account_1")));
 console.log("Account 1 authenticated provider check passed.");
+if(process.argv.includes("--auth-only"))process.exit(0);
 const grants=await db.from("tool_access_grants").select("user_id,expires_at").eq("tool_slug","grammarly").eq("status","active");
 if(grants.error)throw Error("Could not find an authorized test writer.");
 const grant=grants.data.find((g:any)=>!g.expires_at||Date.parse(g.expires_at)>Date.now());

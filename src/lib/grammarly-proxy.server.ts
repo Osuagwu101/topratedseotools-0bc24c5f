@@ -715,5 +715,5 @@ export async function verifyGrammarlySession(snapshot:string){
  const response=await fetch("https://auth.grammarly.com/v3/user",{headers:{Cookie:grammarlyCookieHeader(state,"auth.grammarly.com"),Accept:"application/json"},redirect:"manual",signal:AbortSignal.timeout(20000)});
  if(!response.ok||!(response.headers.get("content-type")??"").includes("json"))return false;
  const payload=await response.json();
- return !!payload && (typeof payload.id==="number"||typeof payload.id==="string") && !payload.anonymous;
+ return !!payload && !!payload.id && payload.id!=="0" && (typeof payload.id==="number"||typeof payload.id==="string") && !payload.anonymous && !payload.isAnonymous;
 }

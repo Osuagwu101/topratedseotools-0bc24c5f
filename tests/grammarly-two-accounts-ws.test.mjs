@@ -32,5 +32,9 @@ try{
  const switched=once(b,'close');controls[1].provider_account_key='account_1';assert.equal((await switched)[0],4401);
  controls[1].provider_account_key='account_2';accounts[1].status='revoked';
  const blocked=socket(2);const response=await new Promise(resolve=>{blocked.once('unexpected-response',(_req,res)=>{res.resume();blocked.terminate();resolve(res.statusCode)});blocked.on('error',()=>{});});assert.equal(response,401);assert.equal(providers.length,2);
+ const owned=socket(1,'/__ws/dox.grammarly.com/documents/1001/ws');await once(owned,'open');
+ const binaryReply=once(owned,'message');owned.send(Buffer.from([1,2,3]));assert.deepEqual((await binaryReply)[0],Buffer.from([1,2,3]));
+ const foreignSocket=socket(1,'/__ws/dox.grammarly.com/documents/2002/ws');
+ const foreignStatus=await new Promise(resolve=>{foreignSocket.once('unexpected-response',(_req,res)=>{res.resume();foreignSocket.terminate();resolve(res.statusCode)});foreignSocket.on('error',()=>{});});assert.equal(foreignStatus,403);
  console.log('Grammarly WebSockets: real downstream sockets, independent upstream cookies, owned frames, foreign-document rejection, idle reassignment closure and revoked-account handshake checks passed.');
 }finally{clients.forEach(c=>{try{c.terminate()}catch{}});await new Promise(resolve=>server.close(resolve));globalThis.fetch=realFetch;}
