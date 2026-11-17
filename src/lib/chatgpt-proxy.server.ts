@@ -1,3 +1,4 @@
+import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
@@ -1187,7 +1188,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       if(savedHistory) {
         const isCurrent=savedHistory.latest_provider_identity===historyIdentity && savedHistory.latest_upstream_id===addressedHistoryId;
         if(request.method==='GET' && isChatGptDocumentRequest(request) && !isCurrent) {
-          return new Response(historyPage(proxyBase,[],savedHistory),{headers:standardHeaders('text/html; charset=utf-8')});
+          return new Response(historyPage(proxyBase,[],savedHistory,0,attachmentStorageEnabled()?await attachmentRows(writerId,savedHistory.id):[]),{headers:standardHeaders('text/html; charset=utf-8')});
         }
         if(request.method==='GET' && !isCurrent && conversationIdFromApiPath(target.pathname)) {
           if(!/^\/backend-api\/(?:f\/)?conversation\/[0-9a-f-]{36}\/?$/i.test(target.pathname)) return jsonResponse({detail:'Open Saved chats to continue this conversation.'},409);
@@ -1201,13 +1202,34 @@ export async function handleChatGPTProxyRequest(request: Request) {
       if(continuationThread) {
         const source=savedHistory?.id===continuationThread?savedHistory:await threadForAlias(writerId,continuationThread);
         if(!source) return jsonResponse({detail:'Conversation not found'},404);
-        const next=continuationBody(JSON.parse(bodyText??'{}'),source.snapshot,randomUUID());
+        // Validate the text request before making provider uploads.
+        const input=JSON.parse(bodyText??'{}');
+        if(attachmentStorageEnabled())continuationBody(input,source.snapshot,randomUUID(),[]);
+        const restored=attachmentStorageEnabled()?await restoreAttachments(writerId,source.id,source.snapshot,historyIdentity,providerHeaders):undefined;
+        const next=continuationBody(input,source.snapshot,randomUUID(),restored);
         bodyText=JSON.stringify(next);body=new TextEncoder().encode(bodyText).buffer;
       }
     } catch(error) {
       if(error instanceof HistoryContextError) return jsonResponse({detail:error.message},409);
       return unavailable();
     }
+  }
+  if(durable && attachmentStorageEnabled() && historyIdentity && isChatGptOrigin) {
+    const filePath=target.pathname.match(/^\/backend-api\/files\/(?:download\/)?(file-[A-Za-z0-9_-]+)(?:\/|$)/);
+    try {
+     if(filePath && !await ownsWriterFile(writerId,historyIdentity,filePath[1]))return jsonResponse({detail:'File not found'},404);
+     if(request.method==='GET' && /^\/backend-api\/files\/?$/.test(target.pathname))return jsonResponse({detail:'Open Saved chats to view your private files.'},403);
+     if(bodyText && request.method==='POST' && /^\/backend-api\/(?:f\/)?conversation\/?$/.test(target.pathname)) {
+      for(const m of JSON.parse(bodyText).messages??[]) {
+       const ids=new Set<string>();
+       for(const a of m.metadata?.attachments??[])if(typeof (a.id??a.file_id)==='string')ids.add(a.id??a.file_id);
+       for(const p of m.content?.parts??[])if(p&&typeof p==='object') {
+        const raw=p.asset_pointer??p.image_asset_pointer;if(typeof raw==='string'&&raw.startsWith('file-service://'))ids.add(raw.slice(15));
+       }
+       for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id))return jsonResponse({detail:'File not found'},404);
+      }
+     }
+    }catch{return unavailable();}
   }
   let upstream: Response;
   try {
@@ -1318,7 +1340,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       streamBody=captureHistoryStream(streamBody,async id=>{
         if(resumeToken) await finishHistoryResume(resumeToken,id);
       },async id=>{
-        try { const linked=canonical ?? (await threadForAlias(writerId,id))?.id; await captureConversation(writerId,account,identity,id,providerHeaders,linked,originalMessages); }
+        try { const linked=canonical ?? (await threadForAlias(writerId,id))?.id; await captureConversation(writerId,account,identity,id,providerHeaders,linked,originalMessages,false,false); }
         catch { console.error('[chatgpt-history] reply backup failed'); }
       });
     }
@@ -1373,8 +1395,13 @@ export async function handleChatGPTProxyRequest(request: Request) {
     if(durable && historyIdentity && upstream.ok && request.method==='GET' && /^\/backend-api\/conversation\/[0-9a-f-]{36}\/?$/i.test(target.pathname)) {
       try {
         const {saveSnapshot}=await import('./chatgpt-history.server');
-        await saveSnapshot(writerId,account,historyIdentity,conversationIdFromApiPath(target.pathname)!,JSON.parse(text),savedHistory?.id);
+        const snapshot=JSON.parse(text),id=conversationIdFromApiPath(target.pathname)!;
+        await saveSnapshot(writerId,account,historyIdentity,id,snapshot,savedHistory?.id);
+        scheduleAttachmentCapture(writerId,savedHistory?.id??id,historyIdentity,id,snapshot,providerHeaders);
       } catch {console.error('[chatgpt-history] opened chat backup failed');}
+    }
+    if(durable && attachmentStorageEnabled() && historyIdentity && upstream.ok && isChatGptOrigin && request.method==='POST' && /^\/backend-api\/files\/?$/.test(target.pathname)) {
+      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch{return unavailable();}
     }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){

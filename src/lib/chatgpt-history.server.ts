@@ -76,16 +76,20 @@ export async function finishHistoryResume(token:string,upstreamId:string) {
  const {error}=await db().from('chatgpt_history_resumes').update({upstream_id:upstreamId}).eq('token_hash',historyHash(token)).is('upstream_id',null); fail(error);
 }
 /** Fetch authoritative mapping rather than trying to interpret changing token delta formats. */
-export async function captureConversation(userId:string,account:ChatGptProviderAccount,identity:string,upstreamId:string,headers:Headers,threadId?:string,originalMessages?:any[]) {
+export async function captureConversation(userId:string,account:ChatGptProviderAccount,identity:string,upstreamId:string,headers:Headers,threadId?:string,originalMessages?:any[],legacyAttachments=false,waitForAttachments=true) {
  const clean=new Headers(headers); clean.set('Accept','application/json'); clean.delete('content-type'); clean.delete('content-length');
  const response=await fetch('https://chatgpt.com/backend-api/conversation/'+upstreamId,{headers:clean,redirect:'manual',signal:AbortSignal.timeout(20000)});
  if(!response.ok) throw new HistoryUpstreamError(response.status);
  const snapshot=await response.json();
+ const attachmentSnapshot=structuredClone(snapshot);
  if(originalMessages && snapshot?.mapping) {
   const originals=new Map(originalMessages.map((m:any)=>[m.id,m]));
-  for(const node of Object.values(snapshot.mapping) as any[]) if(node.message && originals.has(node.message.id)) {node.message.content=structuredClone(originals.get(node.message.id).content);node.message.metadata={...node.message.metadata,trst_original_content:true};}
+  for(const node of Object.values(snapshot.mapping) as any[]) if(node.message && originals.has(node.message.id)) {node.message.content=structuredClone(originals.get(node.message.id).content);node.message.metadata={...node.message.metadata,attachments:structuredClone(originals.get(node.message.id).metadata?.attachments??[]),trst_original_content:true};}
  }
  await saveSnapshot(userId,account,identity,upstreamId,snapshot,threadId);
+ const {captureAttachments,scheduleAttachmentCapture}=await import('./chatgpt-attachments.server');
+ if(!waitForAttachments){scheduleAttachmentCapture(userId,threadId??upstreamId,identity,upstreamId,attachmentSnapshot,clean);return;}
+ await captureAttachments(userId,threadId??upstreamId,identity,upstreamId,attachmentSnapshot,clean,legacyAttachments);
 }
 /** Durable capture runs even if the browser disconnects after a reply starts. */
 export function captureHistoryStream(body:ReadableStream<Uint8Array>,onId:(id:string)=>Promise<void>,onEnd:(id:string)=>Promise<void>) {

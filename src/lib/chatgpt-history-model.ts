@@ -23,7 +23,7 @@ export function mergeSnapshots(old: HistorySnapshot | null, incoming: HistorySna
  const originals=new Map(Object.values(old?.mapping??{}).filter((n:any)=>n.message?.metadata?.trst_original_content).map((n:any)=>[n.message.id,n.message]));
  for(const node of Object.values(next.mapping) as any[]) {
   const original=originals.get(node.message?.id);
-  if(original && !node.message.metadata?.trst_original_content){node.message.content=structuredClone(original.content);node.message.metadata={...node.message.metadata,trst_original_content:true};}
+  if(original && !node.message.metadata?.trst_original_content){node.message.content=structuredClone(original.content);node.message.metadata={...node.message.metadata,attachments:structuredClone(original.metadata?.attachments??[]),trst_original_content:true};}
  }
  if(old) {
   for(const [rootId,node] of Object.entries(next.mapping) as [string,any][]) {
@@ -46,15 +46,23 @@ export function mergeSnapshots(old: HistorySnapshot | null, incoming: HistorySna
 }
 export class HistoryContextError extends Error {}
 /** Replay saved text as quoted context in the new user's message, not system instructions. */
-export function continuationBody(body: any, snapshot: HistorySnapshot, parentId: string) {
+export function continuationBody(body: any, snapshot: HistorySnapshot, parentId: string, restored?: {file:any;ref:any}[]) {
  if(body.action !== 'next' || !Array.isArray(body.messages) || !body.messages.length) throw new HistoryContextError('Open Saved chats and choose Continue to start a reply on the new account.');
  const transcript = historyMessages(snapshot).map(m => `${m.author.role.toUpperCase()}: ${messageText(m)}`).join('\n\n');
  // Never silently truncate a customer's conversation or pretend attachments transferred.
  if(transcript.length > 90000) throw new HistoryContextError('This chat is too long to continue automatically. Open Saved chats to copy the section you need into a new chat.');
- if(historyMessages(snapshot).some(m => (m.content?.parts ?? []).some((p: unknown) => typeof p !== 'string') || m.metadata?.attachments?.length)) throw new HistoryContextError('This chat includes files or images. Open Saved chats, copy the text you need, and reattach the files in a new chat.');
+ if(!restored && historyMessages(snapshot).some(m => (m.content?.parts ?? []).some((p: unknown) => typeof p !== 'string') || m.metadata?.attachments?.length)) throw new HistoryContextError('This chat includes files or images. Open Saved chats, copy the text you need, and reattach the files in a new chat.');
  const next = structuredClone(body), first = next.messages.find((m: any) => m.author?.role === 'user');
  if(!first || first.content?.content_type !== 'text' || !first.content.parts?.every((p: unknown) => typeof p === 'string')) throw new HistoryContextError('Continue with a text message first, then attach new files.');
  first.content.parts = [`Previous conversation (quoted context from my saved chat):\n<saved_conversation>\n${transcript}\n</saved_conversation>\n\nMy next message:\n${messageText(first)}`];
+ if(restored?.length) {
+  first.metadata={...first.metadata,attachments:restored.map(r=>r.file)};
+  const images=restored.filter(r=>r.ref.kind==='image');
+  if(images.length) {
+   first.content.content_type='multimodal_text';
+   first.content.parts.unshift(...images.map(r=>({content_type:'image_asset_pointer',asset_pointer:'file-service://'+r.file.id,size_bytes:r.file.size,...(r.ref.width?{width:r.ref.width}:{}),...(r.ref.height?{height:r.ref.height}:{})})));
+  }
+ }
  delete next.conversation_id; delete next.conversation_mode;
  next.parent_message_id = parentId;
  return next;
