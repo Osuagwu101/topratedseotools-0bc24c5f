@@ -41,6 +41,9 @@ export class BrowserConnection {
     if(this.jobs.size)throw Error("Workspace busy; retry connection");
     const cookies=input.cookie.split(";").map(p=>{const i=p.indexOf("=");return {name:p.slice(0,i).trim(),value:p.slice(i+1),domain:".quillbot.com",path:"/",secure:true};}).filter(c=>c.name && !["cf_clearance","__cf_bm","_cfuvid"].includes(c.name));
     if(!cookies.some(c=>c.name==="useridtoken"))throw Error("Missing useridtoken");
+    const previous=await this.call("Network.getCookies",{urls:[ORIGIN]});
+    for(const c of previous.cookies||[])if(!["cf_clearance","__cf_bm","_cfuvid"].includes(c.name))await this.call("Network.deleteCookies",{name:c.name,domain:c.domain,path:c.path});
+    await this.call("Storage.clearDataForOrigin",{origin:ORIGIN,storageTypes:"local_storage,indexeddb,cache_storage,service_workers"});
     await this.call("Network.setCookies",{cookies});
     await this.call("Page.reload",{ignoreCache:true});
     this.reset();this.appliedSession=input.version;
@@ -138,7 +141,7 @@ export class BrowserConnection {
       const controller=new AbortController();trstRelayControllers.set(id,controller);
       try {
         const cookies=Object.fromEntries(document.cookie.split(';').map(p=>{const i=p.indexOf('=');return [p.slice(0,i).trim(),p.slice(i+1)]}));
-        if(cookies.authenticated!=='true'||cookies.premium!=='true'||!cookies.useridtoken)throw Error('session');
+        if(!cookies.useridtoken)throw Error('session');
         input.headers.useridtoken=input.browserToken;
         const token=input.headers.useridtoken;
         let claims={};try{claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{}
