@@ -17,7 +17,7 @@ import {grammarlyAccountMatches,isGrammarlyProviderAccount,type GrammarlyProvide
  *   - each writer only sees and opens the documents they created.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   decryptGrammarlySession,
@@ -170,7 +170,7 @@ export function rewriteGrammarlyBody(text: string, publicOrigin: string, debug =
  * (fetch, XHR, WebSocket, EventSource, beacons) onto the proxy host, and gives
  * the editor a readable CSRF cookie (the real token is added server-side).
  */
-export function grammarlyBootstrapScript(debug = false) {
+export function grammarlyBootstrapScript(debug = false, formNonce = "trst-proxy") {
   return `<script>(function(){try{${debug ? GRAMMARLY_DEBUG_CAPTURE : ""}
 var O=location.origin,W=O.replace(/^https:/,"wss:");
 var R=/^(https?|wss?):\\/\\/([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.grammarly\\.(?:com|io)|codacontent\\.io)(\\/[^]*)?$/i;
@@ -184,8 +184,8 @@ if(window.EventSource){var E=window.EventSource;window.EventSource=function(u,c)
 if(navigator.sendBeacon){var B=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return B(map(u),d)}}
 var WO=window.open;window.open=function(u){if(u){var t=map(u);if(t===u&&/^https?:/i.test(String(u))&&!String(u).startsWith(O))return null;arguments[0]=t}return WO.apply(this,arguments)};
 var CD=Object.getOwnPropertyDescriptor(Document.prototype,"cookie");if(CD&&CD.set){Object.defineProperty(document,"cookie",{configurable:true,get:function(){return CD.get.call(document)},set:function(v){CD.set.call(document,String(v).replace(/;\\s*domain=[^;]*/ig,""))}})}
-if(document.cookie.indexOf("csrf-token=")<0)document.cookie="csrf-token=trst-proxy; path=/; secure; samesite=lax";
-if(document.cookie.indexOf("csrf_token=")<0)document.cookie="csrf_token=trst-proxy; path=/; secure; samesite=lax";
+document.cookie="csrf-token="+${JSON.stringify(formNonce)}+"; path=/; secure; samesite=lax";
+document.cookie="csrf_token="+${JSON.stringify(formNonce)}+"; path=/; secure; samesite=lax";
 }catch(e){}})();</script>`;
 }
 
@@ -551,7 +551,13 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   const writerId = String(session.user_id);
   const account:GrammarlyProviderAccount=session.provider_account_key;
   if(url.pathname==="/__trst/reset")return grammarlyStorageResetPage(writerId,account);
-  if(!["GET","HEAD"].includes(request.method)&&request.headers.get("origin")!==publicOrigin)return plain(403,"Invalid request origin.");
+  const formNonce=createHmac("sha256",process.env.SUPABASE_SERVICE_ROLE_KEY || "").update(JSON.stringify(["grammarly-newdoc",session.id,writerId,account])).digest("hex");
+  if(!["GET","HEAD"].includes(request.method)&&request.headers.get("origin")!==publicOrigin){
+    // Native document creation submits from an iframe and redirects across
+    // provider origins. Accept its opaque origin only with this session's CSRF.
+    const nativeForm=request.method==="POST" && /^\/newdoc(?:\/|$)/.test(url.pathname) && request.headers.get("content-type")?.includes("application/x-www-form-urlencoded") && new URLSearchParams(new TextDecoder().decode(body)).get("csrfToken")===formNonce;
+    if(!nativeForm)return plain(403,"Invalid request origin.");
+  }
 
   const target = upstreamTarget(request.url);
   if (!target) return plain(403, "This Grammarly address is not allowed.");
@@ -719,7 +725,7 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   if (socketParams && upstream.ok) text = sealCodaHandshake(text, writerId+":"+account, socketParams.documentId, process.env.SUPABASE_SERVICE_ROLE_KEY || "");
 
   if (type.includes("text/html")) {
-    text = text.replace(/<head([^>]*)>/i, (m) => m + grammarlyWriterMarker(writerId,account) + grammarlyBootstrapScript(debug));
+    text = text.replace(/<head([^>]*)>/i, (m) => m + grammarlyWriterMarker(writerId,account) + grammarlyBootstrapScript(debug,formNonce));
     out.set("Cache-Control", "no-store");
   }
 
