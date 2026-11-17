@@ -260,7 +260,7 @@ export async function readAttachment(userId: string, threadId: string, id: strin
     throw Error("Invalid attachment checksum.");
   return { ref, bytes };
 }
-async function uploadAttachment(
+export async function uploadAttachment(
   userId: string,
   identity: string,
   ref: AttachmentRef,
