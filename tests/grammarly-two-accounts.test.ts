@@ -26,6 +26,7 @@ globalThis.fetch=(async(input:any,init:any)=>{
  const h=new Headers(init?.headers),account=(h.get("cookie")??"").includes("account-session-2")?2:1;
  calls.push({url:String(input),account,auth:h.get("authorization"),csrf:h.get("x-csrf-token")});
  if(String(input).includes("auth.grammarly.com/v3/user"))return Response.json({id:anonymous?0:account,anonymous},{headers:{"Set-Cookie":"csrf-token=verification-csrf; Path=/; Secure"}});
+ if(String(input).includes("coda.grammarly.com/internalAppApi/doclist/recent"))return Response.json({items:[{docId:"ownDoc0001",title:"One"},{docId:"otherDoc002",title:"Two"}],nextPageToken:null});
  if(String(input).includes("dox.grammarly.com")){
   if(init.method==="POST")return Response.json({id:account===1?1001:2002,user_id:account,title:"Private document"});
   return Response.json([{id:1001,user_id:1,title:"One"},{id:2002,user_id:2,title:"Two"}]);
@@ -44,6 +45,17 @@ try{
  const listed=await handle(req(i,"/__host/dox.grammarly.com/documents"));const payload=await listed.json();assert.equal(payload.length,1);assert.equal(payload[0].id,i===0?1001:2002);
  }
  assert.equal((await handle(req(0,"/__host/dox.grammarly.com/documents/2002"))).status,404);
+ owners.push({document_id:"coda:ownDoc0001",user_id:"writer1",provider_account_key:"account_1"},{document_id:"coda:otherDoc002",user_id:"writer2",provider_account_key:"account_2"});
+ for(let i=0;i<2;i++){
+  const result=await handle(req(i,"/internalAppApi/doclist/recent"));assert.equal(result.status,200);
+  assert.deepEqual((await result.json()).items.map((x:any)=>x.docId),[i===0?"ownDoc0001":"otherDoc002"]);
+ }
+ let count=calls.length;
+ assert.equal((await handle(req(1,"/internalAppApi/documents/ownDoc0001/metadata"))).status,404);
+ assert.equal((await handle(req(0,"/internalAppApi/documents/ownDoc0001/sharing",{}))).status,403);
+ assert.equal((await handle(req(0,"/internalAppApi/documents/ownDoc0001/assistant/chat",{documentId:"otherDoc002"}))).status,404);
+ assert.equal(calls.length,count);
+
  const before=calls.length;controls[0].provider_account_key="account_2";assert.equal((await handle(req(0))).status,401);assert.equal(calls.length,before);controls[0].provider_account_key="account_1";
  accounts[1].status="revoked";assert.equal((await handle(req(1))).status,503);assert.equal(calls.length,before);accounts[1].status="stored";
  dbError=true;assert.equal((await handle(req(0,"/__host/dox.grammarly.com/documents"))).status,503);await assert.rejects(()=>grammarlyDocumentOwner("1001","account_1"));await assert.rejects(()=>claimDocument("1234","writer1","account_1"));dbError=false;
