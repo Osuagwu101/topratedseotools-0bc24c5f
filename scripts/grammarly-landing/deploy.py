@@ -15,7 +15,7 @@ for port in range(3400,3500):
   except OSError:continue
 else:raise RuntimeError('No free release port')
 env=dict(old.get('env',{}));env.update({k:v for k,v in old.items() if isinstance(v,str) and k.startswith(('SUPABASE_','VITE_','CLAUDE_','CHATGPT_','GRAMMARLY_','STEALTHWRITER_','PHRASLY_','PAYSTACK_','TURNITIN_'))});env.update(PORT=str(port),NITRO_PORT=str(port),HOST='127.0.0.1',NITRO_HOST='127.0.0.1')
-private=root/'.deploy-private.json';private.write_text(json.dumps({'apps':[{'name':'trst-grammarly-landing-main','script':'.output/server/index.mjs','cwd':str(root),'node_args':old.get('node_args',[]),'env':env}]}));private.chmod(0o600)
+private=root/'.deploy-private.json';private.write_text(json.dumps({'apps':[{'name':'trst-grammarly-landing-main-'+str(port),'script':'.output/server/index.mjs','cwd':str(root),'node_args':old.get('node_args',[]),'env':env}]}));private.chmod(0o600)
 try:subprocess.check_call(['pm2','start',str(private)],stdout=subprocess.DEVNULL)
 finally:private.unlink()
 for attempt in range(20):
@@ -31,7 +31,7 @@ for route in ['/tools/grammarly','/tools/chatgpt','/turnitin','/login']:
   assert response.status==200
   html=response.read().decode()
   if route=='/tools/grammarly':
-   assert 'Share the access.' in html and 'gr-plans' in html and 'Choose Monthly' in html
+   assert 'Share the access.' in html and 'gr-plans' in html and '/order/grammarly?plan=' in html
   if route=='/tools/chatgpt':assert 'gr-hero-grid' not in html
 backup=Path('/home/ubuntu/deploy-backups/grammarly-landing-20261117');backup.mkdir(parents=True,exist_ok=True)
 saved=backup/'topratedseotools';assert not saved.exists(),'A rollback config already exists';saved.write_text(original)
