@@ -68,11 +68,22 @@ export const adminListChatGptAccounts=createServerFn({method:"GET"}).middleware(
  if(error)throw Error("Could not check account permissions.");
  return {can_manage:!!data,accounts:await Promise.all(["account_1","account_2"].map(key=>accountMetadata(admin,key)))};
 });
+async function backupBeforeChatGptSessionChange(admin:any,account:string) {
+ if(process.env.CHATGPT_DURABLE_HISTORY!=='1')return;
+ const {data:old,error}=await admin.from('chatgpt_provider_accounts').select('status,encrypted_payload').eq('account_key',account).maybeSingle();
+ if(error)throw Error('Could not check the existing ChatGPT account.');
+ if(old?.status==='stored' && old.encrypted_payload) {
+  const {backupChatGptAccount}=await import('./chatgpt-history-backup.server');
+  const result=await backupChatGptAccount(account as 'account_1'|'account_2',old.encrypted_payload);
+  if(result.failed)throw Error('Account unchanged: some chats could not be backed up. Refresh the existing session and retry.');
+ }
+}
 export const adminSaveChatGptSession=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
  .inputValidator(input=>accountInput.extend({session_data:z.string().min(2).max(500000)}).parse(input))
  .handler(async({data,context})=>{
  const admin=await assertSuperAdmin(context),now=new Date().toISOString();
  const encrypted=encryptChatGptSession(normaliseChatGptSession(data.session_data));
+ await backupBeforeChatGptSessionChange(admin,data.account_key);
  const payload={encrypted_payload:encrypted,status:"stored",updated_by:context.userId,updated_at:now};
  const result=data.account_key==="account_1"
  ?await admin.from("tool_authorized_sessions").upsert({...payload,tool_slug:TOOL_SLUG,session_format:CHATGPT_SESSION_FORMAT},{onConflict:"tool_slug"})
@@ -87,6 +98,7 @@ export const adminSaveChatGptSession=createServerFn({method:"POST"}).middleware(
 export const adminRevokeChatGptSession=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
  .inputValidator(input=>accountInput.parse(input??{})).handler(async({data,context})=>{
  const admin=await assertSuperAdmin(context);
+ await backupBeforeChatGptSessionChange(admin,data.account_key);
  const result=data.account_key==="account_1"
  ?await admin.from("tool_authorized_sessions").update({status:"revoked",updated_at:new Date().toISOString()}).eq("tool_slug",TOOL_SLUG)
  :await admin.from("chatgpt_provider_accounts").update({status:"revoked",verified_at:null,updated_at:new Date().toISOString()}).eq("account_key",data.account_key);

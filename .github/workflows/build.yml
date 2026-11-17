@@ -40,6 +40,10 @@ jobs:
         run: bun tests/chatgpt-proxy.test.ts
       - name: ChatGPT per-writer history isolation
         run: bun tests/chatgpt-isolation.test.ts
+      - name: ChatGPT durable history and renewal
+        run: bun tests/chatgpt-durable-history.test.ts
+      - name: ChatGPT two-account routing
+        run: bun tests/chatgpt-two-accounts.test.ts
       - name: Claude native Admin pilot
         run: bun tests/claude-native-pilot.test.ts
 
