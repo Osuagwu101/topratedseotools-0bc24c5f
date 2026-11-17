@@ -14,7 +14,7 @@ const realFetch=globalThis.fetch;
 globalThis.fetch=async input=>{const u=new URL(String(input));assert.equal(u.origin,'https://database.test');const table=u.pathname.split('/').at(-1);const rows=(tables[table]??[]).filter(r=>[...u.searchParams].every(([k,v])=>!v.startsWith('eq.')||String(r[k])===v.slice(3)));return Response.json(rows);};
 const providers=[];
 class Provider extends EventEmitter{
- constructor(target,protocols,options){super();this.headers=options.headers;this.frames=[];this.readyState=0;providers.push(this);queueMicrotask(()=>{this.readyState=WS.OPEN;this.emit('open')});}
+ constructor(target,protocols,options){super();this.target=target;this.headers=options.headers;this.frames=[];this.readyState=0;providers.push(this);queueMicrotask(()=>{this.readyState=WS.OPEN;this.emit('open')});}
  send(data,options){this.frames.push(String(data));queueMicrotask(()=>this.emit('message',data,options.binary));}
  close(code=1000,reason=''){if(this.readyState===WS.CLOSED)return;this.readyState=WS.CLOSED;this.emit('close',code,reason);}
 }
@@ -36,5 +36,17 @@ try{
  const binaryReply=once(owned,'message');owned.send(Buffer.from([1,2,3]));assert.deepEqual((await binaryReply)[0],Buffer.from([1,2,3]));
  const foreignSocket=socket(1,'/__ws/dox.grammarly.com/documents/2002/ws');
  const foreignStatus=await new Promise(resolve=>{foreignSocket.once('unexpected-response',(_req,res)=>{res.resume();foreignSocket.terminate();resolve(res.statusCode)});foreignSocket.on('error',()=>{});});assert.equal(foreignStatus,403);
+
+ tables.grammarly_document_owners.push({document_id:'coda:ownDoc0001',user_id:'writer1',provider_account_key:'account_1'});
+ const params=Buffer.from(JSON.stringify({documentId:'ownDoc0001',csrfToken:'browser'})).toString('base64url');
+ const codaPath='/__ws/coda.grammarly.com/document_server/?transport=websocket&params='+params;
+ const coda=socket(1,codaPath);await once(coda,'open');
+ assert.equal(providers.at(-1).headers.Origin,'https://coda.grammarly.com');
+ assert.equal(providers.at(-1).headers.Cookie,'grauth=provider-cookie-1');
+ let reply=once(coda,'message');coda.send('40/document_server,{}');await reply;
+ const codaClosed=once(coda,'close');coda.send('42/document_server,["open",{"documentId":"foreignDoc001"}]');assert.equal((await codaClosed)[0],4403);
+ const count=providers.length;
+ const badSid=socket(1,codaPath+'&sid=unsealed');
+ const badSidStatus=await new Promise(resolve=>{badSid.once('unexpected-response',(_req,res)=>{res.resume();badSid.terminate();resolve(res.statusCode)});badSid.on('error',()=>{});});assert.equal(badSidStatus,403);assert.equal(providers.length,count);
  console.log('Grammarly WebSockets: real downstream sockets, independent upstream cookies, owned frames, foreign-document rejection, idle reassignment closure and revoked-account handshake checks passed.');
 }finally{clients.forEach(c=>{try{c.terminate()}catch{}});await new Promise(resolve=>server.close(resolve));globalThis.fetch=realFetch;}
