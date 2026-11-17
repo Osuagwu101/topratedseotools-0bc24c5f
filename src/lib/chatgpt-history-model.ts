@@ -4,15 +4,18 @@ export const isHistoryId = (id: unknown): id is string => typeof id === 'string'
 export function validSnapshot(data: any, upstreamId: string): data is HistorySnapshot {
  return data && (data.conversation_id ?? data.id) === upstreamId && data.mapping && typeof data.mapping === 'object' && !Array.isArray(data.mapping) && typeof data.current_node === 'string' && !!data.mapping[data.current_node];
 }
-export function historyMessages(snapshot: HistorySnapshot) {
+export function historyBranchMessages(snapshot: HistorySnapshot) {
  const out: any[] = [], seen = new Set<string>();
  let id: string | null = snapshot.current_node;
  while(id && !seen.has(id)) {
   seen.add(id); const node: any = snapshot.mapping[id]; if(!node) break;
-  if(node.message && ['user','assistant'].includes(node.message.author?.role) && !node.message.metadata?.is_visually_hidden_from_conversation && node.message.channel!=='analysis' && node.message.content?.content_type!=='thoughts' && (!node.message.recipient || node.message.recipient==='all')) out.unshift(node.message);
+  if(node.message && !node.message.metadata?.is_visually_hidden_from_conversation && node.message.channel!=='analysis' && node.message.content?.content_type!=='thoughts' && (!node.message.recipient || node.message.recipient==='all')) out.unshift(node.message);
   id = node.parent;
  }
  return out;
+}
+export function historyMessages(snapshot: HistorySnapshot) {
+ return historyBranchMessages(snapshot).filter(m => ['user','assistant'].includes(m.author?.role));
 }
 export function messageText(message: any): string {
  return (message?.content?.parts ?? []).filter((part: unknown) => typeof part === 'string').join('\n');

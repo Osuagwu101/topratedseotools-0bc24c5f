@@ -195,6 +195,26 @@ try {
  assert(!await claimOwnedGeneratedFile(userB,'race-identity',generatedId,generatedChat,'account_1',new Headers()));
  assert(await claimOwnedGeneratedFile(userA,'race-identity',generatedId,generatedChat,'account_1',new Headers()));
  const {signedAssetUrl,boundedBytes,attachmentRefs}=await import('../src/lib/chatgpt-attachment-model');
+ // Native image generation returns visible tool messages using sediment:// pointers.
+ const toolImage='file_tool_image',toolChat=randomUUID(),toolSnap=snapshot(toolChat,'make a flyer','Done');
+ const toolNode=randomUUID(),finalNode=toolSnap.mapping[toolSnap.current_node],parentNode=finalNode.parent;
+ toolSnap.mapping[toolNode]={parent:parentNode,children:[toolSnap.current_node],message:{id:toolNode,author:{role:'tool',name:'image_gen'},recipient:'all',channel:'commentary',content:{content_type:'multimodal_text',parts:[{content_type:'image_asset_pointer',asset_pointer:'sediment://'+toolImage,width:1024,height:1536},'Internal tool text must not replay']}}};
+ finalNode.parent=toolNode;
+ assert.equal(attachmentRefs(toolSnap).find(r=>r.fileId===toolImage)?.role,'assistant');
+ assert(!JSON.stringify(historyMessages(toolSnap)).includes('Internal tool text'));
+ const hiddenTool=structuredClone(toolSnap);hiddenTool.mapping[toolNode].message.channel='analysis';assert(!attachmentRefs(hiddenTool).some(r=>r.fileId===toolImage));
+ providerFiles.set(toolImage,new Uint8Array([137,80,78,71,13,10,26,10]));snapshots.set(toolChat,toolSnap);
+ tables.chatgpt_conversation_owners.push({conversation_id:toolChat,provider_account_key:'account_1',user_id:userA});
+ assert.equal((await handle(req(1,'/backend-api/estuary/content?id='+toolImage+'&cid='+toolChat))).status,404);
+ const nativeImage=await handle(req(0,'/backend-api/estuary/content?id='+toolImage+'&cid='+toolChat));assert.notEqual(nativeImage.status,404);
+ const {captureAttachments}=await import('../src/lib/chatgpt-attachments.server');
+ await saveSnapshot(userA,'account_1','tool-identity',toolChat,toolSnap);
+ await captureAttachments(userA,toolChat,'tool-identity',toolChat,toolSnap,new Headers());
+ const toolAssets=await attachmentRows(userA,toolChat);assert.equal(toolAssets.length,1);assert.equal(toolAssets[0].status,'ready');
+ providerFiles.delete(toolImage);assert.equal((await readAttachment(userA,toolChat,toolAssets[0].id))?.bytes.length,8);
+ assert.equal(await readAttachment(userB,toolChat,toolAssets[0].id),null);
+ const stolenImage=prompt('use image');stolenImage.messages[0].content={content_type:'multimodal_text',parts:[{content_type:'image_asset_pointer',asset_pointer:'sediment://'+toolImage},'use image']} as any;
+ assert.equal((await handle(req(1,'/backend-api/f/conversation',stolenImage))).status,404);
  for(const url of ['http://files.oaiusercontent.com/a','https://127.0.0.1/a','https://files.oaiusercontent.com.evil.test/a','https://evil.test/a'])assert.throws(()=>signedAssetUrl(url));
  await assert.rejects(()=>boundedBytes(new Response(new Uint8Array(10)),4),/25 MB/);
  const scan=structuredClone(binaryThread.snapshot);historyMessages(scan)[1].content.parts=['[bad](sandbox:/mnt/data/../secret) [remote](https://evil.test/a)'];assert(!attachmentRefs(scan).some(r=>r.kind==='download'));

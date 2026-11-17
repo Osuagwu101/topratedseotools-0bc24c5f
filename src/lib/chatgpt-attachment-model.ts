@@ -1,4 +1,4 @@
-import { historyMessages, type HistorySnapshot } from "./chatgpt-history-model";
+import { historyBranchMessages, type HistorySnapshot } from "./chatgpt-history-model";
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export type AttachmentRef = {
   key: string;
@@ -14,6 +14,8 @@ export type AttachmentRef = {
 };
 const fileId = (v: unknown) =>
   typeof v === "string" && /^file[-_][A-Za-z0-9_-]{1,200}$/.test(v) ? v : undefined;
+export const imagePointerFileId = (v: unknown) =>
+  fileId(typeof v === "string" ? v.replace(/^(?:file-service|sediment):\/\//, "") : null);
 const name = (v: unknown, fallback: string) =>
   String(v || fallback)
     .split(/[\\/]/)
@@ -23,7 +25,9 @@ const name = (v: unknown, fallback: string) =>
 /** Only visible messages can supply downloadable or replayable attachments. Never follow arbitrary URLs. */
 export function attachmentRefs(snapshot: HistorySnapshot): AttachmentRef[] {
   const refs = new Map<string, AttachmentRef>();
-  for (const m of historyMessages(snapshot)) {
+  for (const m of historyBranchMessages(snapshot)) {
+    const generated = m.author?.role === "tool";
+    if (!generated && !["user", "assistant"].includes(m.author?.role)) continue;
     const messageId = String(m.id ?? "");
     if (!/^[A-Za-z0-9_-]{1,200}$/.test(messageId)) continue;
     const add = (r: Omit<AttachmentRef, "key" | "messageId" | "role">) => {
@@ -37,10 +41,10 @@ export function attachmentRefs(snapshot: HistorySnapshot): AttachmentRef[] {
         kind: old?.kind === "image" ? "image" : r.kind,
         key,
         messageId,
-        role: m.author.role,
+        role: generated ? "assistant" : m.author.role,
       });
     };
-    for (const a of m.metadata?.attachments ?? []) {
+    for (const a of generated ? [] : m.metadata?.attachments ?? []) {
       const id = fileId(a.id ?? a.file_id);
       add({
         kind: id ? "file" : "unsupported",
@@ -51,6 +55,7 @@ export function attachmentRefs(snapshot: HistorySnapshot): AttachmentRef[] {
     }
     for (const p of m.content?.parts ?? []) {
       if (typeof p === "string") {
+        if (generated) continue;
         for (const match of p.matchAll(/\[[^\]\n]*\]\(sandbox:(\/mnt\/data\/[^)\r\n]+)\)/g)) {
           let path: string;
           try {
@@ -69,7 +74,9 @@ export function attachmentRefs(snapshot: HistorySnapshot): AttachmentRef[] {
         }
       } else if (p && typeof p === "object") {
         const raw = p.asset_pointer ?? p.image_asset_pointer,
-          id = fileId(typeof raw === "string" ? raw.replace(/^file-service:\/\//, "") : null);
+          id = imagePointerFileId(raw);
+        // Tool text and arbitrary tool outputs must never become replay context.
+        if (generated && (p.content_type !== "image_asset_pointer" || !id)) continue;
         add({
           kind: id ? "image" : "unsupported",
           fileId: id,

@@ -2,6 +2,7 @@ import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttac
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
+import {imagePointerFileId} from './chatgpt-attachment-model';
 import {chatGptAccountAuthorization,chatGptAccountSession} from "./chatgpt-account-auth.server";
 import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccount} from "./chatgpt-account-policy";
 /*
@@ -1219,7 +1220,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     try {
      const fileId=filePath?.[1]??(target.pathname==='/backend-api/estuary/content'?target.searchParams.get('id'):null);
      if(fileId && !await ownsWriterFile(writerId,historyIdentity,fileId)) {
-      const conversation=target.searchParams.get('conversation_id')??conversationIdFromDocumentPath(new URL(request.headers.get('referer')??request.url).pathname.replace(proxyBase,''));
+      const conversation=target.searchParams.get('conversation_id')??target.searchParams.get('cid')??conversationIdFromDocumentPath(new URL(request.headers.get('referer')??request.url).pathname.replace(proxyBase,''));
       if(request.method!=='GET'||!conversation||!await claimOwnedGeneratedFile(writerId,historyIdentity,fileId,conversation,account,providerHeaders))return jsonResponse({detail:'File not found'},404);
      }
      if(request.method==='GET' && /^\/backend-api\/files\/?$/.test(target.pathname))return jsonResponse({detail:'Open Saved chats to view your private files.'},403);
@@ -1228,7 +1229,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
        const ids=new Set<string>();
        for(const a of m.metadata?.attachments??[])if(typeof (a.id??a.file_id)==='string')ids.add(a.id??a.file_id);
        for(const p of m.content?.parts??[])if(p&&typeof p==='object') {
-        const raw=p.asset_pointer??p.image_asset_pointer;if(typeof raw==='string'&&raw.startsWith('file-service://'))ids.add(raw.slice(15));
+        const id=imagePointerFileId(p.asset_pointer??p.image_asset_pointer);if(id)ids.add(id);
        }
        for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id))return jsonResponse({detail:'File not found'},404);
       }
