@@ -343,6 +343,9 @@ export const createOrder = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { detectCheckoutEnvironment, validateAndBuildOrderSnapshot, CheckoutError } =
       await import("@/lib/paystack-checkout");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { loadGatewaySecrets } = await import("@/lib/gateways/secrets.server");
+    await loadGatewaySecrets(supabaseAdmin);
     const env = detectCheckoutEnvironment(process.env.PAYSTACK_SECRET_KEY);
 
     let snapshot;
