@@ -1,7 +1,7 @@
 """Activate a clean GitHub release after migration, backfill and validation.
 Only the main/Admin and ChatGPT vhosts change. Every other provider stays running.
 """
-import json,subprocess,time,urllib.request,re
+import json,subprocess,time,urllib.request,re,socket
 from pathlib import Path
 root=Path(__file__).resolve().parents[2]
 def run(*a):return subprocess.check_output(a,text=True)
@@ -11,7 +11,12 @@ processes=json.loads(run('pm2','jlist'))
 backup=Path('/home/ubuntu/deploy-backups/chatgpt-history-20261117');backup.mkdir(exist_ok=True)
 configs=[];sources={}
 current_configs={v:run('sudo','cat','/etc/nginx/sites-enabled/'+v) for v in ['topratedseotools','chatgpt-proxy']}
-main_port,chat_port=('3296','3297') if any('127.0.0.1:3294;' in t or '127.0.0.1:3295;' in t for t in current_configs.values()) else ('3294','3295')
+def unused(port):
+ probe=socket.socket()
+ try:probe.bind(('127.0.0.1',int(port)));return True
+ except OSError:return False
+ finally:probe.close()
+main_port,chat_port=next(pair for pair in [('3294','3295'),('3296','3297'),('3298','3299'),('3304','3305'),('3306','3307')] if all(unused(port) for port in pair))
 for vhost,newport in [('topratedseotools',main_port),('chatgpt-proxy',chat_port)]:
  path='/etc/nginx/sites-enabled/'+vhost;original=run('sudo','cat',path)
  match=re.search(r'location / \{[^}]*?proxy_pass http://127\.0\.0\.1:(\d+);',original)
