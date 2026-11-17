@@ -1,4 +1,7 @@
-import {chatGptAccountAuthorization} from "./chatgpt-account-auth.server";
+import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
+import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
+import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
+import {chatGptAccountAuthorization,chatGptAccountSession} from "./chatgpt-account-auth.server";
 import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccount} from "./chatgpt-account-policy";
 /*
  * Phase 3 — ChatGPT server-side one-click proxy for authorised internal writers.
@@ -11,7 +14,7 @@ import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccou
  * - browser-storage state remains in the vault and is not exposed client-side.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   buildOwnedConversationPage,
   conversationIdFromApiPath,
@@ -778,6 +781,7 @@ export function buildChatGPTUpstreamUrl(
   target.pathname = targetPath.startsWith("/") ? targetPath : `/${targetPath}`;
   target.search = incoming.search;
   target.searchParams.delete("ticket");
+  target.searchParams.delete("trst_resume");
   return target;
 }
 
@@ -866,6 +870,7 @@ export function upstreamHeaders(
   if (incomingReferer) {
     try {
       const r = new URL(incomingReferer);
+      r.searchParams.delete("trst_resume");
       const proxiedPath =
         proxyBase === ""
           ? r.pathname
@@ -1005,6 +1010,13 @@ export async function handleChatGPTProxyRequest(request: Request) {
       ? url.pathname.slice(CHATGPT_PROXY_BASE.length)
       : "";
 
+  const durable = durableHistoryEnabled();
+  if(durable) {
+    try {
+      const route = await historyRoute(request,suffix,proxyBase,String(proxySession.user_id),String(proxySession.id),jsonResponse);
+      if(route) return route;
+    } catch { return unavailable(); }
+  }
   let targetOrigin = CHATGPT_UPSTREAM_ORIGIN;
   let targetPath = mapChatGPTClientApiPath(suffix || CHATGPT_LANDING_PATH);
   let isSecondaryHost = false;
@@ -1038,11 +1050,30 @@ export async function handleChatGPTProxyRequest(request: Request) {
   const writerId = String(proxySession.user_id);
   const account:ChatGptProviderAccount = proxySession.provider_account_key;
   const isChatGptOrigin = targetOrigin === CHATGPT_UPSTREAM_ORIGIN;
-  const bodyText =
+  let bodyText =
     body && body.byteLength <= 2 * 1024 * 1024 &&
     /json|text/i.test(request.headers.get("content-type") ?? "")
       ? new TextDecoder().decode(body)
       : null;
+  const addressedHistoryId = isChatGptOrigin ? (conversationIdFromApiPath(target.pathname) ?? conversationIdFromDocumentPath(target.pathname) ?? conversationIdFromBody(bodyText)) : null;
+  let savedHistory: any = null;
+  if(durable && addressedHistoryId) {
+    try { savedHistory = await threadForAlias(writerId,addressedHistoryId); }
+    catch { return unavailable(); }
+  }
+  const originalMessages = durable && bodyText ? (()=>{try{return JSON.parse(bodyText).messages;}catch{return undefined;}})() : undefined;
+  let continuationThread: string | undefined;
+  let resumeToken = durable ? request.headers.get('x-trst-history-resume') : null;
+  if(resumeToken) {
+    try {
+      const intent=await historyResume(writerId,String(proxySession.id),resumeToken);
+      if(!intent || intent.upstream_id) return jsonResponse({detail:'Continuation expired or already started. Open Saved chats and choose Continue again.'},409);
+      if(request.method!=='POST' || !/^\/backend-api\/(?:f\/)?conversation\/?$/i.test(target.pathname)) return jsonResponse({detail:'Invalid continuation request.'},400);
+      const claimed=await claimHistoryResume(writerId,String(proxySession.id),resumeToken);
+      if(!claimed) return jsonResponse({detail:'This continuation has already started.'},409);
+      continuationThread=intent.thread_id;
+    } catch {return unavailable();}
+  }
   if (isChatGptOrigin) {
     if (isBlockedChatGptApiRequest(request.method, target.pathname)) {
       return forbidden("This action is disabled on the shared ChatGPT account.");
@@ -1058,7 +1089,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       conversationIdFromApiPath(target.pathname) ??
       (isDocument ? conversationIdFromDocumentPath(target.pathname) : null) ??
       (request.method === "POST" ? conversationIdFromBody(bodyText) : null);
-    if (addressed) {
+    if (addressed && !savedHistory) {
       let owner: string | null = null;
       try {
         owner = await ownerOfConversation(addressed,account);
@@ -1091,7 +1122,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       return unavailable();
     }
   }
-  if (listPage && ownedIds && ownedIds.size === 0) {
+  if (!durable && listPage && ownedIds && ownedIds.size === 0) {
     return jsonResponse(buildOwnedConversationPage([], ownedIds, listPage.offset, listPage.limit), 200);
   }
   if (listPage) {
@@ -1146,6 +1177,38 @@ export async function handleChatGPTProxyRequest(request: Request) {
       providerHeaders.set("Authorization",await chatGptAccountAuthorization(account,sessionSnapshot,providerHeaders));
     }
   }catch{return unavailable();}
+  let historyIdentity: string | null = null;
+  if(durable && isChatGptOrigin && !isImmutableChatGPTAssetPath(targetOrigin,target.pathname)) {
+    try {
+      const providerSession=await chatGptAccountSession(account,sessionSnapshot,providerHeaders);
+      if(!providerSession.identity) return unavailable();
+      historyIdentity=providerSession.identity;
+      providerHeaders.set('Authorization','Bearer '+providerSession.token);
+      if(savedHistory) {
+        const isCurrent=savedHistory.latest_provider_identity===historyIdentity && savedHistory.latest_upstream_id===addressedHistoryId;
+        if(request.method==='GET' && isChatGptDocumentRequest(request) && !isCurrent) {
+          return new Response(historyPage(proxyBase,[],savedHistory),{headers:standardHeaders('text/html; charset=utf-8')});
+        }
+        if(request.method==='GET' && !isCurrent && conversationIdFromApiPath(target.pathname)) {
+          if(!/^\/backend-api\/(?:f\/)?conversation\/[0-9a-f-]{36}\/?$/i.test(target.pathname)) return jsonResponse({detail:'Open Saved chats to continue this conversation.'},409);
+          return jsonResponse({...savedHistory.snapshot,id:addressedHistoryId,conversation_id:addressedHistoryId},200);
+        }
+        if(!['GET','HEAD'].includes(request.method) && !isCurrent) {
+          if(!/^\/backend-api\/(?:f\/)?conversation\/?$/i.test(target.pathname)) return jsonResponse({detail:'Open Saved chats to continue this conversation.'},409);
+          continuationThread=savedHistory.id;
+        }
+      }
+      if(continuationThread) {
+        const source=savedHistory?.id===continuationThread?savedHistory:await threadForAlias(writerId,continuationThread);
+        if(!source) return jsonResponse({detail:'Conversation not found'},404);
+        const next=continuationBody(JSON.parse(bodyText??'{}'),source.snapshot,randomUUID());
+        bodyText=JSON.stringify(next);body=new TextEncoder().encode(bodyText).buffer;
+      }
+    } catch(error) {
+      if(error instanceof HistoryContextError) return jsonResponse({detail:error.message},409);
+      return unavailable();
+    }
+  }
   let upstream: Response;
   try {
     upstream = await fetch(target, {
@@ -1244,11 +1307,21 @@ export async function handleChatGPTProxyRequest(request: Request) {
   // incrementally. Binary/non-rewriteable bodies are streamed for the same reason.
   if (contentType.includes("text/event-stream")) {
     headers.set("Cache-Control", "no-store");
-    const streamBody =
+    let streamBody =
       isChatGptOrigin && request.method === "POST" && upstream.body &&
       /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)
         ? teeConversationOwnership(upstream.body, writerId, account)
         : upstream.body;
+    if(durable && historyIdentity && streamBody && isChatGptOrigin && request.method==='POST' && upstream.ok && /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)) {
+      const identity=historyIdentity;
+      const canonical=continuationThread ?? savedHistory?.id;
+      streamBody=captureHistoryStream(streamBody,async id=>{
+        if(resumeToken) await finishHistoryResume(resumeToken,id);
+      },async id=>{
+        try { await captureConversation(writerId,account,identity,id,providerHeaders,canonical,originalMessages); }
+        catch { console.error('[chatgpt-history] reply backup failed'); }
+      });
+    }
     return new Response(streamBody, {
       status: upstream.status,
       headers,
@@ -1277,10 +1350,12 @@ export async function handleChatGPTProxyRequest(request: Request) {
     } catch {
       return unavailable();
     }
-    return new Response(
-      JSON.stringify(buildOwnedConversationPage(pages, ownedIds, listPage.offset, listPage.limit)),
-      { status: 200, headers },
-    );
+    let page = buildOwnedConversationPage(pages,ownedIds,durable?0:listPage.offset,durable?5000:listPage.limit);
+    if(durable) {
+      try {page=mergeHistoryPage(page,await savedHistoryItems(writerId,historyIdentity??undefined),listPage.offset,listPage.limit);}
+      catch {return unavailable();}
+    }
+    return new Response(JSON.stringify(page),{status:200,headers});
   }
 
   const isRewriteableText =
@@ -1295,11 +1370,17 @@ export async function handleChatGPTProxyRequest(request: Request) {
 
   if (isRewriteableText) {
     const text = await upstream.text();
+    if(durable && historyIdentity && upstream.ok && request.method==='GET' && /^\/backend-api\/conversation\/[0-9a-f-]{36}\/?$/i.test(target.pathname)) {
+      try {
+        const {saveSnapshot}=await import('./chatgpt-history.server');
+        await saveSnapshot(writerId,account,historyIdentity,conversationIdFromApiPath(target.pathname)!,JSON.parse(text),savedHistory?.id);
+      } catch {console.error('[chatgpt-history] opened chat backup failed');}
+    }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){
       const marker=hashChatGPTProxyToken(writerId+":"+account).slice(0,24);
       const script="<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstChatGptAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstChatGptAccount',m)}}catch{}})();</script>";
-      rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script);
+      rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script+(durable?historyBootstrap(proxyBase):''));
     }
     if (isChatGptOrigin && ownedIds && !storeAsset) {
       if (contentType.includes("text/html")) {

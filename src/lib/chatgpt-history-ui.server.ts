@@ -1,0 +1,29 @@
+import {createHistoryResume,savedHistoryItems,savedThread,historySnippet,historyResume} from './chatgpt-history.server';
+const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+export function historyPage(base:string,items:any[],thread?:any) {
+ const content=thread?historySnippet(thread).map(m=>`<article><strong>${m.role==='user'?'You':'ChatGPT'}</strong><div class="message">${esc(m.text||'[File or image reference — original content may require the previous account.]')}</div></article>`).join(''):`<p>Your saved chats stay with your TopRated account when you renew or the official ChatGPT account changes.</p><ul>${items.map(i=>`<li><a href="${base}/__trst/history/${i.id}">${esc(i.title)}</a><small>${esc(new Date(i.update_time).toLocaleString('en-GB',{timeZone:'Africa/Lagos'}))}</small></li>`).join('')}</ul>${!items.length?'<p>Your conversations will appear here after they are backed up.</p>':''}`;
+ return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Saved chats | TopRated SEO Tools</title><style>body{margin:0;background:#212121;color:#ececec;font:16px/1.6 system-ui}main{max-width:820px;margin:auto;padding:30px 20px}a{color:#b9b4ff}nav{display:flex;gap:24px}h1{font-size:25px}article{border-bottom:1px solid #444;padding:20px 0}.message{white-space:pre-wrap;overflow-wrap:anywhere}li{padding:12px 0}small{display:block;color:#aaa}button{background:#d8d5ff;color:#201b3e;border:0;padding:12px 18px;border-radius:8px;cursor:pointer}footer{padding:25px 0;color:#aaa;font-size:14px}</style></head><body><main><nav><a href="${base}/">New chat</a><a href="${base}/__trst/history">Saved chats</a></nav><h1>${thread?esc(thread.title):'Saved chats'}</h1>${thread?`<form method="post" action="${base}/__trst/history/${thread.id}/continue"><button>Continue this conversation</button></form><p><small>Your next text message will use the saved conversation as context. Files and images may need reattaching.</small></p>`:''}${content}<footer>TopRated SEO Tools · Private to your account</footer></main></body></html>`;
+}
+export async function historyRoute(request:Request,path:string,base:string,userId:string,sessionId:string,reply:(body:unknown,status:number)=>Response):Promise<Response|null> {
+ if(path!=='/__trst/history'&&!path.startsWith('/__trst/history/'))return null;
+ const html=(body:string)=>new Response(body,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
+ if(request.method==='GET'&&path==='/__trst/history')return html(historyPage(base,await savedHistoryItems(userId)));
+ if(path==='/__trst/history/resume'&&request.method==='GET') {
+  const token=new URL(request.url).searchParams.get('token')??'';
+  const intent=await historyResume(userId,sessionId,token);
+  const thread=intent?await savedThread(userId,intent.thread_id):null;
+  return thread?reply({title:thread.title},200):reply({detail:'Continuation expired. Open Saved chats and choose Continue again.'},404);
+ }
+ const match=path.match(/^\/__trst\/history\/([0-9a-f-]{36})(\/continue)?$/i);if(!match)return reply({detail:'Not found'},404);
+ const thread=await savedThread(userId,match[1]);if(!thread)return reply({detail:'Conversation not found'},404);
+ if(!match[2]&&request.method==='GET')return html(historyPage(base,[],thread));
+ if(match[2]&&request.method==='POST') {
+  const token=await createHistoryResume(userId,thread.id,sessionId);
+  return new Response(null,{status:303,headers:{Location:base+'/?trst_resume='+token,'Cache-Control':'no-store'}});
+ }
+ return reply({detail:'Method not allowed'},405);
+}
+/** A tab-scoped token keeps another open tab's new conversation independent. */
+export function historyBootstrap(base:string) {
+ return `<script>(()=>{const b=${JSON.stringify(base)},u=new URL(location.href);let token=u.searchParams.get('trst_resume');if(token){sessionStorage.setItem('trstHistoryResume',token);u.searchParams.delete('trst_resume');history.replaceState(null,'',u.pathname+u.search)}else if(!/\\/c\\//.test(location.pathname))token=sessionStorage.getItem('trstHistoryResume');const f=window.fetch.bind(window);window.fetch=async(input,init)=>{const url=new URL(input instanceof Request?input.url:String(input),location.href);if(token&&url.origin===location.origin&&/\\/(?:backend-api|backend-anon)\\/(?:f\\/)?conversation\\/?$/.test(url.pathname)&&String(init?.method??(input instanceof Request?input.method:'GET')).toUpperCase()==='POST'){const h=new Headers(input instanceof Request?input.headers:undefined);new Headers(init?.headers).forEach((v,k)=>h.set(k,v));h.set('x-trst-history-resume',token);init={...init,headers:h};const response=await f(input,init);if(response.ok){token=null;sessionStorage.removeItem('trstHistoryResume');document.getElementById('trst-history-notice')?.remove()}return response}return f(input,init)};const mount=()=>{if(document.getElementById('trst-saved-chats'))return;const a=document.createElement('a');a.id='trst-saved-chats';a.href=b+'/__trst/history';a.textContent='Saved chats';a.style.cssText='position:fixed;left:16px;bottom:18px;z-index:2147483000;background:#34303f;color:#eee;border:1px solid #777;border-radius:9px;padding:9px 14px;font:14px system-ui;text-decoration:none';document.body.append(a);if(token){const n=document.createElement('div');n.id='trst-history-notice';n.textContent='Continuing a saved chat. Type your next message below.';n.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483000;background:#34303f;color:#eee;padding:12px;border-radius:8px;font:14px system-ui';document.body.append(n)}};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',mount):mount()})();</script>`;
+}
