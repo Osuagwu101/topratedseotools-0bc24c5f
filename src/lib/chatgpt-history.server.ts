@@ -20,7 +20,11 @@ export async function savedThread(userId:string,id:string) {
 export async function threadForAlias(userId:string,upstreamId:string) {
  const direct = await savedThread(userId,upstreamId); if(direct) return direct;
  const {data,error} = await db().from('chatgpt_history_links').select('thread_id').eq('user_id',userId).eq('upstream_id',upstreamId).limit(1); fail(error);
- return data?.[0] ? savedThread(userId,data[0].thread_id) : null;
+ if(data?.[0])return savedThread(userId,data[0].thread_id);
+ // A stream handoff can resume before its first authoritative snapshot is ready.
+ // The already-recorded, user-owned continuation intent preserves the original link.
+ const pending=await db().from('chatgpt_history_resumes').select('thread_id').eq('user_id',userId).eq('upstream_id',upstreamId).limit(1);fail(pending.error);
+ return pending.data?.[0]?savedThread(userId,pending.data[0].thread_id):null;
 }
 export async function historyLink(userId:string,upstreamId:string,identity:string) {
  const {data,error} = await db().from('chatgpt_history_links').select('*').eq('user_id',userId).eq('upstream_id',upstreamId).eq('provider_identity',identity).maybeSingle(); fail(error); return data;

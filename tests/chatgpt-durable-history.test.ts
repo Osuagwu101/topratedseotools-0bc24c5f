@@ -29,7 +29,7 @@ const database={from(table:string){
 }};
 mock.module('../src/integrations/supabase/client.server',()=>({supabaseAdmin:database}));
 const {handleChatGPTProxyRequest:handle,hashChatGPTProxyToken}=await import('../src/lib/chatgpt-proxy.server');
-const {savedThread,saveSnapshot,savedHistoryItems,claimHistoryResume}=await import('../src/lib/chatgpt-history.server');
+const {savedThread,saveSnapshot,savedHistoryItems,claimHistoryResume,threadForAlias,createHistoryResume,finishHistoryResume}=await import('../src/lib/chatgpt-history.server');
 sessions.forEach((s,i)=>s.token_hash=hashChatGPTProxyToken(String(i+1).repeat(43)));
 let offline=false;const snapshots=new Map<string,any>();let nextId=chatA;const upstreamBodies:any[]=[];
 function snapshot(id:string,prompt:string,answer:string) {const root=randomUUID(),u=randomUUID(),a=randomUUID();return {id,conversation_id:id,title:prompt,create_time:1,update_time:Date.now()/1000,current_node:a,mapping:{[root]:{id:root,parent:null,children:[u],message:null},[u]:{id:u,parent:root,children:[a],message:{id:u,author:{role:'user'},content:{content_type:'text',parts:[prompt]}}},[a]:{id:a,parent:u,children:[],message:{id:a,author:{role:'assistant'},content:{content_type:'text',parts:[answer]}}}}};}
@@ -84,6 +84,10 @@ try {
  assert.throws(()=>continuationBody({action:'next',messages:[]},combined.snapshot,randomUUID()));
  const huge=snapshot(randomUUID(),'x'.repeat(90001),'answer');assert.throws(()=>continuationBody(prompt('next'),huge,randomUUID()),/too long/);
  const files=snapshot(randomUUID(),'question','answer');(historyMessages(files)[0].content.parts as any[]).push({image_asset_pointer:'secret'});assert.throws(()=>continuationBody(prompt('next'),files,randomUUID()),/files or images/);
+ const handoff=randomUUID(),handoffToken=await createHistoryResume(userA,chatA,sessions[0].id);
+ await finishHistoryResume(handoffToken,handoff);
+ assert.equal((await threadForAlias(userA,handoff)).id,chatA,'A resumed stream retains its source thread even before the first snapshot is available.');
+ assert.equal(await threadForAlias(userB,handoff),null,'Pending continuation links remain private.');
  const {captureHistoryStream}=await import('../src/lib/chatgpt-history.server');
  const bytes=new TextEncoder().encode('data: '+JSON.stringify({conversation_id:chatA,text:'héllo'})+'\n\ndata: [DONE]\n\n');
  let cursor=0,found='',finished='';

@@ -1318,7 +1318,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       streamBody=captureHistoryStream(streamBody,async id=>{
         if(resumeToken) await finishHistoryResume(resumeToken,id);
       },async id=>{
-        try { await captureConversation(writerId,account,identity,id,providerHeaders,canonical,originalMessages); }
+        try { const linked=canonical ?? (await threadForAlias(writerId,id))?.id; await captureConversation(writerId,account,identity,id,providerHeaders,linked,originalMessages); }
         catch { console.error('[chatgpt-history] reply backup failed'); }
       });
     }
