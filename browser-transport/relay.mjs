@@ -4,6 +4,9 @@ import { pathToFileURL } from 'node:url';
 
 const ORIGIN = 'https://quillbot.com';
 const BINDING = 'trstRelayData';
+export function tokenSubject(token){try{const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString());return typeof claims.sub==='string'?claims.sub:typeof claims.user_id==='string'?claims.user_id:null;}catch{return null;}}
+export function sameTokenAccount(nativeToken,importedToken){if(!importedToken)return true;if(nativeToken===importedToken)return true;const subject=tokenSubject(nativeToken);return !!subject&&subject===tokenSubject(importedToken);}
+
 const passHeaders = new Set(["platform-type","qb-product","qb-dialect","webapp-version",'accept','accept-language','content-type','range','if-none-match','if-modified-since','anthropic-client-sha','anthropic-client-version','anthropic-client-platform']);
 export function validateRelayRequest(input) {
   if (!input || typeof input.path !== 'string' || input.path.length > 8192 || !input.path.startsWith('/') || input.path.startsWith('//')) throw Error('path');
@@ -51,7 +54,7 @@ export class BrowserConnection {
     if(!cookies.some(c=>c.name==="useridtoken"))throw Error("Missing useridtoken");
     const previous=await this.call("Network.getCookies",{urls:[ORIGIN]});
     for(const c of previous.cookies||[])if(!["cf_clearance","__cf_bm","_cfuvid"].includes(c.name))await this.call("Network.deleteCookies",{name:c.name,domain:c.domain,path:c.path});
-    await this.call("Storage.clearDataForOrigin",{origin:ORIGIN,storageTypes:"local_storage,indexeddb,cache_storage,service_workers"});
+    await this.call("Storage.clearDataForOrigin",{origin:ORIGIN,storageTypes:"cache_storage,service_workers"});
     await this.call("Network.setCookies",{cookies});
     await this.call("Page.reload",{ignoreCache:true});
     this.reset();this.appliedSession=input.version;
@@ -117,7 +120,7 @@ export class BrowserConnection {
     let refreshed;
     try { refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry){const token=await Promise.race([entry[1].getRefreshToken(false),new Promise(resolve=>setTimeout(()=>resolve(null),3000))]);if(token)return token;}}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true}); } catch { /* The imported token still needs upstream verification. */ }
     const nativeToken=refreshed?.result?.value;
-    const token=typeof nativeToken === "string" && nativeToken.length>=100 ? nativeToken : this.importedToken;
+    const token=typeof nativeToken === "string" && nativeToken.length>=100 && sameTokenAccount(nativeToken,this.importedToken) ? nativeToken : this.importedToken;
     if(typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
     return token;
   }

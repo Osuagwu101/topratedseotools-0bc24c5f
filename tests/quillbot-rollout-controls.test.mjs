@@ -23,3 +23,18 @@ test('provider responses redact imported credentials even after native cookie re
  const output=events.filter(e=>e.kind==='chunk').map(e=>Buffer.from(e.data,'base64').toString()).join('');
  assert.ok(!events.some(e=>e.kind==='error'));assert.ok(!output.includes('imported-secret-test-only'));assert.ok(!output.includes('native-secret-test-'));assert.ok(output.includes('normal response'));assert.ok(output.length<5000);
 });
+
+test('renewed native token must belong to the imported account',async()=>{
+ const jwt=(sub,version)=>'header.'+Buffer.from(JSON.stringify({sub,version})).toString('base64url')+'.'+('test-only-signature-'.repeat(8));
+ const c=new BrowserConnection();c.importedToken=jwt('account-a',1);
+ c.call=async()=>({result:{value:jwt('account-b',2)}});
+ assert.equal(await c.browserToken(),c.importedToken);
+ c.call=async()=>({result:{value:jwt('account-a',3)}});
+ assert.equal(await c.browserToken(),jwt('account-a',3));
+});
+test('cookie refresh retains the dedicated browser persistent sign-in',async()=>{
+ const c=new BrowserConnection();const cleared=[];c.ready=async()=>{};c.reset=()=>{};
+ c.call=async(method,params)=>{if(method==='Storage.clearDataForOrigin')cleared.push(params.storageTypes);return {cookies:[]}};
+ await c.applySession({cookie:'useridtoken='+('test-only-'.repeat(20)),version:'one'});
+ assert.equal(cleared.length,1);assert.ok(!cleared[0].includes('indexeddb'));assert.ok(!cleared[0].includes('local_storage'));
+});
