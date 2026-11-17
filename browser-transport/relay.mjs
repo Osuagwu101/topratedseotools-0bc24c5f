@@ -32,7 +32,22 @@ export function validateRelayRequest(input) {
   return {url:url.href,method,headers,body,bodyBase64};
 }
 
-class BrowserConnection {
+export class BrowserConnection {
+  appliedSession=null;
+  async applySession(input){
+    if(!input || typeof input.version!=="string" || typeof input.cookie!=="string" || input.cookie.length>32000)throw Error("Invalid session");
+    if(this.appliedSession===input.version)return;
+    await this.ready();
+    if(this.jobs.size)throw Error("Workspace busy; retry connection");
+    const cookies=input.cookie.split(";").map(p=>{const i=p.indexOf("=");return {name:p.slice(0,i).trim(),value:p.slice(i+1),domain:".quillbot.com",path:"/",secure:true};}).filter(c=>c.name && !["cf_clearance","__cf_bm","_cfuvid"].includes(c.name));
+    if(!cookies.some(c=>c.name==="useridtoken"))throw Error("Missing useridtoken");
+    const previous=await this.call("Network.getCookies",{urls:[ORIGIN]});
+    for(const c of previous.cookies||[])if(!["cf_clearance","__cf_bm","_cfuvid"].includes(c.name))await this.call("Network.deleteCookies",{name:c.name,domain:c.domain,path:c.path});
+    await this.call("Storage.clearDataForOrigin",{origin:ORIGIN,storageTypes:"local_storage,indexeddb,cache_storage,service_workers"});
+    await this.call("Network.setCookies",{cookies});
+    await this.call("Page.reload",{ignoreCache:true});
+    this.reset();this.appliedSession=input.version;
+  }
   pending=new Map(); jobs=new Map(); activeBodyBytes=0; nextId=0; context=null; connecting=null;
   async ready() {
     if(this.context && this.socket?.readyState===WebSocket.OPEN) return;
@@ -92,7 +107,7 @@ class BrowserConnection {
   }
   async relay(input,req,res) {
     await this.ready();
-    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');if(!entry)throw Error('QuillBot auth manager unavailable');return await entry[1].getRefreshToken(false);})()`,awaitPromise:true,returnByValue:true});
+    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
     const token=refreshed.result?.value;
     if(refreshed.exceptionDetails||typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
     input.browserToken=token;
@@ -126,7 +141,7 @@ class BrowserConnection {
       const controller=new AbortController();trstRelayControllers.set(id,controller);
       try {
         const cookies=Object.fromEntries(document.cookie.split(';').map(p=>{const i=p.indexOf('=');return [p.slice(0,i).trim(),p.slice(i+1)]}));
-        if(cookies.authenticated!=='true'||cookies.premium!=='true'||!cookies.useridtoken)throw Error('session');
+        if(!cookies.useridtoken)throw Error('session');
         input.headers.useridtoken=input.browserToken;
         const token=input.headers.useridtoken;
         let claims={};try{claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{}
@@ -176,12 +191,14 @@ export function startRelay({port=6102}={}) {
     if(req.url==='/health' && req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json'});res.end('{"ok":true}');return;}
     const incoming=Buffer.from(String(req.headers.authorization??''));const expected=Buffer.from('Bearer '+secret);
     if(incoming.length!==expected.length || !timingSafeEqual(incoming,expected)){res.writeHead(401);res.end();return;}
-    if(req.url!=='/request' || req.method!=='POST'){res.writeHead(404);res.end();return;}
+    if(!['/request','/session'].includes(req.url) || req.method!=='POST'){res.writeHead(404);res.end();return;}
     let input;
     try {
       const chunks=[];let size=0;
       for await(const chunk of req){size+=chunk.length;if(size>36*1024*1024)throw Error('size');chunks.push(chunk);}
-      input=validateRelayRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const parsed=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if(req.url==='/session'){await browser.applySession(parsed);res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end('{"ok":true}');return;}
+      input=validateRelayRequest(parsed);
     }catch{res.writeHead(400);res.end('Invalid browser transport request.');return;}
     try{await browser.relay(input,req,res);}
     catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('QuillBot browser transport is unavailable.');}

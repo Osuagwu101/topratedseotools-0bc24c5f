@@ -1,0 +1,10 @@
+import {strict as assert} from 'node:assert';
+import {normaliseQuillBotSession} from '../src/lib/quillbot-session.server';
+const cookies=[{name:'connect.sid',value:'s%3Aopaque.signature',domain:'.quillbot.com'},{name:'useridtoken',value:'opaque.token.value',domain:'.quillbot.com'},{name:'premium',value:'true',domain:'.quillbot.com'},{name:'SID',value:'google-secret',domain:'.google.com'},{name:'cf_clearance',value:'challenge',domain:'.quillbot.com'}];
+const result=JSON.parse(normaliseQuillBotSession(JSON.stringify(cookies)));
+assert.equal(result.useridtoken,'opaque.token.value');assert(result.cookie.includes('connect.sid=s%3Aopaque.signature'));assert(!result.cookie.includes('google-secret'));assert(!result.cookie.includes('cf_clearance'));
+assert.deepEqual(JSON.parse(normaliseQuillBotSession(JSON.stringify({cookies}))),result);
+assert.equal(JSON.parse(normaliseQuillBotSession(JSON.stringify({'connect.sid':'s%3Avalue',useridtoken:'opaque'}))).cookie,'connect.sid=s%3Avalue; useridtoken=opaque');
+assert.throws(()=>normaliseQuillBotSession(JSON.stringify([{name:'SID',value:'foreign',domain:'.google.com'}])));
+assert.throws(()=>normaliseQuillBotSession(JSON.stringify({useridtoken:'line\nbreak'})));
+console.log('QuillBot Application imports: arrays, wrapped exports, named cookies, unrelated/challenge exclusions and malformed input passed.');

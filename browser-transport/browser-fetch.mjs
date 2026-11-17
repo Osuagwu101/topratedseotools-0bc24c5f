@@ -26,3 +26,9 @@ async function relayFetch(target,init={}){
  const body=init.body?Buffer.from(init.body).toString('base64'):undefined;
  return fetch('http://127.0.0.1:6102/request',{method:'POST',headers:{authorization:'Bearer '+process.env.QUILLBOT_BROWSER_RELAY_KEY,'content-type':'application/json'},body:JSON.stringify({path:(u.hostname==='media.quillbot.com'?'/__host/media.quillbot.com':'')+u.pathname+u.search,method:init.method||'GET',headers,bodyBase64:body}),signal:AbortSignal.timeout(60000)});
 }
+
+export async function syncBrowserSession(state,version){
+ const r=await fetch('http://127.0.0.1:6102/session',{method:'POST',headers:{authorization:'Bearer '+process.env.QUILLBOT_BROWSER_RELAY_KEY,'content-type':'application/json'},body:JSON.stringify({cookie:state.cookie,version}),signal:AbortSignal.timeout(20000)});
+ if(!r.ok)throw Error('Could not apply the saved QuillBot cookies. Retry after active requests finish.');
+ shellCache=null;
+}

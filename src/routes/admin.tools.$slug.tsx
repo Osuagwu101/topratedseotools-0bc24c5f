@@ -79,6 +79,7 @@ import {
 } from "@/lib/grammarly-session.functions";
 import {
   adminGetQuillBotSessionStatus,
+  adminVerifyQuillBotSession,
   adminSaveQuillBotSession,
   adminRevokeQuillBotSession,
 } from "@/lib/quillbot-session.functions";
@@ -886,6 +887,10 @@ function formatQuillBotSessionTime(value: string | null) {
 function QuillBotSessionTab() {
   const { data } = useSuspenseQuery(quillbotSessionQuery);
   const saveSession = useServerFn(adminSaveQuillBotSession);
+  const verifySession = useServerFn(adminVerifyQuillBotSession);
+  const [verification,setVerification]=useState("");
+  const [verifying,setVerifying]=useState(false);
+  async function verify(){setVerifying(true);try{const r=await verifySession();setVerification(r.message);toast.success(r.message);}catch(e){const m=e instanceof Error?e.message:"Verification failed";setVerification(m);toast.error(m);}finally{setVerifying(false);}}
   const revokeSession = useServerFn(adminRevokeQuillBotSession);
   const qc = useQueryClient();
   const [sessionData, setSessionData] = useState("");
@@ -902,7 +907,8 @@ function QuillBotSessionTab() {
       await saveSession({ data: { session_data: sessionData.trim() } });
       setSessionData("");
       await qc.invalidateQueries({ queryKey: ["admin-quillbot-authorized-session"] });
-      toast.success("QuillBot authorised session saved securely.");
+      setVerification("Saved. Verifying the live connection…");
+      await verify();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save the QuillBot session.");
     } finally {
@@ -932,9 +938,7 @@ function QuillBotSessionTab() {
           <div>
             <h3 className="text-sm font-semibold">QuillBot authorised session ({data.account_key})</h3>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Stores one encrypted {"{cookie, useridtoken}"} bundle for the shared QuillBot
-              Premium account. Only the Paraphraser is verified against this session —
-              see browser-transport/STATUS.md before advertising other QuillBot features.
+              Import the shared QuillBot Premium account’s Application cookies. Values are encrypted and never shown after saving. Use Verify connection to check Premium access.
             </p>
           </div>
           <div className="text-right">
@@ -959,8 +963,7 @@ function QuillBotSessionTab() {
         </div>
 
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Capture the cookie header and Useridtoken from a browser signed in to the
-          shared QuillBot Premium account. Revoking here also turns off one-click
+          Export cookies for quillbot.com from your signed-in browser, or paste their actual names and values as JSON. Include useridtoken. Revoking here also turns off one-click
           launch for writers until a fresh session is saved.
         </div>
       </div>
@@ -978,11 +981,11 @@ function QuillBotSessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving || revoking}
-          placeholder={'{"cookie":"...","useridtoken":"..."}'}
+          placeholder={'{"connect.sid":"...","useridtoken":"...","authenticated":"true","premium":"true"}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste the two-field QuillBot authorised session JSON here. Do not paste
+          Paste a QuillBot Application cookie export or a JSON object using the actual cookie names. Include useridtoken. Do not paste
           secret session values into chat.
         </p>
 
@@ -1016,6 +1019,8 @@ function QuillBotSessionTab() {
               <Save className="h-4 w-4" />
               {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
             </button>
+            <button type="button" onClick={verify} disabled={!data.can_manage || verifying || saving || !data.configured} className="rounded-full border px-4 py-2 text-sm">{verifying?"Verifying…":"Verify connection"}</button>
+            <p role="status" className="text-xs">{verification}</p>
           </div>
         </div>
       </div>

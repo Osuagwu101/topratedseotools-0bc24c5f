@@ -31,10 +31,23 @@ export function normaliseQuillBotSession(raw: string): string {
       "Paste the two-field QuillBot authorised session JSON object.",
     );
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!parsed || typeof parsed !== "object") {
     throw new Error("The QuillBot session must be a JSON object.");
   }
 
+  // Application cookie exports are normalised to the existing encrypted wire format.
+  const exported = Array.isArray(parsed) ? parsed : (parsed as any)?.cookies;
+  if(Array.isArray(exported)) {
+    const cookies = exported.filter((c:any)=>c && typeof c.name === "string" && typeof c.value === "string" && typeof c.domain === "string" && /(?:^|\.)quillbot\.com$/.test(c.domain.replace(/^\./,"")) && !["cf_clearance","__cf_bm","_cfuvid"].includes(c.name));
+    const token=cookies.find((c:any)=>c.name === "useridtoken")?.value;
+    if(!token)throw Error("The QuillBot cookie export must include useridtoken.");
+    parsed={cookie:cookies.map((c:any)=>c.name+"="+c.value).join("; "),useridtoken:token};
+  } else if(parsed && typeof parsed === "object" && !("cookie" in parsed)) {
+    const values=parsed as Record<string,unknown>;
+    if(typeof values.useridtoken !== "string")throw Error("Include useridtoken from Application cookies.");
+    if(Object.values(values).some(v=>typeof v!=="string"))throw Error("Cookie values must be strings.");
+    parsed={cookie:Object.entries(values).filter(([n])=>!["cf_clearance","__cf_bm","_cfuvid"].includes(n)).map(([n,v])=>n+"="+v).join("; "),useridtoken:values.useridtoken};
+  }
   const source = parsed as Record<string, unknown>;
   const keys = Object.keys(source);
   const unexpected = keys.filter(
@@ -162,7 +175,7 @@ export function decryptQuillBotSession(
   } catch {
     throw new Error("Invalid QuillBot session ciphertext.");
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!parsed || typeof parsed !== "object") {
     throw new Error("Invalid QuillBot session ciphertext.");
   }
 

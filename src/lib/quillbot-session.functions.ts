@@ -136,3 +136,11 @@ export const adminRevokeQuillBotSession = createServerFn({ method: "POST" })
 
     return { ok: true, status: "disabled", updated_at: now };
   });
+
+/** Admin-only live Premium verification; provider credentials never reach the client. */
+export const adminVerifyQuillBotSession = createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).handler(async({context})=>{
+ await assertSuperAdmin(context);
+ const r=await fetch("http://127.0.0.1:3023/__trst/internal/verify",{method:"POST",headers:{Authorization:"Bearer "+process.env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(60000)});
+ if(!r.ok)throw Error("QuillBot could not verify Premium access. Replace the Application cookie export and retry.");
+ return {ok:true,message:"QuillBot Premium connection verified."};
+});
