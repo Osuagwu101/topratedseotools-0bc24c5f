@@ -40,7 +40,7 @@ try {
  await Promise.all(fixtures.map(async(f,i)=>{
   await evaluate(f.sessionId,"(()=>{const e=document.querySelector('#prompt-textarea')||document.querySelector('[contenteditable=true]');e.focus();return true})()");
   await call('Input.insertText',{text:'What private code did I ask you to remember? Reply with only the code.'},f.sessionId);
-  const findSend="[...document.querySelectorAll('button')].find(b=>!b.disabled&&(/^(Send prompt|Send message)$/i.test(b.getAttribute('aria-label')??'')||/send|submit/.test(b.getAttribute('data-testid')??'')))";
+  const findSend="[...document.querySelectorAll('button')].find(b=>!b.disabled&&(/^(Send|Send prompt|Send message)$/i.test(b.getAttribute('aria-label')??'')||/send|submit/.test(b.getAttribute('data-testid')??'')))";
   await until(()=>evaluate(f.sessionId,'!!('+findSend+')'),'native send control');
   await evaluate(f.sessionId,'('+findSend+').click();true');
   await until(async()=>{const t=await savedThread(f.user,f.id);return t&&historyMessages(t.snapshot).length>=4;},'saved continued response',90000);
