@@ -21,6 +21,8 @@ if subprocess.run(['sudo','nginx','-t']).returncode:
  raise RuntimeError('Nginx validation failed; restored previous configuration')
 subprocess.run(['sudo','cp',str(root/'browser-transport/relay.mjs'),'/var/lib/trst-quillbot-browser/relay.mjs'],check=True)
 runtime=Path('/home/ubuntu/worktrees/quillbot-feasibility-20261006/runtime/server-browser.mjs')
+for name in ['client-auth-adapter.mjs','client-auth-pin.json']:
+ (runtime.parent.parent/'browser-transport'/name).write_bytes((root/'browser-transport'/name).read_bytes())
 source=runtime.read_text()
 old='res.writeHead(status, Object.fromEntries(quillBotResponseHeaders()));'
 new="""const errorHeaders=Object.fromEntries(quillBotResponseHeaders());

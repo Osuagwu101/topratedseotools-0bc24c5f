@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import pin from './client-auth-pin.json' with {type:'json'};
-export const CLIENT_AUTH_PATH='/core/v12.186.0/browser/browser-ba2ebb71.js';
+export const CLIENT_AUTH_PATH='/core/v12.188.0/browser/browser-67782c38.js';
 const syncMethod=`async trstSync(success){
  if(this.trstSyncing)return this.trstSyncing;
  this.trstSyncing=(async()=>{
