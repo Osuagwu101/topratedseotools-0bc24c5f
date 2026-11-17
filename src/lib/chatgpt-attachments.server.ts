@@ -68,6 +68,51 @@ export async function ownsWriterFile(userId: string, identity: string, fileId: s
   );
   return row?.user_id === userId;
 }
+/** Follow provider-issued content links, retaining credentials only on exact first-party file endpoints. */
+export async function downloadProviderFile(
+  raw: string,
+  headers: Headers,
+  expectedFileId?: string,
+): Promise<Response> {
+  let url = new URL(raw, "https://chatgpt.com");
+  for (let hop = 0; hop < 4; hop++) {
+    let firstParty = false;
+    if (url.origin === "https://chatgpt.com") {
+      const id =
+        url.pathname === "/backend-api/estuary/content"
+          ? url.searchParams.get("id")
+          : url.pathname.match(/^\/backend-api\/files\/download\/(file[-_][A-Za-z0-9_-]+)$/)?.[1];
+      if (
+        !id ||
+        !/^file[-_][A-Za-z0-9_-]{1,200}$/.test(id) ||
+        (expectedFileId && id !== expectedFileId) ||
+        url.username ||
+        url.password
+      )
+        throw Error("Unsupported provider content link.");
+      firstParty = true;
+    } else url = signedAssetUrl(url.href);
+    const clean = new Headers(headers);
+    clean.delete("content-type");
+    clean.delete("content-length");
+    clean.set("Accept", "*/*");
+    const response = await fetch(url, {
+      ...(firstParty ? { headers: clean } : {}),
+      redirect: "manual",
+      signal: AbortSignal.timeout(60000),
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) throw Error("Invalid provider attachment redirect.");
+      url = new URL(location, url);
+      continue;
+    }
+    if (!response.ok)
+      throw Error("Provider attachment unavailable (HTTP " + response.status + ").");
+    return response;
+  }
+  throw Error("Provider attachment redirected too many times.");
+}
 async function resolveBytes(ref: AttachmentRef, conversationId: string, headers: Headers) {
   const path =
     ref.kind === "download"
@@ -93,11 +138,8 @@ async function resolveBytes(ref: AttachmentRef, conversationId: string, headers:
   if (!response.ok) throw Error("Provider attachment unavailable (HTTP " + response.status + ").");
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    const info = await response.json(),
-      url = signedAssetUrl(info.download_url ?? info.url);
-    response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60000) }); // No cookies, bearer or client headers.
-    if (!response.ok)
-      throw Error("Provider attachment unavailable (HTTP " + response.status + ").");
+    const info = await response.json();
+    response = await downloadProviderFile(info.download_url ?? info.url, h, ref.fileId);
   }
   const bytes = await boundedBytes(response);
   if (!bytes.length) throw Error("Provider returned an empty attachment.");
@@ -179,12 +221,10 @@ export async function captureAttachments(
         }),
       );
       check(
-        await db()
-          .storage.from(BUCKET)
-          .upload(storageKey, Buffer.from(encrypted), {
-            contentType: "application/json",
-            upsert: true,
-          }),
+        await db().storage.from(BUCKET).upload(storageKey, Buffer.from(encrypted), {
+          contentType: "application/json",
+          upsert: true,
+        }),
       );
       check(
         await db()

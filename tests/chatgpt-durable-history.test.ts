@@ -48,13 +48,14 @@ globalThis.fetch=(async(input:any,init:any)=>{
   if(init?.method==='PUT')providerFiles.set(signedUploads.get(url.pathname)!,new Uint8Array(init.body));
   return init?.method==='PUT'?new Response(null,{status:201}):new Response(providerFiles.get(url.pathname.slice(1))!,{headers:{'Content-Type':url.pathname.includes('image')?'image/png':'application/octet-stream'}});
  }
+ if(url.pathname==='/backend-api/estuary/content')return new Response(null,{status:302,headers:{Location:'https://uploads.blob.core.windows.net/'+url.searchParams.get('id')}});
  if(url.pathname==='/backend-api/files'&&init?.method==='POST') {
   const id='file_qa_'+(++uploadCounter),path='/upload-'+uploadCounter;signedUploads.set(path,id);
   return Response.json({file_id:id,upload_url:'https://uploads.blob.core.windows.net'+path});
  }
  if(/^\/backend-api\/files\/file[-_][^/]+\/uploaded$/.test(url.pathname))return Response.json({status:'success'});
  if(/^\/backend-api\/files\/file[-_][^/]+\/download$/.test(url.pathname)) {
-  const id=url.pathname.split('/')[3];return providerFiles.has(id)?Response.json({download_url:'https://uploads.blob.core.windows.net/'+id}):new Response('',{status:404});
+  const id=url.pathname.split('/')[3];return providerFiles.has(id)?Response.json({download_url:'https://chatgpt.com/backend-api/estuary/content?id='+id}):new Response('',{status:404});
  }
  if(url.pathname.includes('/interpreter/download'))return new Response('generated-result-marker',{headers:{'Content-Type':'text/plain'}});
  if(url.pathname==='/backend-api/f/conversation') {
@@ -139,7 +140,7 @@ try {
  offline=true;const offlinePayload=vault('official-two');const offlineReport=await backupChatGptAccount('account_1',offlinePayload);assert.equal(offlineReport.failed,0);offline=false;
  // Binary attachments survive expiry and a second same-slot account replacement.
  process.env.CHATGPT_ATTACHMENT_HISTORY='1';
- const {attachmentRows,readAttachment,restoreAttachments,drainAttachmentCaptures}=await import('../src/lib/chatgpt-attachments.server');
+ const {attachmentRows,readAttachment,restoreAttachments,drainAttachmentCaptures,attachmentsAccountedFor}=await import('../src/lib/chatgpt-attachments.server');
  const upload=await handle(req(0,'/__codex-api/files',{file_name:'notes.txt',file_size:18,use_case:'multimodal'}));assert.equal(upload.status,200);
  const docId=(await upload.json()).file_id;providerFiles.set(docId,new TextEncoder().encode('private-file-marker'));
  const imgUpload=await handle(req(0,'/backend-api/files',{file_name:'photo.png',file_size:18,use_case:'multimodal'}));assert.equal(imgUpload.status,200);
@@ -157,6 +158,7 @@ try {
  assert.equal(await (await handle(req(0,download))).text(),'private-file-marker');
  assert.equal((await handle(req(1,download))).status,404);
  assert.equal((await handle(req(1,'/backend-api/files/'+docId+'/download'))).status,404);
+ assert.equal((await handle(req(1,'/backend-api/estuary/content?id='+docId))).status,404);
  const stolen=prompt('read another writer file');(stolen.messages[0] as any).metadata={attachments:[{id:docId,name:'stolen.txt'}]};
  assert.equal((await handle(req(1,'/backend-api/f/conversation',stolen))).status,404);
  assert.equal((await handle(req(0,'/backend-api/files'))).status,403);
@@ -180,6 +182,10 @@ try {
  const oldBlob=blobs.get(doc.storage_key)!;blobs.set(doc.storage_key,new TextEncoder().encode('{}'));await assert.rejects(()=>readAttachment(userA,binaryChat,doc.id));blobs.set(doc.storage_key,oldBlob);
  const unsupported=structuredClone(binaryThread.snapshot);historyMessages(unsupported)[0].content.parts.push({content_type:'audio',asset_pointer:'audio://unknown'});
  await assert.rejects(()=>restoreAttachments(userA,binaryChat,unsupported,'other',new Headers()),/not backed up/);
+ assert(await attachmentsAccountedFor(userA,binaryChat,binaryThread.snapshot));
+ const pendingRow=tables.chatgpt_history_attachments.find(r=>r.id===doc.id);pendingRow.status='pending';
+ assert(!await attachmentsAccountedFor(userA,binaryChat,binaryThread.snapshot));
+ offline=true;const pendingReport=await backupChatGptAccount('account_1',vault('uncached-expired-official'));assert(pendingReport.failed>0,'Expired login must not bypass pending attachment backups');offline=false;pendingRow.status='ready';
  const {signedAssetUrl,boundedBytes,attachmentRefs}=await import('../src/lib/chatgpt-attachment-model');
  for(const url of ['http://files.oaiusercontent.com/a','https://127.0.0.1/a','https://files.oaiusercontent.com.evil.test/a','https://evil.test/a'])assert.throws(()=>signedAssetUrl(url));
  await assert.rejects(()=>boundedBytes(new Response(new Uint8Array(10)),4),/25 MB/);

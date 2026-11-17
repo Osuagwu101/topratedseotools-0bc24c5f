@@ -13,6 +13,7 @@ import {
 } from "../../src/lib/chatgpt-proxy.server";
 import { saveSnapshot, historyHash, savedThread } from "../../src/lib/chatgpt-history.server";
 import {
+  downloadProviderFile,
   uploadAttachment,
   captureAttachments,
   attachmentRows,
@@ -242,7 +243,7 @@ try {
       const meta = await fetch("https://chatgpt.com/backend-api/files/" + r.file.id + "/download", {
         headers: h,
       }).then((r) => r.json());
-      const downloaded = await fetch(signedAssetUrl(meta.download_url));
+      const downloaded = await downloadProviderFile(meta.download_url, h, r.file.id);
       assert(downloaded.ok);
       const bytes = new Uint8Array(await downloaded.arrayBuffer());
       assert.equal(
