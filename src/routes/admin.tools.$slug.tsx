@@ -978,11 +978,11 @@ function QuillBotSessionTab() {
           data-1p-ignore="true"
           data-lpignore="true"
           disabled={!data.can_manage || saving || revoking}
-          placeholder={'{"cookie":"...","useridtoken":"..."}'}
+          placeholder={'{"connect.sid":"...","useridtoken":"...","authenticated":"true","premium":"true"}'}
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste the two-field QuillBot authorised session JSON here. Do not paste
+          Paste a QuillBot Application cookie export or a JSON object using the actual cookie names. Include useridtoken. Do not paste
           secret session values into chat.
         </p>
 
