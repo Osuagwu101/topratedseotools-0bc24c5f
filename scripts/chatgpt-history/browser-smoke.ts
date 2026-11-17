@@ -38,9 +38,11 @@ try {
   fixtures.push({user,id,marker,sessionId});console.log('Native writer '+(i+1)+' saved transcript and continuation composer passed.');
  }
  await Promise.all(fixtures.map(async(f,i)=>{
-  await evaluate(f.sessionId,`(()=>{const e=document.querySelector('[contenteditable=true]');e.focus();document.execCommand('insertText',false,'What private code did I ask you to remember? Reply with only the code.');e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText'}));return true})()`);
-  await until(()=>evaluate(f.sessionId,"!!document.querySelector('button[data-testid=send-button]:not(:disabled)')"),'send button');
-  await evaluate(f.sessionId,"document.querySelector('button[data-testid=send-button]').click();true");
+  await evaluate(f.sessionId,"(()=>{const e=document.querySelector('#prompt-textarea')||document.querySelector('[contenteditable=true]');e.focus();return true})()");
+  await call('Input.insertText',{text:'What private code did I ask you to remember? Reply with only the code.'},f.sessionId);
+  const findSend="[...document.querySelectorAll('button')].find(b=>!b.disabled&&(/^(Send prompt|Send message)$/i.test(b.getAttribute('aria-label')??'')||/send|submit/.test(b.getAttribute('data-testid')??'')))";
+  await until(()=>evaluate(f.sessionId,'!!('+findSend+')'),'native send control');
+  await evaluate(f.sessionId,'('+findSend+').click();true');
   await until(async()=>{const t=await savedThread(f.user,f.id);return t&&historyMessages(t.snapshot).length>=4;},'saved continued response',90000);
   const saved=await savedThread(f.user,f.id),messages=historyMessages(saved.snapshot);assert(messageText(messages.at(-1)).includes(f.marker),'The reply must recall the archived private code.');assert(!JSON.stringify(saved.snapshot).includes(fixtures[1-i].marker),'No cross-writer context may be present.');
   assert.equal(messageText(messages.at(-2)),'What private code did I ask you to remember? Reply with only the code.');
