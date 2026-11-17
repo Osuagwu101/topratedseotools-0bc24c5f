@@ -107,13 +107,17 @@ export class BrowserConnection {
     let event;try{event=JSON.parse(message.params.payload);}catch{return;}
     const job=this.jobs.get(event.id);if(job)job.event(event);
   }
-  async relay(input,req,res) {
-    await this.ready();
-    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
-    const nativeToken=refreshed.result?.value;
+  async browserToken() {
+    let refreshed;
+    try { refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry){const token=await Promise.race([entry[1].getRefreshToken(false),new Promise(resolve=>setTimeout(()=>resolve(null),3000))]);if(token)return token;}}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true}); } catch { /* The imported token still needs upstream verification. */ }
+    const nativeToken=refreshed?.result?.value;
     const token=typeof nativeToken === "string" && nativeToken.length>=100 ? nativeToken : this.importedToken;
     if(typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
-    input.browserToken=token;
+    return token;
+  }
+  async relay(input,req,res) {
+    await this.ready();
+    input.browserToken=await this.browserToken();
     const bodyBytes=input.bodyBase64?Buffer.byteLength(input.bodyBase64,'base64'):Buffer.byteLength(input.body??'');
     if(this.jobs.size>=16 || this.activeBodyBytes+bodyBytes>64*1024*1024) {res.writeHead(429);res.end('Browser is busy. Try again shortly.');return;}
     this.activeBodyBytes+=bodyBytes;
@@ -167,7 +171,7 @@ export class BrowserConnection {
           let text=await response.text();
           const secrets=Object.values(cookies).filter(v=>v.length>=12);
           secrets.push(decodeURIComponent(cookies.useridtoken||""),token);
-          for(const secret of [...new Set(secrets)].sort((a,b)=>b.length-a.length)){
+          for(const secret of [...new Set(secrets)].filter(value=>typeof value==='string' && value.length>=12).sort((a,b)=>b.length-a.length)){
             for(const value of [secret,encodeURIComponent(secret)])text=text.split(value).join('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b3ByYXRlZC13cml0ZXIiLCJ1c2VyX2lkIjoidG9wcmF0ZWQtd3JpdGVyIiwiZW1haWwiOiJ3cml0ZXJAdG9wcmF0ZWRzZW90b29scy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.dHJzdC1kaXNwbGF5LW9ubHktbm90LXByb3ZpZGVyLWF1dGg');
           }
           text=text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi,'writer@topratedseotools.com');
