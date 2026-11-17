@@ -107,13 +107,17 @@ export class BrowserConnection {
     let event;try{event=JSON.parse(message.params.payload);}catch{return;}
     const job=this.jobs.get(event.id);if(job)job.event(event);
   }
-  async relay(input,req,res) {
-    await this.ready();
-    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
-    const nativeToken=refreshed.result?.value;
+  async browserToken() {
+    let refreshed;
+    try { refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry){const token=await Promise.race([entry[1].getRefreshToken(false),new Promise(resolve=>setTimeout(()=>resolve(null),3000))]);if(token)return token;}}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true}); } catch { /* The imported token still needs upstream verification. */ }
+    const nativeToken=refreshed?.result?.value;
     const token=typeof nativeToken === "string" && nativeToken.length>=100 ? nativeToken : this.importedToken;
     if(typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
-    input.browserToken=token;
+    return token;
+  }
+  async relay(input,req,res) {
+    await this.ready();
+    input.browserToken=await this.browserToken();
     const bodyBytes=input.bodyBase64?Buffer.byteLength(input.bodyBase64,'base64'):Buffer.byteLength(input.body??'');
     if(this.jobs.size>=16 || this.activeBodyBytes+bodyBytes>64*1024*1024) {res.writeHead(429);res.end('Browser is busy. Try again shortly.');return;}
     this.activeBodyBytes+=bodyBytes;

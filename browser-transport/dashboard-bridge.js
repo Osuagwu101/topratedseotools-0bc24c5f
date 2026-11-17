@@ -11,13 +11,13 @@
   notice('Opening QuillBot...');
   try{
    const session=activeSession();
-   const response=await fetch(gateway+'/__qbtest/__trst/launch',{method:'POST',credentials:'include',headers:{authorization:'Bearer '+session.access_token}});
+   const response=await fetch(gateway+'/__qbtest/__trst/launch',{method:'POST',credentials:'include',signal:AbortSignal.timeout(25000),headers:{authorization:'Bearer '+session.access_token}});
    const text=await response.text();let result;try{result=JSON.parse(text)}catch{}
    if(!response.ok||!result?.launch_url)throw Error(result?.message||text.slice(0,240)||'QuillBot is temporarily unavailable.');
    const target=new URL(result.launch_url);if(target.origin!==gateway||target.pathname!=='/__qbtest/__trst/enter')throw Error('QuillBot returned an invalid launch.');
    if(handoff&&!handoff.closed)handoff.location.href=target.href;else location.assign(target.href);
    notice('QuillBot is ready.');
-  }catch(error){if(handoff&&!handoff.closed)handoff.close();notice(error.message||'QuillBot launch failed.',true);}finally{pending=false;}
+  }catch(error){if(handoff&&!handoff.closed)handoff.close();notice(error.name==='TimeoutError'?'QuillBot connection timed out. Please retry or contact Admin.':error.message||'QuillBot launch failed.',true);}finally{pending=false;}
  }
  document.addEventListener('click',event=>{const card=cardFor(event.target);if(!card)return;event.preventDefault();event.stopImmediatePropagation();void launch();},true);
  function mark(){if(location.pathname!=='/dashboard'&&location.pathname!=='/dashboard/')return;for(const a of document.querySelectorAll('a[href]'))if(cardFor(a))a.title='Launch QuillBot OneClick';}
