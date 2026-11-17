@@ -34,13 +34,18 @@ for route in ['/tools/grammarly','/tools/chatgpt','/turnitin','/login']:
    assert 'Share the access.' in html and 'gr-plans' in html and '/order/grammarly?plan=' in html
   if route=='/tools/chatgpt':assert 'gr-hero-grid' not in html
 backup=Path('/home/ubuntu/deploy-backups/grammarly-landing-20261117');backup.mkdir(parents=True,exist_ok=True)
-saved=backup/'topratedseotools';assert not saved.exists(),'A rollback config already exists';saved.write_text(original)
+saved=backup/'topratedseotools';assert not saved.exists() or saved.read_text()==original,'Rollback config differs from the live baseline';saved.write_text(original)
 others={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('/etc/nginx/sites-enabled').iterdir() if p!=path}
 subprocess.check_call(['sudo','cp','-an',str(root/'.output/public/assets')+'/.','/var/www/trst-assets-unified-20261015/assets/'])
 candidate=backup/'topratedseotools.candidate';candidate.write_text(original.replace('127.0.0.1:'+oldport,'127.0.0.1:'+str(port)))
 try:
  subprocess.check_call(['sudo','cp',str(candidate),str(path)]);subprocess.check_call(['sudo','nginx','-t']);subprocess.check_call(['sudo','systemctl','reload','nginx'])
- with urllib.request.urlopen('https://topratedseotools.com/tools/grammarly',timeout=60) as r:assert r.status==200 and 'Share the access.' in r.read().decode()
+ for attempt in range(10):
+  time.sleep(1)
+  req=urllib.request.Request('https://topratedseotools.com/tools/grammarly?release='+str(port),headers={'Cache-Control':'no-cache'})
+  with urllib.request.urlopen(req,timeout=60) as r:ok=r.status==200 and 'Share the access.' in r.read().decode()
+  if ok:break
+ else:raise RuntimeError('Public landing-page verification failed')
 except Exception:
  subprocess.check_call(['sudo','cp',str(saved),str(path)]);subprocess.check_call(['sudo','nginx','-t']);subprocess.check_call(['sudo','systemctl','reload','nginx']);raise
 assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in others.items())
