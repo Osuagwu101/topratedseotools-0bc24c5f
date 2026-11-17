@@ -22,3 +22,13 @@ test('refresh failure without imported credentials fails closed',async()=>{
  const connection=new BrowserConnection();connection.call=async()=>{throw Error('timeout')};
  await assert.rejects(connection.browserToken(),/session expired/);
 });
+
+test('relay redaction never treats a missing cookie as an empty secret',async()=>{
+ const connection=new BrowserConnection();connection.ready=async()=>{};
+ connection.browserToken=async()=>imported;
+ let expression='';connection.call=async(method,input)=>{expression=input.expression;return {}};
+ const req={};const res={headersSent:false,on(){},writeHead(){},end(){}};
+ await connection.relay({url:'https://quillbot.com/api/auth/get-account-details',method:'POST',headers:{}},req,res);
+ for(const job of connection.jobs.values())job.fail();
+ assert.match(expression,/new Set\(secrets\)\]\.filter\(value=>typeof value==='string' && value.length>=12\)/);
+});

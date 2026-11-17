@@ -171,7 +171,7 @@ export class BrowserConnection {
           let text=await response.text();
           const secrets=Object.values(cookies).filter(v=>v.length>=12);
           secrets.push(decodeURIComponent(cookies.useridtoken||""),token);
-          for(const secret of [...new Set(secrets)].sort((a,b)=>b.length-a.length)){
+          for(const secret of [...new Set(secrets)].filter(value=>typeof value==='string' && value.length>=12).sort((a,b)=>b.length-a.length)){
             for(const value of [secret,encodeURIComponent(secret)])text=text.split(value).join('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b3ByYXRlZC13cml0ZXIiLCJ1c2VyX2lkIjoidG9wcmF0ZWQtd3JpdGVyIiwiZW1haWwiOiJ3cml0ZXJAdG9wcmF0ZWRzZW90b29scy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.dHJzdC1kaXNwbGF5LW9ubHktbm90LXByb3ZpZGVyLWF1dGg');
           }
           text=text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi,'writer@topratedseotools.com');
