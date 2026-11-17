@@ -7,7 +7,16 @@ import {decryptQuillBotSession,quillBotSessionExpiry} from '../src/lib/quillbot-
 import {WriterStore} from './writer-store.mjs';
 const origin='https://quillbot.topratedseotools.com',base=origin+'/__qbtest';
 const checked=r=>{if(r.error)throw Error('QA storage operation failed: '+r.error.code);return r.data;};
-const identities=JSON.parse(decryptQuillBotSession(fs.readFileSync(new URL('../.secrets/reverify-writer-tests.enc',import.meta.url),'utf8')));
+const fixtureEnvelope=fs.readFileSync(new URL('../.secrets/reverify-writer-tests.enc',import.meta.url),'utf8');
+let fixturePlaintext;
+try{fixturePlaintext=decryptQuillBotSession(fixtureEnvelope);}catch{
+ // Historical QA fixtures predate the Admin/transport vault-key alignment.
+ const backup=fs.readFileSync(new URL('../runtime/.env.before-admin-vault-key',import.meta.url),'utf8');
+ const key=backup.match(/^QUILLBOT_SESSION_ENCRYPTION_KEY=(.*)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g,'');
+ if(!key)throw Error('Historical QA key unavailable; create fresh disposable fixtures');
+ fixturePlaintext=decryptQuillBotSession(fixtureEnvelope,key);
+}
+const identities=JSON.parse(fixturePlaintext);
 assert.equal(identities.length,2);assert.ok(identities.every(v=>/^quillbot-launch-reverify-/.test(v.email)));
 const saved=checked(await db.from('quillbot_provider_accounts').select('encrypted_payload').eq('account_key','account_1').single());
 const provider=JSON.parse(decryptQuillBotSession(saved.encrypted_payload));
