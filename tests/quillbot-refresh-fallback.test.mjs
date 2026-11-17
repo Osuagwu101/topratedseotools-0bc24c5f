@@ -9,7 +9,7 @@ test('browser command timeout falls back to imported session for upstream verifi
  assert.equal(await connection.browserToken(),imported);
 });
 test('successful native refresh takes precedence',async()=>{
- const connection=new BrowserConnection();connection.importedToken=imported;
+ const connection=new BrowserConnection();connection.importedToken=native;
  connection.call=async()=>({result:{value:native}});
  assert.equal(await connection.browserToken(),native);
 });
