@@ -140,7 +140,7 @@ try {
  offline=true;const offlinePayload=vault('official-two');const offlineReport=await backupChatGptAccount('account_1',offlinePayload);assert.equal(offlineReport.failed,0);offline=false;
  // Binary attachments survive expiry and a second same-slot account replacement.
  process.env.CHATGPT_ATTACHMENT_HISTORY='1';
- const {attachmentRows,readAttachment,restoreAttachments,drainAttachmentCaptures,attachmentsAccountedFor}=await import('../src/lib/chatgpt-attachments.server');
+ const {attachmentRows,readAttachment,restoreAttachments,drainAttachmentCaptures,attachmentsAccountedFor,claimOwnedGeneratedFile}=await import('../src/lib/chatgpt-attachments.server');
  const upload=await handle(req(0,'/__codex-api/files',{file_name:'notes.txt',file_size:18,use_case:'multimodal'}));assert.equal(upload.status,200);
  const docId=(await upload.json()).file_id;providerFiles.set(docId,new TextEncoder().encode('private-file-marker'));
  const imgUpload=await handle(req(0,'/backend-api/files',{file_name:'photo.png',file_size:18,use_case:'multimodal'}));assert.equal(imgUpload.status,200);
@@ -186,6 +186,11 @@ try {
  const pendingRow=tables.chatgpt_history_attachments.find(r=>r.id===doc.id);pendingRow.status='pending';
  assert(!await attachmentsAccountedFor(userA,binaryChat,binaryThread.snapshot));
  offline=true;const pendingReport=await backupChatGptAccount('account_1',vault('uncached-expired-official'));assert(pendingReport.failed>0,'Expired login must not bypass pending attachment backups');offline=false;pendingRow.status='ready';
+ const generatedId='file_generated_race',generatedChat=randomUUID(),generated=snapshot(generatedChat,'create an image','here');
+ generated.mapping[generated.current_node].message.content.parts.push({content_type:'image_asset_pointer',asset_pointer:'file-service://'+generatedId});snapshots.set(generatedChat,generated);
+ tables.chatgpt_conversation_owners.push({conversation_id:generatedChat,provider_account_key:'account_1',user_id:userA});
+ assert(!await claimOwnedGeneratedFile(userB,'race-identity',generatedId,generatedChat,'account_1',new Headers()));
+ assert(await claimOwnedGeneratedFile(userA,'race-identity',generatedId,generatedChat,'account_1',new Headers()));
  const {signedAssetUrl,boundedBytes,attachmentRefs}=await import('../src/lib/chatgpt-attachment-model');
  for(const url of ['http://files.oaiusercontent.com/a','https://127.0.0.1/a','https://files.oaiusercontent.com.evil.test/a','https://evil.test/a'])assert.throws(()=>signedAssetUrl(url));
  await assert.rejects(()=>boundedBytes(new Response(new Uint8Array(10)),4),/25 MB/);

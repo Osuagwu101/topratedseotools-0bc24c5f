@@ -8,7 +8,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   type AttachmentRef,
 } from "./chatgpt-attachment-model";
-import { HistoryContextError, type HistorySnapshot } from "./chatgpt-history-model";
+import { HistoryContextError, validSnapshot, type HistorySnapshot } from "./chatgpt-history-model";
 const db = () => supabaseAdmin as any;
 const BUCKET = "chatgpt-private-attachments";
 const hash = (v: string | Uint8Array) => createHash("sha256").update(v).digest("hex");
@@ -432,4 +432,50 @@ export async function attachmentsAccountedFor(
   return attachmentRefs(snapshot).every((ref) =>
     rows.some((r) => r.ref.key === ref.key && ["ready", "unavailable"].includes(r.status)),
   );
+}
+
+/** A generated image may be requested before the stream-end archival queue runs. */
+export async function claimOwnedGeneratedFile(
+  userId: string,
+  identity: string,
+  fileId: string,
+  conversationId: string,
+  account: string,
+  headers: Headers,
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(conversationId)) return false;
+  const existing = check(
+    await db()
+      .from("chatgpt_file_owners")
+      .select("user_id")
+      .eq("provider_identity", identity)
+      .eq("file_id", fileId)
+      .maybeSingle(),
+  );
+  if (existing) return existing.user_id === userId;
+  const owner = check(
+    await db()
+      .from("chatgpt_conversation_owners")
+      .select("user_id")
+      .eq("conversation_id", conversationId)
+      .eq("provider_account_key", account)
+      .maybeSingle(),
+  );
+  if (owner?.user_id !== userId) return false;
+  const h = new Headers(headers);
+  h.set("Accept", "application/json");
+  h.delete("content-type");
+  h.delete("content-length");
+  const response = await fetch("https://chatgpt.com/backend-api/conversation/" + conversationId, {
+    headers: h,
+    redirect: "manual",
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) return false;
+  const snapshot = await response.json();
+  if (!validSnapshot(snapshot, conversationId)) return false;
+  if (!attachmentRefs(snapshot).some((r) => r.fileId === fileId && r.role === "assistant"))
+    return false;
+  await registerWriterFile(userId, identity, fileId);
+  return true;
 }

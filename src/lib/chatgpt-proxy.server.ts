@@ -1,4 +1,4 @@
-import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile} from './chatgpt-attachments.server';
+import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
@@ -1218,7 +1218,10 @@ export async function handleChatGPTProxyRequest(request: Request) {
     const filePath=target.pathname.match(/^\/backend-api\/files\/(?:download\/)?(file[-_][A-Za-z0-9_-]+)(?:\/|$)/);
     try {
      const fileId=filePath?.[1]??(target.pathname==='/backend-api/estuary/content'?target.searchParams.get('id'):null);
-     if(fileId && !await ownsWriterFile(writerId,historyIdentity,fileId))return jsonResponse({detail:'File not found'},404);
+     if(fileId && !await ownsWriterFile(writerId,historyIdentity,fileId)) {
+      const conversation=target.searchParams.get('conversation_id')??conversationIdFromDocumentPath(new URL(request.headers.get('referer')??request.url).pathname.replace(proxyBase,''));
+      if(request.method!=='GET'||!conversation||!await claimOwnedGeneratedFile(writerId,historyIdentity,fileId,conversation,account,providerHeaders))return jsonResponse({detail:'File not found'},404);
+     }
      if(request.method==='GET' && /^\/backend-api\/files\/?$/.test(target.pathname))return jsonResponse({detail:'Open Saved chats to view your private files.'},403);
      if(bodyText && request.method==='POST' && /^\/backend-api\/(?:f\/)?conversation\/?$/.test(target.pathname)) {
       for(const m of JSON.parse(bodyText).messages??[]) {
