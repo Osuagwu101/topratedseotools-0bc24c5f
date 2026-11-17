@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - name: QuillBot rollout controls
-        run: node --test browser-transport/controls.test.mjs browser-transport/relay.test.mjs tests/quillbot-refresh-fallback.test.mjs tests/quillbot-rollout-controls.test.mjs
+        run: node --test browser-transport/controls.test.mjs browser-transport/relay.test.mjs tests/quillbot-refresh-fallback.test.mjs tests/quillbot-rollout-controls.test.mjs tests/quillbot-renewal.test.mjs
       - name: Install dependencies
         run: bun install --frozen-lockfile
 

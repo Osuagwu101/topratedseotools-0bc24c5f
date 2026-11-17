@@ -1,4 +1,6 @@
 import http from 'node:http';
+import fs from 'node:fs';
+import {SessionRenewalMonitor,tokenExpiry} from './session-renewal.mjs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
@@ -36,6 +38,9 @@ export function validateRelayRequest(input) {
 }
 
 export class BrowserConnection {
+  constructor({bindingPath=null}={}){this.bindingPath=bindingPath;this.assignedSubject=null;this.importedExpiresAt=null;try{const saved=JSON.parse(fs.readFileSync(bindingPath,'utf8'));this.assignedSubject=typeof saved.subject==='string'?saved.subject:null;this.importedExpiresAt=Number.isFinite(saved.importedExpiresAt)?saved.importedExpiresAt:null;}catch{}}
+  async renewalStatus(){await this.ready();const token=await this.browserToken();return {source:this.lastTokenSource,matchesAssignedAccount:!!this.assignedSubject&&tokenSubject(token)===this.assignedSubject,expiresAt:tokenExpiry(token),importedExpiresAt:this.importedExpiresAt};}
+
   appliedSession=null; importedToken=null; importedSecrets=[]; sessionFlight=null;
   async applySession(input){
     if(this.sessionFlight){await this.sessionFlight;return this.applySession(input);}
@@ -47,6 +52,8 @@ export class BrowserConnection {
     const entry=input.cookie.split(";").map(v=>v.trim()).find(v=>v.startsWith("useridtoken="));
     this.importedSecrets=input.cookie.split(";").map(part=>part.slice(part.indexOf("=")+1)).filter(v=>v.length>=12);
     this.importedToken=entry?decodeURIComponent(entry.slice("useridtoken=".length)):null;
+    this.assignedSubject=tokenSubject(this.importedToken);this.importedExpiresAt=tokenExpiry(this.importedToken);
+    if(this.bindingPath)fs.writeFileSync(this.bindingPath,JSON.stringify({subject:this.assignedSubject,importedExpiresAt:this.importedExpiresAt}),{mode:0o600});
     if(this.appliedSession===input.version)return;
     await this.ready();
     if(this.jobs.size)throw Error("Workspace busy; retry connection");
@@ -120,7 +127,9 @@ export class BrowserConnection {
     let refreshed;
     try { refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry){const token=await Promise.race([entry[1].getRefreshToken(false),new Promise(resolve=>setTimeout(()=>resolve(null),3000))]);if(token)return token;}}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true}); } catch { /* The imported token still needs upstream verification. */ }
     const nativeToken=refreshed?.result?.value;
-    const token=typeof nativeToken === "string" && nativeToken.length>=100 && sameTokenAccount(nativeToken,this.importedToken) ? nativeToken : this.importedToken;
+    const usableNative=typeof nativeToken==='string'&&nativeToken.length>=100&&sameTokenAccount(nativeToken,this.importedToken)&&(!this.assignedSubject||tokenSubject(nativeToken)===this.assignedSubject);
+    this.lastTokenSource=usableNative?'native':'imported';
+    const token=usableNative?nativeToken:this.importedToken;
     if(typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
     return token;
   }
@@ -200,14 +209,19 @@ export class BrowserConnection {
   }
 }
 
-export function startRelay({port=6102}={}) {
+export function startRelay({port=6102,browserConnection=null}={}) {
   const secret=process.env.QUILLBOT_BROWSER_RELAY_KEY;
   if(!secret || secret.length<32)throw Error('Missing relay key');
-  const browser=new BrowserConnection();
+  const browser=browserConnection||new BrowserConnection({bindingPath:process.env.QUILLBOT_SESSION_BINDING_PATH||'/var/lib/trst-quillbot-browser/session-binding.json'});
+  const monitor=new SessionRenewalMonitor(()=>browser.renewalStatus(),{onChange:state=>{console.log(JSON.stringify({layer:'quillbot_session_health',...state}));}});
+  const renewalTimer=setInterval(()=>void monitor.tick(),300000);renewalTimer.unref();
+  void monitor.tick();
   return http.createServer(async(req,res)=>{
     if(req.url==='/health' && req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json'});res.end('{"ok":true}');return;}
     const incoming=Buffer.from(String(req.headers.authorization??''));const expected=Buffer.from('Bearer '+secret);
     if(incoming.length!==expected.length || !timingSafeEqual(incoming,expected)){res.writeHead(401);res.end();return;}
+    if(req.url==='/status'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(monitor.state));return;}
+    if(req.url==='/renew'&&req.method==='POST'){const state=await monitor.tick();res.writeHead(state.status==='healthy'?200:503,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(state));return;}
     if(!['/request','/session'].includes(req.url) || req.method!=='POST'){res.writeHead(404);res.end();return;}
     let input;
     try {
@@ -219,6 +233,6 @@ export function startRelay({port=6102}={}) {
     }catch{res.writeHead(400);res.end('Invalid browser transport request.');return;}
     try{await browser.relay(input,req,res);}
     catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('QuillBot browser transport is unavailable.');}
-  }).listen(port,'127.0.0.1');
+  }).listen(port,'127.0.0.1').on('close',()=>clearInterval(renewalTimer));
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)startRelay();
