@@ -1,3 +1,4 @@
+import { GrammarlyLanding } from "@/components/grammarly/GrammarlyLanding";
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSuspenseQuery, useQuery, queryOptions } from "@tanstack/react-query";
@@ -89,12 +90,14 @@ export const Route = createFileRoute("/tools/$slug")({
         ],
       };
     }
+    const grammarly = loaderData.slug === "grammarly";
+    const pageDescription = grammarly ? "Get Grammarly access through TopRated with a document workspace separated from other TopRated users. View prices, choose a plan and launch from your dashboard." : loaderData.description;
     return {
       meta: [
-        { title: `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
-        { name: "description", content: loaderData.description },
-        { property: "og:title", content: `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
-        { property: "og:description", content: loaderData.description },
+        { title: grammarly ? "Grammarly Access, Private Documents | TopRated SEO Tools" : `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
+        { name: "description", content: pageDescription },
+        { property: "og:title", content: grammarly ? "Grammarly Access, Private Documents | TopRated SEO Tools" : `${loaderData.name} Subscription & Pricing | Top Rated SEO Tools` },
+        { property: "og:description", content: pageDescription },
         { property: "og:url", content: `https://topratedseotools.com/tools/${loaderData.slug}` },
         { property: "og:type", content: "product" },
       ],
@@ -153,6 +156,16 @@ function ToolPage() {
         </div>
       </SiteLayout>
     );
+  }
+
+  if(tool.slug === "grammarly") {
+    const sharedPrice=baseMonthlyLines(priceOptions,setting).find(line=>line.access === "shared");
+    return <SiteLayout><GrammarlyLanding
+      price={sharedPrice ? sharedPrice.text : null}
+      plans={<SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />}
+      access={<ToolAccessPanel tool={tool} setting={setting} isAuthenticated={session?.isAuthenticated ?? false} />}
+      reviews={<ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} />}
+    /></SiteLayout>;
   }
 
   const badge =
@@ -299,7 +312,7 @@ function SubscriptionCard({
     | undefined;
 }) {
   const money = useMoney();
-  const [showPlans, setShowPlans] = useState(false);
+  const [showPlans, setShowPlans] = useState(slug === "grammarly");
   const sharedAllowed =
     (setting?.shared_access_enabled ?? true) &&
     (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
