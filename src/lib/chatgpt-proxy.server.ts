@@ -1215,7 +1215,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     }
   }
   if(durable && attachmentStorageEnabled() && historyIdentity && isChatGptOrigin) {
-    const filePath=target.pathname.match(/^\/backend-api\/files\/(?:download\/)?(file-[A-Za-z0-9_-]+)(?:\/|$)/);
+    const filePath=target.pathname.match(/^\/backend-api\/files\/(?:download\/)?(file[-_][A-Za-z0-9_-]+)(?:\/|$)/);
     try {
      if(filePath && !await ownsWriterFile(writerId,historyIdentity,filePath[1]))return jsonResponse({detail:'File not found'},404);
      if(request.method==='GET' && /^\/backend-api\/files\/?$/.test(target.pathname))return jsonResponse({detail:'Open Saved chats to view your private files.'},403);

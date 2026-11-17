@@ -46,7 +46,7 @@ export async function attachmentRows(userId: string, threadId: string) {
   return rows.map((row) => ({ ...row, ref: descriptor(row, userId, threadId) }));
 }
 export async function registerWriterFile(userId: string, identity: string, fileId: string) {
-  if (!/^file-[A-Za-z0-9_-]{1,200}$/.test(fileId)) throw Error("Invalid provider file ID.");
+  if (!/^file[-_][A-Za-z0-9_-]{1,200}$/.test(fileId)) throw Error("Invalid provider file ID.");
   check(
     await db()
       .from("chatgpt_file_owners")
@@ -288,7 +288,7 @@ export async function uploadAttachment(
       "ChatGPT could not accept a saved attachment. Download it from Saved chats and attach it manually.",
     );
   const info = await created.json();
-  if (!/^file-[A-Za-z0-9_-]{1,200}$/.test(info.file_id))
+  if (!/^file[-_][A-Za-z0-9_-]{1,200}$/.test(info.file_id))
     throw new HistoryContextError("ChatGPT returned an unsupported upload response.");
   const upload = await fetch(signedAssetUrl(info.upload_url), {
     method: "PUT",

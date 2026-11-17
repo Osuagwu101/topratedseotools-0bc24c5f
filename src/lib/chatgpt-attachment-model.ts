@@ -13,7 +13,7 @@ export type AttachmentRef = {
   height?: number;
 };
 const fileId = (v: unknown) =>
-  typeof v === "string" && /^file-[A-Za-z0-9_-]{1,200}$/.test(v) ? v : undefined;
+  typeof v === "string" && /^file[-_][A-Za-z0-9_-]{1,200}$/.test(v) ? v : undefined;
 const name = (v: unknown, fallback: string) =>
   String(v || fallback)
     .split(/[\\/]/)

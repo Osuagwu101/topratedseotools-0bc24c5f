@@ -49,11 +49,11 @@ globalThis.fetch=(async(input:any,init:any)=>{
   return init?.method==='PUT'?new Response(null,{status:201}):new Response(providerFiles.get(url.pathname.slice(1))!,{headers:{'Content-Type':url.pathname.includes('image')?'image/png':'application/octet-stream'}});
  }
  if(url.pathname==='/backend-api/files'&&init?.method==='POST') {
-  const id='file-upload-'+(++uploadCounter),path='/upload-'+uploadCounter;signedUploads.set(path,id);
+  const id='file_qa_'+(++uploadCounter),path='/upload-'+uploadCounter;signedUploads.set(path,id);
   return Response.json({file_id:id,upload_url:'https://uploads.blob.core.windows.net'+path});
  }
- if(/^\/backend-api\/files\/file-[^/]+\/uploaded$/.test(url.pathname))return Response.json({status:'success'});
- if(/^\/backend-api\/files\/file-[^/]+\/download$/.test(url.pathname)) {
+ if(/^\/backend-api\/files\/file[-_][^/]+\/uploaded$/.test(url.pathname))return Response.json({status:'success'});
+ if(/^\/backend-api\/files\/file[-_][^/]+\/download$/.test(url.pathname)) {
   const id=url.pathname.split('/')[3];return providerFiles.has(id)?Response.json({download_url:'https://uploads.blob.core.windows.net/'+id}):new Response('',{status:404});
  }
  if(url.pathname.includes('/interpreter/download'))return new Response('generated-result-marker',{headers:{'Content-Type':'text/plain'}});
@@ -174,7 +174,7 @@ try {
  const restoredBody=upstreamBodies.at(-1),newFiles=restoredBody.messages[0].metadata.attachments;
  assert.equal(newFiles.length,3);assert(newFiles.every((f:any)=>f.id!==docId&&f.id!==imageId));
  assert(newFiles.some((f:any)=>new TextDecoder().decode(providerFiles.get(f.id)).includes('private-file-marker')));
- assert(restoredBody.messages[0].content.parts.some((p:any)=>p.asset_pointer?.startsWith('file-service://file-upload-')));
+ assert(restoredBody.messages[0].content.parts.some((p:any)=>p.asset_pointer?.startsWith('file-service://file_qa_')));
  assert(!JSON.stringify(restoredBody).includes('file-service://'+imageId));
  assert(!historyMessages((await savedThread(userA,binaryChat)).snapshot).at(-2).metadata.attachments.length,'Replay-only attachments must not multiply across future account changes');
  const oldBlob=blobs.get(doc.storage_key)!;blobs.set(doc.storage_key,new TextEncoder().encode('{}'));await assert.rejects(()=>readAttachment(userA,binaryChat,doc.id));blobs.set(doc.storage_key,oldBlob);
