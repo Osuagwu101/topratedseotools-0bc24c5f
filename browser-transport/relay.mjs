@@ -33,10 +33,16 @@ export function validateRelayRequest(input) {
 }
 
 export class BrowserConnection {
-  appliedSession=null; importedToken=null;
+  appliedSession=null; importedToken=null; importedSecrets=[]; sessionFlight=null;
   async applySession(input){
+    if(this.sessionFlight){await this.sessionFlight;return this.applySession(input);}
+    const flight=this.applySessionOnce(input);this.sessionFlight=flight;
+    try{return await flight;}finally{if(this.sessionFlight===flight)this.sessionFlight=null;}
+  }
+  async applySessionOnce(input){
     if(!input || typeof input.version!=="string" || typeof input.cookie!=="string" || input.cookie.length>32000)throw Error("Invalid session");
     const entry=input.cookie.split(";").map(v=>v.trim()).find(v=>v.startsWith("useridtoken="));
+    this.importedSecrets=input.cookie.split(";").map(part=>part.slice(part.indexOf("=")+1)).filter(v=>v.length>=12);
     this.importedToken=entry?decodeURIComponent(entry.slice("useridtoken=".length)):null;
     if(this.appliedSession===input.version)return;
     await this.ready();
@@ -118,6 +124,7 @@ export class BrowserConnection {
   async relay(input,req,res) {
     await this.ready();
     input.browserToken=await this.browserToken();
+    input.redactionSecrets=this.importedSecrets;
     const bodyBytes=input.bodyBase64?Buffer.byteLength(input.bodyBase64,'base64'):Buffer.byteLength(input.body??'');
     if(this.jobs.size>=16 || this.activeBodyBytes+bodyBytes>64*1024*1024) {res.writeHead(429);res.end('Browser is busy. Try again shortly.');return;}
     this.activeBodyBytes+=bodyBytes;
@@ -169,7 +176,7 @@ export class BrowserConnection {
         const contentType=response.headers.get('content-type')||'';
         if(/json|html/.test(contentType)){
           let text=await response.text();
-          const secrets=Object.values(cookies).filter(v=>v.length>=12);
+          const secrets=[...Object.values(cookies),...(input.redactionSecrets||[])].filter(v=>v.length>=12);
           secrets.push(decodeURIComponent(cookies.useridtoken||""),token);
           for(const secret of [...new Set(secrets)].filter(value=>typeof value==='string' && value.length>=12).sort((a,b)=>b.length-a.length)){
             for(const value of [secret,encodeURIComponent(secret)])text=text.split(value).join('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b3ByYXRlZC13cml0ZXIiLCJ1c2VyX2lkIjoidG9wcmF0ZWQtd3JpdGVyIiwiZW1haWwiOiJ3cml0ZXJAdG9wcmF0ZWRzZW90b29scy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.dHJzdC1kaXNwbGF5LW9ubHktbm90LXByb3ZpZGVyLWF1dGg');
