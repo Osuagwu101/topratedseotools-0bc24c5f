@@ -14,6 +14,7 @@ interface Props {
   tool: Tool;
   setting: ToolSetting | undefined;
   isAuthenticated: boolean;
+  compact?: boolean;
 }
 
 const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
@@ -30,7 +31,7 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
   private_access_authorization: "confirmed",
 };
 
-export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
+export function ToolAccessPanel({ tool, setting, isAuthenticated, compact = false }: Props) {
   const effective = setting ?? { tool_slug: tool.slug, ...DEFAULT_SETTING };
 
   const shouldFetchAccess =
@@ -57,6 +58,8 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
     // Writer launches are session-only. This path can never request or submit a Phrasly OTP.
     await launchTool(tool, effective, { grantAccess: hasGrant });
   };
+
+  if(compact) return state === "granted" ? <button type="button" onClick={handleLaunchTool} className="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90"><Rocket className="h-4 w-4"/> Launch {tool.name}</button> : null;
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
