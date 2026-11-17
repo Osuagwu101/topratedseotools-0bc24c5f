@@ -15,6 +15,10 @@ needle="  if(response.ok&&safePath.startsWith('/api/paraphraser/'))"
 if 'if(!response.ok&&/^' not in text:
  assert needle in text
  text=text.replace(needle,"  if(!response.ok&&/^\\/api\\/paraphraser\\/single-paraphrase\\/[0-9]+$/.test(safePath))writerStore.fail(session.user_id,request.headers.get('x-trst-operation'));\n"+needle)
+if 'writerStore.recoverAbandoned();' not in text:
+ marker='const writerStore=new WriterStore('
+ pos=text.index(';',text.index(marker))+1
+ text=text[:pos]+'\nwriterStore.recoverAbandoned();'+text[pos:]
 source.write_text(text)
 for name in ['writer-store.mjs','writer-bootstrap.mjs','rollout-acceptance.mjs']:
  (runtime.parent/'browser-transport'/name).write_bytes((root/'browser-transport'/name).read_bytes())

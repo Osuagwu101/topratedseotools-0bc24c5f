@@ -38,3 +38,8 @@ test('cookie refresh retains the dedicated browser persistent sign-in',async()=>
  await c.applySession({cookie:'useridtoken='+('test-only-'.repeat(20)),version:'one'});
  assert.equal(cleared.length,1);assert.ok(!cleared[0].includes('indexeddb'));assert.ok(!cleared[0].includes('local_storage'));
 });
+
+test('service restart refunds unfinished submissions without refunding completed output',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'qb-restart-')),path=join(dir,'store');let s=new WriterStore(path);
+ try{const completed=s.reserve('a','complete');s.recordOutput('a',completed,{alt:'output'});s.reserve('a','unfinished');assert.equal(s.status('a').used,2);s.db.close();s=new WriterStore(path);s.recoverAbandoned();assert.equal(s.status('a').used,1);s.recoverAbandoned();assert.equal(s.status('a').used,1);}finally{s.db.close();rmSync(dir,{recursive:true});}
+});

@@ -8,13 +8,13 @@ Do not treat a saved cookie bundle or a successful short-term launch as a comple
 - Provider cookies and native/refresh tokens stay server-side; native tokens must match the imported account subject.
 - Same-version cookie imports are serialized; importing cookies no longer deletes the dedicated browser's persistent sign-in storage.
 - Failed primary paraphrases with no successful output refund once. A submission that already produced output is not refunded by a later failure.
-- Daily allowance follows Africa/Lagos. Limits, usage and encrypted history persist in SQLite; tests cover restart durability and a refund crossing midnight.
+- Daily allowance follows Africa/Lagos. Limits, usage and encrypted history persist in SQLite; tests cover restart durability and a refund crossing midnight. Unfinished submissions have durable reservations that are refunded exactly once after a service restart.
 - Unverified QuillBot features show a Paraphraser-only message; their provider endpoints remain blocked.
 - CI runs the transport/security control regressions.
 
 ## Evidence in this revision
 
-21 transport/control tests and 21 launch/access tests passed locally. Full production-build workflow must pass before merge. Database checks confirm private QuillBot tables have RLS enabled with no anon/authenticated read privileges and no direct writer/anon device-registration execution permission.
+22 transport/control tests and 21 launch/access tests passed locally. Full production-build workflow must pass before merge. Database checks confirm private QuillBot tables have RLS enabled with no anon/authenticated read privileges and no direct writer/anon device-registration execution permission.
 
 The live acceptance harness (`rollout-acceptance.mjs`) uses only the two existing disposable QA writer identities. It exercises concurrent real processing, separate history, direct cross-writer rejection, expiration/revocation, suspension, quota changes, device removal/limits, blocked features and scans responses for actual provider secrets. Its `finally` block revokes QA access and restores QA quotas.
 
