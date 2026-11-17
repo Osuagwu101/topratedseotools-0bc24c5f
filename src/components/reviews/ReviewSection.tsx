@@ -26,9 +26,11 @@ import { Label } from "@/components/ui/label";
 interface Props {
   tool: Tool;
   isAuthenticated: boolean;
+  /** Render nothing until at least one public review exists, unless the viewer can leave one. */
+  hideWhenEmpty?: boolean;
 }
 
-export function ReviewSection({ tool, isAuthenticated }: Props) {
+export function ReviewSection({ tool, isAuthenticated, hideWhenEmpty = false }: Props) {
   const qc = useQueryClient();
   const { data: pub } = useQuery({
     queryKey: ["public-reviews", tool.slug],
@@ -70,6 +72,8 @@ export function ReviewSection({ tool, isAuthenticated }: Props) {
       })),
     };
   }, [agg, reviews, tool.name, tool.description]);
+
+  if (hideWhenEmpty && reviews.length === 0 && !(isAuthenticated && elig && (elig.canReview || elig.canEdit || elig.review))) return null;
 
   return (
     <section id="reviews" className="mt-10 rounded-2xl border bg-card p-6 shadow-card">

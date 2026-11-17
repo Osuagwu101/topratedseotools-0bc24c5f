@@ -14,6 +14,8 @@ interface Props {
   tool: Tool;
   setting: ToolSetting | undefined;
   isAuthenticated: boolean;
+  /** False when no Private Access plan is on sale, so Private wording is hidden. Defaults to true. */
+  privateAvailable?: boolean;
 }
 
 const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
@@ -30,7 +32,7 @@ const DEFAULT_SETTING: Omit<ToolSetting, "tool_slug"> = {
   private_access_authorization: "confirmed",
 };
 
-export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
+export function ToolAccessPanel({ tool, setting, isAuthenticated, privateAvailable = true }: Props) {
   const effective = setting ?? { tool_slug: tool.slug, ...DEFAULT_SETTING };
 
   const shouldFetchAccess =
@@ -99,13 +101,19 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
         <StateBlock
           icon={Lock}
           title="Subscribe to unlock"
-          body="This is a premium tool. Choose Shared or Private Access, then complete payment to request activation."
+          body={
+            privateAvailable
+              ? "This is a premium tool. Choose Shared or Private Access, then complete payment to request activation."
+              : `Buy shared access on this page. Once payment is confirmed, launch ${tool.name} from here or your dashboard.`
+          }
         >
           <ul className="mt-4 grid gap-2 text-sm">
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span><strong>Shared Access:</strong> access is activated after payment confirmation, subject to availability.</span>
             </li>
+            {privateAvailable ? (
+              <>
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span><strong>Private Access:</strong> after payment confirmation your order is marked pending fulfilment. Contact Admin on WhatsApp to complete the account assignment.</span>
@@ -114,6 +122,8 @@ export function ToolAccessPanel({ tool, setting, isAuthenticated }: Props) {
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>Private orders are fulfilled within about six hours.</span>
             </li>
+              </>
+            ) : null}
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>Cancel or change your billing period at renewal.</span>

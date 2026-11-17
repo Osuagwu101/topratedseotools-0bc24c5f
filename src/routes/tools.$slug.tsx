@@ -160,11 +160,23 @@ function ToolPage() {
 
   if(tool.slug === "grammarly") {
     const sharedPrice=baseMonthlyLines(priceOptions,setting).find(line=>line.access === "shared");
+    const purchasable = priceOptions.filter((o) => o.enabled && !o.contact_admin && o.amount != null);
+    const sharedOptions = purchasable.filter((o) => (o.access_type ?? "shared") === "shared");
+    const privateAvailable =
+      (setting?.private_access_enabled ?? true) &&
+      (setting?.private_access_authorization ?? "confirmed") === "confirmed" &&
+      purchasable.some((o) => o.access_type === "private");
+    const sharedAvailable =
+      (setting?.shared_access_enabled ?? true) &&
+      (setting?.shared_access_authorization ?? "confirmed") === "confirmed";
+    // A single shared plan gets a simple, specific card. Anything more falls back to the full plan picker.
+    const singlePlan = sharedAvailable && sharedOptions.length === 1 && !privateAvailable ? sharedOptions[0] : null;
     return <SiteLayout><GrammarlyLanding
       price={sharedPrice ? sharedPrice.text : null}
-      plans={<SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />}
-      access={<ToolAccessPanel tool={tool} setting={setting} isAuthenticated={session?.isAuthenticated ?? false} />}
-      reviews={<ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} />}
+      singlePlan={singlePlan ? { amount: Number(singlePlan.amount), durationDays: singlePlan.duration_days ?? 28 } : null}
+      plans={singlePlan ? <GrammarlyPlanCard slug={tool.slug} opt={singlePlan} /> : <SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />}
+      access={<ToolAccessPanel tool={tool} setting={setting} isAuthenticated={session?.isAuthenticated ?? false} privateAvailable={privateAvailable} />}
+      reviews={<ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} hideWhenEmpty />}
     /></SiteLayout>;
   }
 
@@ -465,6 +477,38 @@ function AccessSection({
           <PlanTile key={o.id} slug={slug} opt={o} label={o.label ?? "Standard"} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Grammarly-only card used when exactly one shared plan is on sale. */
+function GrammarlyPlanCard({ slug, opt }: { slug: string; opt: ToolPricingOption }) {
+  const money = useMoney();
+  const price = money.fmt(Number(opt.amount));
+  const days = opt.duration_days ?? 28;
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h2 className="text-lg font-semibold">Grammarly Shared Access</h2>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="text-3xl font-bold">{price}</span>
+        <span className="text-sm text-muted-foreground">for {days} days</span>
+      </div>
+      <ul className="mt-5 grid gap-2 text-sm">
+        <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Browser-based Grammarly with correctness and clarity suggestions</li>
+        <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Your own document workspace</li>
+        <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> OneClick launch from your TopRated dashboard</li>
+      </ul>
+      <Link
+        to="/order/$slug"
+        params={{ slug }}
+        search={{ plan: opt.id }}
+        className="mt-6 inline-flex w-full items-center justify-center rounded-md bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90"
+      >
+        Get access · {price}
+      </Link>
+      <p className="mt-3 text-sm text-muted-foreground">
+        You'll sign in or create a free TopRated account, then pay with Paystack. Choose auto-renew or a one-time payment at checkout. Auto-renew renews every {days} days until you turn it off.
+      </p>
     </div>
   );
 }
