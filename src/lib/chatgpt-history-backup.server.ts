@@ -4,7 +4,9 @@ import {decryptChatGptSession} from './chatgpt-session.server';
 import {captureConversation,threadForAlias,historyLink,HistoryUpstreamError,historyIssue} from './chatgpt-history.server';
 import type {ChatGptProviderAccount} from './chatgpt-account-policy';
 /** Idempotent: imports only explicitly owned chats; never claims provider-wide history. */
-export async function backupChatGptAccount(account:ChatGptProviderAccount,encrypted:string) {
+export async function backupChatGptAccount(account:ChatGptProviderAccount,encrypted:string,legacyAttachments=false) {
+ const {drainAttachmentCaptures,attachmentsAccountedFor}=await import('./chatgpt-attachments.server');
+ await drainAttachmentCaptures();
  const {buildChatGPTCookieHeader}=await import('./chatgpt-proxy.server');
  let cookie='';
  try{cookie=buildChatGPTCookieHeader(decryptChatGptSession(encrypted),'https://chatgpt.com/api/auth/session');}catch{/* An expired login cannot remove saved history. */}
@@ -21,17 +23,17 @@ export async function backupChatGptAccount(account:ChatGptProviderAccount,encryp
    if(!session?.identity){
     const {data:issue,error}=await (supabaseAdmin as any).from('chatgpt_history_backup_issues').select('status').eq('user_id',row.user_id).eq('provider_account_key',account).eq('conversation_id',row.conversation_id).maybeSingle();
     if(error)throw Error('Could not check the history backup ledger.');
-    if(saved)alreadySaved++;else if(issue?.status==='upstream_missing')unavailable++;else failed++;continue;
+    if(saved){if(await attachmentsAccountedFor(row.user_id,saved.id,saved.snapshot))alreadySaved++;else failed++;}else if(issue?.status==='upstream_missing')unavailable++;else failed++;continue;
    }
    const link=await historyLink(row.user_id,row.conversation_id,session.identity);
    // A previous official account's saved chats do not belong to the newly connected login.
-   if(saved && !link && saved.latest_provider_identity!==session.identity) {alreadySaved++;continue;}
+   if(saved && !link && saved.latest_provider_identity!==session.identity) {if(await attachmentsAccountedFor(row.user_id,saved.id,saved.snapshot))alreadySaved++;else failed++;continue;}
    try{
-    await captureConversation(row.user_id,account,session.identity,row.conversation_id,headers,saved?.id);
+    await captureConversation(row.user_id,account,session.identity,row.conversation_id,headers,saved?.id,undefined,legacyAttachments);
     await historyIssue(row.user_id,account,row.conversation_id,'resolved');captured++;
    } catch(error) {
     if(error instanceof HistoryUpstreamError && error.status===404) {
-     if(saved)alreadySaved++;
+     if(saved){if(await attachmentsAccountedFor(row.user_id,saved.id,saved.snapshot))alreadySaved++;else failed++;}
      else {await historyIssue(row.user_id,account,row.conversation_id,'upstream_missing');unavailable++;}
     } else failed++;
    }

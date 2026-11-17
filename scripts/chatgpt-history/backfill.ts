@@ -7,7 +7,7 @@ if(error)throw Error('Could not read ChatGPT provider accounts.');
 let failed=0;
 for(const row of data??[]) {
  if(row.status!=='stored'||!row.encrypted_payload)continue;
- const result=await backupChatGptAccount(row.account_key,row.encrypted_payload);
+ const result=await backupChatGptAccount(row.account_key,row.encrypted_payload,process.argv.includes('--legacy-attachments'));
  console.log(JSON.stringify(result));failed+=result.failed;
 }
 if(failed)process.exitCode=1;
