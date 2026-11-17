@@ -4,6 +4,7 @@ import {encryptChatGptSession,decryptChatGptSession} from './chatgpt-session.ser
 import {historyMessages,isHistoryId,mergeSnapshots,validSnapshot,type HistorySnapshot} from './chatgpt-history-model';
 import {rewriteStreamHandoffEvent,conversationIdFromStreamText} from './chatgpt-isolation.server';
 import type {ChatGptProviderAccount} from './chatgpt-account-policy';
+export class HistoryUpstreamError extends Error {constructor(public status:number){super('Could not back up the conversation (HTTP '+status+').');}}
 export const durableHistoryEnabled = () => process.env.CHATGPT_DURABLE_HISTORY === '1';
 export const historyHash = (s:string) => createHash('sha256').update(s).digest('hex');
 const db = () => supabaseAdmin as any;
@@ -73,7 +74,7 @@ export async function finishHistoryResume(token:string,upstreamId:string) {
 export async function captureConversation(userId:string,account:ChatGptProviderAccount,identity:string,upstreamId:string,headers:Headers,threadId?:string,originalMessages?:any[]) {
  const clean=new Headers(headers); clean.set('Accept','application/json'); clean.delete('content-type'); clean.delete('content-length');
  const response=await fetch('https://chatgpt.com/backend-api/conversation/'+upstreamId,{headers:clean,redirect:'manual',signal:AbortSignal.timeout(20000)});
- if(!response.ok) throw Error('Could not back up the conversation.');
+ if(!response.ok) throw new HistoryUpstreamError(response.status);
  const snapshot=await response.json();
  if(originalMessages && snapshot?.mapping) {
   const originals=new Map(originalMessages.map((m:any)=>[m.id,m]));
@@ -89,10 +90,14 @@ export function captureHistoryStream(body:ReadableStream<Uint8Array>,onId:(id:st
  return new ReadableStream<Uint8Array>({
   async pull(controller) {
    try {
-    const next=await reader.read();
-    if(next.done){pending+=decoder.decode();if(pending)controller.enqueue(encoder.encode(await process(pending)));await finish();controller.close();return;}
-    pending+=decoder.decode(next.value,{stream:true});
-    let cut:number; while((cut=pending.search(/\r?\n\r?\n/))>=0){const sep=pending.slice(cut).startsWith('\r\n')?4:2;const event=pending.slice(0,cut+sep);pending=pending.slice(cut+sep);controller.enqueue(encoder.encode(await process(event)));}
+    while(true) {
+     const next=await reader.read();
+     if(next.done){pending+=decoder.decode();if(pending)controller.enqueue(encoder.encode(await process(pending)));await finish();controller.close();return;}
+     pending+=decoder.decode(next.value,{stream:true});
+     let cut:number,emitted=false;
+     while((cut=pending.search(/\r?\n\r?\n/))>=0){const sep=pending.slice(cut).startsWith('\r\n')?4:2;const event=pending.slice(0,cut+sep);pending=pending.slice(cut+sep);controller.enqueue(encoder.encode(await process(event)));emitted=true;}
+     if(emitted)return;
+    }
    }catch(error){try{await finish();}catch{console.error('[chatgpt-history] interrupted reply backup failed');}controller.error(error);}
   },
   async cancel(reason){await reader.cancel(reason);try{await finish();}catch{console.error('[chatgpt-history] cancelled reply backup failed');}}
@@ -100,4 +105,11 @@ export function captureHistoryStream(body:ReadableStream<Uint8Array>,onId:(id:st
 }
 export function historySnippet(thread:any) {
  return historyMessages(thread.snapshot).map(m=>({role:m.author.role,text:(m.content?.parts??[]).filter((p:any)=>typeof p==='string').join('\n')}));
+}
+
+export async function historyIssue(userId:string,account:ChatGptProviderAccount,id:string,status:'upstream_missing'|'resolved') {
+ const {error}=await db().from('chatgpt_history_backup_issues').upsert({provider_account_key:account,conversation_id:id,user_id:userId,status,checked_at:new Date().toISOString()},{onConflict:'provider_account_key,conversation_id'});fail(error);
+}
+export async function unresolvedHistoryCount(userId:string) {
+ const {count,error}=await db().from('chatgpt_history_backup_issues').select('*',{count:'exact',head:true}).eq('user_id',userId).eq('status','upstream_missing');fail(error);return count??0;
 }

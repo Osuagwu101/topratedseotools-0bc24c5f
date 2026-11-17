@@ -41,3 +41,17 @@ alter table public.chatgpt_history_resumes enable row level security;
 revoke all on public.chatgpt_history_threads,public.chatgpt_history_links,public.chatgpt_history_resumes from public,anon,authenticated;
 grant all on public.chatgpt_history_threads,public.chatgpt_history_links,public.chatgpt_history_resumes to service_role;
 commit;
+-- An explicit ledger distinguishes pre-existing upstream 404s from successful backups.
+begin;
+create table if not exists public.chatgpt_history_backup_issues (
+ provider_account_key text not null check(provider_account_key in ('account_1','account_2')),
+ conversation_id text not null,
+ user_id uuid not null references auth.users(id) on delete cascade,
+ status text not null check(status in ('upstream_missing','resolved')),
+ checked_at timestamptz not null default now(),
+ primary key(provider_account_key,conversation_id)
+);
+alter table public.chatgpt_history_backup_issues enable row level security;
+revoke all on public.chatgpt_history_backup_issues from public,anon,authenticated;
+grant all on public.chatgpt_history_backup_issues to service_role;
+commit;

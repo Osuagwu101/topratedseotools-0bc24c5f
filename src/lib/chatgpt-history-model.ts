@@ -23,7 +23,7 @@ export function mergeSnapshots(old: HistorySnapshot | null, incoming: HistorySna
  const originals=new Map(Object.values(old?.mapping??{}).filter((n:any)=>n.message?.metadata?.trst_original_content).map((n:any)=>[n.message.id,n.message]));
  for(const node of Object.values(next.mapping) as any[]) {
   const original=originals.get(node.message?.id);
-  if(original){node.message.content=structuredClone(original.content);node.message.metadata={...node.message.metadata,trst_original_content:true};}
+  if(original && !node.message.metadata?.trst_original_content){node.message.content=structuredClone(original.content);node.message.metadata={...node.message.metadata,trst_original_content:true};}
  }
  if(old) {
   for(const [rootId,node] of Object.entries(next.mapping) as [string,any][]) {

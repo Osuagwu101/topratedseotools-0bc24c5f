@@ -18,7 +18,7 @@ const database={from(table:string){
   if(dbFailure&&table.startsWith('chatgpt_history_'))return {data:null,error:{message:'unavailable'}};
   const all=tables[table]??(tables[table]=[]);let rows=all.filter(r=>checks.every(f=>f(r)));
   if(mutation==='insert'||mutation==='upsert') {
-   const cols=table==='chatgpt_history_links'?['provider_identity','upstream_id']:table==='chatgpt_conversation_owners'?['provider_account_key','conversation_id']:table==='chatgpt_history_resumes'?['token_hash']:['id'];
+   const cols=table==='chatgpt_history_links'?['provider_identity','upstream_id']:['chatgpt_conversation_owners','chatgpt_history_backup_issues'].includes(table)?['provider_account_key','conversation_id']:table==='chatgpt_history_resumes'?['token_hash']:['id'];
    const existing=all.find(r=>cols.every(k=>r[k]===payload[k]));
    if(existing){if(mutation==='insert')return {data:null,error:{code:'23505'}};if(!options?.ignoreDuplicates)Object.assign(existing,payload);rows=[existing];}
    else {const row={created_at:new Date().toISOString(),...structuredClone(payload)};all.push(row);rows=[row];}
@@ -31,11 +31,12 @@ mock.module('../src/integrations/supabase/client.server',()=>({supabaseAdmin:dat
 const {handleChatGPTProxyRequest:handle,hashChatGPTProxyToken}=await import('../src/lib/chatgpt-proxy.server');
 const {savedThread,saveSnapshot,savedHistoryItems,claimHistoryResume}=await import('../src/lib/chatgpt-history.server');
 sessions.forEach((s,i)=>s.token_hash=hashChatGPTProxyToken(String(i+1).repeat(43)));
-const snapshots=new Map<string,any>();let nextId=chatA;const upstreamBodies:any[]=[];
+let offline=false;const snapshots=new Map<string,any>();let nextId=chatA;const upstreamBodies:any[]=[];
 function snapshot(id:string,prompt:string,answer:string) {const root=randomUUID(),u=randomUUID(),a=randomUUID();return {id,conversation_id:id,title:prompt,create_time:1,update_time:Date.now()/1000,current_node:a,mapping:{[root]:{id:root,parent:null,children:[u],message:null},[u]:{id:u,parent:root,children:[a],message:{id:u,author:{role:'user'},content:{content_type:'text',parts:[prompt]}}},[a]:{id:a,parent:u,children:[],message:{id:a,author:{role:'assistant'},content:{content_type:'text',parts:[answer]}}}}};}
 const realFetch=globalThis.fetch;
 globalThis.fetch=(async(input:any,init:any)=>{
  const url=new URL(String(input));const h=new Headers(init?.headers);const identity=(h.get('cookie')??'').includes('official-two')?'official-two':'official-one';
+ if(url.pathname==='/api/auth/session'&&offline)return new Response('',{status:401});
  if(url.pathname==='/api/auth/session')return Response.json({accessToken:'token-'+identity,user:{id:identity}});
  if(url.pathname==='/backend-api/f/conversation') {
   const body=JSON.parse(init.body instanceof ArrayBuffer?new TextDecoder().decode(init.body):init.body);upstreamBodies.push(body);
@@ -83,6 +84,21 @@ try {
  assert.throws(()=>continuationBody({action:'next',messages:[]},combined.snapshot,randomUUID()));
  const huge=snapshot(randomUUID(),'x'.repeat(90001),'answer');assert.throws(()=>continuationBody(prompt('next'),huge,randomUUID()),/too long/);
  const files=snapshot(randomUUID(),'question','answer');(historyMessages(files)[0].content.parts as any[]).push({image_asset_pointer:'secret'});assert.throws(()=>continuationBody(prompt('next'),files,randomUUID()),/files or images/);
+ const {captureHistoryStream}=await import('../src/lib/chatgpt-history.server');
+ const bytes=new TextEncoder().encode('data: '+JSON.stringify({conversation_id:chatA,text:'héllo'})+'\n\ndata: [DONE]\n\n');
+ let cursor=0,found='',finished='';
+ const fragmented=new ReadableStream({pull(c){if(cursor===bytes.length)c.close();else c.enqueue(bytes.slice(cursor,++cursor));}});
+ const streamed=await new Response(captureHistoryStream(fragmented,async id=>{found=id;},async id=>{finished=id;})).text();
+ assert(streamed.includes('héllo'));assert.equal(found,chatA);assert.equal(finished,chatA);
+ const {historyPage,historyBootstrap}=await import('../src/lib/chatgpt-history-ui.server');
+ assert(!historyPage('',[],{id:chatA,title:'<script>alert(1)</script>',snapshot:malicious}).includes('<script>alert(1)</script>'));
+ new Function(historyBootstrap('').replace(/^<script>|<\/script>$/g,''));
+ const {backupChatGptAccount}=await import('../src/lib/chatgpt-history-backup.server');
+ const missing=randomUUID();tables.chatgpt_conversation_owners.push({conversation_id:missing,provider_account_key:'account_1',user_id:userA});
+ const report=await backupChatGptAccount('account_1',tables.chatgpt_provider_accounts[0].encrypted_payload);assert.equal(report.failed,0);assert.equal(report.unavailable,1);
+ assert(tables.chatgpt_history_backup_issues.some(x=>x.conversation_id===missing&&x.status==='upstream_missing'));
+ // An expired old login can still be replaced when every transcript is already accounted for.
+ offline=true;const offlinePayload=vault('official-two');const offlineReport=await backupChatGptAccount('account_1',offlinePayload);assert.equal(offlineReport.failed,0);offline=false;
  dbFailure=true;assert.equal((await handle(req(0,'/__trst/history'))).status,503);dbFailure=false;
  console.log('Durable ChatGPT history passed: encrypted capture, two-user privacy, expiry/renewal, same-slot login replacement, merged history, context continuation, single-use tab token, repeat snapshot merge, attachment/length limits, and database failure.');
 }finally{globalThis.fetch=realFetch;mock.restore();}
