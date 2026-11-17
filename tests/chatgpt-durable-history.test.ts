@@ -72,11 +72,11 @@ try {
  const token=new URL(continued.headers.get('location')!,origin).searchParams.get('trst_resume')!;
  assert.equal((await handle(req(1,'/backend-api/f/conversation',prompt('steal'),{'x-trst-history-resume':token}))).status,409);
  nextId=chatC;const secondPrompt=prompt('Please continue with my next question');
- const continuedReply=await handle(req(0,'/backend-api/f/conversation',secondPrompt,{'x-trst-history-resume':token}));assert.equal(continuedReply.status,200);await continuedReply.text();
+ const continuedReply=await handle(req(0,'/__codex-api/f/conversation',secondPrompt,{'x-trst-history-resume':token}));assert.equal(continuedReply.status,200);await continuedReply.text();
  const sent=upstreamBodies.at(-1);assert(!sent.conversation_id);assert(sent.messages[0].content.parts[0].includes('Writer A private question'));assert(!sent.messages[0].content.parts[0].includes('Writer B private question'));
  const combined=await savedThread(userA,chatA);assert.equal(historyMessages(combined.snapshot).length,4);assert.equal(historyMessages(combined.snapshot).at(-2).content.parts[0],'Please continue with my next question');
  assert.equal((await savedHistoryItems(userA)).length,1);assert.equal(tables.chatgpt_history_links.filter(x=>x.user_id===userA).length,2);
- assert.equal((await handle(req(0,'/backend-api/f/conversation',secondPrompt,{'x-trst-history-resume':token}))).status,409);
+ assert.equal((await handle(req(0,'/__codex-api/f/conversation',secondPrompt,{'x-trst-history-resume':token}))).status,409);
  // Re-fetching the same new provider snapshot never creates a cycle or removes the first half.
  const id=combined.latest_upstream_id;await saveSnapshot(userA,'account_1',combined.latest_provider_identity,id,snapshots.get(id),chatA);
  assert.equal(historyMessages((await savedThread(userA,chatA)).snapshot).length,4);
@@ -93,6 +93,20 @@ try {
  const {historyPage,historyBootstrap}=await import('../src/lib/chatgpt-history-ui.server');
  assert(!historyPage('',[],{id:chatA,title:'<script>alert(1)</script>',snapshot:malicious}).includes('<script>alert(1)</script>'));
  new Function(historyBootstrap('').replace(/^<script>|<\/script>$/g,''));
+ const {runInNewContext}=await import('node:vm');
+ for(const prefix of ['backend-api','backend-anon','__codex-api','__codex-anon-api']) {
+  let forwarded:any;
+  const storage=new Map<string,string>();
+  const scope:any={URL,Headers,Request,location:{href:origin+'/?trst_resume='+token,origin,pathname:'/'},history:{replaceState(){}},sessionStorage:{setItem:(k:string,v:string)=>storage.set(k,v),getItem:(k:string)=>storage.get(k),removeItem:(k:string)=>storage.delete(k)},document:{readyState:'loading',addEventListener(){},getElementById(){return null;}}};
+  scope.window={fetch:async(input:any,init:any)=>{forwarded=init;return new Response('',{status:200});}};
+  runInNewContext(historyBootstrap('').replace(/^<script>|<\/script>$/g,''),scope);
+  await scope.window.fetch('/'+prefix+'/f/conversation',{method:'POST',body:'{}'});
+  assert.equal(new Headers(forwarded.headers).get('x-trst-history-resume'),token,'Native API prefix must carry the continuation intent: '+prefix);
+ }
+ const hidden=snapshot(randomUUID(),'visible question','visible answer');
+ const visibleNode=hidden.current_node,hiddenNode=randomUUID();hidden.mapping[hiddenNode]={parent:visibleNode,message:{author:{role:'assistant'},channel:'analysis',content:{content_type:'thoughts',parts:['hidden analysis']}}};hidden.current_node=hiddenNode;
+ assert.equal(historyMessages(hidden).length,2);assert(!JSON.stringify(continuationBody(prompt('next'),hidden,randomUUID())).includes('hidden analysis'));
+
  const {backupChatGptAccount}=await import('../src/lib/chatgpt-history-backup.server');
  const missing=randomUUID();tables.chatgpt_conversation_owners.push({conversation_id:missing,provider_account_key:'account_1',user_id:userA});
  const report=await backupChatGptAccount('account_1',tables.chatgpt_provider_accounts[0].encrypted_payload);assert.equal(report.failed,0);assert.equal(report.unavailable,1);

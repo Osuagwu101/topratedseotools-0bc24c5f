@@ -9,7 +9,7 @@ export function historyMessages(snapshot: HistorySnapshot) {
  let id: string | null = snapshot.current_node;
  while(id && !seen.has(id)) {
   seen.add(id); const node: any = snapshot.mapping[id]; if(!node) break;
-  if(node.message && ['user','assistant'].includes(node.message.author?.role)) out.unshift(node.message);
+  if(node.message && ['user','assistant'].includes(node.message.author?.role) && !node.message.metadata?.is_visually_hidden_from_conversation && node.message.channel!=='analysis' && node.message.content?.content_type!=='thoughts' && (!node.message.recipient || node.message.recipient==='all')) out.unshift(node.message);
   id = node.parent;
  }
  return out;

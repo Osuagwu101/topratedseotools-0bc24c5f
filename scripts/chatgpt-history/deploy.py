@@ -10,17 +10,19 @@ assert (root/'.output/server/index.mjs').exists()
 processes=json.loads(run('pm2','jlist'))
 backup=Path('/home/ubuntu/deploy-backups/chatgpt-history-20261117');backup.mkdir(exist_ok=True)
 configs=[];sources={}
-for vhost,newport in [('topratedseotools','3294'),('chatgpt-proxy','3295')]:
+current_configs={v:run('sudo','cat','/etc/nginx/sites-enabled/'+v) for v in ['topratedseotools','chatgpt-proxy']}
+main_port,chat_port=('3296','3297') if any('127.0.0.1:3294;' in t or '127.0.0.1:3295;' in t for t in current_configs.values()) else ('3294','3295')
+for vhost,newport in [('topratedseotools',main_port),('chatgpt-proxy',chat_port)]:
  path='/etc/nginx/sites-enabled/'+vhost;original=run('sudo','cat',path)
  match=re.search(r'location / \{[^}]*?proxy_pass http://127\.0\.0\.1:(\d+);',original)
  assert match,'Could not identify the live '+vhost+' application.'
- oldport=match.group(1);assert oldport not in ('3294','3295'),'History release is already live; inspect before redeploying.'
+ oldport=match.group(1);assert oldport not in (main_port,chat_port),'History release is already live; inspect before redeploying.'
  source=next(p['name'] for p in processes if p['pm2_env'].get('status')=='online' and str(p['pm2_env'].get('PORT') or p['pm2_env'].get('env',{}).get('PORT'))==oldport)
  sources[vhost]=source
  saved=backup/vhost
  if not saved.exists():saved.write_text(original)
  staged=backup/(vhost+'.candidate');staged.write_text(original.replace('127.0.0.1:'+oldport,'127.0.0.1:'+newport));configs.append((path,saved,staged))
-for name,source,port in [('trst-history-main',sources['topratedseotools'],'3294'),('trst-history-chatgpt',sources['chatgpt-proxy'],'3295')]:
+for name,source,port in [('trst-history-main-'+main_port,sources['topratedseotools'],main_port),('trst-history-chatgpt-'+chat_port,sources['chatgpt-proxy'],chat_port)]:
  old=next(p for p in processes if p['name']==source)
  env=dict(old['pm2_env'].get('env',{}))
  for k,v in old['pm2_env'].items():

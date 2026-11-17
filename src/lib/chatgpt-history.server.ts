@@ -42,6 +42,7 @@ export async function saveSnapshot(userId:string,account:ChatGptProviderAccount,
   fail(result.error); if(!result.data?.length) {if(retry===3) throw Error('Saved chat changed concurrently; retry.'); continue;}
   const {error} = await db().from('chatgpt_history_links').upsert({provider_identity:identity,upstream_id:upstreamId,provider_account_key:account,thread_id:threadId,user_id:userId},{onConflict:'provider_identity,upstream_id',ignoreDuplicates:true}); fail(error);
   const link=await historyLink(userId,upstreamId,identity); if(link?.thread_id!==threadId) throw Error('Saved chat ownership conflict.');
+  const resolved=await db().from('chatgpt_history_backup_issues').update({status:'resolved',checked_at:new Date().toISOString()}).eq('user_id',userId).eq('provider_account_key',account).eq('conversation_id',upstreamId);fail(resolved.error);
   return;
  }
  throw Error('Could not save chat history.');
