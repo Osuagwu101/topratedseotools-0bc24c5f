@@ -14,7 +14,7 @@ const faqs = [
   ["What if I need help?", "Launch Grammarly again from your TopRated dashboard. If the problem continues, contact us through the Contact page with a description or screenshot of the issue. Your plan duration and payment details are shown before checkout."],
 ];
 
-export function GrammarlyLanding({ price, plans, access, reviews }: { price: string | null; plans: ReactNode; access: ReactNode; reviews: ReactNode }) {
+export function GrammarlyLanding({ price, plans, access, reviews, heroAccess }: { price: string | null; plans: ReactNode; access: ReactNode; reviews: ReactNode; heroAccess: ReactNode }) {
   const [revised, setRevised] = useState(false);
   return <div className="gr-landing">
     <nav className="gr-subnav" aria-label="Grammarly page navigation"><a className="gr-wordmark" href="#gr-top"><span>G</span> Grammarly <small>via TopRated</small></a><div><a href="#gr-privacy">Your privacy</a><a href="#gr-how">How it works</a><a href="#gr-faq">FAQs</a><a className="gr-launch" href="#gr-access">Launch Grammarly <ArrowRight size={15}/></a></div></nav>
@@ -22,7 +22,7 @@ export function GrammarlyLanding({ price, plans, access, reviews }: { price: str
       <p className="gr-eyebrow"><span/> SHARED ACCESS. YOUR OWN WORKSPACE.</p>
       <h1>Share the access.<br/><em>Keep your documents<br className="gr-desktop"/> to yourself.</em></h1>
       <p className="gr-intro">Your thesis. Your client’s draft. Your next big proposal. Polish your writing with Grammarly, in a workspace other TopRated users cannot see or open.</p>
-      <div className="gr-actions"><a href="#gr-plans" className="gr-button">Get Grammarly access <ArrowRight size={18}/></a><a href="#gr-privacy" className="gr-text-link">How your workspace stays private ↓</a></div>
+      <div className="gr-actions"><a href="#gr-plans" className="gr-button">Get Grammarly access <ArrowRight size={18}/></a><a href="#gr-privacy" className="gr-text-link">How your workspace stays private ↓</a>{heroAccess}</div>
       <p className="gr-price">{price || "See available plans below"}<span>Choose your subscription. Pay on the website.</span></p>
       <ul className="gr-trust"><li><Check size={15}/> Separate documents</li><li><Check size={15}/> OneClick launch</li><li><Check size={15}/> Your own TopRated login</li></ul>
     </div><div className="gr-visual" aria-label="Illustration of separate document workspaces">

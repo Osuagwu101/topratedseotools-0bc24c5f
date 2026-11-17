@@ -164,6 +164,7 @@ function ToolPage() {
       price={sharedPrice ? sharedPrice.text : null}
       plans={<SubscriptionCard slug={tool.slug} options={priceOptions} setting={setting} />}
       access={<ToolAccessPanel tool={tool} setting={setting} isAuthenticated={session?.isAuthenticated ?? false} />}
+      heroAccess={<ToolAccessPanel tool={tool} setting={setting} isAuthenticated={session?.isAuthenticated ?? false} compact />}
       reviews={<ReviewSection tool={tool} isAuthenticated={session?.isAuthenticated ?? false} />}
     /></SiteLayout>;
   }
