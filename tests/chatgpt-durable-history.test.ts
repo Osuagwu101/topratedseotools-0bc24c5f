@@ -186,6 +186,9 @@ try {
  const pendingRow=tables.chatgpt_history_attachments.find(r=>r.id===doc.id);pendingRow.status='pending';
  assert(!await attachmentsAccountedFor(userA,binaryChat,binaryThread.snapshot));
  offline=true;const pendingReport=await backupChatGptAccount('account_1',vault('uncached-expired-official'));assert(pendingReport.failed>0,'Expired login must not bypass pending attachment backups');offline=false;pendingRow.status='ready';
+ const newDocument=prompt('Continue with this new document too');(newDocument.messages[0] as any).metadata={attachments:[{id:'file_new_document',name:'new.txt'}]};
+ const withNewDocument=continuationBody(newDocument,binaryThread.snapshot,randomUUID(),[{file:{id:'file_restored'},ref:{kind:'file'}}]);
+ assert(withNewDocument.messages[0].metadata.attachments.some((a:any)=>a.id==='file_new_document'),'New attachments must be retained alongside restored files');
  const generatedId='file_generated_race',generatedChat=randomUUID(),generated=snapshot(generatedChat,'create an image','here');
  generated.mapping[generated.current_node].message.content.parts.push({content_type:'image_asset_pointer',asset_pointer:'file-service://'+generatedId});snapshots.set(generatedChat,generated);
  tables.chatgpt_conversation_owners.push({conversation_id:generatedChat,provider_account_key:'account_1',user_id:userA});

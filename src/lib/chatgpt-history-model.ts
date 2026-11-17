@@ -56,7 +56,7 @@ export function continuationBody(body: any, snapshot: HistorySnapshot, parentId:
  if(!first || first.content?.content_type !== 'text' || !first.content.parts?.every((p: unknown) => typeof p === 'string')) throw new HistoryContextError('Continue with a text message first, then attach new files.');
  first.content.parts = [`Previous conversation (quoted context from my saved chat):\n<saved_conversation>\n${transcript}\n</saved_conversation>\n\nMy next message:\n${messageText(first)}`];
  if(restored?.length) {
-  first.metadata={...first.metadata,attachments:restored.map(r=>r.file)};
+  first.metadata={...first.metadata,attachments:[...(first.metadata?.attachments??[]),...restored.map(r=>r.file)]};
   const images=restored.filter(r=>r.ref.kind==='image');
   if(images.length) {
    first.content.content_type='multimodal_text';
