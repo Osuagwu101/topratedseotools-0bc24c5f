@@ -33,9 +33,11 @@ export function validateRelayRequest(input) {
 }
 
 export class BrowserConnection {
-  appliedSession=null;
+  appliedSession=null; importedToken=null;
   async applySession(input){
     if(!input || typeof input.version!=="string" || typeof input.cookie!=="string" || input.cookie.length>32000)throw Error("Invalid session");
+    const entry=input.cookie.split(";").map(v=>v.trim()).find(v=>v.startsWith("useridtoken="));
+    this.importedToken=entry?decodeURIComponent(entry.slice("useridtoken=".length)):null;
     if(this.appliedSession===input.version)return;
     await this.ready();
     if(this.jobs.size)throw Error("Workspace busy; retry connection");
@@ -108,8 +110,9 @@ export class BrowserConnection {
   async relay(input,req,res) {
     await this.ready();
     const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
-    const token=refreshed.result?.value;
-    if(refreshed.exceptionDetails||typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
+    const nativeToken=refreshed.result?.value;
+    const token=typeof nativeToken === "string" && nativeToken.length>=100 ? nativeToken : this.importedToken;
+    if(typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
     input.browserToken=token;
     const bodyBytes=input.bodyBase64?Buffer.byteLength(input.bodyBase64,'base64'):Buffer.byteLength(input.body??'');
     if(this.jobs.size>=16 || this.activeBodyBytes+bodyBytes>64*1024*1024) {res.writeHead(429);res.end('Browser is busy. Try again shortly.');return;}
@@ -141,7 +144,7 @@ export class BrowserConnection {
       const controller=new AbortController();trstRelayControllers.set(id,controller);
       try {
         const cookies=Object.fromEntries(document.cookie.split(';').map(p=>{const i=p.indexOf('=');return [p.slice(0,i).trim(),p.slice(i+1)]}));
-        if(!cookies.useridtoken)throw Error('session');
+        if(!input.browserToken)throw Error('session');
         input.headers.useridtoken=input.browserToken;
         const token=input.headers.useridtoken;
         let claims={};try{claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{}
@@ -163,7 +166,7 @@ export class BrowserConnection {
         if(/json|html/.test(contentType)){
           let text=await response.text();
           const secrets=Object.values(cookies).filter(v=>v.length>=12);
-          secrets.push(decodeURIComponent(cookies.useridtoken),token);
+          secrets.push(decodeURIComponent(cookies.useridtoken||""),token);
           for(const secret of [...new Set(secrets)].sort((a,b)=>b.length-a.length)){
             for(const value of [secret,encodeURIComponent(secret)])text=text.split(value).join('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b3ByYXRlZC13cml0ZXIiLCJ1c2VyX2lkIjoidG9wcmF0ZWQtd3JpdGVyIiwiZW1haWwiOiJ3cml0ZXJAdG9wcmF0ZWRzZW90b29scy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.dHJzdC1kaXNwbGF5LW9ubHktbm90LXByb3ZpZGVyLWF1dGg');
           }
