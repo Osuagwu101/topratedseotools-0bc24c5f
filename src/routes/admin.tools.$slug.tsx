@@ -79,6 +79,7 @@ import {
 } from "@/lib/grammarly-session.functions";
 import {
   adminGetQuillBotSessionStatus,
+  adminVerifyQuillBotSession,
   adminSaveQuillBotSession,
   adminRevokeQuillBotSession,
 } from "@/lib/quillbot-session.functions";
@@ -886,6 +887,10 @@ function formatQuillBotSessionTime(value: string | null) {
 function QuillBotSessionTab() {
   const { data } = useSuspenseQuery(quillbotSessionQuery);
   const saveSession = useServerFn(adminSaveQuillBotSession);
+  const verifySession = useServerFn(adminVerifyQuillBotSession);
+  const [verification,setVerification]=useState("");
+  const [verifying,setVerifying]=useState(false);
+  async function verify(){setVerifying(true);try{const r=await verifySession();setVerification(r.message);toast.success(r.message);}catch(e){const m=e instanceof Error?e.message:"Verification failed";setVerification(m);toast.error(m);}finally{setVerifying(false);}}
   const revokeSession = useServerFn(adminRevokeQuillBotSession);
   const qc = useQueryClient();
   const [sessionData, setSessionData] = useState("");
@@ -902,7 +907,8 @@ function QuillBotSessionTab() {
       await saveSession({ data: { session_data: sessionData.trim() } });
       setSessionData("");
       await qc.invalidateQueries({ queryKey: ["admin-quillbot-authorized-session"] });
-      toast.success("QuillBot authorised session saved securely.");
+      setVerification("Saved. Verifying the live connection…");
+      await verify();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save the QuillBot session.");
     } finally {
@@ -1016,6 +1022,8 @@ function QuillBotSessionTab() {
               <Save className="h-4 w-4" />
               {saving ? "Saving…" : data.configured ? "Replace session" : "Save session"}
             </button>
+            <button type="button" onClick={verify} disabled={!data.can_manage || verifying || saving || !data.configured} className="rounded-full border px-4 py-2 text-sm">{verifying?"Verifying…":"Verify connection"}</button>
+            <p role="status" className="text-xs">{verification}</p>
           </div>
         </div>
       </div>

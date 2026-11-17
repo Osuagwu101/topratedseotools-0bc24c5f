@@ -104,7 +104,7 @@ export class BrowserConnection {
   }
   async relay(input,req,res) {
     await this.ready();
-    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
+    const refreshed=await this.call('Runtime.evaluate',{expression:`(async()=>{const entry=typeof System==='undefined'?null:[...System.entries()].find(([u,m])=>u.includes('/core/')&&u.endsWith('/browser.js')&&typeof m.getRefreshToken==='function');try{if(entry)return await entry[1].getRefreshToken(false);}catch{}const c=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith('useridtoken='));if(!c)throw Error('Missing token');return decodeURIComponent(c.slice('useridtoken='.length));})()`,awaitPromise:true,returnByValue:true});
     const token=refreshed.result?.value;
     if(refreshed.exceptionDetails||typeof token!=='string'||token.length<100)throw Error('QuillBot session expired');
     input.browserToken=token;
