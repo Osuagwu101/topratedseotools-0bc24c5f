@@ -1,4 +1,7 @@
 import importlib.util
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +11,16 @@ deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
 
 class RuntimeConfiguration(unittest.TestCase):
+    def test_nested_pm2_metadata_does_not_break_process_start(self):
+        proc = {"pm2_env": {"env": {
+            "PORT": "3270", "lowercase_flag": "retained", "env": {"PORT": "old"},
+            "args": [], "counter": 2, "unset": None,
+        }, "PORT": "3271"}}
+        result = deploy.process_environment(proc)
+        self.assertEqual(result, {"PORT": "3271", "lowercase_flag": "retained"})
+        subprocess.run([sys.executable, "-c", "import os; assert os.environ['PORT'] == '3271'"],
+                       env={**os.environ, **result}, check=True)
+
     def test_pm2_flags_survive_without_runtime_metadata(self):
         proc = {"pm2_env": {"env": {"CLAUDE_ACCOUNT_2_RELAY_KEY": "test-key", "PORT": "3283"}, "CLAUDE_BROWSER_RELAY_URL": "http://127.0.0.1:6101/request", "pm_cwd": "/old"}}
         result = deploy.process_environment(proc)

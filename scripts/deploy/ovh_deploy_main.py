@@ -88,7 +88,10 @@ def pm2_cwd_for_port(port):
 def process_environment(proc):
     """Preserve effective PM2 flags without logging their values."""
     meta = proc.get("pm2_env", {})
-    env = dict(meta.get("env") or {})
+    # PM2 can include nested process metadata in this map. subprocess env
+    # values must be strings; forwarding a dict/list prevents the app starting.
+    env = {k: v for k, v in (meta.get("env") or {}).items()
+           if isinstance(k, str) and isinstance(v, str)}
     env.update({k: v for k, v in meta.items()
                 if re.fullmatch(r"[A-Z][A-Z0-9_]*", k) and isinstance(v, str)})
     return env
