@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME } from "@/lib/site-config";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { emailConfirmationRedirect, isEmailNotConfirmed } from "@/lib/email-confirmation";
 
-const searchSchema = z.object({ redirect: z.string().optional() });
+const searchSchema = z.object({
+  redirect: z.string().optional(),
+  confirmation: z.enum(["check", "expired", "error"]).optional().catch(undefined),
+});
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s) => searchSchema.parse(s),
@@ -29,7 +33,66 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [accountBanned, setAccountBanned] = useState(false);
+  const [confirmation, setConfirmation] = useState<string | undefined>(search.confirmation);
+  const [resending, setResending] = useState(false);
+  const [resendAfter, setResendAfter] = useState(0);
+  const [cooldown, setCooldown] = useState(0);
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const dest = search.redirect ?? "/dashboard";
+
+  useEffect(() => {
+    if (search.confirmation !== "check") return;
+    let active = true;
+    async function checkConfirmation() {
+      try {
+        // Wait for implicit-flow processing, then verify the user with Auth.
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          if (active) setConfirmation("error");
+          return;
+        }
+        const { data: verified, error: userError } = await supabase.auth.getUser();
+        if (active) setConfirmation(!userError && verified.user?.email_confirmed_at ? "confirmed" : "error");
+      } catch {
+        if (active) setConfirmation("error");
+      }
+    }
+    void checkConfirmation();
+    return () => { active = false; };
+  }, [search.confirmation]);
+
+  useEffect(() => {
+    if (!resendAfter) return;
+    const tick = () => setCooldown(Math.max(0, Math.ceil((resendAfter - Date.now()) / 1000)));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendAfter]);
+
+  async function resendConfirmation() {
+    if (resending || Date.now() < resendAfter) return;
+    const parsed = z.string().email().safeParse(email.trim());
+    if (!parsed.success) return toast.error("Enter your email address in the Email field first.");
+    setResending(true);
+    setConfirmationSent(false);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: parsed.data,
+        options: { emailRedirectTo: emailConfirmationRedirect(window.location.origin) },
+      });
+      if (error) {
+        if (error.status === 429) setResendAfter(Date.now() + 60_000);
+        return toast.error(error.status === 429 ? "Please wait a minute before requesting another confirmation email." : error.message);
+      }
+      setResendAfter(Date.now() + 60_000);
+      setConfirmationSent(true);
+    } catch {
+      toast.error("Could not request a confirmation email. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +102,11 @@ function LoginPage() {
     const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
+      if (isEmailNotConfirmed(error)) {
+        setConfirmation("unconfirmed");
+        setConfirmationSent(false);
+        return;
+      }
       if (/\bbanned\b/i.test(error.message)) {
         setAccountBanned(true);
         return;
@@ -96,6 +164,24 @@ function LoginPage() {
       subtitle="Sign in to manage your subscriptions, payments, and tool access."
       footer={<>Don't have an account?{" "}<Link to="/register" className="font-medium text-primary hover:underline">Create one</Link></>}
     >
+      {confirmation && (
+        <div role="status" aria-live="polite" className="mb-4 rounded-md border border-input bg-muted p-4 text-sm">
+          {confirmation === "check" ? <p>Checking your email confirmation…</p>
+            : confirmation === "confirmed" ? <p>Your email is confirmed. You can now sign in.</p>
+            : <>
+              <p>{confirmation === "expired"
+                ? "This email confirmation link has expired or has already been used. Your email may still need confirmation."
+                : confirmation === "unconfirmed"
+                  ? "Your email is not confirmed yet. Request a new confirmation email below."
+                  : "This sign-in or confirmation link could not be verified. Try signing in, or request a new confirmation email below."}</p>
+              <p className="mt-2">Enter your email address below, then request a new link. Open the newest email and check your spam folder too.</p>
+              <button type="button" onClick={resendConfirmation} disabled={!hydrated || resending || cooldown > 0} className="mt-3 font-medium text-primary underline disabled:opacity-60">
+                {resending ? "Sending…" : cooldown > 0 ? `Resend available in ${cooldown}s` : "Resend confirmation email"}
+              </button>
+              {confirmationSent && <p className="mt-2">If this address has an account awaiting confirmation, a new email is on its way. Use the newest link.</p>}
+            </>}
+        </div>
+      )}
       <button type="button" onClick={onGoogle} disabled={!hydrated} className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-muted disabled:opacity-60">
         <GoogleIcon /> Continue with Google
       </button>

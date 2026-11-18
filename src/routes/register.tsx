@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { AuthShell, FieldEmail, FieldPassword, GoogleIcon } from "./login";
 import { trackSignUp } from "@/lib/marketing/track";
+import { emailConfirmationRedirect } from "@/lib/email-confirmation";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -34,7 +35,7 @@ function RegisterPage() {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: emailConfirmationRedirect(window.location.origin),
         data: { full_name: name },
       },
     });

@@ -25,6 +25,7 @@ import { MarketingTags } from "@/components/marketing/MarketingTags";
 import { MarketingProvider } from "@/components/marketing/MarketingProvider";
 import { ConsentBanner } from "@/components/marketing/ConsentBanner";
 import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
+import { EmailConfirmationFeedback } from "@/components/auth/EmailConfirmationFeedback";
 
 function NotFoundComponent() {
   return (
@@ -181,6 +182,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <CurrencyProvider>
+        <EmailConfirmationFeedback />
         <MarketingProvider />
         <MarketingTags />
         <Outlet />
