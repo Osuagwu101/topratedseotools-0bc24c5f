@@ -37,6 +37,16 @@ check(workspace.includes('id="turnitin-check-history"') &&
   !workspace.includes("Recent checks") &&
   workspace.includes("Search document name"),
   "full searchable history replaces Recent Checks on Overview");
+const historyServer = readFileSync("src/lib/turnitin.functions.ts", "utf8")
+  .split("export const getMyTurnitinHistoryPage")[1]?.split("export const getMyTurnitinWorkspace")[0] ?? "";
+check(workspace.includes("useState<10 | 25 | 50>(10)") &&
+  workspace.includes(">Previous</button>") && workspace.includes(">Next</button>") &&
+  workspace.includes("search: search.trim(), status: statusFilter") &&
+  historyServer.includes('.select(HISTORY_JOB_FIELDS, { count: "exact" })') &&
+  historyServer.includes('.eq("user_id", context.userId)') &&
+  historyServer.includes("original_filename.ilike.") &&
+  historyServer.includes('.range(start, start + data.pageSize - 1)'),
+  "overview defaults to ten and filters the customer's full history before paginating");
 check(!workspace.includes('aria-label="Quick actions"') &&
   workspace.includes("px-3 py-3 shadow-sm") &&
   workspace.includes("text-xl font-bold leading-tight"),
