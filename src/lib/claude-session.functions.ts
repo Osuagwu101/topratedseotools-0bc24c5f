@@ -39,14 +39,6 @@ async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
   return admin;
 }
 
-async function setClaudeOneClickEnabled(admin: any, enabled: boolean) {
-  const { error } = await admin
-    .from("tool_settings")
-    .update({ one_click_auth_enabled: enabled })
-    .eq("tool_slug", TOOL_SLUG);
-  if (error) throw new Error(error.message);
-}
-
 export const adminGetClaudeSessionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -98,11 +90,10 @@ export const adminSaveClaudeSession = createServerFn({ method: "POST" })
     );
     if (error) throw new Error(error.message);
 
-    // Keep launch disabled until the authenticated proxy has passed verification.
-    await setClaudeOneClickEnabled(admin, false);
     const { error: revokeError } = await admin
       .from("claude_proxy_sessions")
       .update({ status: "revoked" })
+      .eq("provider_account_key", "account_1")
       .in("status", ["issued", "active"]);
     if (revokeError) throw new Error("Could not revoke existing Claude launches.");
 
@@ -130,7 +121,6 @@ export const adminRevokeClaudeSession = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readError) throw new Error(readError.message);
     if (!existing) {
-      await setClaudeOneClickEnabled(admin, false);
       return { ok: true, status: "not_configured", updated_at: null };
     }
 
@@ -147,9 +137,9 @@ export const adminRevokeClaudeSession = createServerFn({ method: "POST" })
     const { error: revokeError } = await admin
       .from("claude_proxy_sessions")
       .update({ status: "revoked" })
+      .eq("provider_account_key", "account_1")
       .in("status", ["issued", "active"]);
     if (revokeError) throw new Error("Could not revoke existing Claude launches.");
-    await setClaudeOneClickEnabled(admin, false);
 
     await logAdminActivity(context, {
       action: "claude.authorized_session_revoke",
