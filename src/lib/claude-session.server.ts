@@ -123,8 +123,9 @@ function cleanCookies(value: unknown): ClaudeStoredCookie[] {
       domain,
       path,
     };
-    if (typeof source.expires === "number" && Number.isFinite(source.expires)) {
-      cookie.expires = source.expires;
+    const expires = typeof source.expires === "number" ? source.expires : source.expirationDate;
+    if (typeof expires === "number" && Number.isFinite(expires)) {
+      cookie.expires = expires;
     }
     if (typeof source.secure === "boolean") cookie.secure = source.secure;
     if (typeof source.httpOnly === "boolean") cookie.httpOnly = source.httpOnly;
@@ -163,7 +164,9 @@ export function normaliseClaudeSession(raw: string): string {
   } catch {
     throw new Error("The Claude authorised session must be valid JSON.");
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  // Accept a browser cookie-export array as well as the bundle object.
+  if (Array.isArray(parsed)) parsed = { cookies: parsed };
+  if (!parsed || typeof parsed !== "object") {
     throw new Error("The Claude authorised session must be a JSON object.");
   }
 

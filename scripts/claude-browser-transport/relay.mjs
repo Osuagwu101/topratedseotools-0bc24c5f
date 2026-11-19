@@ -28,6 +28,66 @@ export function validateRelayRequest(input) {
   return {url:url.href,method,headers,body,bodyBase64};
 }
 
+const SAME_SITE={lax:'Lax',strict:'Strict',none:'None',no_restriction:'None'};
+export function validateSessionCookies(input) {
+  const list=input?.cookies;
+  if(!Array.isArray(list) || list.length<1 || list.length>150) throw Error('cookies');
+  const out=[];
+  for(const c of list){
+    if(!c || typeof c!=='object') throw Error('cookie');
+    const name=typeof c.name==='string'?c.name:'';const value=typeof c.value==='string'?c.value:'';
+    const domain=typeof c.domain==='string'?c.domain.trim().toLowerCase():'';const host=domain.replace(/^\./,'');
+    if(!/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,256}$/.test(name) || !value || value.length>128000 || /[;\r\n\x00]/.test(value)) throw Error('cookie');
+    if(host!=='claude.ai' && !host.endsWith('.claude.ai')) throw Error('domain');
+    const path=typeof c.path==='string' && c.path.startsWith('/') && c.path.length<1024 ? c.path : '/';
+    const cookie={name,value,domain,path,secure:true,httpOnly:c.httpOnly===true};
+    const sameSite=SAME_SITE[String(c.sameSite??'').toLowerCase()];
+    if(sameSite) cookie.sameSite=sameSite;
+    if(typeof c.expires==='number' && Number.isFinite(c.expires) && c.expires>0) cookie.expires=c.expires;
+    out.push(cookie);
+  }
+  if(!out.some(c=>c.name==='sessionKey')) throw Error('sessionKey');
+  return out;
+}
+
+/* Replace the Claude login in this private browser profile with pasted cookies. */
+export async function applyBrowserSession(cookies,{cdpPort=process.env.CLAUDE_BROWSER_CDP_PORT || '9225'}={}) {
+  const base=`http://127.0.0.1:${cdpPort}`;
+  let targets=await fetch(`${base}/json/list`,{signal:AbortSignal.timeout(5000)}).then(r=>r.json());
+  let target=targets.find(t=>t.type==='page' && /^https:\/\/claude\.ai(\/|$)/.test(t.url)) ?? targets.find(t=>t.type==='page');
+  if(!target) target=await fetch(`${base}/json/new?about:blank`,{method:'PUT',signal:AbortSignal.timeout(5000)}).then(r=>r.json());
+  const socket=new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(Error('browser connection timeout')),5000);
+    socket.addEventListener('open',()=>{clearTimeout(timer);resolve();},{once:true});
+    socket.addEventListener('error',()=>{clearTimeout(timer);reject(Error('browser connection failed'));},{once:true});
+  });
+  let nextId=0;const pending=new Map();let loaded=null;
+  socket.addEventListener('message',event=>{
+    const m=JSON.parse(String(event.data));
+    if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error('browser command failed')):p.resolve(m.result);}
+    else if(m.method==='Page.loadEventFired'&&loaded)loaded();
+  });
+  const call=(method,params={})=>new Promise((resolve,reject)=>{
+    const id=++nextId;const timer=setTimeout(()=>{pending.delete(id);reject(Error('browser command timeout'));},10000);
+    pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
+    socket.send(JSON.stringify({id,method,params}));
+  });
+  try{
+    await call('Network.enable');await call('Page.enable');
+    const {cookies:existing=[]}=await call('Network.getAllCookies');
+    for(const c of existing){
+      const host=String(c.domain).replace(/^\./,'');
+      if(host==='claude.ai'||host.endsWith('.claude.ai'))await call('Network.deleteCookies',{name:c.name,domain:c.domain,path:c.path});
+    }
+    await call('Storage.clearDataForOrigin',{origin:ORIGIN,storageTypes:'local_storage,session_storage,indexeddb,cache_storage,service_workers'}).catch(()=>{});
+    await call('Network.setCookies',{cookies});
+    const done=new Promise(resolve=>{loaded=resolve;setTimeout(resolve,30000);});
+    await call('Page.navigate',{url:ORIGIN+'/new'});
+    await done;
+  }finally{socket.close();}
+}
+
 class BrowserConnection {
   pending=new Map(); jobs=new Map(); activeBodyBytes=0; nextId=0; context=null; connecting=null;
   async ready() {
@@ -131,14 +191,31 @@ class BrowserConnection {
   }
 }
 
-export function startRelay({port=6101}={}) {
+export function startRelay({port=6101,applySession=applyBrowserSession}={}) {
   const secret=process.env.CLAUDE_BROWSER_RELAY_KEY;
   if(!secret || secret.length<32)throw Error('Missing relay key');
   const browser=new BrowserConnection();
+  let sessionBusy=false;
   return http.createServer(async(req,res)=>{
     if(req.url==='/health' && req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json'});res.end('{"ok":true}');return;}
     const incoming=Buffer.from(String(req.headers.authorization??''));const expected=Buffer.from('Bearer '+secret);
     if(incoming.length!==expected.length || !timingSafeEqual(incoming,expected)){res.writeHead(401);res.end();return;}
+    if(req.url==='/session' && req.method==='POST'){
+      if(sessionBusy){res.writeHead(409);res.end('A session update is already running.');return;}
+      sessionBusy=true;
+      try{
+        const chunks=[];let size=0;
+        for await(const chunk of req){size+=chunk.length;if(size>4*1024*1024)throw Error('size');chunks.push(chunk);}
+        let cookies;
+        try{cookies=validateSessionCookies(JSON.parse(Buffer.concat(chunks).toString('utf8')));}
+        catch{res.writeHead(400);res.end('Invalid session.');return;}
+        await applySession(cookies);
+        browser.socket?.close();browser.reset();
+        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end('{"ok":true}');
+      }catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Could not load the session into the browser.');}
+      finally{sessionBusy=false;}
+      return;
+    }
     if(req.url!=='/request' || req.method!=='POST'){res.writeHead(404);res.end();return;}
     let input;
     try {

@@ -48,7 +48,15 @@ export function isDedicatedClaudeProxyRequest(request: Request) {
   return new URL(request.url).origin === claudeProxyPublicOrigin();
 }
 async function vaultSnapshot(account:ClaudeProviderAccountKey="account_1"): Promise<{ state: ClaudeSessionState; encrypted: string }> {
-  if(account==="account_2")return {state:{version:2,cookies:[],session_tokens:{storage:{localStorage:{},sessionStorage:{}}}},encrypted:""};
+  if(account==="account_2"){
+    // Account 2 authentication lives in its browser profile. A pasted session
+    // JSON (if any) is pushed into that profile on save; it is optional here.
+    const {data}=await (supabaseAdmin as any).from("claude_provider_accounts").select("encrypted_payload,session_status").eq("account_key","account_2").maybeSingle();
+    if(data?.session_status==="stored"&&data.encrypted_payload){
+      try{return {state:JSON.parse(decryptClaudeSession(data.encrypted_payload)),encrypted:data.encrypted_payload};}catch{}
+    }
+    return {state:{version:2,cookies:[],session_tokens:{storage:{localStorage:{},sessionStorage:{}}}},encrypted:""};
+  }
   const { data, error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
     .select("encrypted_payload,status")
