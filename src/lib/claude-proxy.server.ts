@@ -390,6 +390,27 @@ async function reserveWriterConversation(id:string,org:string,writer:string,acco
  if(result.error)return ownsConversation(id,org,writer,account);
  return true;
 }
+function isDisabledClaudeModel(value: unknown): boolean {
+  return typeof value === "string" &&
+    (/(?:^|[-_.\s])opus(?:$|[-_.\s0-9])/i.test(value) ||
+      /(?:^|[-_.\s])fable[-_.\s]*5(?:$|[-_.\s])/i.test(value) ||
+      /(?:^|[-_.\s])5[-_.\s]*fable(?:$|[-_.\s])/i.test(value));
+}
+
+function filterClaudeModelCatalog(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.filter(entry => !isDisabledClaudeModel(entry) &&
+      ![entry?.id, entry?.name, entry?.model, entry?.model_id, entry?.display_name].some(isDisabledClaudeModel))
+      .map(filterClaudeModelCatalog);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key, entry]) => !isDisabledClaudeModel(key) && !isDisabledClaudeModel(entry))
+      .map(([key, entry]) => [key, filterClaudeModelCatalog(entry)]));
+  }
+  return value;
+}
+
 function writerBootstrap(writer:string){
  const marker=hashClaudeProxyToken(writer).slice(0,16);
  const code=`(()=>{
@@ -548,6 +569,8 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       }
       if (!payload || typeof payload !== "object" || Array.isArray(payload))
         return plain(400, "Invalid JSON object");
+      if ([payload.model, payload.model_id, payload.model_name].some(isDisabledClaudeModel))
+        return json(403, { error: "Fable 5 and Opus are unavailable on Claude OneClick. Choose another model." });
       if(route.kind==="conversation"&&/\/(?:completion|retry_completion)$/.test(url.pathname)){
        const requestId=typeof payload.completion_request_id==="string"&&payload.completion_request_id.length<=128?payload.completion_request_id:crypto.randomUUID();
        messageKey=hashClaudeProxyToken(route.conversation+":"+requestId);
@@ -667,6 +690,8 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if (createId && upstream.ok && payload?.uuid !== createId)
         return plain(502, "Claude conversation could not be verified (CL-06).");
       if(route.kind==="bootstrap")payload=sanitizeClaudeBootstrap(payload);
+      if (upstream.ok && /\/(?:models|model_configs)$/.test(url.pathname))
+        payload = filterClaudeModelCatalog(payload);
       text = JSON.stringify(payload);
     }
     if (type.includes("text/html")) {
