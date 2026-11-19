@@ -70,6 +70,7 @@ export function TurnitinProductPage({ section }: { section: Section }) {
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
   const [submittingFile, setSubmittingFile] = useState(false);
+  const [paymentRequired, setPaymentRequired] = useState(false);
   const activeSection = section === "submit" ? "overview" : section;
   const meta = SECTION_META[activeSection];
   const PageIcon = meta.icon;
@@ -171,9 +172,10 @@ export function TurnitinProductPage({ section }: { section: Section }) {
               view="submit"
               compactSubmit
               submitButtonRef={submitButtonRef}
-              onSubmitStateChange={(ready, pending) => {
+              onSubmitStateChange={(ready, pending, requiresPayment) => {
                 setCanSubmit(ready);
                 setSubmittingFile(pending);
+                setPaymentRequired(requiresPayment);
               }}
               onSubmitSuccess={() => {
                 setSubmissionNotice(true);
@@ -181,19 +183,21 @@ export function TurnitinProductPage({ section }: { section: Section }) {
               }}
             />
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t bg-background px-5 py-3">
-            <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted" onClick={closeSubmit}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!canSubmit || submittingFile}
-              onClick={() => submitButtonRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submittingFile ? "Submitting…" : "Submit File"}
-            </button>
-          </div>
+          {!paymentRequired && (
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t bg-background px-5 py-3">
+              <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-muted" onClick={closeSubmit}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!canSubmit || submittingFile}
+                onClick={() => submitButtonRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submittingFile ? "Submitting…" : "Submit File"}
+              </button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </SiteLayout>
