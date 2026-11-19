@@ -56,7 +56,7 @@ try{
  assert.equal((await handle(req(0,"/internalAppApi/documents/ownDoc0001/assistant/chat",{documentId:"otherDoc002"}))).status,404);
  assert.equal(calls.length,count);
 
- const before=calls.length;controls[0].provider_account_key="account_2";assert.equal((await handle(req(0))).status,401);assert.equal(calls.length,before);controls[0].provider_account_key="account_1";
+ const before=calls.length;controls[0].provider_account_key="account_2";assert.equal((await handle(req(0))).status,302);assert.equal((await handle(req(0,"/__host/dox.grammarly.com/documents"))).status,401);assert.equal(calls.length,before);controls[0].provider_account_key="account_1";
  accounts[1].status="revoked";assert.equal((await handle(req(1))).status,503);assert.equal(calls.length,before);accounts[1].status="stored";
  dbError=true;assert.equal((await handle(req(0,"/__host/dox.grammarly.com/documents"))).status,503);await assert.rejects(()=>grammarlyDocumentOwner("1001","account_1"));await assert.rejects(()=>claimDocument("1234","writer1","account_1"));dbError=false;
  const a1=accounts[0].encrypted_payload;
