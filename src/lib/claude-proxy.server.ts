@@ -434,7 +434,7 @@ function writerBootstrap(writer:string){
   this.addEventListener("load",()=>{if(this.status===429||this.getResponseHeader("X-TRST-Messages-Remaining")!==null)refreshUsage();if(this.status!==429)return;try{show(this.responseType==="json"?this.response:JSON.parse(this.responseText))}catch{}});
   return S.apply(this,arguments);
  };
- let usage, panel, pill, label, count, reset, pending;
+ let usage, panel, pill, label, count, reset, pending, accountTag;
  const preference="trst_claude_usage_collapsed";
  function element(tag,text,style){
   const node=document.createElement(tag);
@@ -455,18 +455,15 @@ function writerBootstrap(writer:string){
    panel.id="trst-claude-usage";
    const title=element("div","", "display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px");
    title.append(element("div","Top Rated SEO Tools","font-weight:800;color:#60a5fa;font-size:13px"));
-   const close=element("button","×","border:0;background:transparent;color:#cbd5e1;font:700 18px/1 system-ui;cursor:pointer;padding:0 2px");
-   close.type="button";
-   close.setAttribute("aria-label","Hide usage");
-   close.onclick=()=>setCollapsed(true);
-   title.append(close);
+   accountTag=element("div","","font-size:10px;font-weight:600;color:#94a3b8;white-space:nowrap");
+   title.append(accountTag);
    label=element("div","","font-size:11px;color:#cbd5e1;margin-bottom:10px;overflow-wrap:anywhere");
    const row=element("div","","display:flex;justify-content:space-between;gap:14px;margin:4px 0");
    count=element("strong","","");
    row.append(element("span","Claude messages",""),count);
    reset=element("div","","margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.14);color:#cbd5e1");
    panel.append(title,label,row,reset);
-   pill=element("button","↑",corner+"width:42px;height:42px;border-radius:999px;align-items:center;justify-content:center;font:700 18px system-ui;cursor:pointer");
+   pill=element("button","\\u2191",corner+"width:42px;height:42px;border-radius:999px;align-items:center;justify-content:center;font:700 18px system-ui;cursor:pointer");
    pill.id="trst-claude-usage-pill";
    pill.type="button";
    pill.setAttribute("aria-label","Show Top Rated SEO Tools usage");
@@ -477,6 +474,7 @@ function writerBootstrap(writer:string){
    setCollapsed(collapsed);
   }
   label.textContent=usage.user_label||"Customer";
+  accountTag.textContent=usage.account_label||"";
   count.textContent=usage.used+" / "+usage.limit+" used";
   const seconds=Math.max(0,Math.ceil((Date.parse(usage.resets_at)-Date.now())/1000));
   reset.textContent="Resets in "+Math.floor(seconds/3600)+"h "+Math.floor(seconds%3600/60)+"m "+seconds%60+"s";
@@ -527,7 +525,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if (request.method !== "GET") return plain(405, "Method not allowed");
       const userId = String(session.user_id);
       const [usage, userLabel] = await Promise.all([getClaudeUsage(userId), getStealthWriterUserLabel(userId)]);
-      return json(200, { ...usage, user_label: userLabel });
+      return json(200, { ...usage, user_label: userLabel, account_label: session.provider_account_key === "account_2" ? "Account 2" : "Account 1" });
     }
     const shared = false;
     const browser=claudeBrowserTransportEnabled();
