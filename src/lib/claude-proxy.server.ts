@@ -1,3 +1,4 @@
+import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
 import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterHasExternalReferences,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
@@ -402,13 +403,79 @@ function writerBootstrap(writer:string){
   document.body?.append(e);setTimeout(()=>e.remove(),3000);
  }
  const F=window.fetch;
- window.fetch=async function(...args){const r=await F.apply(this,args);if(r.status===429)r.clone().json().then(show).catch(()=>{});return r};
+ window.fetch=async function(...args){const r=await F.apply(this,args);if(r.status===429)r.clone().json().then(show).catch(()=>{});if(r.status===429||r.headers.has("X-TRST-Messages-Remaining"))refreshUsage();return r};
  const S=XMLHttpRequest.prototype.send;
  XMLHttpRequest.prototype.send=function(){
-  this.addEventListener("load",()=>{if(this.status!==429)return;try{show(this.responseType==="json"?this.response:JSON.parse(this.responseText))}catch{}});
+  this.addEventListener("load",()=>{if(this.status===429||this.getResponseHeader("X-TRST-Messages-Remaining")!==null)refreshUsage();if(this.status!==429)return;try{show(this.responseType==="json"?this.response:JSON.parse(this.responseText))}catch{}});
   return S.apply(this,arguments);
  };
- async function check(){try{const r=await F.call(window,"/__trst/usage",{credentials:"same-origin"});if(r.ok&&Number((await r.json()).remaining)===0)show({code:"daily_limit"})}catch{}}
+ let usage, panel, pill, label, count, reset, pending;
+ const preference="trst_claude_usage_collapsed";
+ function element(tag,text,style){
+  const node=document.createElement(tag);
+  node.textContent=text;
+  node.style.cssText=style;
+  return node;
+ }
+ function setCollapsed(collapsed){
+  panel.style.display=collapsed?"none":"block";
+  pill.style.display=collapsed?"flex":"none";
+  try{localStorage.setItem(preference,collapsed?"1":"0")}catch{}
+ }
+ function renderUsage(){
+  if(!usage||!document.body)return;
+  if(!panel){
+   const corner="position:fixed;bottom:20px;right:20px;z-index:2147483647;background:#0f172a;color:white;border:1px solid #3f7fd1;box-shadow:0 8px 30px rgba(0,0,0,.3);";
+   panel=element("div","",corner+"min-width:235px;max-width:min(310px,calc(100vw - 40px));border-radius:12px;padding:12px 14px;font:12px/1.45 system-ui,-apple-system,sans-serif");
+   panel.id="trst-claude-usage";
+   const title=element("div","", "display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px");
+   title.append(element("div","Top Rated SEO Tools","font-weight:800;color:#60a5fa;font-size:13px"));
+   const close=element("button","×","border:0;background:transparent;color:#cbd5e1;font:700 18px/1 system-ui;cursor:pointer;padding:0 2px");
+   close.type="button";
+   close.setAttribute("aria-label","Hide usage");
+   close.onclick=()=>setCollapsed(true);
+   title.append(close);
+   label=element("div","","font-size:11px;color:#cbd5e1;margin-bottom:10px;overflow-wrap:anywhere");
+   const row=element("div","","display:flex;justify-content:space-between;gap:14px;margin:4px 0");
+   count=element("strong","","");
+   row.append(element("span","Claude messages",""),count);
+   reset=element("div","","margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.14);color:#cbd5e1");
+   panel.append(title,label,row,reset);
+   pill=element("button","↑",corner+"width:42px;height:42px;border-radius:999px;align-items:center;justify-content:center;font:700 18px system-ui;cursor:pointer");
+   pill.id="trst-claude-usage-pill";
+   pill.type="button";
+   pill.setAttribute("aria-label","Show Top Rated SEO Tools usage");
+   pill.onclick=()=>setCollapsed(false);
+   document.body.append(panel,pill);
+   let collapsed=false;
+   try{collapsed=localStorage.getItem(preference)==="1"}catch{}
+   setCollapsed(collapsed);
+  }
+  label.textContent=usage.user_label||"Customer";
+  count.textContent=usage.used+" / "+usage.limit+" used";
+  const seconds=Math.max(0,Math.ceil((Date.parse(usage.resets_at)-Date.now())/1000));
+  reset.textContent="Resets in "+Math.floor(seconds/3600)+"h "+Math.floor(seconds%3600/60)+"m "+seconds%60+"s";
+ }
+ function refreshUsage(){
+  if(!pending){
+   pending=(async()=>{
+    try{
+     const response=await F.call(window,"/__trst/usage",{credentials:"same-origin",cache:"no-store"});
+     if(response.ok){usage=await response.json();renderUsage();return usage}
+    }catch{}
+   })().finally(()=>{pending=undefined});
+  }
+  return pending;
+ }
+ function startUsage(){
+  refreshUsage();
+  setInterval(renderUsage,1000);
+  setInterval(refreshUsage,15000);
+  window.addEventListener("focus",refreshUsage);
+ }
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",startUsage,{once:true});
+ else startUsage();
+ async function check(){const current=await refreshUsage();if(current?.remaining===0)show({code:"daily_limit"})}
  document.addEventListener("click",e=>{const b=e.target instanceof Element?e.target.closest("button"):null;if(b?.getAttribute("aria-label")==="Send message")check()},true);
  document.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&e.target instanceof Element&&e.target.closest("[contenteditable=true]"))check()},true);
  })();`;
@@ -431,7 +498,12 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if (!session) return plain(401, "Open Claude from your Top Rated SEO Tools account.");
     if (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== url.origin)
       return plain(403, "Invalid request origin");
-    if(url.pathname==="/__trst/usage"){if(request.method!=="GET")return plain(405,"Method not allowed");return json(200,await getClaudeUsage(String(session.user_id)));}
+    if (url.pathname === "/__trst/usage") {
+      if (request.method !== "GET") return plain(405, "Method not allowed");
+      const userId = String(session.user_id);
+      const [usage, userLabel] = await Promise.all([getClaudeUsage(userId), getStealthWriterUserLabel(userId)]);
+      return json(200, { ...usage, user_label: userLabel });
+    }
     const shared = false;
     const browser=claudeBrowserTransportEnabled();
     const route = browser ? claudeBrowserRoutePolicy(request.method, url.pathname) : claudeRoutePolicy(request.method, url.pathname);
