@@ -122,7 +122,8 @@ assert(
 
 assert(
   workspace.includes("Search document name") &&
-    workspace.includes("name.includes(q)") &&
+    workspace.includes("getMyTurnitinHistoryPage") &&
+    funcs.includes("original_filename.ilike.") &&
     workspace.includes("Check history"),
   "check history is searchable by uploaded document name",
 );
