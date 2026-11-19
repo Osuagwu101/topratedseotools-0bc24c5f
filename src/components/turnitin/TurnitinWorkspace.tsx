@@ -21,11 +21,12 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   getMyTurnitinReportDownload,
   getMyTurnitinWorkspace,
+  getMyTurnitinHistoryPage,
   deleteMyTurnitinCheck,
   type TurnitinJobRow,
   type TurnitinJobStatus,
@@ -150,6 +151,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const wordCountPromise = useRef<Promise<number | null> | null>(null);
   const [overLimitConfirmOpen, setOverLimitConfirmOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<10 | 25 | 50>(10);
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const [reportTitle, setReportTitle] = useState("");
   const [authorFirstName, setAuthorFirstName] = useState("Top Rated");
@@ -508,17 +511,21 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     retry: false,
   });
 
-  const visibleJobs = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return jobs.filter((job) => {
-      const name = (job.display_name || job.original_filename || "").toLowerCase();
-      const matchesStatus = statusFilter === "all" ||
-        (statusFilter === "processing"
-          ? ["draft", "uploading", "queued", "processing"].includes(job.status)
-          : job.status === statusFilter);
-      return name.includes(q) && matchesStatus;
-    });
-  }, [jobs, search, statusFilter]);
+  const showHistory = view === "all" || view === "history" || view === "overview";
+  const history = useQuery({
+    queryKey: ["turnitin-workspace", "history", page, pageSize, search.trim(), statusFilter],
+    queryFn: () => getMyTurnitinHistoryPage({
+      data: { page, pageSize, search: search.trim(), status: statusFilter },
+    }),
+    enabled: isAuthenticated && showHistory && workspace.data?.foundationReady === true,
+    staleTime: 10_000,
+  });
+  const visibleJobs = history.data?.jobs ?? [];
+  const historyCount = history.data?.count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(historyCount / pageSize));
+  useEffect(() => {
+    if (history.data && page >= pageCount) setPage(pageCount - 1);
+  }, [history.data, page, pageCount]);
 
   const onFile = (file: File | null) => {
     if (cannotSubmitForBilling) {
@@ -1576,12 +1583,12 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       </section>
       ) : null}
 
-      {(view === "all" || view === "history" || view === "overview") ? (
+      {showHistory ? (
       <section id="turnitin-check-history" className="scroll-mt-24 overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 pt-5 sm:px-5">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-primary">Check history</h2>
-            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{jobs.length}</span>
+            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{historyCount}</span>
           </div>
           {view === "overview" && isAuthenticated ? (
             <TurnitinReportSettingsButton isAuthenticated={isAuthenticated} />
@@ -1594,14 +1601,15 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               <input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                maxLength={255}
+                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
                 placeholder="Search document name"
                 className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-turnitin-violet focus:ring-2 focus:ring-turnitin-violet/20"
               />
             </label>
             <label className="flex-1 sm:flex-none">
               <span className="sr-only">Filter checks by status</span>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+              <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as typeof statusFilter); setPage(0); }}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-turnitin-violet focus:ring-2 focus:ring-turnitin-violet/20">
                 <option value="all">All statuses</option>
                 <option value="completed">Completed</option>
@@ -1609,14 +1617,23 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                 <option value="failed">Failed</option>
               </select>
             </label>
-            <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">{visibleJobs.length} of {jobs.length} checks</span>
+            <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+              Checks per page
+              <select value={pageSize}
+                onChange={(event) => { setPageSize(Number(event.target.value) as typeof pageSize); setPage(0); }}
+                className="rounded-lg border border-input bg-background px-2 py-2 text-sm text-foreground">
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
         </div>
 
-        {workspace.isLoading ? (
+        {workspace.isLoading || history.isLoading ? (
           <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
             <LoaderCircle className="h-4 w-4 animate-spin" /> Loading checks…
           </div>
-        ) : workspace.isError ? (
+        ) : workspace.isError || history.isError ? (
           <div className="p-8 text-center text-sm text-destructive">
             Could not load your Turnitin history. Please refresh and try again.
           </div>
@@ -1630,7 +1647,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               Completed and processing documents will appear here.
             </p>
             {search || statusFilter !== "all" ? (
-              <button type="button" onClick={() => { setSearch(""); setStatusFilter("all"); }} className="mt-3 text-sm font-semibold text-turnitin-violet hover:underline">Clear filters</button>
+              <button type="button" onClick={() => { setSearch(""); setStatusFilter("all"); setPage(0); }} className="mt-3 text-sm font-semibold text-turnitin-violet hover:underline">Clear filters</button>
             ) : onOpenSubmit ? (
               <button type="button" onClick={onOpenSubmit} className="mt-3 text-xs font-semibold text-primary hover:underline">
                 Submit your first document
@@ -1689,6 +1706,22 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
               ))}
             </div>
           </>
+        )}
+
+        {visibleJobs.length > 0 && (
+          <nav aria-label="Check history pages" className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {page * pageSize + 1}–{page * pageSize + visibleJobs.length} of {historyCount} checks
+            </span>
+            <div className="flex gap-2">
+              <button type="button" disabled={page === 0}
+                onClick={() => setPage(page - 1)}
+                className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Previous</button>
+              <button type="button" disabled={page + 1 >= pageCount}
+                onClick={() => setPage(page + 1)}
+                className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Next</button>
+            </div>
+          </nav>
         )}
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deletingJob) { setDeleteTarget(null); setDeleteError(null); } }}>
