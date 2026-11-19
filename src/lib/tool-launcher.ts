@@ -95,7 +95,9 @@ export async function launchTool(
   setting?: Pick<ToolSetting, "one_click_auth_enabled" | "official_login_url" | "launch_mode">,
   options?: { grantAccess?: boolean },
 ): Promise<LaunchResult> {
-  const useOneClick = !!setting?.one_click_auth_enabled;
+  // Claude access is decided by the server. A missing or stale client setting
+  // must never send a writer to the public Claude login.
+  const useOneClick = tool.slug === "claude" || !!setting?.one_click_auth_enabled;
   const mode = setting?.launch_mode ?? "new_tab";
 
   if (useOneClick) {
