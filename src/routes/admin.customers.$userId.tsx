@@ -38,6 +38,8 @@ import {
   adminGrantTurnitinCredits,
 } from "@/lib/turnitin-admin-credits.functions";
 import {
+  adminGetCustomerPostpaidCharges,
+  adminGetCustomerTurnitinHistory,
   adminGetTurnitinPostpaidControls,
   adminSetTurnitinPostpaidStatus,
   adminUpdateTurnitinPostpaidRate,
@@ -46,6 +48,7 @@ import {
   adminGetTurnitinPostpaidLedger,
   adminRecordTurnitinPostpaidSettlement,
 } from "@/lib/turnitin-postpaid-settlements.functions";
+import { adminSetPostpaidBillingSettings } from "@/lib/turnitin-postpaid-billing.functions";
 import { requireAdminOrRedirect } from "@/lib/admin-gate";
 import {
   Wallet,
@@ -165,7 +168,8 @@ function CustomerPage() {
               </div>
             </div>
 
-            <TurnitinPostpaidCard userId={userId} />
+            <TurnitinPostpaidCard key={userId} userId={userId} />
+            <CustomerTurnitinHistory key={`history-${userId}`} userId={userId} />
             <TurnitinCreditsCard userId={userId} />
             <StealthWriterControlsCard userId={userId} />
             <ChatGptControlsCard userId={userId} />
@@ -313,6 +317,15 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
     enabled: data?.account.billingMode === "postpaid",
   });
 
+  const [fileThreshold, setFileThreshold] = useState("");
+  const [thresholdReason, setThresholdReason] = useState("");
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerSize, setLedgerSize] = useState<10 | 25 | 50>(10);
+  const ledgerHistory = useQuery({ queryKey: ["admin-customer-postpaid-charges", userId, ledgerPage, ledgerSize],
+    queryFn: () => adminGetCustomerPostpaidCharges({ data: { userId, page: ledgerPage, pageSize: ledgerSize } }), enabled: ledgerOpen });
+  const ledgerPages = Math.max(1, Math.ceil((ledgerHistory.data?.total ?? 0) / ledgerSize));
+  useEffect(() => { if (ledgerHistory.data && ledgerPage >= ledgerPages) setLedgerPage(ledgerPages - 1); }, [ledgerHistory.data, ledgerPage, ledgerPages]);
   const [enableRate, setEnableRate] = useState(2300);
   const [statusReason, setStatusReason] = useState("");
   const [rateInput, setRateInput] = useState(2300);
@@ -346,20 +359,41 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
       qc.invalidateQueries({
         queryKey: ["admin-turnitin-postpaid-ledger", userId],
       }),
+      qc.invalidateQueries({ queryKey: ["admin-customer-postpaid-charges", userId] }),
       qc.invalidateQueries({ queryKey: ["admin-customer", userId] }),
     ]);
   };
 
+  const saveThreshold = async (reason: string) => {
+    const threshold = Number(fileThreshold);
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > 100000)
+      throw new Error("Enter an allowed threshold from 1 to 100,000 files.");
+    await adminSetPostpaidBillingSettings({ data: { userId, billingPeriod: "monthly", triggerMode: "files",
+      fileThreshold: threshold, restrictionEnabled: true, dueDays: data?.billingSettings.dueDays ?? null,
+      reminderEnabled: data?.billingSettings.reminderEnabled ?? true,
+      reminderIntervalDays: data?.billingSettings.reminderIntervalDays ?? 3, reason } });
+  };
+  useEffect(() => {
+    setFileThreshold(data?.billingSettings.fileThreshold == null ? "" : String(data.billingSettings.fileThreshold));
+  }, [data?.billingSettings.fileThreshold]);
+  const updateThreshold = useMutation({ mutationFn: () => saveThreshold(thresholdReason.trim()),
+    onSuccess: async () => { toast.success("Postpaid threshold updated"); setThresholdReason(""); await refresh(); },
+    onError: (e: Error) => toast.error(e.message) });
+  const validThreshold = Number.isInteger(Number(fileThreshold)) && Number(fileThreshold) >= 1 && Number(fileThreshold) <= 100000;
+
   const changeStatus = useMutation({
-    mutationFn: (enabled: boolean) =>
-      adminSetTurnitinPostpaidStatus({
+    mutationFn: async (enabled: boolean) => {
+      if (enabled) await saveThreshold(statusReason.trim());
+      return adminSetTurnitinPostpaidStatus({
         data: {
           userId,
           enabled,
+          fileThreshold: enabled ? Number(fileThreshold) : undefined,
           rateNgn: enabled ? enableRate : null,
           reason: statusReason.trim(),
         },
-      }),
+      });
+    },
     onSuccess: async (result) => {
       toast.success(
         result.billingMode === "postpaid"
@@ -512,13 +546,20 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                       />
                     </div>
                   </div>
+                  <div className="mt-3">
+                    <Label htmlFor="enable-postpaid-threshold">Allowed threshold (files)</Label>
+                    <Input id="enable-postpaid-threshold" type="number" min={1} max={100000} step={1}
+                      value={fileThreshold} onChange={(e) => setFileThreshold(e.target.value)} placeholder="Enter allowed number of checks" />
+                    <p className="mt-1 text-xs text-muted-foreground">Required before enabling Postpaid. Checks pause automatically when this threshold is reached.</p>
+                  </div>
                   <Button
                     size="sm"
                     className="mt-3"
                     onClick={() => changeStatus.mutate(true)}
                     disabled={
                       changeStatus.isPending ||
-                      statusReason.trim().length < 3 ||
+                      statusReason.trim().length < 5 ||
+                      !validThreshold ||
                       enableRate < 1
                     }
                   >
@@ -533,6 +574,17 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
             </div>
           ) : (
             <>
+              <div className="mt-4 rounded-xl border bg-muted/20 p-4">
+                <h3 className="text-sm font-semibold">Postpaid threshold settings</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Current policy: {data.billingSettings.triggerMode === "monthly" ? "Monthly" : `${data.billingSettings.fileThreshold} files${data.billingSettings.triggerMode === "hybrid" ? " or monthly" : ""}`}. Saving a file threshold applies automatic restrictions to this customer.</p>
+                <Label htmlFor="postpaid-threshold">Allowed threshold (files)</Label>
+                <Input id="postpaid-threshold" type="number" min={1} max={100000} step={1}
+                  value={fileThreshold} onChange={(e) => setFileThreshold(e.target.value)} />
+                <Label htmlFor="threshold-reason">Reason for changing threshold</Label>
+                <Input id="threshold-reason" value={thresholdReason} maxLength={300} onChange={(e) => setThresholdReason(e.target.value)} />
+                <Button className="mt-3" size="sm" disabled={updateThreshold.isPending || !validThreshold || thresholdReason.trim().length < 5}
+                  onClick={() => updateThreshold.mutate()}>{updateThreshold.isPending ? "Saving…" : "Set customer threshold"}</Button>
+              </div>
               <div className="mt-4 rounded-xl border bg-muted/20 p-4">
                 <h3 className="text-sm font-semibold">Update agreed rate</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -665,13 +717,16 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                 )}
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-xl border">
+              <details className="mt-4 overflow-hidden rounded-xl border" onToggle={(e) => setLedgerOpen(e.currentTarget.open)}>
+                <summary className="cursor-pointer px-3 py-3 text-sm font-semibold">Postpaid check ledger</summary>
                 <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
                   <div className="text-xs font-semibold">Postpaid check ledger</div>
                   <div className="text-[11px] text-muted-foreground">
                     Oldest charges are settled first
                   </div>
                 </div>
+                {ledgerHistory.isLoading && <p className="p-3 text-sm">Loading ledger…</p>}
+                {ledgerHistory.isError && <div role="alert" className="p-3 text-sm">Could not load ledger. <Button size="sm" variant="outline" onClick={() => void ledgerHistory.refetch()}>Retry</Button></div>}
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[900px] text-sm">
                     <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
@@ -686,7 +741,7 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {(ledger.data?.charges ?? []).map((row) => (
+                      {(ledgerHistory.data?.rows ?? []).map((row) => (
                         <tr key={row.id}>
                           <td className="max-w-[260px] truncate px-3 py-2 font-medium">
                             {row.documentName}
@@ -705,7 +760,7 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                           </td>
                         </tr>
                       ))}
-                      {(ledger.data?.charges ?? []).length === 0 ? (
+                      {!ledgerHistory.isLoading && !ledgerHistory.isError && (ledgerHistory.data?.rows ?? []).length === 0 ? (
                         <tr>
                           <td
                             colSpan={7}
@@ -718,7 +773,14 @@ function TurnitinPostpaidCard({ userId }: { userId: string }) {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              <div className="flex flex-wrap items-center gap-3 border-t p-3 text-xs">
+                  <label>Rows per page <select aria-label="Ledger rows per page" value={ledgerSize} onChange={(e) => { setLedgerSize(Number(e.target.value) as 10 | 25 | 50); setLedgerPage(0); }} className="rounded border bg-background p-1">
+                    {[10,25,50].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
+                  <Button size="sm" variant="outline" disabled={ledgerPage === 0 || ledgerHistory.isFetching} onClick={() => setLedgerPage((p) => p - 1)}>Previous</Button>
+                  <span>Page {ledgerPage + 1} of {ledgerPages}</span>
+                  <Button size="sm" variant="outline" disabled={!ledgerHistory.data || ledgerPage + 1 >= ledgerPages || ledgerHistory.isFetching} onClick={() => setLedgerPage((p) => p + 1)}>Next</Button>
+                </div>
+              </details>
 
               <div className="mt-4 overflow-hidden rounded-xl border">
                 <div className="border-b px-3 py-2 text-xs font-semibold">
@@ -1608,4 +1670,38 @@ function ResetPasswordButton({ userId }: { userId: string }) {
       <KeyRound className="h-3.5 w-3.5 mr-1" /> {mut.isPending ? "Resetting…" : "Reset password"}
     </Button>
   );
+}
+
+
+function CustomerTurnitinHistory({ userId }: { userId: string }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<10 | 25 | 50>(10);
+  const history = useQuery({ queryKey: ["admin-customer-turnitin-history", userId, page, pageSize],
+    queryFn: () => adminGetCustomerTurnitinHistory({ data: { userId, page, pageSize } }), enabled: open });
+  const pages = Math.max(1, Math.ceil((history.data?.total ?? 0) / pageSize));
+  useEffect(() => { if (history.data && page >= pages) setPage(pages - 1); }, [history.data, page, pages]);
+  return <details className="mt-6 rounded-2xl border bg-card" onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <summary className="cursor-pointer p-4 text-sm font-semibold">Turnitin checking history</summary>
+    {open && <div className="space-y-3 border-t p-4">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label>Rows per page <select aria-label="Checking history rows per page" value={pageSize}
+          onChange={(e) => { setPageSize(Number(e.target.value) as 10 | 25 | 50); setPage(0); }} className="rounded border bg-background p-2">
+          {[10,25,50].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
+        <Button size="sm" variant="outline" disabled={page === 0 || history.isFetching} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+        <span>Page {page + 1} of {pages} · {history.data?.total ?? 0} checks</span>
+        <Button size="sm" variant="outline" disabled={!history.data || page + 1 >= pages || history.isFetching} onClick={() => setPage((p) => p + 1)}>Next</Button>
+      </div>
+      {history.isLoading ? <p className="text-sm">Loading checking history…</p> : history.isError ?
+        <div role="alert"><p>Could not load checking history.</p><Button size="sm" variant="outline" onClick={() => void history.refetch()}>Retry</Button></div> :
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <thead><tr>{["Document", "Checked", "Status", "Similarity", "AI"].map((h) => <th key={h} className="p-2">{h}</th>)}</tr></thead>
+          <tbody>{history.data?.rows.map((row) => <tr className="border-t" key={row.id}>
+            <td className="p-2">{row.display_name || row.original_filename}</td><td className="p-2">{new Date(row.created_at).toLocaleString()}</td>
+            <td className="p-2">{row.status.replaceAll("_", " ")}</td><td className="p-2">{row.similarity_percentage == null ? "—" : `${row.similarity_percentage}%`}</td>
+            <td className="p-2">{row.ai_percentage == null ? "—" : `${row.ai_percentage}%`}</td>
+          </tr>)}</tbody>
+        </table>{!history.data?.rows.length && <p className="p-3 text-sm text-muted-foreground">No Turnitin checks yet.</p>}</div>}
+    </div>}
+  </details>;
 }

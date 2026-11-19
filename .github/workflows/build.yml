@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Turnitin customer postpaid controls
+        run: node --test tests/turnitin-customer-postpaid-controls.test.mjs
+
       - name: SneakWrite SSO regression test
         run: bun tests/direct-sso-url.test.ts
       - name: Phrasly proxy foundation regression tests
