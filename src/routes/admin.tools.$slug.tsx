@@ -1048,7 +1048,7 @@ function ClaudeSessionTab() {
 
   async function save() {
     if (!sessionData.trim()) {
-      toast.error("Paste the authorised Claude session JSON first.");
+      toast.error("Paste the authorised Account 1 session JSON first.");
       return;
     }
 
@@ -1092,12 +1092,12 @@ function ClaudeSessionTab() {
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-5 space-y-2">
         <h3 className="text-sm font-semibold">Claude OneClick subdomain</h3>
-        <p className="text-xs text-muted-foreground">Writers launch through https://claude.topratedseotools.com using the server-held authorised session. No browser extension is required. Test the saved session below; successful upstream verification is required before writer launch can be enabled.</p>
+        <p className="text-xs text-muted-foreground">Writers launch through claude.topratedseotools.com. Use Verify connection on the assigned account above to check its server browser.</p>
       </div>
       <div className="rounded-2xl border bg-card p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold">Claude authorised session</h3>
+            <h3 className="text-sm font-semibold">Account 1 saved session</h3>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
               The authorised-session vault stores one encrypted multi-cookie session bundle.
               Multiple first-party cookie objects are kept together server-side and are
@@ -1127,14 +1127,13 @@ function ClaudeSessionTab() {
         </div>
 
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Paste the cookies from a browser signed in to the shared Claude
-          account. OneClick remains disabled until native chat and writer isolation have been verified.
+          This form belongs to Account 1. When the server browser is in use, the account signed in there determines which Claude identity writers see.
         </div>
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-card">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Claude session JSON
+          Account 1 session JSON
         </div>
         <textarea
           value={sessionData}
