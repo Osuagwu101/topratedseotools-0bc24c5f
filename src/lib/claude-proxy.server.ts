@@ -5,6 +5,7 @@ import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
+import {isDisabledClaudeModel,applyClaudeWriterModelPolicy,requestUsesDisabledModel,applyClaudeNewConversationDefaults} from "@/lib/claude-model-policy";
 /* Claude native OneClick, based on Grammarly's encrypted-vault and ticket setup.
  * Launch remains gated until real authenticated compatibility/isolation checks pass.
  */
@@ -400,13 +401,6 @@ async function reserveWriterConversation(id:string,org:string,writer:string,acco
  if(result.error)return ownsConversation(id,org,writer,account);
  return true;
 }
-function isDisabledClaudeModel(value: unknown): boolean {
-  return typeof value === "string" &&
-    (/(?:^|[-_.\s])opus(?:$|[-_.\s0-9])/i.test(value) ||
-      /(?:^|[-_.\s])fable[-_.\s]*5(?:$|[-_.\s])/i.test(value) ||
-      /(?:^|[-_.\s])5[-_.\s]*fable(?:$|[-_.\s])/i.test(value));
-}
-
 function filterClaudeModelCatalog(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.filter(entry => !isDisabledClaudeModel(entry) &&
@@ -579,8 +573,8 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       }
       if (!payload || typeof payload !== "object" || Array.isArray(payload))
         return plain(400, "Invalid JSON object");
-      if ([payload.model, payload.model_id, payload.model_name].some(isDisabledClaudeModel))
-        return json(403, { error: "Fable 5 and Opus are unavailable on Claude OneClick. Choose another model." });
+      if (requestUsesDisabledModel(payload))
+        return json(403, { error: "Fable and Opus are unavailable on Claude OneClick. Choose Sonnet or Haiku." });
       if(route.kind==="conversation"&&/\/(?:completion|retry_completion)$/.test(url.pathname)){
        const requestId=typeof payload.completion_request_id==="string"&&payload.completion_request_id.length<=128?payload.completion_request_id:crypto.randomUUID();
        messageKey=hashClaudeProxyToken(route.conversation+":"+requestId);
@@ -590,6 +584,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if(claudeWriterHasExternalReferences(payload))
         return json(403, { error: "File, project and integration access has not been enabled." });
       if (route.kind === "create" && !shared) {
+        applyClaudeNewConversationDefaults(payload);
         payload.chat_memory_mode="disabled";payload.include_conversation_preferences=false;
         // Native clients retain their proposed UUID. Reserve it only after verifying
         // that it is fresh upstream; an existing shared chat can never be claimed.
@@ -702,6 +697,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if(route.kind==="bootstrap")payload=sanitizeClaudeBootstrap(payload);
       if (upstream.ok && /\/(?:models|model_configs)$/.test(url.pathname))
         payload = filterClaudeModelCatalog(payload);
+      payload = applyClaudeWriterModelPolicy(payload);
       text = JSON.stringify(payload);
     }
     if (type.includes("text/html")) {
