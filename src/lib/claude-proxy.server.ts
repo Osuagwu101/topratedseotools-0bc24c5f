@@ -47,19 +47,20 @@ export function claudeProxyPublicOrigin() {
 export function isDedicatedClaudeProxyRequest(request: Request) {
   return new URL(request.url).origin === claudeProxyPublicOrigin();
 }
-async function vaultSnapshot(account:ClaudeProviderAccountKey="account_1"): Promise<{ state: ClaudeSessionState; encrypted: string }> {
+/** generation changes whenever Admin replaces the account session, so writers drop cached state from the previous login. */
+async function vaultSnapshot(account:ClaudeProviderAccountKey="account_1"): Promise<{ state: ClaudeSessionState; encrypted: string; generation: string }> {
   if(account==="account_2"){
     // Account 2 authentication lives in its browser profile. A pasted session
     // JSON (if any) is pushed into that profile on save; it is optional here.
-    const {data}=await (supabaseAdmin as any).from("claude_provider_accounts").select("encrypted_payload,session_status").eq("account_key","account_2").maybeSingle();
+    const {data}=await (supabaseAdmin as any).from("claude_provider_accounts").select("encrypted_payload,session_status,session_updated_at").eq("account_key","account_2").maybeSingle();
     if(data?.session_status==="stored"&&data.encrypted_payload){
-      try{return {state:JSON.parse(decryptClaudeSession(data.encrypted_payload)),encrypted:data.encrypted_payload};}catch{}
+      try{return {state:JSON.parse(decryptClaudeSession(data.encrypted_payload)),encrypted:data.encrypted_payload,generation:String(data.session_updated_at??"")};}catch{}
     }
-    return {state:{version:2,cookies:[],session_tokens:{storage:{localStorage:{},sessionStorage:{}}}},encrypted:""};
+    return {state:{version:2,cookies:[],session_tokens:{storage:{localStorage:{},sessionStorage:{}}}},encrypted:"",generation:String(data?.session_updated_at??"")};
   }
   const { data, error } = await (supabaseAdmin as any)
     .from("tool_authorized_sessions")
-    .select("encrypted_payload,status")
+    .select("encrypted_payload,status,updated_at")
     .eq("tool_slug", TOOL_SLUG)
     .maybeSingle();
   if (error || data?.status !== "stored" || !data.encrypted_payload)
@@ -67,6 +68,7 @@ async function vaultSnapshot(account:ClaudeProviderAccountKey="account_1"): Prom
   return {
     state: JSON.parse(decryptClaudeSession(data.encrypted_payload)),
     encrypted: data.encrypted_payload,
+    generation: String(data.updated_at ?? ""),
   };
 }
 async function vaultState(): Promise<ClaudeSessionState> {
@@ -423,7 +425,7 @@ function writerBootstrap(writer:string){
  const marker=hashClaudeProxyToken(writer).slice(0,16);
  const code=`(()=>{
  const marker=${JSON.stringify(marker)};
- try{if(localStorage.getItem("trstClaudeWriter")!==marker){localStorage.clear();sessionStorage.clear();localStorage.setItem("trstClaudeWriter",marker)}}catch{}
+ try{if(localStorage.getItem("trstClaudeWriter")!==marker){localStorage.clear();sessionStorage.clear();for(const c of document.cookie.split(";")){const n=c.split("=")[0].trim();if(n)document.cookie=n+"=; Max-Age=0; Path=/"}try{indexedDB.databases?.().then(l=>l.forEach(d=>d.name&&indexedDB.deleteDatabase(d.name))).catch(()=>{})}catch{}localStorage.setItem("trstClaudeWriter",marker)}}catch{}
  function show(d){
   if(d?.code!=="daily_limit"||document.getElementById("trst-claude-daily-limit"))return;
   const e=document.createElement("div");e.id="trst-claude-daily-limit";e.setAttribute("role","alert");
@@ -709,7 +711,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       const stateCheck = text.replace(/(["'])\/chat_conversations_v2(?=\?limit=)/gi, "$1/");
       if ((!shared && /chat_conversations|chat_messages|project_uuid|\\\\u0022chat_/i.test(stateCheck)) || /["']sessionKey["']\s*:/.test(text))
         return plain(502, "Claude returned embedded private state. Contact Admin (CL-06).");
-      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer+":"+account) + claudeBootstrapScript());
+      text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer+":"+account+":"+snapshot.generation) + claudeBootstrapScript());
     }
     return new Response(rewriteClaudeBody(text, url.origin), {
       status: upstream.status,
