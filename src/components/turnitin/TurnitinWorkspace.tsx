@@ -131,7 +131,7 @@ type Props = {
   onSubmitSuccess?: () => void;
   compactSubmit?: boolean;
   submitButtonRef?: RefObject<HTMLButtonElement | null>;
-  onSubmitStateChange?: (ready: boolean, pending: boolean) => void;
+  onSubmitStateChange?: (ready: boolean, pending: boolean, paymentRequired: boolean) => void;
 };
 
 const TURNITIN_VIEW_PATH: Record<Exclude<TurnitinWorkspaceView, "all">, string> = {
@@ -238,8 +238,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
     (workspace.data.account.billing_mode === "postpaid" ||
       workspace.data.summary.available_credits > 0) && !cannotSubmitForBilling && !submitting;
   useEffect(() => {
-    onSubmitStateChange?.(canSubmitNow, submitting);
-  }, [canSubmitNow, submitting, onSubmitStateChange]);
+    onSubmitStateChange?.(canSubmitNow, submitting, billingPaymentRequired);
+  }, [canSubmitNow, submitting, billingPaymentRequired, onSubmitStateChange]);
 
   const postpaidSettlements = useQuery({
     queryKey: ["turnitin-postpaid-settlements"],
@@ -827,36 +827,19 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         </div>
       ) : null}
 
-      {isPostpaid &&
-       postpaid.outstanding_ngn > 0 &&
-       (view === "all" || view === "overview" || view === "buy" || view === "submit" || view === "history") ? (
-        <section role="alert" className="rounded-xl border border-amber-500/40 bg-amber-50/70 p-5 text-amber-950">
-          <div className="flex items-center gap-2 font-semibold">
-            <AlertCircle className="h-5 w-5" />
-            {postpaidInvoices.data?.policy?.blocked ? "Checks paused - payment required" : "Postpaid balance"}
-          </div>
-          <p className="mt-2 text-sm">
-            {postpaidInvoices.data?.policy?.triggered ? "Your billing threshold has been reached. " : "You can pay anytime, even before reaching your threshold. "}Your total outstanding balance is
-            {" "}<strong>{formatNaira(postpaid.outstanding_ngn)}</strong>.
-            {postpaidInvoices.data?.policy?.blocked
-              ? " New checks are restricted until your outstanding balance is paid."
-              : " Pay your outstanding balance whenever you are ready."}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => void settlePostpaidBalance()}
-              disabled={settlingPostpaid || verifyingPayment}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-              {settlingPostpaid ? "Opening payment..." :
-                "Pay "+formatNaira(postpaid.outstanding_ngn)+" now"}
-            </button>
-            <Link to="/billing" className="rounded-lg border border-amber-600/40 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white">
-              View billing history
-            </Link>
-            <Link to={"/turnitin/buy"} className="rounded-lg border px-4 py-2 text-sm font-semibold">
-              View invoices
-            </Link>
-          </div>
-          {paymentError && <p className="mt-2 text-xs text-destructive">{paymentError}</p>}
+      {isPostpaid && postpaid.outstanding_ngn > 0 &&
+        (view !== "submit" || billingPaymentRequired) ? (
+        <section className="rounded-xl border bg-card p-4">
+          <button
+            type="button"
+            onClick={() => void settlePostpaidBalance()}
+            disabled={settlingPostpaid || verifyingPayment}
+            aria-busy={settlingPostpaid}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            PAY NOW
+          </button>
+          {paymentError && <p role="alert" className="mt-2 text-xs text-destructive">{paymentError}</p>}
         </section>
       ) : null}
 
@@ -1228,42 +1211,9 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         )
       ) : null}
 
-      {(view === "all" || view === "submit") ? (
+      {(view === "all" || view === "submit") && !billingPaymentRequired ? (
         <div className={compactSubmit ? "rounded-xl border bg-card p-3 sm:p-4" : "rounded-2xl border bg-card p-6 shadow-card"}>
-          {billingPaymentRequired ? (
-            <div role="alert" className="mb-5 rounded-xl border border-amber-500/50 bg-amber-50 p-4 text-amber-950 sm:p-5">
-              <div className="flex items-center gap-2 text-lg font-semibold">
-                <AlertCircle className="h-5 w-5 shrink-0" /> Payment Required
-              </div>
-              <p className="mt-2 text-sm leading-6">
-                Your postpaid billing threshold has been reached. New document checks are paused
-                until your full outstanding balance is paid.
-              </p>
-              <div className="mt-3 flex flex-wrap justify-between gap-2 rounded-lg bg-white/80 p-3 text-sm">
-                <span>
-                  Checks: <strong>{billingPolicy?.charge_count ?? 0} / {billingPolicy?.file_threshold ?? "Monthly"}</strong>
-                </span>
-                <span>
-                  Outstanding: <strong>{formatNaira(postpaidInvoices.data?.totalOutstandingNgn ?? 0)}</strong>
-                </span>
-              </div>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <button type="button"
-                  onClick={() => void settlePostpaidBalance()}
-                  disabled={settlingPostpaid || verifyingPayment || !(postpaidInvoices.data?.totalOutstandingNgn > 0)}
-                  className="rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  {settlingPostpaid ? "Opening payment..." :
-                   "Pay "+formatNaira(postpaidInvoices.data?.totalOutstandingNgn ?? 0)+" now"}
-                </button>
-                <Link to={"/turnitin/buy"}
-                  className="rounded-lg border px-4 py-3 text-center text-sm font-semibold">
-                  View and download invoice
-                </Link>
-              </div>
-              <p className="mt-3 text-xs">Your existing reports and completed checks remain available.</p>
-              {paymentError && <p role="alert" className="mt-2 text-xs text-destructive">{paymentError}</p>}
-            </div>
-          ) : billingPendingCapacity ? (
+          {billingPendingCapacity ? (
             <div role="alert" className="mb-5 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm text-amber-950">
               <strong>File allowance currently reserved</strong>
               <p className="mt-2">Your pending checks have used the available file slots.
