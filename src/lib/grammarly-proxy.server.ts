@@ -562,7 +562,14 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
   } catch {
     return plain(503, "Grammarly is temporarily unavailable. Please try again.");
   }
-  if (!session) return plain(401, "Open Grammarly from your Top Rated SEO Tools account.");
+  if (!session) {
+    // After sign-out (or expiry) a page navigation returns to the dashboard
+    // instead of showing a bare message. API calls keep the 401.
+    const wantsPage = request.method === "GET" &&
+      ((request.headers.get("sec-fetch-dest") ?? "") === "document" || (request.headers.get("accept") ?? "").includes("text/html"));
+    if (wantsPage) return new Response(null, { status: 302, headers: { Location: grammarlyDashboardUrl(publicOrigin), "Cache-Control": "no-store" } });
+    return plain(401, "Open Grammarly from your Top Rated SEO Tools account.");
+  }
   const writerId = String(session.user_id);
   const account:GrammarlyProviderAccount=session.provider_account_key;
   if(url.pathname==="/__trst/reset")return grammarlyStorageResetPage(writerId,account);
