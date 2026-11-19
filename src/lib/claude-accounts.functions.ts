@@ -130,18 +130,20 @@ export const adminSaveClaudeAccountSession=createServerFn({method:"POST"}).middl
   const {claudeCookieHeader}=await import("./claude-proxy-policy");
   connected=await verifyAccount(db,account,claudeAccountUsesBrowser(account)?undefined:claudeCookieHeader(state,"/api/organizations"));
  }else{
-  await db.from("claude_provider_accounts").update({status:"needs_login",verified_at:null}).eq("account_key",account);
+  // The browser login was not replaced, so re-check it instead of downgrading
+  // a working account (e.g. while the relay is still on the old script).
+  connected=await verifyAccount(db,account);
  }
 
  await logAdminActivity(context,{action:"claude.account_session_replace",area:"tools",target_type:"claude_provider_account",target_id:account,
   details:`${label(account)} session replaced; ${connected?"activated and verified":"activation pending"}. Cookie/storage values were not logged.`});
 
  return {
-  ok:connected,
-  message:connected
+  ok:connected&&!activationError,
+  message:connected&&!activationError
    ?`${label(account)} session saved and activated. Writers assigned to ${label(account)} now use it.`
    :activationError
-    ?`${label(account)} session saved, but activation failed: ${activationError}`
+    ?`${label(account)} session saved, but activation failed: ${activationError} ${connected?"The current server browser login is still active.":""}`.trim()
     :`${label(account)} session saved, but Claude did not accept it. Paste a fresh session JSON for ${label(account)}.`,
  };
 });
