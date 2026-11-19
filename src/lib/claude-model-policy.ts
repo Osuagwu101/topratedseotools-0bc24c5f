@@ -4,9 +4,15 @@
  * - Fable, Opus and Mythos (the same model as Fable) are unavailable to writers.
  * - New conversations default to Sonnet 5.5 at low effort; writers may still
  *   pick another allowed model or effort themselves.
+ * - The "Extra" (xhigh) and "Max" effort levels are not offered and are clamped
+ *   to "high" if a request still carries them.
  */
 export const CLAUDE_WRITER_DEFAULT_MODEL = "claude-sonnet-5-5";
 export const CLAUDE_WRITER_DEFAULT_EFFORT = "low";
+export const CLAUDE_WRITER_MAX_EFFORT = "high";
+const DISABLED_EFFORTS = new Set(["xhigh", "max"]);
+const EFFORT_KEYS = /^(?:effort|effort_level|requested_effort|requested_effort_level|org_enforced_default_effort|admin_default_effort_level)$/;
+export const isDisabledClaudeEffort = (v: unknown) => typeof v === "string" && DISABLED_EFFORTS.has(v.toLowerCase());
 
 /** Opus, Fable and Mythos model ids or names, any version. */
 export function isDisabledClaudeModel(value: unknown): boolean {
@@ -39,7 +45,15 @@ export function applyClaudeWriterModelPolicy(value: any, depth = 0): any {
     return out;
   }
   const out: any = {};
-  for (const [key, item] of Object.entries(value)) out[key] = applyClaudeWriterModelPolicy(item, depth + 1);
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "effort_options" && Array.isArray(item)) {
+      out[key] = item.filter((o: any) => !isDisabledClaudeEffort(o?.id)).map((o) => applyClaudeWriterModelPolicy(o, depth + 1));
+    } else if (EFFORT_KEYS.test(key) && isDisabledClaudeEffort(item)) {
+      out[key] = CLAUDE_WRITER_MAX_EFFORT;
+    } else {
+      out[key] = applyClaudeWriterModelPolicy(item, depth + 1);
+    }
+  }
   // Account settings default model.
   if ("default_model" in out && (out.default_model == null || isDisabledClaudeModel(out.default_model)))
     out.default_model = CLAUDE_WRITER_DEFAULT_MODEL;
@@ -68,4 +82,19 @@ export function applyClaudeNewConversationDefaults(payload: any) {
   if (settings.effort_level == null || settings.effort_level === "") settings.effort_level = CLAUDE_WRITER_DEFAULT_EFFORT;
   payload.settings = settings;
   return payload;
+}
+
+/** Clamps Extra/Max effort in a writer request to High. Returns true if anything changed. */
+export function clampClaudeRequestEffort(payload: any, depth = 0): boolean {
+  if (depth > 20 || !payload || typeof payload !== "object") return false;
+  let changed = false;
+  for (const [key, item] of Object.entries(payload)) {
+    if (EFFORT_KEYS.test(key) && isDisabledClaudeEffort(item)) {
+      payload[key] = CLAUDE_WRITER_MAX_EFFORT;
+      changed = true;
+    } else if (item && typeof item === "object") {
+      if (clampClaudeRequestEffort(item, depth + 1)) changed = true;
+    }
+  }
+  return changed;
 }
