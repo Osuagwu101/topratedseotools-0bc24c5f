@@ -5,7 +5,7 @@ import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
-import {isDisabledClaudeModel,applyClaudeWriterModelPolicy,requestUsesDisabledModel,applyClaudeNewConversationDefaults} from "@/lib/claude-model-policy";
+import {isDisabledClaudeModel,applyClaudeWriterModelPolicy,requestUsesDisabledModel,applyClaudeNewConversationDefaults,clampClaudeRequestEffort} from "@/lib/claude-model-policy";
 /* Claude native OneClick, based on Grammarly's encrypted-vault and ticket setup.
  * Launch remains gated until real authenticated compatibility/isolation checks pass.
  */
@@ -573,6 +573,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
         return plain(400, "Invalid JSON object");
       if (requestUsesDisabledModel(payload))
         return json(403, { error: "Fable and Opus are unavailable on Claude OneClick. Choose Sonnet or Haiku." });
+      if (clampClaudeRequestEffort(payload)) body = JSON.stringify(payload);
       if(route.kind==="conversation"&&/\/(?:completion|retry_completion)$/.test(url.pathname)){
        const requestId=typeof payload.completion_request_id==="string"&&payload.completion_request_id.length<=128?payload.completion_request_id:crypto.randomUUID();
        messageKey=hashClaudeProxyToken(route.conversation+":"+requestId);
