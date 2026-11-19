@@ -85,6 +85,58 @@ function missingFoundation(error: unknown): boolean {
   );
 }
 
+const HISTORY_JOB_FIELDS = "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at";
+const HISTORY_REPORT_FIELDS = "id, job_id, report_type, status, score, storage_bucket, storage_path, unavailable_reason, available_at";
+const ACTIVE_HISTORY_STATUSES = ["draft", "uploading", "queued", "processing"];
+
+export const getMyTurnitinHistoryPage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    page: z.number().int().min(0).max(10_000_000),
+    pageSize: z.union([z.literal(10), z.literal(25), z.literal(50)]),
+    search: z.string().max(255),
+    status: z.enum(["all", "completed", "processing", "failed"]),
+  }))
+  .handler(async ({ context, data }): Promise<{ jobs: TurnitinJobRow[]; count: number }> => {
+    const db = context.supabase as any;
+    const start = data.page * data.pageSize;
+    let query = db.from("turnitin_jobs")
+      .select(HISTORY_JOB_FIELDS, { count: "exact" })
+      .eq("user_id", context.userId)
+      .is("history_deleted_at", null);
+    if (data.status === "processing") query = query.in("status", ACTIVE_HISTORY_STATUSES);
+    else if (data.status !== "all") query = query.eq("status", data.status);
+    const search = data.search.trim();
+    if (search) {
+      // Quote the PostgREST filter value and escape SQL LIKE wildcards.
+      const pattern = JSON.stringify("%" + search.replace(/[\\%_*]/g, "\\$&") + "%");
+      query = query.or("display_name.ilike." + pattern + ",original_filename.ilike." + pattern);
+    }
+    const { data: rows, count, error } = await query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(start, start + data.pageSize - 1);
+    // PostgREST can return 416 when a deletion leaves the last page empty.
+    if (error && error.code !== "PGRST103") throw new Error("Could not load Turnitin history.");
+    if (!rows?.length) return { jobs: [], count: count ?? 0 };
+
+    const reports = await db.from("turnitin_reports")
+      .select(HISTORY_REPORT_FIELDS)
+      .eq("user_id", context.userId)
+      .in("job_id", rows.map((row: TurnitinJobRow) => row.id));
+    if (reports.error) throw new Error("Could not load Turnitin reports.");
+    const reportsByJob = new Map<string, TurnitinReportRow[]>();
+    for (const report of (reports.data ?? []) as TurnitinReportRow[]) {
+      const forJob = reportsByJob.get(report.job_id) ?? [];
+      forJob.push(report);
+      reportsByJob.set(report.job_id, forJob);
+    }
+    return {
+      count: count ?? 0,
+      jobs: rows.map((row: TurnitinJobRow) => ({ ...row, reports: reportsByJob.get(row.id) ?? [] })),
+    };
+  });
+
 export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<TurnitinWorkspaceData> => {
@@ -96,7 +148,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
       db
         .from("turnitin_jobs")
         .select(
-          "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at",
+          HISTORY_JOB_FIELDS,
         )
         .eq("user_id", context.userId)
         .is("history_deleted_at", null)
@@ -105,7 +157,7 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
       db
         .from("turnitin_reports")
         .select(
-          "id, job_id, report_type, status, score, storage_bucket, storage_path, unavailable_reason, available_at",
+          HISTORY_REPORT_FIELDS,
         )
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
