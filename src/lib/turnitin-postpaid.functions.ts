@@ -60,6 +60,7 @@ export interface AdminTurnitinPostpaidControls {
     postpaidEnabledAt: string | null;
     postpaidDisabledAt: string | null;
   };
+  billingSettings: { fileThreshold: number | null; triggerMode: string; reminderEnabled: boolean; reminderIntervalDays: number; dueDays: number | null };
   summary: {
     totalCharges: number;
     unpaidChecks: number;
@@ -152,7 +153,14 @@ export const adminGetTurnitinPostpaidControls = createServerFn({ method: "POST" 
       );
     }, 0);
 
+    const billing = await admin.from("turnitin_postpaid_billing_settings")
+      .select("file_threshold,trigger_mode,reminder_enabled,reminder_interval_days,due_days")
+      .eq("user_id", data.userId).maybeSingle();
+    if (billing.error) throw new Error(billing.error.message);
     return {
+      billingSettings: { fileThreshold: billing.data?.file_threshold ?? null,
+        triggerMode: billing.data?.trigger_mode ?? "monthly", reminderEnabled: billing.data?.reminder_enabled ?? true,
+        reminderIntervalDays: billing.data?.reminder_interval_days ?? 3, dueDays: billing.data?.due_days ?? null },
       customer: {
         id: profileRes.data.id as string,
         email: (profileRes.data.email as string | null) ?? null,
@@ -208,6 +216,7 @@ export const adminGetTurnitinPostpaidControls = createServerFn({ method: "POST" 
 const statusInput = z.object({
   userId: z.string().uuid(),
   enabled: z.boolean(),
+  fileThreshold: z.number().int().min(1).max(100000).optional(),
   rateNgn: z.number().int().min(1).max(10_000_000).nullable(),
   reason: z.string().trim().min(3).max(1000),
 });
@@ -224,6 +233,16 @@ export const adminSetTurnitinPostpaidStatus = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
+
+    if (data.enabled) {
+      if (!data.fileThreshold) throw new Error("Enter the allowed file threshold before enabling Postpaid.");
+      const policy = await admin.from("turnitin_postpaid_billing_settings")
+        .select("file_threshold,restriction_enabled,trigger_mode").eq("user_id", data.userId).maybeSingle();
+      if (policy.error) throw new Error("Could not verify the saved threshold. Postpaid was not enabled.");
+      if (!policy.data?.restriction_enabled || policy.data.trigger_mode !== "files" ||
+          Number(policy.data.file_threshold) !== data.fileThreshold)
+        throw new Error("Save the allowed file threshold before enabling Postpaid.");
+    }
 
     const { data: mode, error } = await admin.rpc(
       "turnitin_set_postpaid_status",
@@ -323,4 +342,48 @@ export const adminUpdateTurnitinPostpaidRate = createServerFn({ method: "POST" }
       ok: true as const,
       rateNgn: Number(rate),
     };
+  });
+
+
+export const adminGetCustomerTurnitinHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ userId: z.string().uuid(), page: z.number().int().min(0),
+    pageSize: z.union([z.literal(10), z.literal(25), z.literal(50)]) }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, count, error } = await (supabaseAdmin as any).from("turnitin_jobs")
+      .select("id,original_filename,display_name,status,created_at,similarity_percentage,ai_percentage", { count: "exact" })
+      .eq("user_id", data.userId).order("created_at", { ascending: false }).order("id", { ascending: false })
+      .range(data.page * data.pageSize, (data.page + 1) * data.pageSize - 1);
+    if (error) throw new Error("Could not load Turnitin checking history.");
+    return { rows: rows as Array<{ id: string; original_filename: string; display_name: string | null;
+      status: string; created_at: string; similarity_percentage: number | null; ai_percentage: number | null }>, total: count ?? 0 };
+  });
+
+
+export const adminGetCustomerPostpaidCharges = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ userId: z.string().uuid(), page: z.number().int().min(0),
+    pageSize: z.union([z.literal(10), z.literal(25), z.literal(50)]) }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows, count, error } = await db.from("turnitin_postpaid_charges")
+      .select("id,job_id,rate_ngn,amount_ngn,paid_amount_ngn,status,charged_at", { count: "exact" })
+      .eq("user_id", data.userId).order("charged_at", { ascending: false }).order("id", { ascending: false })
+      .range(data.page * data.pageSize, (data.page + 1) * data.pageSize - 1);
+    if (error) throw new Error("Could not load Postpaid check ledger.");
+    const jobIds = [...new Set((rows ?? []).map((r: any) => r.job_id))];
+    const names = new Map<string, string>();
+    if (jobIds.length) {
+      const jobs = await db.from("turnitin_jobs").select("id,original_filename,display_name")
+        .eq("user_id", data.userId).in("id", jobIds);
+      if (jobs.error) throw new Error("Could not load check document names.");
+      for (const job of jobs.data ?? []) names.set(job.id, job.display_name || job.original_filename);
+    }
+    return { total: count ?? 0, rows: (rows ?? []).map((r: any) => ({ id: String(r.id),
+      documentName: names.get(r.job_id) ?? "Turnitin check", chargedAt: String(r.charged_at),
+      rateNgn: Number(r.rate_ngn), amountNgn: Number(r.amount_ngn), paidAmountNgn: Number(r.paid_amount_ngn), status: String(r.status) })) as Array<{ id: string; documentName: string; chargedAt: string; rateNgn: number; amountNgn: number; paidAmountNgn: number; status: string }> };
   });

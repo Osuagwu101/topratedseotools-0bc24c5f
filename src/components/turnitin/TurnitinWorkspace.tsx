@@ -827,27 +827,27 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
         </div>
       ) : null}
 
-      {isPostpaid && postpaidInvoices.data?.policy?.triggered &&
-       postpaidInvoices.data?.totalOutstandingNgn > 0 &&
+      {isPostpaid &&
+       postpaid.outstanding_ngn > 0 &&
        (view === "all" || view === "overview" || view === "buy" || view === "submit" || view === "history") ? (
         <section role="alert" className="rounded-xl border border-amber-500/40 bg-amber-50/70 p-5 text-amber-950">
           <div className="flex items-center gap-2 font-semibold">
             <AlertCircle className="h-5 w-5" />
-            {postpaidInvoices.data.policy.blocked ? "Checks paused - payment required" : "Postpaid invoice due"}
+            {postpaidInvoices.data?.policy?.blocked ? "Checks paused - payment required" : "Postpaid balance"}
           </div>
           <p className="mt-2 text-sm">
-            Your billing threshold has been reached. Your total outstanding balance is
-            {" "}<strong>{formatNaira(postpaidInvoices.data.totalOutstandingNgn)}</strong>.
-            {postpaidInvoices.data.policy.blocked
+            {postpaidInvoices.data?.policy?.triggered ? "Your billing threshold has been reached. " : "You can pay anytime, even before reaching your threshold. "}Your total outstanding balance is
+            {" "}<strong>{formatNaira(postpaid.outstanding_ngn)}</strong>.
+            {postpaidInvoices.data?.policy?.blocked
               ? " New checks are restricted until your outstanding balance is paid."
-              : " Your outstanding invoice remains payable."}
+              : " Pay your outstanding balance whenever you are ready."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => void settlePostpaidBalance()}
               disabled={settlingPostpaid || verifyingPayment}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
               {settlingPostpaid ? "Opening payment..." :
-                "Pay "+formatNaira(postpaidInvoices.data.totalOutstandingNgn)+" now"}
+                "Pay "+formatNaira(postpaid.outstanding_ngn)+" now"}
             </button>
             <Link to="/billing" className="rounded-lg border border-amber-600/40 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white">
               View billing history
