@@ -34,3 +34,35 @@ export async function fetchClaudeProvider(target: URL | string, init: RequestIni
     signal: init.signal,
   });
 }
+
+/** True when the given account is served by its private server browser. */
+export function claudeAccountUsesBrowser(account: ClaudeProviderAccountKey) {
+  return account === "account_1" ? claudeBrowserTransportEnabled() : !!process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
+}
+
+export type ClaudeBrowserCookie = {
+  name: string; value: string; domain: string; path: string;
+  expires?: number; secure?: boolean; httpOnly?: boolean; sameSite?: string;
+};
+
+/**
+ * Replace the Claude login inside an account's private server browser with the
+ * pasted session cookies. Loopback only, authenticated with that account's
+ * relay key; cookie values are never logged or returned.
+ */
+export async function pushClaudeBrowserSession(account: ClaudeProviderAccountKey, cookies: ClaudeBrowserCookie[]) {
+  if (!isClaudeProviderAccount(account)) throw Error("Invalid Claude account.");
+  const configured = account === "account_1" ? process.env.CLAUDE_BROWSER_RELAY_URL : process.env.CLAUDE_ACCOUNT_2_RELAY_URL;
+  const relayUrl = account === "account_1" ? BROWSER_RELAY_URL : "http://127.0.0.1:6112/request";
+  if (configured !== relayUrl) throw Error(`Claude ${account === "account_1" ? "Account 1" : "Account 2"} server browser is not configured.`);
+  const key = account === "account_1" ? process.env.CLAUDE_BROWSER_RELAY_KEY : process.env.CLAUDE_ACCOUNT_2_RELAY_KEY;
+  if (!key || key.length < 32) throw Error("Claude browser transport is not configured.");
+  const response = await fetch(relayUrl.replace(/\/request$/, "/session"), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ cookies }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (response.status === 404) throw Error("The server browser relay must be updated before pasted sessions can be activated.");
+  if (!response.ok) throw Error("The server browser could not load the pasted Claude session.");
+}
