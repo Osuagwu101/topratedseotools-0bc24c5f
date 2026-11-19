@@ -86,6 +86,22 @@ const ALWAYS_BLOCKED_PATH = /(?:^|\/)(?:logout|log_out|log-out|signout|sign_out|
  * Requests that would change or end the shared account for everyone.
  * Reading is allowed; changing account, billing, security or team settings is not.
  */
+export function isGrammarlySignOutPath(pathname: string) {
+  return ALWAYS_BLOCKED_PATH.test(pathname);
+}
+
+/** The main TopRated site for a proxy origin such as https://grammarly.example.com. */
+export function grammarlyDashboardUrl(publicOrigin: string) {
+  try {
+    const u = new URL(publicOrigin);
+    const parts = u.hostname.split(".");
+    if (parts.length > 2) parts.shift();
+    return `${u.protocol}//${parts.join(".")}${u.port ? ":" + u.port : ""}/dashboard`;
+  } catch {
+    return "/";
+  }
+}
+
 export function isBlockedGrammarlyRequest(method: string, host: string, pathname: string) {
   const h = host.toLowerCase();
   const m = method.toUpperCase();
@@ -565,6 +581,26 @@ export async function handleGrammarlyProxyRequest(request: Request): Promise<Res
     request.method === "GET" &&
     ((request.headers.get("sec-fetch-dest") ?? "") === "document" ||
       (request.headers.get("accept") ?? "").includes("text/html"));
+
+  // Sign-out ends only this writer's TopRated Grammarly session. It is never
+  // forwarded, so the shared Grammarly login and other writers are untouched.
+  if (isGrammarlySignOutPath(upstreamUrl.pathname) && !(host === CODA_HOST || host === "codacontent.io")) {
+    try {
+      await (supabaseAdmin as any).from("grammarly_proxy_sessions").update({ status: "revoked" }).eq("id", session.id);
+    } catch {
+      return plain(503, "Could not sign out. Please try again.");
+    }
+    const h = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+    h.append("Set-Cookie", `${GRAMMARLY_PROXY_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`);
+    h.append("Set-Cookie", "trst_gr_storage_marker=; Path=/; Secure; SameSite=Lax; Max-Age=0");
+    const dashboard = grammarlyDashboardUrl(publicOrigin);
+    if (isDocument) {
+      h.set("Location", dashboard);
+      return new Response(null, { status: 302, headers: h });
+    }
+    h.set("Content-Type", "application/json");
+    return new Response(JSON.stringify({ ok: true, signedOut: true, redirect: dashboard }), { status: 200, headers: h });
+  }
 
   const storageMarker=hashGrammarlyProxyToken(writerId+":"+account).slice(0,24);
   if(isDocument&&parseCookies(request).get("trst_gr_storage_marker")!==storageMarker)return new Response(null,{status:302,headers:{Location:"/__trst/reset","Cache-Control":"no-store"}});

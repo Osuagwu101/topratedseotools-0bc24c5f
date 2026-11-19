@@ -10,6 +10,8 @@ import {
   grammarlyCookieHeader,
   grammarlyDocumentIdFromPath,
   isBlockedGrammarlyRequest,
+  isGrammarlySignOutPath,
+  grammarlyDashboardUrl,
   isGrammarlyHost,
   rewriteGrammarlyBody,
   toProxyUrl,
@@ -94,6 +96,9 @@ assert(rw.includes('f="https://example.com"'), "leaves other sites alone");
 assert(isBlockedGrammarlyRequest("GET", "account.grammarly.com", "/subscription"), "account site blocked");
 assert(isBlockedGrammarlyRequest("POST", "api.payments.grammarly.com", "/x"), "payments blocked");
 assert(isBlockedGrammarlyRequest("POST", "auth.grammarly.com", "/v3/user/logout"), "logout blocked");
+assert(isGrammarlySignOutPath("/v3/user/logout") && isGrammarlySignOutPath("/signout") && isGrammarlySignOutPath("/logout?x=1"), "sign-out paths recognised");
+assert(!isGrammarlySignOutPath("/ddocs") && !isGrammarlySignOutPath("/v3/user/oranonymous"), "normal paths are not sign-out");
+assert(grammarlyDashboardUrl("https://grammarly.topratedseotools.com") === "https://topratedseotools.com/dashboard", "sign-out returns to the dashboard");
 assert(isBlockedGrammarlyRequest("POST", "auth.grammarly.com", "/v3/user/password"), "password change blocked");
 assert(!isBlockedGrammarlyRequest("POST", "auth.grammarly.com", "/v3/user/oranonymous"), "session check allowed");
 assert(isBlockedGrammarlyRequest("POST", "subscription.grammarly.com", "/api/v1/cancel"), "subscription changes blocked");
