@@ -698,7 +698,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       // Until native hydration is verified, reject server-rendered chat state.
       // Unknown payload formats must never expose the shared account's history.
       // The client builds this list URL in an inline script. Ignore only the URL token.
-      const stateCheck = text.replace(/(["'])\/chat_conversations(?=\?[a-z_]+=)/gi, "$1/");
+      const stateCheck = text.replace(/(["'])\/chat_conversations_v2(?=\?limit=)/gi, "$1/");
       if ((!shared && /chat_conversations|chat_messages|project_uuid|\\\\u0022chat_/i.test(stateCheck)) || /["']sessionKey["']\s*:/.test(text))
         return plain(502, "Claude returned embedded private state. Contact Admin (CL-06).");
       text = text.replace(/<head([^>]*)>/i, (m) => m + writerBootstrap(writer+":"+account) + claudeBootstrapScript());
