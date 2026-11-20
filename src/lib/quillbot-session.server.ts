@@ -17,6 +17,42 @@ export const QUILLBOT_SESSION_KEYS = [
   "useridtoken",
 ] as const;
 
+/** Optional: QuillBot's Firebase sign-in record, which holds the long-lived refresh token. */
+export const QUILLBOT_FIREBASE_KEY = "firebase_auth";
+export const QUILLBOT_EXPORT_SOURCE = "trst-quillbot-export";
+
+/**
+ * Validate the Firebase sign-in record captured by the export snippet and
+ * return it in a canonical form: {store, key, value}. The refresh token inside
+ * lets the server browser renew QuillBot's 1-hour useridtoken by itself.
+ */
+export function normaliseQuillBotFirebaseAuth(raw: unknown): string {
+  let parsed: any = raw;
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { throw new Error("The QuillBot sign-in record is not valid JSON."); }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid QuillBot sign-in record.");
+  const key = parsed.key;
+  const store = parsed.store === "localStorage" ? "localStorage" : "indexedDB";
+  let value = parsed.value;
+  if (typeof value === "string") { try { value = JSON.parse(value); } catch { throw new Error("Invalid QuillBot sign-in record."); } }
+  if (typeof key !== "string" || !/^firebase:authUser:[A-Za-z0-9_-]{10,80}:\[DEFAULT\]$/.test(key)) {
+    throw new Error("The QuillBot sign-in record has an unexpected key.");
+  }
+  const refresh = value?.stsTokenManager?.refreshToken;
+  if (!value || typeof value !== "object" || typeof refresh !== "string" || refresh.length < 20 || refresh.length > 4000) {
+    throw new Error("The QuillBot sign-in record does not contain a refresh token. Sign in to QuillBot and export again.");
+  }
+  const out = JSON.stringify({ store, key, value });
+  if (out.length > 32000) throw new Error("The QuillBot sign-in record is too large.");
+  return out;
+}
+
+/** True when a normalised session carries a refresh token, so an expired useridtoken is acceptable. */
+export function quillBotSessionRenewable(plaintext: string): boolean {
+  try { return typeof JSON.parse(plaintext)[QUILLBOT_FIREBASE_KEY] === "string"; } catch { return false; }
+}
+
 const AAD = Buffer.from(
   "topratedseotools:quillbot:authorised_session_json:v1",
   "utf8",
@@ -33,6 +69,27 @@ export function normaliseQuillBotSession(raw: string): string {
   }
   if (!parsed || typeof parsed !== "object") {
     throw new Error("The QuillBot session must be a JSON object.");
+  }
+
+  // Export-snippet format: cookies + useridtoken + Firebase sign-in record.
+  let firebase: string | null = null;
+  const snippet = parsed as any;
+  if (snippet && !Array.isArray(snippet) && snippet.source === QUILLBOT_EXPORT_SOURCE) {
+    firebase = normaliseQuillBotFirebaseAuth(snippet[QUILLBOT_FIREBASE_KEY]);
+    const record = JSON.parse(firebase);
+    const token = typeof snippet.useridtoken === "string" && snippet.useridtoken.length > 100
+      ? snippet.useridtoken
+      : record.value?.stsTokenManager?.accessToken;
+    if (typeof token !== "string" || token.length < 100) throw new Error("The QuillBot export is missing its sign-in token.");
+    const cookie = String(snippet.cookie ?? "").split(";").map((v: string) => v.trim())
+      .filter((v: string) => v.includes("=") && !/^(cf_clearance|__cf_bm|_cfuvid|useridtoken)=/.test(v));
+    cookie.push("useridtoken=" + encodeURIComponent(token));
+    parsed = { cookie: cookie.join("; "), useridtoken: token };
+  } else if (snippet && !Array.isArray(snippet) && QUILLBOT_FIREBASE_KEY in snippet) {
+    // Already-normalised stored state that carries a sign-in record.
+    firebase = normaliseQuillBotFirebaseAuth(snippet[QUILLBOT_FIREBASE_KEY]);
+    const { [QUILLBOT_FIREBASE_KEY]: _omit, ...rest } = snippet;
+    parsed = rest;
   }
 
   // Application cookie exports are normalised to the existing encrypted wire format.
@@ -77,6 +134,7 @@ export function normaliseQuillBotSession(raw: string): string {
     // preserves values exactly from an authorised QuillBot browser.
     clean[key] = value;
   }
+  if (firebase) clean[QUILLBOT_FIREBASE_KEY] = firebase;
   return JSON.stringify(clean);
 }
 

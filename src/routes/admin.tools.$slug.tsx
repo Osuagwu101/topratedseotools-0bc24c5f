@@ -960,8 +960,9 @@ function QuillBotSessionTab() {
         </div>
 
         <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          Export cookies for quillbot.com from your signed-in browser, or paste their actual names and values as JSON. Include useridtoken. Revoking here also turns off one-click
-          launch for writers until a fresh session is saved.
+          Recommended: run the QuillBot export snippet in your browser console on quillbot.com while signed in, then paste the result. It includes the sign-in
+          refresh token, so QuillBot stays signed in instead of expiring after an hour. Do not sign out of QuillBot in that browser afterwards. Revoking here also
+          turns off one-click launch for writers until a fresh session is saved.
         </div>
       </div>
 
@@ -982,8 +983,8 @@ function QuillBotSessionTab() {
           className="mt-2 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
         />
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Paste a QuillBot Application cookie export or a JSON object using the actual cookie names. Include useridtoken. Do not paste
-          secret session values into chat.
+          Paste the export snippet result (recommended). A plain cookie export or cookie JSON with useridtoken is still accepted, but it only lasts about an hour.
+          Do not paste secret session values into chat.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
