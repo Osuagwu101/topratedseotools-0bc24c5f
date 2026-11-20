@@ -75,6 +75,9 @@ export function normaliseQuillBotSession(raw: string): string {
   let firebase: string | null = null;
   const snippet = parsed as any;
   if (snippet && !Array.isArray(snippet) && snippet.source === QUILLBOT_EXPORT_SOURCE) {
+    if (typeof snippet[QUILLBOT_FIREBASE_KEY] !== "string" || /\.\.\./.test(String(snippet.cookie ?? ""))) {
+      throw new Error("This QuillBot export looks cut off. In the console run copy(trstQuillBotSession) and paste again.");
+    }
     firebase = normaliseQuillBotFirebaseAuth(snippet[QUILLBOT_FIREBASE_KEY]);
     const record = JSON.parse(firebase);
     const token = typeof snippet.useridtoken === "string" && snippet.useridtoken.length > 100

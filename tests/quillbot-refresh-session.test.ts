@@ -32,3 +32,5 @@ assert.throws(() => normaliseQuillBotFirebaseAuth({ key: "evil", value: record.v
 assert.throws(() => normaliseQuillBotFirebaseAuth({ key, value: { stsTokenManager: {} } }), /refresh token/);
 assert.throws(() => normaliseQuillBotSession(JSON.stringify({ source: QUILLBOT_EXPORT_SOURCE, cookie: "", useridtoken: "", firebase_auth: "{}" })));
 console.log("QuillBot refresh-token sessions: export parsing, httpOnly fallback, round-trip, plain-cookie compatibility and validation passed.");
+assert.throws(() => normaliseQuillBotSession(JSON.stringify({ source: QUILLBOT_EXPORT_SOURCE, cookie: "a=G...Rwc", useridtoken: "" })), /cut off/);
+console.log("QuillBot export: truncated paste gets a clear message.");
