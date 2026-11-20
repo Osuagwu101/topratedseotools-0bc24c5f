@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import {adaptClient,CLIENT_AUTH_PATH} from '../browser-transport/client-auth-adapter.mjs';
 import {bootstrapPrelude} from '../browser-transport/writer-bootstrap.mjs';
-import {browserFetch} from '../browser-transport/browser-fetch.mjs';
+import {browserFetch, syncBrowserSession} from '../browser-transport/browser-fetch.mjs';
 import {WriterStore} from '../browser-transport/writer-store.mjs';
 import http from "node:http";
 import { loadEnvFile } from "node:process";
@@ -37,6 +37,7 @@ repository.enabled=async()=>{
 repository.providerReady=async account=>account==='account_1'&&(await assignedAccount()).premium;
 const launch = createQuillBotLaunchService(repository);
 const writerStore=new WriterStore(fileURLToPath(new URL('../.secrets/quillbot-writers.sqlite',import.meta.url)));
+writerStore.recoverAbandoned();
 
 
 let adaptedClient=null,adaptedFlight=null;
@@ -49,6 +50,8 @@ async function currentClient(){
 const CLIENT_TOKEN='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b3ByYXRlZC13cml0ZXIiLCJ1c2VyX2lkIjoidG9wcmF0ZWQtd3JpdGVyIiwiZW1haWwiOiJ3cml0ZXJAdG9wcmF0ZWRzZW90b29scy5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.dHJzdC1kaXNwbGF5LW9ubHktbm90LXByb3ZpZGVyLWF1dGg';
 let accountCached=null,accountFlight=null;
 async function assignedAccount(){
+ const saved=await loadProvider("account_1");
+ await syncBrowserSession(saved.state,saved.envelope);
  if(accountCached&&accountCached.until>Date.now())return accountCached;
  if(accountFlight)return accountFlight;
  accountFlight=(async()=>{
@@ -74,6 +77,7 @@ async function handle(request) {
   if(!(url.pathname===BASE||url.pathname.startsWith(BASE+"/"))){url.pathname=BASE+url.pathname;request=new Request(url,request);}
   if (!(url.pathname === BASE || url.pathname.startsWith(BASE + "/"))) return new Response("Not found", { status: 404, headers: quillBotResponseHeaders() });
   const path = url.pathname.slice(BASE.length);
+  if(path === "/__trst/internal/verify" && request.method === "POST"){if(request.headers.get("authorization") !== "Bearer "+key)return new Response("Forbidden",{status:403});accountCached=null;try{await assignedAccount();return Response.json({ok:true});}catch{return new Response("Connection could not be verified",{status:503});}}
   if (path === "/__trst/health") return Response.json({ ok: true }, { headers: quillBotResponseHeaders("application/json") });
   if (path === "/__trst/start" && request.method === "GET") return new Response(startPage, { headers: quillBotResponseHeaders("text/html; charset=utf-8") });
 
@@ -239,7 +243,8 @@ async function handle(request) {
    if(!writerStore.helper(session.user_id,request.headers.get('x-trst-operation'),safePath,body))return new Response('This result does not belong to your active paraphrase.',{status:403,headers:quillBotResponseHeaders()});
   }
   let response;
-  try{response=await proxyQuillBotRequest(request,{cookie:'authenticated=true; premium=true',useridtoken:'trst-server-auth'},browserFetch);}catch(e){if(operation)writerStore.refund(session.user_id,operation);throw e;}
+  try{response=await proxyQuillBotRequest(request,{cookie:'authenticated=true; premium=true',useridtoken:'trst-server-auth'},browserFetch);}catch(e){if(operation)writerStore.refund(session.user_id,operation);else if(/^\/api\/paraphraser\/single-paraphrase\/[0-9]+$/.test(safePath))writerStore.fail(session.user_id,request.headers.get('x-trst-operation'));throw e;}
+  if(!response.ok&&/^\/api\/paraphraser\/single-paraphrase\/[0-9]+$/.test(safePath))writerStore.fail(session.user_id,request.headers.get('x-trst-operation'));
   if(response.ok&&safePath.startsWith('/api/paraphraser/')){try{writerStore.recordOutput(session.user_id,request.headers.get('x-trst-operation'),await response.clone().json())}catch{}}
   if(operation){if(!response.ok)writerStore.refund(session.user_id,operation);else response.headers.set('x-trst-operation',operation);}
   response.headers.set('content-security-policy',"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://libs.quillbot.com https://assets.quillbot.com; connect-src 'self' https://libs.quillbot.com https://assets.quillbot.com; style-src 'self' 'unsafe-inline' https://libs.quillbot.com https://assets.quillbot.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://assets.quillbot.com https://libs.quillbot.com; img-src 'self' data: blob: https://assets.quillbot.com https://libs.quillbot.com; worker-src 'self' blob: https://assets.quillbot.com https://libs.quillbot.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
@@ -266,7 +271,11 @@ const server = http.createServer(async (req, res) => {
     Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
     const status = error instanceof QuillBotAccessError ? error.status : 503;
-    res.writeHead(status, Object.fromEntries(quillBotResponseHeaders()));
+    const errorHeaders=Object.fromEntries(quillBotResponseHeaders());
+    if(['/__qbtest/__trst/launch','/__trst/launch'].includes(new URL(req.url,PUBLIC).pathname)&&['https://topratedseotools.com','https://www.topratedseotools.com',PUBLIC].includes(req.headers.origin)){
+      errorHeaders['access-control-allow-origin']=req.headers.origin;errorHeaders['access-control-allow-credentials']='true';errorHeaders.vary='Origin';
+    }
+    res.writeHead(status,errorHeaders);
     res.end(error instanceof QuillBotAccessError ? error.message : "QuillBot is temporarily unavailable.");
     console.error(JSON.stringify({ layer: "quillbot_gateway", status, category: error?.name || "Error" }));
   }
