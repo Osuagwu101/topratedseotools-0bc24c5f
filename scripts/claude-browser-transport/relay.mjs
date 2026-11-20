@@ -44,6 +44,8 @@ export function validateSessionCookies(input) {
     const sameSite=SAME_SITE[String(c.sameSite??'').toLowerCase()];
     if(sameSite) cookie.sameSite=sameSite;
     if(typeof c.expires==='number' && Number.isFinite(c.expires) && c.expires>0) cookie.expires=c.expires;
+    // A sessionKey without an expiry would be dropped whenever Chrome restarts.
+    else if(name==='sessionKey') cookie.expires=Math.floor(Date.now()/1000)+30*86400;
     out.push(cookie);
   }
   if(!out.some(c=>c.name==='sessionKey')) throw Error('sessionKey');
@@ -153,8 +155,8 @@ class BrowserConnection {
     this.activeBodyBytes+=bodyBytes;
     const id=randomBytes(16).toString('hex');let bytes=0;
     const finish=()=>{if(!this.jobs.has(id))return;clearTimeout(timer);this.jobs.delete(id);this.activeBodyBytes-=bodyBytes;};
-    const fail=()=>{finish();if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Claude browser request did not complete.');};
-    const timer=setTimeout(fail,600000);
+    const fail=(login=false)=>{finish();if(!res.headersSent){if(login){res.writeHead(401,{'Content-Type':'text/plain','Cache-Control':'no-store','X-TRST-Browser-Login':'required'});res.end('Claude browser is logged out.');return;}res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});}res.end('Claude browser request did not complete.');};
+    const timer=setTimeout(()=>fail(),600000);
     this.jobs.set(id,{fail,event:event=>{
       if(event.kind==='meta') {
         if(!Number.isInteger(event.status)||event.status<200||event.status>599)return fail();
@@ -164,10 +166,10 @@ class BrowserConnection {
       } else if(event.kind==='chunk') {
         const data=Buffer.from(event.data,'base64');bytes+=data.length;
         if(bytes>64*1024*1024)return fail();
-        const ack=()=>this.call('Runtime.evaluate',{contextId:this.context,expression:`trstRelayAck(${JSON.stringify(id)},${event.seq})`}).catch(fail);
+        const ack=()=>this.call('Runtime.evaluate',{contextId:this.context,expression:`trstRelayAck(${JSON.stringify(id)},${event.seq})`}).catch(()=>fail());
         if(res.write(data))ack();else res.once('drain',ack);
       } else if(event.kind==='end'){finish();res.end();}
-      else if(event.kind==='error')fail();
+      else if(event.kind==='error')fail(event.login===true);
     }});
     res.on('close',()=>{
       if(!this.jobs.has(id))return;finish();
@@ -182,7 +184,7 @@ class BrowserConnection {
         send({kind:'meta',status:response.status,path:final.pathname,headers:Object.fromEntries(response.headers)});
         if(response.body){const reader=response.body.getReader();let seq=0;while(true){const {done,value}=await reader.read();if(done)break;let raw='';for(let i=0;i<value.length;i++)raw+=String.fromCharCode(value[i]);const n=seq++;await new Promise(resolve=>{trstRelayAcks.set(id+':'+n,resolve);send({kind:'chunk',seq:n,data:btoa(raw)});});}}
         send({kind:'end'});
-      }catch{send({kind:'error'});}finally{trstRelayControllers.delete(id);}
+      }catch(e){send({kind:'error',login:e?.message==='session'});}finally{trstRelayControllers.delete(id);}
     })(${JSON.stringify(input)},${JSON.stringify(id)});void 0`;
     try {
       const result=await this.call('Runtime.evaluate',{contextId:this.context,expression,returnByValue:true});
@@ -224,7 +226,10 @@ export function startRelay({port=6101,applySession=applyBrowserSession}={}) {
       input=validateRelayRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')));
     }catch{res.writeHead(400);res.end('Invalid browser transport request.');return;}
     try{await browser.relay(input,req,res);}
-    catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Claude browser transport is unavailable.');}
+    catch(e){
+      if(!res.headersSent && /^Sign in/.test(e?.message??'')){res.writeHead(401,{'Content-Type':'text/plain','Cache-Control':'no-store','X-TRST-Browser-Login':'required'});res.end('Claude browser is logged out.');return;}
+      if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Claude browser transport is unavailable.');
+    }
   }).listen(port,'127.0.0.1');
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)startRelay({port:Number(process.env.CLAUDE_RELAY_PORT || 6101)});

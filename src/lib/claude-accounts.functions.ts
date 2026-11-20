@@ -37,13 +37,22 @@ async function revokeLaunches(db:any,account:ClaudeProviderAccountKey){
 async function verifyAccount(db:any,account:ClaudeProviderAccountKey,cookieHeader?:string){
  const {fetchClaudeProvider}=await import("./claude-browser-fetch.server");
  let connected=false;
+ // Only a definite rejection (login required, 401/403, redirect, bad payload)
+ // marks the account logged out. A busy relay, timeout or 5xx is temporary and
+ // must not lock every writer out of a still-working login.
+ let rejected=false;
  try{
   const headers=new Headers({Accept:"application/json"});
   if(cookieHeader)headers.set("Cookie",cookieHeader);
   const response=await fetchClaudeProvider("https://claude.ai/api/organizations",{headers,redirect:"manual",signal:AbortSignal.timeout(20000)},account);
-  const payload=response.ok&&(response.headers.get("content-type")??"").includes("json")?await response.json():null;
-  connected=Array.isArray(payload)&&payload.length>0&&payload.every((o:any)=>typeof o?.uuid==="string");
+  if(response.status===429||response.status>=500){await response.body?.cancel().catch(()=>{});}
+  else{
+   const payload=response.ok&&(response.headers.get("content-type")??"").includes("json")?await response.json():null;
+   connected=Array.isArray(payload)&&payload.length>0&&payload.every((o:any)=>typeof o?.uuid==="string");
+   rejected=!connected;
+  }
  }catch{}
+ if(!connected&&!rejected)return false;
  const {error}=await db.from("claude_provider_accounts").update({status:connected?"connected":"needs_login",verified_at:connected?new Date().toISOString():null}).eq("account_key",account);
  if(error)throw Error("Could not save Claude connection status.");
  return connected;
