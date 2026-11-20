@@ -33,6 +33,12 @@ export type ClaudeSessionState = {
   };
 };
 
+/** Local cookie lifetime (seconds since epoch) for a sessionKey pasted without one. Claude still decides whether the login itself is valid. */
+export const CLAUDE_SESSION_KEY_DEFAULT_DAYS = 30;
+export function defaultClaudeSessionKeyExpiry(now = Date.now()): number {
+  return Math.floor(now / 1000) + CLAUDE_SESSION_KEY_DEFAULT_DAYS * 86400;
+}
+
 function isClaudeCookieDomain(raw: string): boolean {
   const host = raw.trim().toLowerCase().replace(/^\./, "");
   return host === "claude.ai" || host.endsWith(".claude.ai");
@@ -124,8 +130,12 @@ function cleanCookies(value: unknown): ClaudeStoredCookie[] {
       path,
     };
     const expires = typeof source.expires === "number" ? source.expires : source.expirationDate;
-    if (typeof expires === "number" && Number.isFinite(expires)) {
+    if (typeof expires === "number" && Number.isFinite(expires) && expires > 0) {
       cookie.expires = expires;
+    } else if (name === "sessionKey") {
+      // A sessionKey pasted without an expiry would be a browser-session
+      // cookie, which Chrome discards whenever the server browser restarts.
+      cookie.expires = defaultClaudeSessionKeyExpiry();
     }
     if (typeof source.secure === "boolean") cookie.secure = source.secure;
     if (typeof source.httpOnly === "boolean") cookie.httpOnly = source.httpOnly;

@@ -9,6 +9,9 @@ const ok=validate({cookies:[
 assert.equal(ok.length,2);
 assert.deepEqual(ok[0],{name:'sessionKey',value:'sk-ant-test',domain:'.claude.ai',path:'/',secure:true,httpOnly:true,sameSite:'None',expires:4102444800});
 assert.equal(ok[1].sameSite,'Lax');
+const bare=validate({cookies:[{name:'sessionKey',value:'sk',domain:'.claude.ai'}]})[0];
+assert(bare.expires>Date.now()/1000+29*86400,'sessionKey without expiry must persist across browser restarts');
+assert.equal(validate({cookies:[{name:'sessionKey',value:'sk',domain:'.claude.ai'},{name:'other',value:'o',domain:'.claude.ai'}]})[1].expires,undefined);
 assert.throws(()=>validate({cookies:[]}));
 assert.throws(()=>validate({cookies:[{name:'sessionKey',value:'x',domain:'.evil.test'}]}));
 assert.throws(()=>validate({cookies:[{name:'sessionKey',value:'x',domain:'claude.ai.evil.test'}]}));

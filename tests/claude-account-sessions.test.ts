@@ -14,6 +14,13 @@ try{
  ])));
  assert.equal(exported.cookies.length,1);assert.equal(exported.cookies[0].expires,future);
  assert.throws(()=>normaliseClaudeSession('[{"name":"sessionKey","value":"x","domain":".evil.test"}]'));
+ // A sessionKey pasted without any expiry gets a lasting one, so a server
+ // browser restart (e.g. after running out of memory) cannot silently drop it.
+ const bare=JSON.parse(normaliseClaudeSession('[{"name":"sessionKey","value":"sk-ant-bare","domain":".claude.ai","path":"/"}]'));
+ const days=(bare.cookies[0].expires-Date.now()/1000)/86400;
+ assert(days>29&&days<=30,"sessionKey without expiry should persist about 30 days");
+ const sessionOnly=JSON.parse(normaliseClaudeSession('[{"name":"sessionKey","value":"sk","domain":".claude.ai","expirationDate":-1}]'));
+ assert(sessionOnly.cookies[0].expires>Date.now()/1000+29*86400);
 
  process.env.CLAUDE_BROWSER_RELAY_URL=BROWSER_RELAY_URL;
  process.env.CLAUDE_BROWSER_RELAY_KEY="one-private-test-key-12345678901234567890";
@@ -28,6 +35,10 @@ try{
  assert.equal(calls[0].init.headers.Authorization,"Bearer "+process.env.CLAUDE_BROWSER_RELAY_KEY);
  assert.equal(calls[1].init.headers.Authorization,"Bearer "+process.env.CLAUDE_ACCOUNT_2_RELAY_KEY);
  assert.equal(JSON.parse(calls[1].init.body).cookies[0].name,"sessionKey");
+ // Older saved sessions without an expiry are made persistent when pushed.
+ await pushClaudeBrowserSession("account_1",[{name:"sessionKey",value:"sk-old",domain:".claude.ai",path:"/"}]);
+ const pushed=JSON.parse(calls[2].init.body).cookies[0];
+ assert(pushed.expires>Date.now()/1000+29*86400);
  // Misconfigured or missing relays never fall back to another account.
  calls.length=0;
  process.env.CLAUDE_ACCOUNT_2_RELAY_URL=BROWSER_RELAY_URL;
