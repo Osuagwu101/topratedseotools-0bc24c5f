@@ -7,6 +7,24 @@ import { pathToFileURL } from 'node:url';
 const ORIGIN = 'https://quillbot.com';
 const BINDING = 'trstRelayData';
 export function tokenSubject(token){try{const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString());return typeof claims.sub==='string'?claims.sub:typeof claims.user_id==='string'?claims.user_id:null;}catch{return null;}}
+export const NUDGE_INTERVAL_MS=10*60*1000;
+export function parseFirebaseAuth(raw){
+  let rec;try{rec=typeof raw==="string"?JSON.parse(raw):raw;}catch{throw Error("Invalid sign-in record");}
+  if(!rec||typeof rec!=="object"||typeof rec.key!=="string"||!/^firebase:authUser:[A-Za-z0-9_-]{10,80}:\[DEFAULT\]$/.test(rec.key))throw Error("Invalid sign-in record");
+  const value=typeof rec.value==="string"?JSON.parse(rec.value):rec.value;
+  if(typeof value?.stsTokenManager?.refreshToken!=="string")throw Error("Sign-in record has no refresh token");
+  return {store:rec.store==="localStorage"?"localStorage":"indexedDB",key:rec.key,value};
+}
+export function firebaseSeedScript(record,overwrite){
+  return `(async(rec,overwrite)=>{
+    if(rec.store==="localStorage"){if(!overwrite&&localStorage.getItem(rec.key))return "present";localStorage.setItem(rec.key,JSON.stringify(rec.value));return "ok";}
+    const open=v=>new Promise((res,rej)=>{const r=v?indexedDB.open("firebaseLocalStorageDb",v):indexedDB.open("firebaseLocalStorageDb");r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("firebaseLocalStorage"))r.result.createObjectStore("firebaseLocalStorage",{keyPath:"fbase_key"});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+    let db=await open();
+    if(!db.objectStoreNames.contains("firebaseLocalStorage")){const v=db.version+1;db.close();db=await open(v);}
+    const done=await new Promise((res,rej)=>{const tx=db.transaction("firebaseLocalStorage","readwrite");const st=tx.objectStore("firebaseLocalStorage");const g=st.get(rec.key);g.onsuccess=()=>{if(g.result&&!overwrite){res("present");return;}st.put({fbase_key:rec.key,value:rec.value});tx.oncomplete=()=>res("ok");};tx.onerror=()=>rej(tx.error);});
+    db.close();return done;
+  })(${JSON.stringify(record)},${overwrite?'true':'false'})`;
+}
 export function sameTokenAccount(nativeToken,importedToken){if(!importedToken)return true;if(nativeToken===importedToken)return true;const subject=tokenSubject(nativeToken);return !!subject&&subject===tokenSubject(importedToken);}
 
 const passHeaders = new Set(["platform-type","qb-product","qb-dialect","webapp-version",'accept','accept-language','content-type','range','if-none-match','if-modified-since','anthropic-client-sha','anthropic-client-version','anthropic-client-platform']);
@@ -49,6 +67,7 @@ export class BrowserConnection {
   }
   async applySessionOnce(input){
     if(!input || typeof input.version!=="string" || typeof input.cookie!=="string" || input.cookie.length>32000)throw Error("Invalid session");
+    if(input.firebaseAuth!==undefined)this.importedFirebase=parseFirebaseAuth(input.firebaseAuth);
     const entry=input.cookie.split(";").map(v=>v.trim()).find(v=>v.startsWith("useridtoken="));
     this.importedSecrets=input.cookie.split(";").map(part=>part.slice(part.indexOf("=")+1)).filter(v=>v.length>=12);
     this.importedToken=entry?decodeURIComponent(entry.slice("useridtoken=".length)):null;
@@ -57,14 +76,32 @@ export class BrowserConnection {
     if(this.appliedSession===input.version)return;
     await this.ready();
     if(this.jobs.size)throw Error("Workspace busy; retry connection");
-    const cookies=input.cookie.split(";").map(p=>{const i=p.indexOf("=");return {name:p.slice(0,i).trim(),value:p.slice(i+1),domain:".quillbot.com",path:"/",secure:true};}).filter(c=>c.name && !["cf_clearance","__cf_bm","_cfuvid"].includes(c.name));
+    const cookies=input.cookie.split(";").map(p=>{const i=p.indexOf("=");return {name:p.slice(0,i).trim(),value:p.slice(i+1),domain:".quillbot.com",path:"/",secure:true,expires:Math.floor(Date.now()/1000)+30*86400};}).filter(c=>c.name && !["cf_clearance","__cf_bm","_cfuvid"].includes(c.name));
     if(!cookies.some(c=>c.name==="useridtoken"))throw Error("Missing useridtoken");
     const previous=await this.call("Network.getCookies",{urls:[ORIGIN]});
     for(const c of previous.cookies||[])if(!["cf_clearance","__cf_bm","_cfuvid"].includes(c.name))await this.call("Network.deleteCookies",{name:c.name,domain:c.domain,path:c.path});
     await this.call("Storage.clearDataForOrigin",{origin:ORIGIN,storageTypes:"cache_storage,service_workers"});
     await this.call("Network.setCookies",{cookies});
-    await this.call("Page.reload",{ignoreCache:true});
+    if(this.importedFirebase)await this.seedFirebase(this.importedFirebase,true);
+    await this.call("Page.reload",{ignoreCache:true});this.lastNudge=Date.now();
     this.reset();this.appliedSession=input.version;
+  }
+  importedFirebase=null; lastNudge=0;
+  /* Write QuillBot's Firebase sign-in record into the page's own storage so its auth code can renew useridtoken. */
+  async seedFirebase(record,overwrite){
+    const r=await this.call("Runtime.evaluate",{expression:firebaseSeedScript(record,overwrite),awaitPromise:true,returnByValue:true});
+    if(r?.result?.value!=="ok"&&r?.result?.value!=="present")throw Error("Could not store QuillBot sign-in");
+    return r.result.value;
+  }
+  /* If the token is stale, make sure the sign-in record is still stored and reload so QuillBot renews it. */
+  async nudgeRenewal(now=Date.now()){
+    if(!this.importedFirebase||this.jobs.size||now-this.lastNudge<NUDGE_INTERVAL_MS)return false;
+    this.lastNudge=now;
+    await this.ready();
+    await this.seedFirebase(this.importedFirebase,false);
+    await this.call("Page.reload",{ignoreCache:false});
+    this.reset();
+    return true;
   }
   pending=new Map(); jobs=new Map(); activeBodyBytes=0; nextId=0; context=null; connecting=null;
   async ready() {
@@ -213,7 +250,7 @@ export function startRelay({port=6102,browserConnection=null}={}) {
   const secret=process.env.QUILLBOT_BROWSER_RELAY_KEY;
   if(!secret || secret.length<32)throw Error('Missing relay key');
   const browser=browserConnection||new BrowserConnection({bindingPath:process.env.QUILLBOT_SESSION_BINDING_PATH||'/var/lib/trst-quillbot-browser/session-binding.json'});
-  const monitor=new SessionRenewalMonitor(()=>browser.renewalStatus(),{onChange:state=>{console.log(JSON.stringify({layer:'quillbot_session_health',...state}));}});
+  const monitor=new SessionRenewalMonitor(()=>browser.renewalStatus(),{onChange:state=>{console.log(JSON.stringify({layer:'quillbot_session_health',...state}));if(state.status!=='healthy')browser.nudgeRenewal().then(n=>{if(n)console.log(JSON.stringify({layer:'quillbot_session_health',action:'renewal_nudge'}));}).catch(()=>{});}});
   const renewalTimer=setInterval(()=>void monitor.tick(),300000);renewalTimer.unref();
   void monitor.tick();
   return http.createServer(async(req,res)=>{

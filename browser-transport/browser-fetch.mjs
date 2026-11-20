@@ -28,7 +28,7 @@ async function relayFetch(target,init={}){
 }
 
 export async function syncBrowserSession(state,version){
- const r=await fetch('http://127.0.0.1:6102/session',{method:'POST',headers:{authorization:'Bearer '+process.env.QUILLBOT_BROWSER_RELAY_KEY,'content-type':'application/json'},body:JSON.stringify({cookie:state.cookie,version}),signal:AbortSignal.timeout(20000)});
+ const r=await fetch('http://127.0.0.1:6102/session',{method:'POST',headers:{authorization:'Bearer '+process.env.QUILLBOT_BROWSER_RELAY_KEY,'content-type':'application/json'},body:JSON.stringify({cookie:state.cookie,firebaseAuth:typeof state.firebase_auth==='string'?state.firebase_auth:undefined,version}),signal:AbortSignal.timeout(20000)});
  if(!r.ok)throw Error('Could not apply the saved QuillBot cookies. Retry after active requests finish.');
  shellCache=null;
 }

@@ -10,7 +10,7 @@ import { Readable } from "node:stream";
 import { createClient } from "@supabase/supabase-js";
 import { createQuillBotLaunchService, parseQuillBotCookies, QUILLBOT_APP_DEVICE_COOKIE, QuillBotAccessError, quillBotSessionCookies } from "../src/lib/quillbot-launch.server.ts";
 import { quillBotRepository } from "../src/lib/quillbot-repository.server.ts";
-import { decryptQuillBotSession, encryptQuillBotSession, normaliseQuillBotSession, quillBotSessionExpiry } from "../src/lib/quillbot-session.server.ts";
+import { decryptQuillBotSession, encryptQuillBotSession, normaliseQuillBotSession, quillBotSessionExpiry, quillBotSessionRenewable } from "../src/lib/quillbot-session.server.ts";
 import { proxyQuillBotRequest, quillBotResponseHeaders } from "../src/lib/quillbot-proxy.server.ts";
 import { quillBotProxyBootstrapResponse } from "../src/lib/quillbot-proxy-bootstrap.server.ts";
 import fs from "node:fs";
@@ -139,7 +139,7 @@ async function handle(request) {
     if (!(superAdmin.data === true || admin.data === true)) return new Response("Admin access required.", { status: 403, headers: quillBotResponseHeaders() });
     let plaintext;
     try { plaintext = normaliseQuillBotSession(await request.text()); } catch { return new Response("Select the two-field QuillBot session JSON file.", { status: 400, headers: quillBotResponseHeaders() }); }
-    if (quillBotSessionExpiry(JSON.parse(plaintext).useridtoken).expired === true) {
+    if (!quillBotSessionRenewable(plaintext) && quillBotSessionExpiry(JSON.parse(plaintext).useridtoken).expired === true) {
       return new Response("This QuillBot token has expired. Export a fresh session from your signed-in QuillBot browser.", { status: 422, headers: quillBotResponseHeaders() });
     }
     const encrypted = encryptQuillBotSession(plaintext);
