@@ -121,6 +121,10 @@ class BrowserConnection {
     await this.call('Runtime.addBinding',{name:BINDING,executionContextId:this.context});
     await this.call('Runtime.evaluate',{contextId:this.context,expression:`globalThis.trstRelayControllers=new Map();globalThis.trstRelayAcks=new Map();globalThis.trstRelayAck=(id,n)=>{const key=id+':'+n;const fn=trstRelayAcks.get(key);if(fn){trstRelayAcks.delete(key);fn();}};`});
   }
+  async hasSessionKey() {
+    try{const {cookies=[]}=await this.call('Network.getCookies',{urls:[ORIGIN+'/']});return cookies.some(c=>c.name==='sessionKey');}
+    catch{return true;}
+  }
   reset() {
     this.context=null;
     for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('browser disconnected'));}
@@ -157,11 +161,18 @@ class BrowserConnection {
     const finish=()=>{if(!this.jobs.has(id))return;clearTimeout(timer);this.jobs.delete(id);this.activeBodyBytes-=bodyBytes;};
     const fail=(login=false)=>{finish();if(!res.headersSent){if(login){res.writeHead(401,{'Content-Type':'text/plain','Cache-Control':'no-store','X-TRST-Browser-Login':'required'});res.end('Claude browser is logged out.');return;}res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});}res.end('Claude browser request did not complete.');};
     const timer=setTimeout(()=>fail(),600000);
-    this.jobs.set(id,{fail,event:event=>{
+    // Events are handled strictly in order; the meta step may wait on the browser.
+    let queue=Promise.resolve();
+    const handle=async event=>{
+      if(!this.jobs.has(id))return;
       if(event.kind==='meta') {
         if(!Number.isInteger(event.status)||event.status<200||event.status>599)return fail();
         const headers={'Cache-Control':'no-store','X-TRST-Browser-Path':event.path};
         for(const [name,value] of Object.entries(event.headers??{})) if(['content-type','etag','last-modified','cf-mitigated','content-range','accept-ranges','connect-content-encoding','connect-accept-encoding','connect-protocol-version','grpc-status','grpc-message'].includes(name.toLowerCase())) headers[name]=value;
+        // Claude answers a logged-out browser with 401 or 403. Flag it only when
+        // the browser really has no sessionKey, so permission errors are not mistaken for logouts.
+        if((event.status===401||event.status===403) && !(await this.hasSessionKey())) headers['X-TRST-Browser-Login']='required';
+        if(!this.jobs.has(id))return;
         res.writeHead(event.status,headers);
       } else if(event.kind==='chunk') {
         const data=Buffer.from(event.data,'base64');bytes+=data.length;
@@ -170,7 +181,8 @@ class BrowserConnection {
         if(res.write(data))ack();else res.once('drain',ack);
       } else if(event.kind==='end'){finish();res.end();}
       else if(event.kind==='error')fail(event.login===true);
-    }});
+    };
+    this.jobs.set(id,{fail,event:event=>{queue=queue.then(()=>handle(event)).catch(()=>fail());}});
     res.on('close',()=>{
       if(!this.jobs.has(id))return;finish();
       this.call('Runtime.evaluate',{contextId:this.context,expression:`trstRelayControllers.get(${JSON.stringify(id)})?.abort()`}).catch(()=>{});
