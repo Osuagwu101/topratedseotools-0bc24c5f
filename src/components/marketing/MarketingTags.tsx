@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { readConsent, onConsentChange } from "@/lib/marketing/consent";
 import { getPublicMarketingConfig, type PublicMarketingConfig } from "@/lib/marketing/public-config.functions";
-import { flushPendingFbqEvents } from "@/lib/marketing/track";
+import { flushPendingFbqEvents, flushPendingGoogleAdsEvents } from "@/lib/marketing/track";
 
 function loadPixel(pixelId: string) {
   const w = window as unknown as {
@@ -53,6 +53,33 @@ function loadGtm(id: string) {
   document.head.appendChild(s);
 }
 
+function loadGoogleAds(id: string, label: string) {
+  const w = window as unknown as {
+    __googleAdsLoaded?: boolean;
+    __googleAds?: { id: string; label: string };
+    dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
+  };
+  if (w.__googleAdsLoaded) return;
+  w.__googleAdsLoaded = true;
+  w.dataLayer = w.dataLayer ?? [];
+  // gtag must push the `arguments` object itself, not an array.
+  w.gtag =
+    w.gtag ??
+    function () {
+      // eslint-disable-next-line prefer-rest-params
+      (w.dataLayer as unknown[]).push(arguments);
+    };
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;
+  document.head.appendChild(s);
+  w.gtag("js", new Date());
+  w.gtag("config", id);
+  w.__googleAds = { id, label };
+  flushPendingGoogleAdsEvents();
+}
+
 export function MarketingTags() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const [config, setConfig] = useState<PublicMarketingConfig | null>(null);
@@ -65,7 +92,16 @@ export function MarketingTags() {
       getPublicMarketingConfig().then((next) => {
         if (!cancelled) setConfig(next);
       }).catch(() => {
-        if (!cancelled) setConfig({ pixelId: null, gtmId: null, pixelEnabled: false, gtmEnabled: false, paused: false });
+        if (!cancelled) setConfig({
+          pixelId: null,
+          gtmId: null,
+          pixelEnabled: false,
+          gtmEnabled: false,
+          googleAdsId: null,
+          googleAdsLabel: null,
+          googleAdsEnabled: false,
+          paused: false,
+        });
       });
     };
     loadConfig();
@@ -82,6 +118,9 @@ export function MarketingTags() {
     if (isAdminPage || !config || config.paused || !consent.marketing) return;
     if (config.pixelEnabled && config.pixelId) loadPixel(config.pixelId);
     if (config.gtmEnabled && config.gtmId) loadGtm(config.gtmId);
+    if (config.googleAdsEnabled && config.googleAdsId && config.googleAdsLabel) {
+      loadGoogleAds(config.googleAdsId, config.googleAdsLabel);
+    }
   }, [config, consent.marketing, isAdminPage]);
 
   return null;

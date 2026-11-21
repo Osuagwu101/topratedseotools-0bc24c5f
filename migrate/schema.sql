@@ -2131,7 +2131,7 @@ VALUES (
 -- 1) marketing_integrations ---------------------------------------------------
 CREATE TABLE public.marketing_integrations (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  provider text NOT NULL UNIQUE CHECK (provider IN ('meta_pixel','meta_capi','gtm')),
+  provider text NOT NULL UNIQUE CHECK (provider IN ('meta_pixel','meta_capi','gtm','google_ads')),
   enabled boolean NOT NULL DEFAULT false,
   connected boolean NOT NULL DEFAULT false,
   -- Public IDs (safe to expose): pixel id, gtm container id
@@ -2162,7 +2162,8 @@ CREATE TRIGGER trg_marketing_integrations_touch
 INSERT INTO public.marketing_integrations (provider, enabled) VALUES
   ('meta_pixel', false),
   ('meta_capi', false),
-  ('gtm', false)
+  ('gtm', false),
+  ('google_ads', false)
 ON CONFLICT (provider) DO NOTHING;
 
 -- 2) marketing_events ---------------------------------------------------------

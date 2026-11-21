@@ -6,7 +6,7 @@
  *   - audit trail in `marketing_events`
  *   - dispatch to Meta CAPI
  */
-import { sendCapiEvents, hashEmail, type CapiEvent } from "./meta-capi";
+import { sendCapiEvents, hashEmail, hashValue, type CapiEvent } from "./meta-capi";
 import { buildEventId } from "./config";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,17 +98,26 @@ export async function trackServerConversion(
     await logEvent(admin, input, "internal", "skipped", "marketing paused");
     return { status: "skipped", error: "paused" };
   }
-  // Fall back to the visitor_id captured on the order (webhook path has no user session).
-  let visitorId = input.visitor_id ?? null;
-  if (!visitorId && input.order_id) {
+  // The order's attribution snapshot (saved at checkout, only with marketing consent)
+  // carries the visitor_id plus the browser identifiers Meta uses to match the sale.
+  type OrderAttribution = {
+    visitor_id?: string;
+    fbp?: string;
+    fbc?: string;
+    client_ip_address?: string;
+    client_user_agent?: string;
+  };
+  let orderAttr: OrderAttribution | null = null;
+  if (input.order_id) {
     const { data: ord } = await admin
       .from("tool_orders")
       .select("attribution")
       .eq("id", input.order_id)
       .maybeSingle();
-    const attr = (ord as { attribution?: { visitor_id?: string } } | null)?.attribution;
-    if (attr?.visitor_id) visitorId = attr.visitor_id;
+    orderAttr = (ord as { attribution?: OrderAttribution } | null)?.attribution ?? null;
   }
+  // Fall back to the visitor_id captured on the order (webhook path has no user session).
+  const visitorId = input.visitor_id ?? orderAttr?.visitor_id ?? null;
   if (!(await consentAllowsMarketing(admin, input.user_id ?? null, visitorId))) {
     await logEvent(admin, input, "internal", "skipped", "consent not granted");
     return { status: "skipped", error: "consent" };
@@ -147,9 +156,7 @@ export async function trackServerConversion(
     event_time: Math.floor(Date.now() / 1000),
     event_id: input.event_id,
     action_source: "website",
-    user_data: {
-      em: input.email ? [hashEmail(input.email)!] : undefined,
-    },
+    user_data: buildUserData(input, orderAttr),
     custom_data: {
       currency: input.currency ?? "NGN",
       value: input.amount ?? undefined,
@@ -190,6 +197,35 @@ export async function trackServerConversion(
     })
     .eq("provider", "meta_capi");
   return { status: "failed", error: result.error };
+}
+
+/**
+ * Browser identifiers (IP, user agent, _fbp, _fbc) describe the checkout visit, so they
+ * are only attached to the first sale. Renewals and cancellations are not browser events
+ * and would otherwise carry stale values.
+ */
+const BROWSER_MATCH_KINDS = new Set(["purchase", "subscription_start", "private_fulfilment"]);
+
+function buildUserData(
+  input: { kind: string; email?: string | null; user_id?: string | null },
+  attr: {
+    fbp?: string;
+    fbc?: string;
+    client_ip_address?: string;
+    client_user_agent?: string;
+  } | null,
+): CapiEvent["user_data"] {
+  const userData: CapiEvent["user_data"] = {};
+  if (input.email) userData.em = [hashEmail(input.email)!];
+  const externalId = hashValue(input.user_id);
+  if (externalId) userData.external_id = [externalId];
+  if (attr && BROWSER_MATCH_KINDS.has(input.kind)) {
+    if (attr.client_ip_address) userData.client_ip_address = attr.client_ip_address;
+    if (attr.client_user_agent) userData.client_user_agent = attr.client_user_agent;
+    if (attr.fbp) userData.fbp = attr.fbp;
+    if (attr.fbc) userData.fbc = attr.fbc;
+  }
+  return userData;
 }
 
 function mapEventName(kind: string): string {

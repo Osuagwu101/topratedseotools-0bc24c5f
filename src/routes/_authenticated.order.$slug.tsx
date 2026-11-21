@@ -39,6 +39,7 @@ import type { DiscountInput } from "@/lib/currency-convert";
 import { attachOrderAttribution } from "@/lib/marketing/attribution.functions";
 import {
   trackBeginCheckout,
+  readMetaBrowserIds,
   trackPaymentMethodSelected,
   trackPaystackOpened,
   marketingContext,
@@ -253,6 +254,7 @@ function OrderPage() {
               order_id: orderId,
               visitor_id: ctx.visitor_id,
               snapshot: snap,
+              ...readMetaBrowserIds(snap?.fbclid, snap?.captured_at),
             },
           });
         } catch {

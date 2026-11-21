@@ -12,6 +12,9 @@ declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void;
     dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
+    __googleAds?: { id: string; label: string };
+    __pendingGoogleAdsEvents?: Dict[];
     __pendingFbqEvents?: Array<{ name: string; params: Dict; opts: { eventID?: string; custom?: boolean } }>;
   }
 }
@@ -47,6 +50,62 @@ export function fbqTrack(
   } else {
     window.fbq(fn, name, params);
   }
+}
+
+/**
+ * Meta's _fbp / _fbc browser ids, for the server-side Conversions API. _fbc is rebuilt
+ * from the stored fbclid when the cookie is missing (Meta's documented format).
+ * Returns nothing unless Marketing consent is on.
+ */
+export function readMetaBrowserIds(
+  fbclid?: string | null,
+  clickedAt?: string | null,
+): { fbp?: string; fbc?: string } {
+  if (typeof document === "undefined" || !marketingAllowed()) return {};
+  const cookie = (name: string) =>
+    document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(name + "="))
+      ?.slice(name.length + 1);
+  const fbp = cookie("_fbp");
+  let fbc = cookie("_fbc");
+  if (!fbc && fbclid) {
+    const ts = clickedAt ? Date.parse(clickedAt) : NaN;
+    fbc = `fb.1.${Number.isFinite(ts) ? ts : Date.now()}.${fbclid}`;
+  }
+  return { ...(fbp ? { fbp } : {}), ...(fbc ? { fbc } : {}) };
+}
+
+/**
+ * Google Ads purchase conversion. transaction_id lets Google drop duplicates when the
+ * orders page is reloaded. Queued until the Google tag has loaded, like fbq events.
+ */
+export function googleAdsPurchase(o: { order_id: string; value: number; currency: string }) {
+  if (typeof window === "undefined" || !marketingAllowed()) return;
+  const params: Dict = {
+    value: o.value,
+    currency: o.currency,
+    transaction_id: o.order_id,
+  };
+  if (window.__googleAds && typeof window.gtag === "function") {
+    sendGoogleAdsConversion(params);
+    return;
+  }
+  window.__pendingGoogleAdsEvents = window.__pendingGoogleAdsEvents ?? [];
+  window.__pendingGoogleAdsEvents.push(params);
+}
+
+function sendGoogleAdsConversion(params: Dict) {
+  const ads = window.__googleAds;
+  if (!ads || typeof window.gtag !== "function") return;
+  window.gtag("event", "conversion", { send_to: `${ads.id}/${ads.label}`, ...params });
+}
+
+export function flushPendingGoogleAdsEvents() {
+  if (typeof window === "undefined" || !window.__googleAds) return;
+  const pending = window.__pendingGoogleAdsEvents ?? [];
+  window.__pendingGoogleAdsEvents = [];
+  for (const params of pending) sendGoogleAdsConversion(params);
 }
 
 export function flushPendingFbqEvents() {
@@ -182,6 +241,7 @@ export function trackPurchase(o: {
     },
     o.event_id ? { eventID: o.event_id } : {},
   );
+  googleAdsPurchase({ order_id: o.order_id, value: o.amount, currency });
 }
 
 export function trackLead(source: string) {
