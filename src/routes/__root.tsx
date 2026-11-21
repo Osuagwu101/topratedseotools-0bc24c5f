@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, interactive-widget=resizes-content" },
       { title: `${APP_NAME} | Individual SEO and AI Tool Subscriptions` },
       { name: "description", content: APP_DESCRIPTION },
       { name: "author", content: APP_NAME },
