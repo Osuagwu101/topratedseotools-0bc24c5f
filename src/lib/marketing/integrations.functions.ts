@@ -7,6 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 import { isValidPixelId, isValidGtmId, isValidGoogleAdsId, isValidGoogleAdsLabel } from "./config";
 
 async function requireAdmin(context: {
@@ -38,7 +39,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
         enabled: boolean;
         connected: boolean;
         public_id: string | null;
-        config: Record<string, unknown> | null;
+        config: { [key: string]: Json | undefined } | null;
         test_event_code: string | null;
         last_event_at: string | null;
         last_event_name: string | null;
