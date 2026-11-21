@@ -20,6 +20,7 @@ export type CapiEvent = {
     client_user_agent?: string;
     fbc?: string;
     fbp?: string;
+    external_id?: string[]; // hashed stable user id
   };
   custom_data?: Record<string, unknown>;
 };
@@ -27,6 +28,21 @@ export type CapiEvent = {
 export function hashEmail(email: string | null | undefined): string | undefined {
   if (!email) return undefined;
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+}
+
+/** SHA-256 of a trimmed, lower-cased value — Meta's required format for hashed identifiers. */
+export function hashValue(value: string | null | undefined): string | undefined {
+  const v = value?.trim().toLowerCase();
+  if (!v) return undefined;
+  return createHash("sha256").update(v).digest("hex");
+}
+
+/** Graph API version. Override with META_GRAPH_API_VERSION when Meta retires this one. */
+export const DEFAULT_GRAPH_API_VERSION = "v23.0";
+
+function graphApiVersion(): string {
+  const v = process.env.META_GRAPH_API_VERSION?.trim();
+  return v && /^v\d+\.\d+$/.test(v) ? v : DEFAULT_GRAPH_API_VERSION;
 }
 
 export type CapiResult =
@@ -45,7 +61,7 @@ export async function sendCapiEvents(input: {
   const token = process.env.META_CAPI_ACCESS_TOKEN;
   if (!token) return { ok: false, error: "META_CAPI_ACCESS_TOKEN not configured" };
   if (!input.pixelId) return { ok: false, error: "pixel id missing" };
-  const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(input.pixelId)}/events`;
+  const url = `https://graph.facebook.com/${graphApiVersion()}/${encodeURIComponent(input.pixelId)}/events`;
   const body: Record<string, unknown> = { data: input.events, access_token: token };
   if (input.testEventCode) body.test_event_code = input.testEventCode;
   try {

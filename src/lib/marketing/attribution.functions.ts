@@ -4,6 +4,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const snapshotSchema = z.object({
@@ -108,6 +109,21 @@ export const linkConsentToUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+function readClientRequestInfo(): { ip: string | null; userAgent: string | null } {
+  try {
+    const headers = getRequest().headers;
+    const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const ip = (headers.get("cf-connecting-ip") ?? forwarded ?? headers.get("x-real-ip") ?? "").trim();
+    const userAgent = (headers.get("user-agent") ?? "").trim();
+    return {
+      ip: ip && ip.length <= 64 ? ip : null,
+      userAgent: userAgent ? userAgent.slice(0, 400) : null,
+    };
+  } catch {
+    return { ip: null, userAgent: null };
+  }
+}
+
 /** Auth — attach snapshot to an order so admin can see the campaign. */
 export const attachOrderAttribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -117,10 +133,16 @@ export const attachOrderAttribution = createServerFn({ method: "POST" })
         order_id: z.string().uuid(),
         visitor_id: z.string().min(3).max(80),
         snapshot: snapshotSchema.nullable(),
+        // Meta browser ids (cookies _fbp / _fbc). Format-checked so junk never reaches Meta.
+        fbp: z.string().regex(/^fb\.\d\.\d{10,13}\.\d{1,20}$/).optional(),
+        fbc: z.string().regex(/^fb\.\d\.\d{10,13}\.[A-Za-z0-9_-]{1,200}$/).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // The checkout request itself is the best source for IP + user agent. Called only
+    // after the visitor accepted Marketing consent (see the order page).
+    const { ip, userAgent } = readClientRequestInfo();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (context.supabase as any)
       .from("tool_orders")
@@ -128,6 +150,10 @@ export const attachOrderAttribution = createServerFn({ method: "POST" })
         attribution: {
           visitor_id: data.visitor_id,
           ...(data.snapshot ?? {}),
+          ...(data.fbp ? { fbp: data.fbp } : {}),
+          ...(data.fbc ? { fbc: data.fbc } : {}),
+          ...(ip ? { client_ip_address: ip } : {}),
+          ...(userAgent ? { client_user_agent: userAgent } : {}),
         },
       })
       .eq("id", data.order_id)

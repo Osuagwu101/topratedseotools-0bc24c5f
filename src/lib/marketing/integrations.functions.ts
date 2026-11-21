@@ -7,7 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { isValidPixelId, isValidGtmId } from "./config";
+import { isValidPixelId, isValidGtmId, isValidGoogleAdsId, isValidGoogleAdsLabel } from "./config";
 
 async function requireAdmin(context: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,7 +30,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
     const { data } = await context.supabase
       .from("marketing_integrations")
       .select(
-        "provider, enabled, connected, public_id, test_event_code, last_event_at, last_event_name, last_error_at, last_error_message, updated_at",
+        "provider, enabled, connected, public_id, config, test_event_code, last_event_at, last_event_name, last_error_at, last_error_message, updated_at",
       );
     return {
       integrations: (data ?? []) as Array<{
@@ -38,6 +38,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
         enabled: boolean;
         connected: boolean;
         public_id: string | null;
+        config: Record<string, unknown> | null;
         test_event_code: string | null;
         last_event_at: string | null;
         last_event_name: string | null;
@@ -134,6 +135,46 @@ export const saveGtmSettings = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !saved) throw new Error(error?.message ?? "GTM settings were not saved.");
     return { ok: true, container_id: saved.public_id, enabled: saved.enabled };
+  });
+
+export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        enabled: z.boolean(),
+        ads_id: z.string().trim().nullable(),
+        purchase_label: z.string().trim().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    if (data.enabled) {
+      if (!isValidGoogleAdsId(data.ads_id)) {
+        throw new Error("Enter a valid Google Ads conversion ID like AW-123456789.");
+      }
+      if (!isValidGoogleAdsLabel(data.purchase_label)) {
+        throw new Error("Enter the purchase conversion label from your Google Ads event snippet.");
+      }
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const adsId = data.ads_id?.trim() || null;
+    const label = data.purchase_label?.trim() || null;
+    const { data: saved, error } = await supabaseAdmin
+      .from("marketing_integrations")
+      .upsert({
+        provider: "google_ads",
+        enabled: data.enabled,
+        public_id: adsId,
+        config: { purchase_label: label },
+        connected: !!adsId && !!label,
+        updated_by: context.userId,
+      }, { onConflict: "provider" })
+      .select("provider, enabled, public_id")
+      .maybeSingle();
+    if (error || !saved) throw new Error(error?.message ?? "Google Ads settings were not saved.");
+    return { ok: true, ads_id: saved.public_id, enabled: saved.enabled };
   });
 
 export const setMarketingPause = createServerFn({ method: "POST" })
