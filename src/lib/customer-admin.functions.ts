@@ -13,18 +13,68 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Duration mapping used everywhere offline access windows are computed.
 export const PERIOD_DAYS = { monthly: 28, quarterly: 90, yearly: 365 } as const;
 export type BillingPeriod = keyof typeof PERIOD_DAYS;
+
+/** Admin-assigned access lasts a whole number of calendar months, 1-12. */
+export const MIN_ACCESS_MONTHS = 1;
+export const MAX_ACCESS_MONTHS = 12;
+
+/** Stored billing_period for an admin-chosen number of months. */
+export function monthsToBillingPeriod(
+  months: number,
+): "monthly" | "quarterly" | "half_yearly" | "yearly" | "custom" {
+  if (months === 1) return "monthly";
+  if (months === 3) return "quarterly";
+  if (months === 6) return "half_yearly";
+  if (months === 12) return "yearly";
+  return "custom";
+}
+
+/** Human label, e.g. "1 month", "6 months". */
+export function formatAccessMonths(months: number): string {
+  return `${months} month${months === 1 ? "" : "s"}`;
+}
+
+/** Label for an order row: exact months when known, else the stored period. */
+export function formatBillingPeriod(
+  period: string | null | undefined,
+  months?: number | null,
+): string {
+  if (months) return formatAccessMonths(months);
+  return period ?? "—";
+}
+
+/** Same day-of-month N months later (UTC); clamps to month end, e.g. 31 Jan + 1 month = 28/29 Feb. */
+export function addCalendarMonths(start: Date, months: number): Date {
+  const d = new Date(start.getTime());
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
+  return d;
+}
 export type AccessType = "shared" | "private";
 export type PaymentMethod = "bank_transfer" | "cash" | "whatsapp" | "other";
 
 /** Pure helper — used by the server fn and unit tests. */
 export function computeAccessWindow(input: {
   startDate: string | Date;
-  period: BillingPeriod;
+  /** Fixed-day plan (28/90/365 days). Ignored when `months` is given. */
+  period?: BillingPeriod;
+  /** Whole calendar months, 1-12. */
+  months?: number;
   graceDays?: number;
 }): { start: Date; end: Date; durationDays: number } {
   const start = typeof input.startDate === "string" ? new Date(input.startDate) : input.startDate;
-  const dur = PERIOD_DAYS[input.period];
   const grace = input.graceDays ?? 0;
+  if (input.months != null) {
+    const base = addCalendarMonths(start, input.months);
+    const end = new Date(base.getTime() + grace * 86_400_000);
+    const durationDays = Math.round((base.getTime() - start.getTime()) / 86_400_000);
+    return { start, end, durationDays };
+  }
+  if (!input.period) throw new Error("period or months is required");
+  const dur = PERIOD_DAYS[input.period];
   const end = new Date(start.getTime() + (dur + grace) * 86_400_000);
   return { start, end, durationDays: dur };
 }
@@ -282,7 +332,7 @@ const assignInput = z.object({
   userId: z.string().uuid(),
   toolSlug: z.string().min(1).max(120),
   accessType: z.enum(["shared", "private"]),
-  billingPeriod: z.enum(["monthly", "quarterly", "yearly"]),
+  durationMonths: z.number().int().min(MIN_ACCESS_MONTHS).max(MAX_ACCESS_MONTHS),
   startDate: z.string(), // ISO date or datetime
   amount: z.number().nonnegative().max(10_000_000),
   paymentDate: z.string(),
@@ -330,19 +380,23 @@ export const adminAssignTool = createServerFn({ method: "POST" })
 
     const { start, end, durationDays } = computeAccessWindow({
       startDate: data.startDate,
-      period: data.billingPeriod,
+      months: data.durationMonths,
     });
+    const billingPeriod = monthsToBillingPeriod(data.durationMonths);
 
     const isShared = data.accessType === "shared";
     // Pick a plan snapshot if one exists for label/currency; not required.
-    const { data: plan } = await supabaseAdmin
-      .from("tool_pricing")
-      .select("id, currency, label")
-      .eq("tool_slug", data.toolSlug)
-      .eq("access_type", data.accessType)
-      .eq("billing_period", data.billingPeriod)
-      .limit(1)
-      .maybeSingle();
+    // Only the standard plans (1, 3, 12 months) have a pricing row to snapshot.
+    const { data: plan } = ["monthly", "quarterly", "yearly"].includes(billingPeriod)
+      ? await supabaseAdmin
+          .from("tool_pricing")
+          .select("id, currency, label")
+          .eq("tool_slug", data.toolSlug)
+          .eq("access_type", data.accessType)
+          .eq("billing_period", billingPeriod)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
 
     const paidAtIso = new Date(data.paymentDate).toISOString();
     const startIso = start.toISOString();
@@ -357,7 +411,8 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       currency: (plan?.currency as string | undefined) ?? "₦",
       status: "approved" as const,
       access_type: data.accessType,
-      billing_period: data.billingPeriod,
+      billing_period: billingPeriod,
+      duration_months: data.durationMonths,
       payment_type: "one_time" as const,
       product_type: "subscription" as const,
       paystack_environment: "offline" as const,
@@ -382,12 +437,28 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       expires_at: endIso,
     };
 
-    const { data: order, error: orderErr } = await supabaseAdmin
+    let { data: order, error: orderErr } = await supabaseAdmin
       .from("tool_orders")
       .insert(orderInsert)
       .select("id")
       .single();
-    if (orderErr) throw new Error(orderErr.message);
+    // Safe before the duration_months migration is applied: the standard 1/3/12-month
+    // plans are saved exactly as before; 6-month and custom need the migration.
+    if (orderErr && /duration_months|billing_period/i.test(orderErr.message)) {
+      if (!["monthly", "quarterly", "yearly"].includes(billingPeriod)) {
+        throw new Error(
+          "6-month and custom durations need the latest database migration (20261122120000_offline_duration_months.sql). Apply it, or choose 1, 3 or 12 months.",
+        );
+      }
+      const { duration_months: _omit, ...legacyInsert } = orderInsert;
+      void _omit;
+      ({ data: order, error: orderErr } = await supabaseAdmin
+        .from("tool_orders")
+        .insert(legacyInsert)
+        .select("id")
+        .single());
+    }
+    if (orderErr || !order) throw new Error(orderErr?.message ?? "Could not create order");
 
     const { data: payment, error: payErr } = await supabaseAdmin
       .from("tool_payments")
@@ -421,7 +492,8 @@ export const adminAssignTool = createServerFn({ method: "POST" })
       details: {
         tool_slug: data.toolSlug,
         access_type: data.accessType,
-        billing_period: data.billingPeriod,
+        billing_period: billingPeriod,
+        duration_months: data.durationMonths,
         amount: data.amount,
         payment_method: data.paymentMethod,
         reference_note: data.referenceNote ?? null,
@@ -460,7 +532,10 @@ export const adminAssignTool = createServerFn({ method: "POST" })
             name,
             tool: data.toolSlug,
             access_type: data.accessType,
-            billing_period: data.billingPeriod,
+            billing_period:
+              billingPeriod === "half_yearly" || billingPeriod === "custom"
+                ? formatAccessMonths(data.durationMonths)
+                : billingPeriod,
             amount: data.amount,
             currency: "NGN",
             payment_method: data.paymentMethod,
@@ -623,13 +698,22 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
     const [profRes, metaRes, ordersRes, paymentsRes, auditRes] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, email, full_name, created_at").eq("id", data.userId).maybeSingle(),
       supabaseAdmin.from("customer_admin_meta").select("phone, admin_notes").eq("user_id", data.userId).maybeSingle(),
-      supabaseAdmin
-        .from("tool_orders")
-        .select(
-          "id, tool_slug, access_type, billing_period, status, origin, price_amount, subscription_started_at, expires_at, created_at, fulfilment_status",
-        )
-        .eq("user_id", data.userId)
-        .order("created_at", { ascending: false }),
+      // duration_months only exists after the 20261122120000 migration; fall back without it.
+      (async () => {
+        const cols =
+          "id, tool_slug, access_type, billing_period, status, origin, price_amount, subscription_started_at, expires_at, created_at, fulfilment_status";
+        const first = await supabaseAdmin
+          .from("tool_orders")
+          .select(`${cols}, duration_months`)
+          .eq("user_id", data.userId)
+          .order("created_at", { ascending: false });
+        if (!first.error) return first;
+        return supabaseAdmin
+          .from("tool_orders")
+          .select(cols)
+          .eq("user_id", data.userId)
+          .order("created_at", { ascending: false });
+      })(),
       supabaseAdmin
         .from("tool_payments")
         .select(
@@ -651,7 +735,7 @@ export const adminGetCustomerDetail = createServerFn({ method: "POST" })
       id: o.id,
       toolSlug: o.tool_slug,
       accessType: o.access_type,
-      billingPeriod: o.billing_period,
+      billingPeriod: formatBillingPeriod(o.billing_period, o.duration_months),
       status: o.status,
       origin: o.origin ?? "paystack",
       amount: o.price_amount != null ? Number(o.price_amount) : null,

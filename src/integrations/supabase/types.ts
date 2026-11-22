@@ -2368,6 +2368,7 @@ export type Database = {
           display_amount: number | null
           display_currency: string | null
           duration_days: number | null
+          duration_months: number | null
           exchange_rate_snapshot: number | null
           expires_at: string | null
           final_amount_charged: number | null
@@ -2436,6 +2437,7 @@ export type Database = {
           display_amount?: number | null
           display_currency?: string | null
           duration_days?: number | null
+          duration_months?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
           final_amount_charged?: number | null
@@ -2504,6 +2506,7 @@ export type Database = {
           display_amount?: number | null
           display_currency?: string | null
           duration_days?: number | null
+          duration_months?: number | null
           exchange_rate_snapshot?: number | null
           expires_at?: string | null
           final_amount_charged?: number | null

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminAssignTool } from "@/lib/customer-admin.functions";
+import { adminAssignTool, MIN_ACCESS_MONTHS, MAX_ACCESS_MONTHS } from "@/lib/customer-admin.functions";
 import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -30,7 +30,10 @@ export function AssignToolDialog({
   const [open, setOpen] = useState(false);
   const [toolSlug, setToolSlug] = useState(catalog[0]?.slug ?? "");
   const [accessType, setAccessType] = useState<"shared" | "private">("shared");
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "quarterly" | "yearly">("monthly");
+  // "1" | "3" | "6" | "12" | "custom"
+  const [durationChoice, setDurationChoice] = useState<string>("1");
+  const [customMonths, setCustomMonths] = useState<string>("2");
+  const durationMonths = durationChoice === "custom" ? Number(customMonths) : Number(durationChoice);
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(today);
   const [paymentDate, setPaymentDate] = useState(today);
@@ -49,7 +52,7 @@ export function AssignToolDialog({
           userId,
           toolSlug,
           accessType,
-          billingPeriod,
+          durationMonths,
           startDate,
           paymentDate,
           amount: Number(amount),
@@ -74,6 +77,11 @@ export function AssignToolDialog({
   function submit(e: React.FormEvent, confirmDuplicate = false) {
     e.preventDefault();
     if (!toolSlug) return toast.error("Pick a tool");
+    if (
+      !Number.isInteger(durationMonths) ||
+      durationMonths < MIN_ACCESS_MONTHS ||
+      durationMonths > MAX_ACCESS_MONTHS
+    ) return toast.error(`Duration must be a whole number of months from ${MIN_ACCESS_MONTHS} to ${MAX_ACCESS_MONTHS}`);
     if (!Number.isFinite(Number(amount)) || Number(amount) < 0) return toast.error("Enter a valid amount");
     mut.mutate(confirmDuplicate);
   }
@@ -115,17 +123,29 @@ export function AssignToolDialog({
               </select>
             </div>
             <div>
-              <Label>Billing period</Label>
+              <Label>Duration</Label>
               <select
-                value={billingPeriod}
-                onChange={(e) => setBillingPeriod(e.target.value as "monthly" | "quarterly" | "yearly")}
+                value={durationChoice}
+                onChange={(e) => setDurationChoice(e.target.value)}
                 className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
-                <option value="monthly">Monthly (28 days)</option>
-                <option value="quarterly">Quarterly (90 days)</option>
-                <option value="yearly">Yearly (365 days)</option>
+                <option value="1">1 month</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">12 months</option>
+                <option value="custom">Custom (1–12 months)</option>
               </select>
             </div>
+            {durationChoice === "custom" && (
+              <div>
+                <Label>Custom months</Label>
+                <Input
+                  type="number" required step="1"
+                  min={MIN_ACCESS_MONTHS} max={MAX_ACCESS_MONTHS}
+                  value={customMonths} onChange={(e) => setCustomMonths(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <Label>Subscription start</Label>
               <Input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} />
