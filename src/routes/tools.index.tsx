@@ -29,10 +29,10 @@ export const Route = createFileRoute("/tools/")({
     ]),
   head: () => ({
     meta: [
-      { title: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
-      { name: "description", content: "Every tool is subscribed to separately. Explore premium SEO, AI, writing, research, design, and productivity tools and pay only for the ones you need." },
-      { property: "og:title", content: "Browse Individual Tool Subscriptions — Top Rated SEO Tools" },
-      { property: "og:description", content: "Every tool is subscribed to separately — pay only for the tools you need." },
+      { title: "Private Shared Tool Subscriptions — Top Rated SEO Tools" },
+      { name: "description", content: "Share the price, not your chats. ChatGPT, Claude, Grammarly, QuillBot, Turnitin and more at group-buy prices, with private chats, documents and files." },
+      { property: "og:title", content: "Private Shared Tool Subscriptions — Top Rated SEO Tools" },
+      { property: "og:description", content: "Share the price, not your chats. Group-buy prices with private chats, documents and files." },
     ],
     links: [{ rel: "canonical", href: "https://topratedseotools.com/tools" }],
   }),
@@ -81,10 +81,10 @@ function ToolsDirectory() {
     <SiteLayout>
       <section className="bg-gradient-hero">
         <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Browse Individual Tool Subscriptions</h1>
-          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Every tool is subscribed to separately, so you pay only for the products you need.
-            Explore premium tools across SEO, AI, writing, research, design, and productivity.
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Share the price, <span className="whitespace-nowrap text-gradient-primary">not your chats.</span></h1>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            ChatGPT, Claude, Grammarly, QuillBot, Turnitin and more, at group-buy prices, with private chats,
+            private documents and private files. Subscribe to each tool separately, so you pay only for the ones you need.
           </p>
 
           <div className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-card">
