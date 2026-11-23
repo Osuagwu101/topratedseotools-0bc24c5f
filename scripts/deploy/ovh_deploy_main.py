@@ -142,6 +142,36 @@ def pm2_names_for_port(port):
     return names
 
 
+UPLOAD_LIMIT = "30m"
+
+
+def ensure_upload_limit(text):
+    """Set client_max_body_size on every HTTPS server block (server level only)."""
+    out, last = [], 0
+    for m in re.finditer(r"\bserver\s*\{", text):
+        if m.start() < last:
+            continue
+        depth, i = 0, m.end() - 1
+        while i < len(text):
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            if depth == 0:
+                break
+            i += 1
+        block = text[m.start():i + 1]
+        if re.search(r"listen\s+[^;]*443", block):
+            head, sep, rest = block.partition("location")
+            directive = re.compile(r"^\s*client_max_body_size\s+[^;]+;", re.M)
+            if directive.search(head):
+                head = directive.sub(f"    client_max_body_size {UPLOAD_LIMIT};", head, count=1)
+            else:
+                head = re.sub(r"(\bserver\s*\{\n?)", r"\1    client_max_body_size " + UPLOAD_LIMIT + ";\n", head, count=1)
+            block = head + sep + rest
+        out.append(text[last:m.start()] + block)
+        last = i + 1
+    out.append(text[last:])
+    return "".join(out)
+
+
 def main():
     sha = (os.environ.get("SSH_ORIGINAL_COMMAND") or (sys.argv[1] if len(sys.argv) > 1 else "")).strip()
     if not re.fullmatch(r"[0-9a-f]{7,40}", sha):
@@ -199,9 +229,12 @@ def main():
     # 5. Publish hashed assets (never overwrites existing files).
     run(["sudo", "rsync", "-a", "--ignore-existing", f"{rel}/.output/public/assets/", f"{ASSETS_DST}/"])
 
-    # 6. Switch nginx page routes from the live port to the new port.
-    swap = lambda text: re.sub(r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + live_port + r";$",
-                               r"\1proxy_pass http://127.0.0.1:" + new_port + ";", text)
+    # 6. Switch nginx page routes from the live port to the new port, and keep
+    # the upload limit in line with the app (nginx defaults to 1 MB, which
+    # rejected ChatGPT/Claude file uploads with 413 before they reached the app).
+    port_swap = lambda text: re.sub(r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + live_port + r";$",
+                                    r"\1proxy_pass http://127.0.0.1:" + new_port + ";", text)
+    swap = lambda text: ensure_upload_limit(port_swap(text))
     new_cfg = swap(original_cfg)
     if new_cfg == original_cfg:
         raise SystemExit("nginx config unchanged; aborting")
