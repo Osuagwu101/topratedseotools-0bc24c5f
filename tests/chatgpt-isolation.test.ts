@@ -147,9 +147,9 @@ const proxy = readFileSync("src/lib/chatgpt-proxy.server.ts", "utf8");
 assert(
   proxy.includes("isBlockedChatGptApiRequest(request.method, target.pathname)") &&
     proxy.includes("isBlockedConversationMutation(request.method, target.pathname, bodyText)") &&
-    proxy.includes("filterServerRenderedHistory(rewritten, ownedIds)") &&
-    proxy.includes("teeConversationOwnership(upstream.body, writerId, account)") &&
-    proxy.includes("owner !== writerId"),
+    proxy.includes("filterServerRenderedHistory(rewritten, ownedIds, projectAccess, found)") &&
+    proxy.includes("teeConversationOwnership(upstream.body, writerId, account, sharedProjectChats)") &&
+    proxy.includes("owner === writerId || sharedProjectChats.has(addressed)"),
   "proxy enforces account blocks, delete/archive blocks and per-writer history",
 );
 const migration = readFileSync("supabase/migrations/20261111220000_chatgpt_conversation_owners.sql", "utf8");
