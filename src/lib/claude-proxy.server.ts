@@ -555,6 +555,11 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if (!session) return plain(401, "Open Claude from your Top Rated SEO Tools account.");
     if (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== url.origin)
       return plain(403, "Invalid request origin");
+    // Dictation bridge asks which provider account this writer's session uses.
+    if (url.pathname === "/__trst/voice-auth") {
+      if (request.method !== "GET") return plain(405, "Method not allowed");
+      return json(200, { account: session.provider_account_key === "account_2" ? "account_2" : "account_1" });
+    }
     if (url.pathname === "/__trst/usage") {
       if (request.method !== "GET") return plain(405, "Method not allowed");
       const userId = String(session.user_id);

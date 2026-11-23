@@ -28,6 +28,25 @@ export function validateRelayRequest(input) {
   return {url:url.href,method,headers,body,bodyBase64};
 }
 
+/* Dictation: only Claude's speech-to-text socket may be opened through the browser. */
+export function validateVoicePath(path) {
+  if (typeof path !== 'string' || path.length > 2048) throw Error('voice path');
+  const url = new URL(path, ORIGIN);
+  if (url.origin !== ORIGIN || url.hash || !/^\/api\/ws\/speech_to_text\/[a-z0-9_]{1,64}$/.test(url.pathname)) throw Error('voice path');
+  return url.pathname + url.search;
+}
+export function validateVoiceFrames(frames) {
+  if (!Array.isArray(frames) || frames.length < 1 || frames.length > 64) throw Error('frames');
+  let size = 0;
+  for (const f of frames) {
+    if (!f || (f.t !== 'text' && f.t !== 'bin') || typeof f.d !== 'string') throw Error('frame');
+    if (f.t === 'bin' && (!/^[A-Za-z0-9+/]*={0,2}$/.test(f.d) || f.d.length % 4)) throw Error('frame');
+    size += f.d.length;
+  }
+  if (size > 4 * 1024 * 1024) throw Error('frames');
+  return frames.map(f => ({ t: f.t, d: f.d }));
+}
+
 const SAME_SITE={lax:'Lax',strict:'Strict',none:'None',no_restriction:'None'};
 export function validateSessionCookies(input) {
   const list=input?.cookies;
@@ -91,6 +110,7 @@ export async function applyBrowserSession(cookies,{cdpPort=process.env.CLAUDE_BR
 }
 
 class BrowserConnection {
+  voices=new Map();
   pending=new Map(); jobs=new Map(); activeBodyBytes=0; nextId=0; context=null; connecting=null;
   async ready() {
     if(this.context && this.socket?.readyState===WebSocket.OPEN) return;
@@ -131,6 +151,8 @@ class BrowserConnection {
     this.pending.clear();
     for(const job of this.jobs.values())job.fail();
     this.jobs.clear();
+    for(const v of this.voices.values()){try{v.res.end(JSON.stringify({t:'close',c:1011,r:'browser reset'})+'\n');}catch{}}
+    this.voices.clear();
   }
   call(method,params={}) {
     const id=++this.nextId;
@@ -150,7 +172,44 @@ class BrowserConnection {
     if(message.method==='Runtime.executionContextsCleared' && this.context)return this.reset();
     if(message.method!=='Runtime.bindingCalled' || message.params.name!==BINDING || message.params.executionContextId!==this.context)return;
     let event;try{event=JSON.parse(message.params.payload);}catch{return;}
+    if(typeof event.voice==='string'){
+      const v=this.voices.get(event.voice);if(!v)return;
+      const {voice,...line}=event;
+      try{v.res.write(JSON.stringify(line)+'\n');}catch{}
+      if(line.t==='close'){this.voices.delete(voice);try{v.res.end();}catch{}}
+      return;
+    }
     const job=this.jobs.get(event.id);if(job)job.event(event);
+  }
+  /* Open Claude's dictation socket inside the signed-in page; stream its events as NDJSON lines. */
+  async voiceOpen(path,res) {
+    await this.ready();
+    if(this.voices.size>=12){res.writeHead(429);res.end('Dictation is busy. Try again shortly.');return;}
+    const id=randomBytes(16).toString('hex');
+    this.voices.set(id,{res});
+    res.writeHead(200,{'Content-Type':'application/x-ndjson','Cache-Control':'no-store','X-TRST-Voice':id});
+    res.write(JSON.stringify({t:'id',id})+'\n');
+    res.on('close',()=>{if(this.voices.delete(id))this.voiceClose(id).catch(()=>{});});
+    const url=ORIGIN.replace(/^https:/,'wss:')+path;
+    const expression=`(()=>{const id=${JSON.stringify(id)};const send=e=>${BINDING}(JSON.stringify({voice:id,...e}));
+      globalThis.trstVoices??=new Map();
+      let ws;try{ws=new WebSocket(${JSON.stringify(url)});}catch{send({t:'close',c:1011,r:'open failed'});return;}
+      ws.binaryType='arraybuffer';trstVoices.set(id,ws);
+      ws.onopen=()=>send({t:'open',p:ws.protocol||''});
+      ws.onmessage=ev=>{if(typeof ev.data==='string')send({t:'text',d:ev.data});else{const b=new Uint8Array(ev.data);let r='';for(let i=0;i<b.length;i+=8192)r+=String.fromCharCode.apply(null,b.subarray(i,i+8192));send({t:'bin',d:btoa(r)});}};
+      ws.onclose=ev=>{trstVoices.delete(id);send({t:'close',c:ev.code,r:String(ev.reason||'').slice(0,120)});};
+    })();void 0`;
+    try{const result=await this.call('Runtime.evaluate',{contextId:this.context,expression});if(result.exceptionDetails)throw Error('voice');}
+    catch{if(this.voices.delete(id)){try{res.end(JSON.stringify({t:'close',c:1011,r:'browser'})+'\n');}catch{}}}
+  }
+  async voiceSend(id,frames) {
+    if(!this.voices.has(id))return false;
+    const result=await this.call('Runtime.evaluate',{contextId:this.context,returnByValue:true,expression:`(()=>{const ws=globalThis.trstVoices?.get(${JSON.stringify(id)});if(!ws||ws.readyState!==1)return false;for(const f of ${JSON.stringify(frames)}){if(f.t==='text')ws.send(f.d);else ws.send(Uint8Array.from(atob(f.d),c=>c.charCodeAt(0)));}return true;})()`});
+    return result?.result?.value===true;
+  }
+  async voiceClose(id) {
+    if(!this.context)return;
+    await this.call('Runtime.evaluate',{contextId:this.context,expression:`(()=>{const ws=globalThis.trstVoices?.get(${JSON.stringify(id)});if(ws){globalThis.trstVoices.delete(${JSON.stringify(id)});try{ws.close(1000);}catch{}}})();void 0`});
   }
   async relay(input,req,res) {
     await this.ready();
@@ -229,6 +288,21 @@ export function startRelay({port=6101,applySession=applyBrowserSession}={}) {
       }catch{if(!res.headersSent)res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Could not load the session into the browser.');}
       finally{sessionBusy=false;}
       return;
+    }
+    if(req.method==='POST' && ['/voice/open','/voice/send','/voice/close'].includes(req.url)){
+      let input;
+      try{const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>6*1024*1024)throw Error('size');chunks.push(chunk);}input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}
+      catch{res.writeHead(400);res.end();return;}
+      try{
+        if(req.url==='/voice/open'){let path;try{path=validateVoicePath(input?.path);}catch{res.writeHead(400);res.end('Invalid dictation path.');return;}await browser.voiceOpen(path,res);return;}
+        if(typeof input?.id!=='string'||!/^[0-9a-f]{32}$/.test(input.id)){res.writeHead(400);res.end();return;}
+        if(req.url==='/voice/close'){await browser.voiceClose(input.id).catch(()=>{});browser.voices.get(input.id)?.res.end();browser.voices.delete(input.id);res.writeHead(204);res.end();return;}
+        let frames;try{frames=validateVoiceFrames(input.frames);}catch{res.writeHead(400);res.end();return;}
+        const ok=await browser.voiceSend(input.id,frames);res.writeHead(ok?204:410);res.end();return;
+      }catch(e){
+        if(!res.headersSent)res.writeHead(/^Sign in/.test(e?.message??'')?401:503,{'Content-Type':'text/plain','Cache-Control':'no-store'});
+        res.end('Claude browser dictation is unavailable.');return;
+      }
     }
     if(req.url!=='/request' || req.method!=='POST'){res.writeHead(404);res.end();return;}
     let input;
