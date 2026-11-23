@@ -2,10 +2,34 @@
 import type { ClaudeSessionState } from "./claude-session.server";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 export type ClaudeRoute = {
-  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation";
+  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file";
   org?: string;
   conversation?: string;
+  /** Provider file id for per-file routes; ownership is checked by the proxy. */
+  file?: string;
+  /** Upload flavour: wiggle (conversation sandbox), legacy file store, or text conversion. */
+  upload?: "wiggle" | "file" | "convert";
 };
+/** Provider file ids are UUIDs or short opaque tokens; never paths. */
+const FILE_ID = "[A-Za-z0-9_-]{8,128}";
+/** Upload, preview and download routes. Every one is scoped to an owned file or conversation. */
+export function claudeFileRoutePolicy(m: string, p: string): ClaudeRoute | null {
+  if (m === "POST") {
+    const convert = p.match(new RegExp(`^/api/(?:organizations/(${UUID})/)?convert_document$`, "i"));
+    if (convert) return { kind: "upload", upload: "convert", org: convert[1]?.toLowerCase() };
+    const legacy = p.match(new RegExp(`^/api/(?:organizations/)?(${UUID})/upload$`, "i"));
+    if (legacy) return { kind: "upload", upload: "file", org: legacy[1].toLowerCase() };
+    const wiggle = p.match(new RegExp(`^/api/organizations/(${UUID})/conversations/(${UUID})/wiggle/upload-file$`, "i"));
+    if (wiggle) return { kind: "upload", upload: "wiggle", org: wiggle[1].toLowerCase(), conversation: wiggle[2].toLowerCase() };
+    return null;
+  }
+  if (!["GET", "HEAD"].includes(m)) return null;
+  const stored = p.match(new RegExp(`^/api/(?:organizations/)?(${UUID})/files/(${FILE_ID})/(preview|thumbnail|document_pdf|contents)(?:/[A-Za-z0-9_.-]{1,200})?$`, "i"));
+  if (stored) return { kind: "file", org: stored[1].toLowerCase(), file: stored[2].toLowerCase() };
+  const sandbox = p.match(new RegExp(`^/api/organizations/(${UUID})/conversations/(${UUID})/wiggle/(?:list-files|download-file|file-metadata|download-files)$`, "i"));
+  if (sandbox) return { kind: "file", org: sandbox[1].toLowerCase(), conversation: sandbox[2].toLowerCase() };
+  return null;
+}
 export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute | null {
   let p: string;
   try {
@@ -26,6 +50,8 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
     return { kind: "asset" };
   if (m === "GET" && ["/api/organizations", "/api/account"].includes(p))
     return { kind: "bootstrap" };
+  const fileRoute = claudeFileRoutePolicy(m, p);
+  if (fileRoute) return fileRoute;
   const org = p.match(new RegExp(`^/api/organizations/(${UUID})(/.*)?$`, "i"));
   if (!org) return null;
   const suffix = org[2] ?? "";

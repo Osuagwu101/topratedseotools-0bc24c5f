@@ -35,8 +35,20 @@ There is no extension fallback, challenge bypass, or official API substitute.
 - Separate encryption key derivation and required non-expired `sessionKey`.
 - Service-role-only RLS tables for proxy sessions and conversation owners.
 - History filtering, conversation checks, streaming responses and CSRF checks.
-- Unknown API routes, account mutations, deletion, sharing, projects, integrations
-  and file access fail closed. Uploads/artifacts are not supported in this draft.
+- Unknown API routes, account mutations, deletion, sharing, projects and
+  integrations fail closed.
+- File uploads (23 Nov 2026): writers can upload, attach, preview and download
+  their own files. Allowed routes: `…/conversations/{conv}/wiggle/upload-file`
+  (owned conversation; a fresh chat is reserved on first upload), legacy
+  `/api/{org}/upload`, `convert_document`, `/api/{org}/files/{id}/preview|thumbnail|document_pdf|contents`
+  and `…/wiggle/list-files|download-file|file-metadata|download-files`. Uploads
+  must be multipart (max 25 MB). Every provider file id returned by an upload is
+  recorded in `claude_file_owners`. A message may attach only the writer's own ids,
+  inline extracted text or `/mnt/user-data` paths in the writer's own conversation.
+  An id owned by another writer returns 404, and a project, connector or unknown
+  reference shape returns 403. That 403 logs the refused key to the app log, never
+  the content. File responses come back unmodified with a sandbox CSP, and HTML,
+  SVG, XML and JS files are forced to download.
 - Embedded private-state detection rejects recognized SSR chat payloads, secret
   reflection and unknown history shapes. This guard is not a proof of complete
   native hydration isolation: real Claude payloads must be inspected and tested.

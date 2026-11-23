@@ -53,3 +53,33 @@ test("text messages cannot enable shared memory or connector tools",()=>{
  const out=isolateClaudeWriterPayload({tools:[{type:"memory"}],chat_memory_mode:"enabled",include_conversation_preferences:true,create_conversation_params:{include_conversation_preferences:true,enabled_mcp_tools:{private:true}}});
  expect(out.tools).toEqual([]);expect(out.chat_memory_mode).toBeUndefined();expect(out.include_conversation_preferences).toBeUndefined();expect(out.create_conversation_params.chat_memory_mode).toBe("disabled");expect(out.create_conversation_params.include_conversation_preferences).toBe(false);expect(out.create_conversation_params.enabled_mcp_tools).toBeUndefined();
 });
+
+test("writer uploads: own file ids are collected, foreign/shared references are refused",async()=>{
+ const {claudeWriterReferences,claudeUploadedFileIds}=await import("../src/lib/claude-writer-policy");
+ expect(claudeWriterReferences({prompt:"hi",files:[],attachments:[],sync_sources:[]})).toEqual({fileIds:[],blocked:null});
+ expect(claudeWriterReferences({files:["ABCdef12-3456",{file_uuid:"0f0e0d0c-aaaa"}]}).fileIds).toEqual(["abcdef12-3456","0f0e0d0c-aaaa"]);
+ expect(claudeWriterReferences({attachments:[{file_name:"a.docx",extracted_content:"x",id:"local"}]}).blocked).toBeNull();
+ expect(claudeWriterReferences({files:[{path:"/mnt/user-data/uploads/a.pdf"}]}).blocked).toBeNull();
+ expect(claudeWriterReferences({files:[{path:"/mnt/user-data/../etc/passwd"}]}).blocked).toBe("files");
+ expect(claudeWriterReferences({files:[{path:"/home/other/a.pdf"}]}).blocked).toBe("files");
+ expect(claudeWriterReferences({project_uuid:"p"}).blocked).toBe("project_uuid");
+ expect(claudeWriterReferences({sync_sources:[{id:"drive"}]}).blocked).toBe("sync_sources");
+ expect(claudeWriterReferences({files:"not-a-list"}).blocked).toBe("files");
+ expect(claudeWriterReferences({files:["../x"]}).blocked).toBe("files");
+ expect(claudeWriterReferences({options:{fileUuid:"foreign-file-1"}}).fileIds).toEqual(["foreign-file-1"]);
+ expect(claudeWriterReferences({prompt:'{"file_uuid":"in-text-only"}'}).fileIds).toEqual([]);
+ expect(claudeUploadedFileIds({file_uuid:"F1234567",file:{uuid:"f7654321"}})).toEqual(["f1234567","f7654321"]);
+ expect(claudeUploadedFileIds({success:true,path:"/mnt/user-data/uploads/a"})).toEqual([]);
+});
+
+test("upload and file routes are narrowly scoped",async()=>{
+ const {claudeRoutePolicy}=await import("../src/lib/claude-proxy-policy");
+ const o="11111111-2222-4333-8444-555555555555",c="66666666-7777-4888-8999-aaaaaaaaaaaa";
+ expect(claudeRoutePolicy("POST",`/api/organizations/${o}/conversations/${c}/wiggle/upload-file`)).toEqual({kind:"upload",upload:"wiggle",org:o,conversation:c});
+ expect(claudeRoutePolicy("POST",`/api/${o}/upload`)?.upload).toBe("file");
+ expect(claudeRoutePolicy("POST",`/api/organizations/${o}/convert_document`)?.upload).toBe("convert");
+ expect(claudeRoutePolicy("GET",`/api/${o}/files/abcdef123456/preview`)).toEqual({kind:"file",org:o,file:"abcdef123456"});
+ expect(claudeRoutePolicy("GET",`/api/organizations/${o}/conversations/${c}/wiggle/download-file`)).toEqual({kind:"file",org:o,conversation:c});
+ for(const [m,p] of [["GET",`/api/${o}/files`],["GET",`/api/${o}/files/abcdef123456`],["DELETE",`/api/${o}/files/abcdef123456/preview`],["POST",`/api/organizations/${o}/conversations/${c}/wiggle/delete-file`],["GET",`/api/organizations/${o}/conversations/${c}/wiggle/upload-file`],["POST",`/api/${o}/files/abcdef123456/preview`]] as const)
+  expect(claudeRoutePolicy(m,p)).toBeNull();
+});
