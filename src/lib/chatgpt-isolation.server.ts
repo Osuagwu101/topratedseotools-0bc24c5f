@@ -12,6 +12,7 @@
  * from every writer.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { NO_PROJECT_ACCESS, isProjectId, type ProjectAccess } from "./chatgpt-project-access";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const UUID_RE = new RegExp(`^${UUID}$`, "i");
@@ -182,7 +183,7 @@ function encodeForScript(payload: string) {
     .replace(/\u2029/g, "\\u2029");
 }
 
-export function filterServerRenderedHistory(html: string, owned: Owned): string {
+export function filterServerRenderedHistory(html: string, owned: Owned, projects: ProjectAccess = NO_PROJECT_ACCESS, grantedFound?: Map<string, string>): string {
   type Line = { chunk: number; prefix: string; values: any[] | null; raw: string };
   const chunks: { literal: string; lines: Line[] }[] = [];
   let m: RegExpExecArray | null;
@@ -226,6 +227,15 @@ export function filterServerRenderedHistory(html: string, owned: Owned): string 
   const foreignObjects = new Set<number>();
   const foreignStrings = new Set<number>();
   const ownedStrings = new Set<number>();
+  const projectOf = (v: any): string | null => {
+    for (const [k, vi] of Object.entries(v)) {
+      const name = keyName(k);
+      if (name !== "id" && name !== "gizmo_id" && name !== "conversation_template_id" && name !== "project_id") continue;
+      const value = G[vi as number];
+      if (isProjectId(value)) return value.toLowerCase();
+    }
+    return null;
+  };
   G.forEach((v, i) => {
     if (!isObj(v)) return;
     let idIdx = -1;
@@ -237,10 +247,18 @@ export function filterServerRenderedHistory(html: string, owned: Owned): string 
       else if (name === "title") titleIdx = vi as number;
       else if (name === "create_time" || name === "update_time") hasCreate = true;
     }
+    const project = projectOf(v);
+    // Projects granted to another writer disappear entirely.
+    if (project && projects.hidden.has(project)) {
+      foreignObjects.add(i);
+      if (titleIdx >= 0) foreignStrings.add(titleIdx);
+      return;
+    }
     if (idIdx < 0 || !hasCreate) return;
     const id = G[idIdx];
     if (typeof id !== "string" || !UUID_RE.test(id)) return;
-    if (own(owned, id)) {
+    if (project && projects.granted.has(project)) grantedFound?.set(id.toLowerCase(), project);
+    if (own(owned, id) || (project && projects.granted.has(project))) {
       ownedStrings.add(idIdx);
       if (titleIdx >= 0) ownedStrings.add(titleIdx);
       return;
@@ -251,11 +269,14 @@ export function filterServerRenderedHistory(html: string, owned: Owned): string 
   });
   if (!foreignObjects.size) return html;
 
-  // Wrappers (e.g. pins: {item: <conversation>}) of foreign conversations.
-  G.forEach((v, i) => {
-    if (!isObj(v) || foreignObjects.has(i)) return;
-    if (Object.values(v).some((vi) => foreignObjects.has(vi as number))) foreignObjects.add(i);
-  });
+  // Wrappers (e.g. pins: {item: <conversation>}, project sidebar entries
+  // {gizmo: {gizmo: <project>}}) of foreign entries.
+  for (let pass = 0; pass < 3; pass++) {
+    G.forEach((v, i) => {
+      if (!isObj(v) || foreignObjects.has(i)) return;
+      if (Object.values(v).some((vi) => foreignObjects.has(vi as number))) foreignObjects.add(i);
+    });
+  }
 
   // Remove foreign entries from every list.
   G.forEach((v, i) => {
@@ -305,6 +326,47 @@ export async function claimConversation(conversationId:string,userId:string,acco
  return (await ownerOfConversation(conversationId,account))===userId;
 }
 
+// ------------------------------------------------- shared project grants
+
+const grantCache = new Map<string, { at: number; rows: Array<{ project_id: string; user_id: string }> }>();
+export function forgetProjectGrantCache() { grantCache.clear(); }
+
+export async function projectGrants(account: import("./chatgpt-account-policy").ChatGptProviderAccount = "account_1") {
+  const hit = grantCache.get(account);
+  if (hit && Date.now() - hit.at < 15_000) return hit.rows;
+  const { data, error } = await (supabaseAdmin as any).from("chatgpt_project_grants")
+    .select("project_id,user_id").eq("provider_account_key", account).limit(1000);
+  if (error) throw Error("Could not load project access.");
+  const rows = (data ?? []).map((r: any) => ({ project_id: String(r.project_id).toLowerCase(), user_id: String(r.user_id) }));
+  grantCache.set(account, { at: Date.now(), rows });
+  return rows;
+}
+
+/** Chats known to live in the given projects. */
+export async function projectConversationIds(projectIds: Set<string>, account: import("./chatgpt-account-policy").ChatGptProviderAccount = "account_1"): Promise<Set<string>> {
+  if (!projectIds.size) return new Set();
+  const { data, error } = await (supabaseAdmin as any).from("chatgpt_project_conversations")
+    .select("conversation_id").eq("provider_account_key", account).in("project_id", [...projectIds]).limit(5000);
+  if (error) throw Error("Could not load project chats.");
+  return new Set((data ?? []).map((r: any) => String(r.conversation_id).toLowerCase()));
+}
+
+/** Project a chat is known to belong to, if any. */
+export async function projectOfConversation(conversationId: string, account: import("./chatgpt-account-policy").ChatGptProviderAccount = "account_1"): Promise<string | null> {
+  const { data, error } = await (supabaseAdmin as any).from("chatgpt_project_conversations")
+    .select("project_id").eq("provider_account_key", account).eq("conversation_id", conversationId.toLowerCase()).maybeSingle();
+  if (error) throw Error("Could not verify project chat.");
+  return data?.project_id ? String(data.project_id).toLowerCase() : null;
+}
+
+export async function rememberProjectConversations(found: Map<string, string>, account: import("./chatgpt-account-policy").ChatGptProviderAccount = "account_1") {
+  if (!found.size) return;
+  const rows = [...found].map(([conversation_id, project_id]) => ({ provider_account_key: account, conversation_id, project_id }));
+  const { error } = await (supabaseAdmin as any).from("chatgpt_project_conversations")
+    .upsert(rows, { onConflict: "provider_account_key,conversation_id" });
+  if (error) throw Error("Could not record project chats.");
+}
+
 /**
  * ChatGPT sometimes ends a reply stream with a "stream_handoff" event telling
  * the browser to continue on a WebSocket topic (ws.chatgpt.com). From our proxy
@@ -340,6 +402,7 @@ export function teeConversationOwnership(
   body: ReadableStream<Uint8Array>,
   userId: string,
   account:import("./chatgpt-account-policy").ChatGptProviderAccount="account_1",
+  sharedChats: { has(id: string): boolean } = new Set<string>(),
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -350,7 +413,7 @@ export function teeConversationOwnership(
       const id = conversationIdFromStreamText(eventText);
       if (id) {
         claimed = true;
-        if(!await claimConversation(id, userId, account))throw Error("Conversation ownership conflict.");
+        if(!await claimConversation(id, userId, account) && !sharedChats.has(id))throw Error("Conversation ownership conflict.");
       }
     }
     return rewriteStreamHandoffEvent(eventText);

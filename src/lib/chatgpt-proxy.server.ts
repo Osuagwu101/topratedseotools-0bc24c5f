@@ -1,3 +1,4 @@
+import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfConversationListPath, touchesHiddenProject, type ProjectAccess } from "./chatgpt-project-access";
 import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
@@ -30,6 +31,10 @@ import {
   ownedConversationIds,
   ownerOfConversation,
   teeConversationOwnership,
+  projectGrants,
+  projectConversationIds,
+  projectOfConversation,
+  rememberProjectConversations,
 } from "@/lib/chatgpt-isolation.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
@@ -1049,6 +1054,8 @@ export async function handleChatGPTProxyRequest(request: Request) {
   }
 
   // ---- Shared-account protections and per-writer history isolation ----
+  let projectAccess: ProjectAccess = NO_PROJECT_ACCESS;
+  const sharedProjectChats = new Set<string>();
   const writerId = String(proxySession.user_id);
   const account:ChatGptProviderAccount = proxySession.provider_account_key;
   const isChatGptOrigin = targetOrigin === CHATGPT_UPSTREAM_ORIGIN;
@@ -1087,19 +1094,37 @@ export async function handleChatGPTProxyRequest(request: Request) {
     if (hidden) return jsonResponse(hidden, 200);
 
     const isDocument = isChatGptDocumentRequest(request) && request.method === "GET";
+    // Shared projects granted to one writer are invisible to everyone else.
+    try {
+      projectAccess = buildProjectAccess(await projectGrants(account), writerId);
+    } catch {
+      return unavailable();
+    }
+    if (touchesHiddenProject(projectAccess, target.pathname + target.search, bodyText)) {
+      if (isDocument) {
+        const h = standardHeaders();
+        h.set("Location", `${proxyBase}/`);
+        return new Response(null, { status: 302, headers: h });
+      }
+      return jsonResponse({ detail: "Project not found" }, 404);
+    }
     const addressed =
       conversationIdFromApiPath(target.pathname) ??
       (isDocument ? conversationIdFromDocumentPath(target.pathname) : null) ??
       (request.method === "POST" ? conversationIdFromBody(bodyText) : null);
     if (addressed && !savedHistory) {
       let owner: string | null = null;
+      let project: string | null = null;
       try {
         owner = await ownerOfConversation(addressed,account);
+        if (projectAccess.granted.size || projectAccess.hidden.size) project = await projectOfConversation(addressed,account);
       } catch {
         return unavailable();
       }
+      if (project && projectAccess.granted.has(project)) sharedProjectChats.add(addressed);
+      const allowed = (owner === writerId || sharedProjectChats.has(addressed)) && !(project && projectAccess.hidden.has(project));
       // A client-provided ID cannot claim an existing untracked provider chat.
-      if (owner !== writerId) {
+      if (!allowed) {
         if (isDocument) {
           const h = standardHeaders();
           h.set("Location", `${proxyBase}/`);
@@ -1120,6 +1145,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   if (isChatGptOrigin && request.method === "GET" && !isImmutableChatGPTAssetPath(targetOrigin, target.pathname)) {
     try {
       ownedIds = await ownedConversationIds(writerId,account);
+      for (const id of await projectConversationIds(projectAccess.granted,account)) ownedIds.add(id);
     } catch {
       return unavailable();
     }
@@ -1337,7 +1363,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     let streamBody =
       isChatGptOrigin && request.method === "POST" && upstream.body &&
       /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)
-        ? teeConversationOwnership(upstream.body, writerId, account)
+        ? teeConversationOwnership(upstream.body, writerId, account, sharedProjectChats)
         : upstream.body;
     if(durable && historyIdentity && streamBody && isChatGptOrigin && request.method==='POST' && upstream.ok && /^\/backend-api\/(?:f\/)?conversation(?:\/resume)?\/?$/i.test(target.pathname)) {
       const identity=historyIdentity;
@@ -1416,12 +1442,31 @@ export async function handleChatGPTProxyRequest(request: Request) {
     }
     if (isChatGptOrigin && ownedIds && !storeAsset) {
       if (contentType.includes("text/html")) {
-        rewritten = filterServerRenderedHistory(rewritten, ownedIds);
-      } else if (contentType.includes("application/json") && target.pathname.startsWith("/backend-api/")) {
+        const found = new Map<string, string>();
+        rewritten = filterServerRenderedHistory(rewritten, ownedIds, projectAccess, found);
         try {
-          rewritten = JSON.stringify(deepFilterConversations(JSON.parse(rewritten), ownedIds));
+          await rememberProjectConversations(found, account);
         } catch {
-          /* not JSON after all: leave untouched */
+          return unavailable();
+        }
+      } else if (contentType.includes("application/json") && target.pathname.startsWith("/backend-api/")) {
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rewritten);
+        } catch {
+          parsed = undefined; /* not JSON after all: leave untouched */
+        }
+        if (parsed !== undefined) {
+          const shared = applyProjectAccess(parsed, projectAccess, projectOfConversationListPath(target.pathname));
+          if (shared.grantedConversations.size) {
+            try {
+              await rememberProjectConversations(shared.grantedConversations, account);
+            } catch {
+              return unavailable();
+            }
+            for (const id of shared.grantedConversations.keys()) ownedIds.add(id);
+          }
+          rewritten = JSON.stringify(deepFilterConversations(shared.payload, ownedIds));
         }
       }
     }

@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {ClaudeControlsCard} from "@/components/admin/ClaudeControlsCard";
+import { ChatGptProjectGrantsCard } from "@/components/admin/ChatGptProjectGrantsCard";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AssignToolDialog } from "@/components/admin/AssignToolDialog";
 import { Button } from "@/components/ui/button";
@@ -1541,6 +1542,7 @@ function ChatGptControlsCard({ userId }: { userId: string }) {
           </div>
         </>
       )}
+      {data?.controls && <ChatGptProjectGrantsCard userId={userId} defaultAccount={data.controls.provider_account_key} />}
     </div>
   );
 }
