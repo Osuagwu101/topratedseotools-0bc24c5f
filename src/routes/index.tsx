@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowRight, Sparkles, Zap, Shield, Users, Star, HelpCircle } from "lucide-react";
+import { ArrowRight, Sparkles, Zap, Shield, Users, Star, HelpCircle, Lock, FileText, CreditCard, Wallet, MousePointerClick, ShieldCheck } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
 import { useCatalogRegistration } from "@/hooks/use-catalog-registration";
@@ -70,15 +70,35 @@ function Home() {
       <section className="bg-gradient-hero relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8 lg:pt-32">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-primary" /> Premium software subscriptions, priced individually for Nigeria & Ghana</div>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">Subscribe to the <span className="text-gradient-primary">premium tools you need</span>—without paying for a bundle.</h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">Choose from leading SEO, AI, writing, research, design, and productivity tools. Access types and billing periods vary by product, with clear pricing in Naira or Cedis and fast activation after verified payment.</p>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"><Lock className="h-3.5 w-3.5 text-primary" /> Private accounts at group-buy prices, for Nigeria &amp; Ghana</div>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">Share the price, <span className="whitespace-nowrap text-gradient-primary">not your chats.</span></h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">ChatGPT, Claude, Grammarly, QuillBot, Turnitin and more, at group-buy prices, with private chats, private documents and private files. One click from your dashboard. No passwords, no extensions, no WhatsApp back-and-forth.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/pricing" className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90">Browse Individual Plans <ArrowRight className="h-4 w-4" /></Link>
-              <Link to="/tools" className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted">See How It Works</Link>
+              <Link to="/tools" className="inline-flex items-center gap-2 rounded-md bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90">See the tools <ArrowRight className="h-4 w-4" /></Link>
+              <a href="#how-privacy-works" className="inline-flex items-center rounded-md border border-input bg-background/60 px-5 py-3 text-sm font-medium backdrop-blur hover:bg-muted">How privacy works</a>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">Clear per-tool pricing · Paystack is the default gateway · Successful payments activate immediately · WhatsApp and email support</p>
+            <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
+              {[
+                { icon: Lock, label: "Your chats are private" },
+                { icon: FileText, label: "Your documents are private" },
+                { icon: Zap, label: "One-click access" },
+                { icon: CreditCard, label: "Pay in Naira or Cedis with Paystack" },
+              ].map((item) => <li key={item.label} className="inline-flex items-center gap-1.5"><item.icon className="h-3.5 w-3.5 text-primary" />{item.label}</li>)}
+            </ul>
           </div>
+        </div>
+      </section>
+
+      <section id="how-privacy-works" className="scroll-mt-24 border-y bg-muted/30" aria-labelledby="how-privacy-works-heading">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center"><h2 id="how-privacy-works-heading" className="text-3xl font-bold tracking-tight">How privacy works</h2><p className="mt-3 text-muted-foreground">Group-buy price, private-account experience.</p></div>
+          <ol className="mt-10 grid gap-6 md:grid-cols-3">
+            {[
+              { icon: Wallet, step: "1", title: "You pay once", body: "A shared-account price, far below a personal subscription." },
+              { icon: MousePointerClick, step: "2", title: "You click once", body: "The tool opens from your dashboard. You never see or share a password." },
+              { icon: ShieldCheck, step: "3", title: "Your work stays yours", body: "Your chats, files and documents are visible only to you, never to other members." },
+            ].map((v) => <li key={v.step} className="rounded-2xl border bg-card p-6 shadow-card"><div className="mb-3 flex items-center gap-3"><span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground"><v.icon className="h-5 w-5" /></span><span className="text-xs font-semibold uppercase tracking-wide text-primary">Step {v.step}</span></div><div className="text-lg font-semibold">{v.title}</div><div className="mt-1 text-sm text-muted-foreground">{v.body}</div></li>)}
+          </ol>
         </div>
       </section>
 

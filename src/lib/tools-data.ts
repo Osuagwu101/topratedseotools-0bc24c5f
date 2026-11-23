@@ -78,7 +78,7 @@ export const TOOLS: Tool[] = [
     name: "Stealthwriter",
     tagline: "Humanize AI text — undetectable",
     description:
-      "Stealthwriter rewrites AI-generated content into natural, human-sounding writing that reliably bypasses GPTZero, Originality.ai, Turnitin and Copyleaks. Preserve meaning, tone and SEO keywords while making essays, blogs and reports read as if a person wrote them.",
+      "Stealthwriter rewrites AI-generated content into natural, human-sounding writing that reliably bypasses GPTZero, Originality.ai, Turnitin and Copyleaks. Preserve meaning, tone and SEO keywords while making essays, blogs and reports read as if a person wrote them. Opens in one click from your dashboard: no password sharing, no extension, no WhatsApp back-and-forth.",
     icon: Feather,
     domain: "stealthwriter.ai",
     category: "AI Detection Bypass",
@@ -114,7 +114,7 @@ export const TOOLS: Tool[] = [
     name: "Phrasly",
     tagline: "AI humanizer & paraphraser",
     description:
-      "Phrasly is an all-in-one AI humanizer, paraphraser and grammar checker. Rewrite ChatGPT drafts into undetectable, plagiarism-free content, adjust tone from academic to casual, and export polished essays, articles and reports in seconds.",
+      "Phrasly is an all-in-one AI humanizer, paraphraser and grammar checker. Rewrite ChatGPT drafts into undetectable, plagiarism-free content, adjust tone from academic to casual, and export polished essays, articles and reports in seconds. Opens in one click from your dashboard: no password sharing, no extension, no WhatsApp back-and-forth.",
     icon: Shuffle,
     domain: "phrasly.ai",
     category: "AI Detection Bypass",
@@ -130,39 +130,45 @@ export const TOOLS: Tool[] = [
   {
     slug: "claude",
     name: "Claude",
-    tagline: "AI writing, research and coding",
-    description: "Use Claude for writing, research, analysis and coding. OneClick access is available after Admin completes the authorised session setup and verification.",
+    tagline: "Claude Pro, with chats only you can see",
+    description:
+      "Use Claude for writing, research, analysis and coding with your own private workspace. Your conversations and the files you upload belong to you alone, and memory is switched off so nothing from other members follows you into your answers. Upload documents, dictate with your voice, have replies read aloud and download the files Claude creates. One click opens it: no password, no extension.",
     icon: MessageSquare,
     domain: "claude.ai",
     category: "Writing",
     access: "pro",
     featured: false,
-    features: ["Writing, research and analysis", "Coding and problem solving", "Continue your own saved conversations", "Models and usage depend on the assigned account"],
+    features: [
+      "Your conversations are private to you",
+      "Upload and download files: only you can open yours",
+      "Dictation and Read Aloud",
+      "One-click access: no passwords, no extension",
+    ],
   },
   {
     slug: "chatgpt",
     name: "ChatGPT",
-    tagline: "The world's best AI assistant",
+    tagline: "Your own private ChatGPT, at a shared price",
     description:
-      "Full ChatGPT Plus access on the latest GPT models. Draft blog posts, research topics, generate code, brainstorm campaigns, analyze data and get long-form answers with vision, file uploads and advanced reasoning — all inside one workspace.",
+      "Full ChatGPT Plus access on the latest GPT models, with your own private space. Your chats and the files you upload are visible only to you. Other members on the same account can't see, open or continue them. Draft, research, code and analyse with vision, file uploads and advanced reasoning. One click opens it: no password sharing, no extension, no WhatsApp back-and-forth.",
     icon: MessageSquare,
     domain: "openai.com",
     category: "Writing",
     access: "pro",
     featured: true,
     features: [
-      "Chat, research, writing and coding in one interface",
+      "Your chat history is private to you alone",
+      "Your uploaded files and images stay private",
       "File uploads, vision and long-form reasoning",
-      "Web browsing and image generation when your plan allows",
-      "Save chats and continue conversations later",
+      "One-click access: no passwords, no extension",
     ],
   },
   {
     slug: "quillbot",
     name: "QuillBot",
-    tagline: "Paraphrase & rewrite",
+    tagline: "Paraphrase with your own private history",
     description:
-      "QuillBot Premium's Paraphraser unlocks unlimited paraphrasing modes, including Fluency and Formal. Rewrite sentences and refine fluency without losing the original meaning.",
+      "QuillBot Premium's Paraphraser with unlimited modes, including Fluency and Formal. Rewrite sentences and improve flow without losing your meaning. You get your own saved history, separate from every other member. One click opens it: no password, no extension.",
     icon: PenLine,
     domain: "quillbot.com",
     category: "Writing",
@@ -170,7 +176,8 @@ export const TOOLS: Tool[] = [
     featured: true,
     features: [
       "Unlimited paraphrasing modes, including Fluency and Formal",
-      "Separate saved history per writer",
+      "Your own saved history, separate from other members",
+      "One-click access: no passwords, no extension",
     ],
     // NOTE: only the Paraphraser is verified against the live one-click
     // launch. Grammar Checker, Summarizer, plagiarism scanner, citation
@@ -180,19 +187,19 @@ export const TOOLS: Tool[] = [
   {
     slug: "grammarly",
     name: "Grammarly",
-    tagline: "Grammar, clarity & tone",
+    tagline: "Grammarly Premium, your documents stay yours",
     description:
-      "Grammarly Premium checks grammar, spelling, punctuation, clarity, engagement, tone and delivery across every app you write in. Get full-sentence rewrites, vocabulary suggestions and a built-in plagiarism detector to polish essays, emails and articles.",
+      "Grammarly Premium checks grammar, spelling, punctuation, clarity, tone and engagement, with full-sentence rewrites and a built-in plagiarism checker. Your documents are private to you: other members on the same account can't see, open or edit what you write. Polish essays, reports, emails and articles in one click: no password, no extension.",
     icon: CheckCircle2,
     domain: "grammarly.com",
     category: "Grammar & Proofreading",
     access: "pro",
     featured: true,
     features: [
-      "Grammar, spelling, clarity, tone and engagement checks",
-      "Full-sentence rewrite suggestions",
-      "Works across your browser, desktop and mobile",
-      "Built-in plagiarism detector on Premium",
+      "Your documents are private to you alone",
+      "Grammar, clarity, tone and engagement checks",
+      "Full-sentence rewrites and plagiarism checker",
+      "One-click access: no passwords, no extension",
     ],
   },
   {
@@ -234,9 +241,9 @@ export const TOOLS: Tool[] = [
   {
     slug: "turnitin",
     name: "Turnitin Checks",
-    tagline: "Pay-per-check plagiarism & AI detection",
+    tagline: "Private Turnitin checks, no repository",
     description:
-      "A self-service Turnitin checking workspace for prepaid document checks. Buy any number of credits at ₦2,300 each, upload PDF, DOC or DOCX files, choose similarity exclusions, track processing, and keep AI and similarity reports in one searchable history.",
+      "Check your work on Turnitin privately. Upload your document, get your AI and similarity reports, and download them yourself: no sending files on WhatsApp and no waiting on anyone. Your document is not saved to Turnitin's repository, so it won't match against itself when you submit to your school. Your reports stay in your own private history.",
     icon: ShieldCheck,
     domain: "turnitin.com",
     category: "Plagiarism",
@@ -245,10 +252,10 @@ export const TOOLS: Tool[] = [
     pricingModel: "per_use",
     perUse: { unit: "check", amount: 2300, currency: "₦" },
     features: [
-      "Prepaid check credits at ₦2,300 per document",
-      "Upload PDF, DOC and DOCX files up to 100 MB",
-      "Bibliography, quotes, cited-text and small-match exclusions",
-      "Searchable check history with AI and similarity report downloads",
+      "Not saved to Turnitin's repository",
+      "AI and similarity reports in minutes",
+      "Upload PDF, DOC or DOCX yourself: no WhatsApp",
+      "Your own private, searchable report history",
     ],
   },
   {

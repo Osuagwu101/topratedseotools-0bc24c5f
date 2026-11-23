@@ -207,8 +207,8 @@ assert(
 );
 
 assert(
-  tools.includes("self-service Turnitin checking workspace") &&
-    tools.includes("Searchable check history"),
+  tools.includes("Check your work on Turnitin privately") &&
+    tools.includes("private, searchable report history"),
   "Turnitin catalogue copy describes the new isolated workspace",
 );
 
