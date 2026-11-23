@@ -21,6 +21,8 @@ startBridge({port:4402});
 const assert=(c,m)=>{if(!c){console.error("FAIL",m);process.exit(1)}};
 assert(isDictationPath("/api/ws/speech_to_text/voice_stream?lang=en"),"path ok");
 assert(!isDictationPath("/api/ws/other/x"),"other path refused");
+assert(isDictationPath("/api/ws/text_to_speech/text_stream"),"read aloud path ok");
+assert(!isDictationPath("/api/ws/text_to_speech/../speech"),"dot path refused");
 const connect=(cookie,origin="http://127.0.0.1:4401",p="/api/ws/speech_to_text/voice_stream?language=en")=>new Promise(r=>{const ws=new WebSocket("ws://127.0.0.1:4402"+p,{headers:{cookie,origin}});const got=[];ws.on("open",()=>r({ws,got,ok:true}));ws.on("message",d=>got.push(String(d)));ws.on("unexpected-response",(q,res)=>r({ok:false,status:res.statusCode}));ws.on("error",()=>r({ok:false}));});
 let x=await connect("trst_claude_proxy=bad");assert(!x.ok&&x.status===401,"bad session refused "+x.status);
 x=await connect("trst_claude_proxy=good","https://evil.test");assert(!x.ok&&x.status===403,"foreign origin refused");

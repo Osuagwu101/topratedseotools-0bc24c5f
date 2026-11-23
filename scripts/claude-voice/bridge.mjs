@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Claude OneClick dictation bridge (systemd: trst-claude-voice, 127.0.0.1:3296).
+ * Claude OneClick dictation + Read Aloud bridge (systemd: trst-claude-voice, 127.0.0.1:3296).
  *
  * Claude's dictation streams audio over a WebSocket to /api/ws/speech_to_text/...
  * Writers are never signed in to claude.ai; only the private server browsers are.
@@ -29,7 +29,7 @@ const MAX_FRAME = 1024 * 1024;
 export function isDictationPath(rawUrl) {
   try {
     const u = new URL(rawUrl, PUBLIC_ORIGIN);
-    return /^\/api\/ws\/speech_to_text\/[a-z0-9_]{1,64}$/.test(u.pathname) && rawUrl.length <= 2048;
+    return /^\/api\/ws\/(?:speech_to_text|text_to_speech)\/[a-z0-9_]{1,64}$/.test(u.pathname) && rawUrl.length <= 2048;
   } catch {
     return false;
   }
