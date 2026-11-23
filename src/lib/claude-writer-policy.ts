@@ -105,3 +105,87 @@ export function isolateClaudeWriterPayload(payload:any){
  }
  return out;
 }
+
+export type ClaudeWriterReferences = {
+  /** Provider file ids the message attaches; each must be owned by the writer. */
+  fileIds: string[];
+  /** Project, connector, sync-source or unrecognised file references. Always refused. */
+  blocked: string | null;
+};
+const FILE_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
+const SANDBOX_PATH_RE = /^\/mnt\/(?:user-data|data)\/[^\x00-\x1f]{1,1000}$/;
+function fileRefId(item: any): string | null | undefined {
+  if (typeof item === "string") return FILE_ID_RE.test(item) ? item.toLowerCase() : null;
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  for (const k of ["file_uuid", "fileUuid", "file_id", "fileId", "uuid", "id"]) {
+    const v = item[k];
+    if (v != null && v !== "") return typeof v === "string" && FILE_ID_RE.test(v) ? v.toLowerCase() : null;
+  }
+  return undefined; // no id at all
+}
+/**
+ * Writer messages may carry their own uploads: inline extracted text, files the
+ * writer uploaded (checked by id against claude_file_owners), or files in the
+ * writer's own conversation sandbox (by /mnt path). Projects, connectors, sync
+ * sources and any unrecognised reference shape still fail closed.
+ */
+export function claudeWriterReferences(value: any): ClaudeWriterReferences {
+  const ids = new Set<string>();
+  let blocked: string | null = null;
+  const walk = (v: any, depth: number) => {
+    if (blocked) return;
+    if (depth > 32) { blocked = "depth"; return; }
+    if (!v || typeof v !== "object") return;
+    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
+    for (const [key, item] of Object.entries(v)) {
+      if (blocked) return;
+      if (/^(?:project_?(?:uuid|id)|sync_?sources?|integration_?ids?)$/i.test(key)) {
+        if (item != null && item !== "" && !(Array.isArray(item) && !item.length)) blocked = key;
+        continue;
+      }
+      if (key === "files" || key === "attachments") {
+        if (item == null) continue;
+        if (!Array.isArray(item)) { blocked = key; return; }
+        for (const entry of item) {
+          // Inline text attachments carry their content; any local id on them is not a provider file.
+          if (key === "attachments" && typeof entry?.extracted_content === "string") continue;
+          const id = fileRefId(entry);
+          if (id) { ids.add(id); continue; }
+          if (id === null) { blocked = key; return; }
+          // No id: inline text attachment, or a file in the conversation's own sandbox.
+          const inline = typeof entry?.extracted_content === "string";
+          const sandbox = typeof entry?.path === "string" && SANDBOX_PATH_RE.test(entry.path) && !entry.path.split("/").includes("..");
+          if (!inline && !sandbox) { blocked = key; return; }
+        }
+        continue;
+      }
+      if (/^(?:file_?(?:uuid|id)|attachment_?uuid)$/i.test(key)) {
+        if (item == null || item === "") continue;
+        if (typeof item === "string" && FILE_ID_RE.test(item)) ids.add(item.toLowerCase());
+        else blocked = key;
+        continue;
+      }
+      walk(item, depth + 1);
+    }
+  };
+  walk(value, 0);
+  return { fileIds: [...ids], blocked };
+}
+
+/** Provider file ids returned by an upload response, for ownership registration. */
+export function claudeUploadedFileIds(payload: any): string[] {
+  const ids = new Set<string>();
+  const take = (o: any) => {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return;
+    for (const k of ["file_uuid", "fileUuid", "file_id", "uuid"]) {
+      const v = o[k];
+      if (typeof v === "string" && FILE_ID_RE.test(v)) ids.add(v.toLowerCase());
+    }
+  };
+  take(payload);
+  if (payload && typeof payload === "object") {
+    take(payload.file);
+    for (const k of ["files", "data"]) if (Array.isArray(payload[k])) payload[k].forEach(take);
+  }
+  return [...ids];
+}
