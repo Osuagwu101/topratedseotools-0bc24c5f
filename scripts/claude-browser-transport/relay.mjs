@@ -28,11 +28,11 @@ export function validateRelayRequest(input) {
   return {url:url.href,method,headers,body,bodyBase64};
 }
 
-/* Dictation: only Claude's speech-to-text socket may be opened through the browser. */
+/* Dictation and Read Aloud: only Claude's speech-to-text and text-to-speech sockets may be opened through the browser. */
 export function validateVoicePath(path) {
   if (typeof path !== 'string' || path.length > 2048) throw Error('voice path');
   const url = new URL(path, ORIGIN);
-  if (url.origin !== ORIGIN || url.hash || !/^\/api\/ws\/speech_to_text\/[a-z0-9_]{1,64}$/.test(url.pathname)) throw Error('voice path');
+  if (url.origin !== ORIGIN || url.hash || !/^\/api\/ws\/(?:speech_to_text|text_to_speech)\/[a-z0-9_]{1,64}$/.test(url.pathname)) throw Error('voice path');
   return url.pathname + url.search;
 }
 export function validateVoiceFrames(frames) {
