@@ -123,7 +123,7 @@ export function rewriteClaudeBody(text: string, origin: string) {
     );
 }
 export function claudeBootstrapScript() {
-  return `<script>(function(){var F=window.fetch;function map(u){var t=new URL(String(u),location.href);if(t.origin==="https://claude.ai")return location.origin+t.pathname+t.search+t.hash;return u}window.fetch=function(i,n){if(typeof i==="string"||i instanceof URL)i=map(i);else if(i&&i.url){var u=map(i.url);if(u!==i.url)i=new Request(u,i)}return F.call(this,i,n)};var X=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=map(u);return X.apply(this,arguments)}})();</script>`;
+  return `<script>(function(){var F=window.fetch;function map(u){var t=new URL(String(u),location.href);if(t.origin==="https://claude.ai")return location.origin+t.pathname+t.search+t.hash;return u}window.fetch=function(i,n){if(typeof i==="string"||i instanceof URL)i=map(i);else if(i&&i.url){var u=map(i.url);if(u!==i.url)i=new Request(u,i)}return F.call(this,i,n)};var X=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=map(u);return X.apply(this,arguments)};var S=window.WebSocket;if(S){var P=function(u,p){var t=new URL(String(u),location.href);if(t.host==="claude.ai"||t.host==="www.claude.ai")u=(location.protocol==="https:"?"wss://":"ws://")+location.host+t.pathname+t.search;return p===undefined?new S(u):new S(u,p)};P.prototype=S.prototype;P.CONNECTING=0;P.OPEN=1;P.CLOSING=2;P.CLOSED=3;window.WebSocket=P}})();</script>`;
 }
 export function claudeResponseContainsSecret(text: string, state: ClaudeSessionState) {
   return state.cookies.some(
