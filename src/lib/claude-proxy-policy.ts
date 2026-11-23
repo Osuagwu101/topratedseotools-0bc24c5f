@@ -2,7 +2,7 @@
 import type { ClaudeSessionState } from "./claude-session.server";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 export type ClaudeRoute = {
-  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file";
+  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file" | "integration";
   org?: string;
   conversation?: string;
   /** Provider file id for per-file routes; ownership is checked by the proxy. */
@@ -30,6 +30,20 @@ export function claudeFileRoutePolicy(m: string, p: string): ClaudeRoute | null 
   if (sandbox) return { kind: "file", org: sandbox[1].toLowerCase(), conversation: sandbox[2].toLowerCase() };
   return null;
 }
+/** Connectors, plugins and skills are open to writers, except blocked providers. */
+export const CLAUDE_BLOCKED_CONNECTORS = /github|supabase/i;
+const INTEGRATION_SEGMENT =
+  "(?:mcp|mcp_servers|remote_servers|connectors?|integrations?|plugins?|plugin_marketplaces?|marketplaces?|skills?|directory|sync|extensions?)";
+export function claudeIntegrationRoutePolicy(m: string, p: string): ClaudeRoute | null {
+  if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(m)) return null;
+  if (CLAUDE_BLOCKED_CONNECTORS.test(p)) return null;
+  if (m === "GET" && new RegExp(`^/(?:plugins|customize|directory|connectors|skills)(?:/[A-Za-z0-9_.~-]{1,200}){0,4}$`).test(p))
+    return { kind: "page" };
+  const org = p.match(new RegExp(`^/api/organizations/(${UUID})/${INTEGRATION_SEGMENT}(?:/[A-Za-z0-9_.:@~-]{1,300}){0,6}$`, "i"));
+  if (org) return { kind: "integration", org: org[1].toLowerCase() };
+  if (new RegExp(`^/api/${INTEGRATION_SEGMENT}(?:/[A-Za-z0-9_.:@~-]{1,300}){0,6}$`, "i").test(p)) return { kind: "integration" };
+  return null;
+}
 export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute | null {
   let p: string;
   try {
@@ -38,6 +52,7 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
     return null;
   }
   if (/[\\\x00-\x1f]/.test(p) || /\/\//.test(p)) return null;
+  if (p.split("/").some((part) => part === "." || part === "..")) return null;
   const m = method.toUpperCase();
   if (m === "GET" && ["/", "/new", "/recents"].includes(p)) return { kind: "page" };
   const page = p.match(new RegExp(`^/chat/(${UUID})$`, "i"));
@@ -52,6 +67,8 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
     return { kind: "bootstrap" };
   const fileRoute = claudeFileRoutePolicy(m, p);
   if (fileRoute) return fileRoute;
+  const integrationRoute = claudeIntegrationRoutePolicy(m, p);
+  if (integrationRoute) return integrationRoute;
   const org = p.match(new RegExp(`^/api/organizations/(${UUID})(/.*)?$`, "i"));
   if (!org) return null;
   const suffix = org[2] ?? "";

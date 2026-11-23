@@ -1,7 +1,7 @@
 import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
-import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
+import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,BLOCKED_CONNECTOR_RE,blockedConnectorIds} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
@@ -566,6 +566,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     const route = browser ? claudeBrowserRoutePolicy(request.method, url.pathname) : claudeRoutePolicy(request.method, url.pathname);
     if (!route || url.searchParams.has("_rsc") || request.headers.has("rsc"))
       return json(403, { error: "This Claude feature is not available through OneClick." });
+    if(route.kind==="integration"){const lower=(url.pathname+url.search).toLowerCase();if([...blockedConnectorIds].some(id=>lower.includes(id)))return json(403,{error:"GitHub and Supabase connectors are not available on Claude OneClick."});}
     const rpc=browser && route.kind==="rpc";
     const writer = String(session.user_id);
     const account:ClaudeProviderAccountKey = session.provider_account_key;
@@ -583,7 +584,14 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
         return plain(413, "Request too large");
       const bytes = await request.arrayBuffer();
       if (bytes.byteLength > MAX_REQUEST_BYTES) return plain(413, "Request too large");
-      if(route.kind==="upload"){
+      if(route.kind==="integration"&&!(request.headers.get("content-type")??"").includes("application/json")){
+       // Plugin packages and connector forms may be multipart or empty; names are still checked.
+       const sample=new TextDecoder().decode(bytes.slice(0,65536));
+       if(BLOCKED_CONNECTOR_RE.test(sample)||[...blockedConnectorIds].some(id=>sample.toLowerCase().includes(id)))
+        return json(403,{error:"GitHub and Supabase connectors are not available on Claude OneClick."});
+       body=bytes;
+      }
+      else if(route.kind==="upload"){
        const type=request.headers.get("content-type")??"";
        if(!/^multipart\/form-data;\s*boundary=/i.test(type))return plain(415,"File upload required");
        body=bytes;
@@ -612,6 +620,8 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       }
       if (!payload || typeof payload !== "object" || Array.isArray(payload))
         return plain(400, "Invalid JSON object");
+      if (route.kind === "integration" && JSON.stringify(withoutBlockedConnectors({x:[payload]})) !== JSON.stringify({x:[payload]}))
+        return json(403, { error: "GitHub and Supabase connectors are not available on Claude OneClick." });
       if (requestUsesDisabledModel(payload))
         return json(403, { error: "Fable and Opus are unavailable on Claude OneClick. Choose Sonnet or Haiku." });
       if (clampClaudeRequestEffort(payload)) body = JSON.stringify(payload);
@@ -621,7 +631,8 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
        payload=isolateClaudeWriterPayload(payload);body=JSON.stringify(payload);
       }
       // Writers may attach only their own uploads; projects and connectors stay closed.
-      const refs=claudeWriterReferences(payload);
+      // Connector/plugin management bodies are checked for blocked providers above, not as message attachments.
+      const refs=route.kind==="integration"?{fileIds:[],blocked:null}:claudeWriterReferences(payload);
       if(refs.blocked){
         console.warn("[claude-proxy] refused reference shape",refs.blocked,url.pathname.replace(/[0-9a-f-]{36}/gi,":id"));
         return json(403, { error: "Projects, connectors and shared files are not available on Claude OneClick. Upload the file again in this chat." });
@@ -709,6 +720,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       return new Response(null, { status: upstream.status, headers: out });
     if (!/text\/|javascript|json|xml|svg/i.test(type)) {
       if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(upstream.body, { status: upstream.status, headers: out }); }
+      if (route.kind === "integration") { applyFileHeaders(out, upstream, type); return new Response(upstream.body, { status: upstream.status, headers: out }); }
       if (route.kind !== "asset") return plain(502, "Unexpected Claude response");
       return new Response(upstream.body, { status: upstream.status, headers: out });
     }
@@ -749,6 +761,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if (createId && upstream.ok && payload?.uuid !== createId)
         return plain(502, "Claude conversation could not be verified (CL-06).");
       if(route.kind==="bootstrap")payload=sanitizeClaudeBootstrap(payload);
+      if(route.kind==="integration")payload=withoutBlockedConnectors(payload);
       if (upstream.ok && /\/(?:models|model_configs)$/.test(url.pathname))
         payload = filterClaudeModelCatalog(payload);
       payload = applyClaudeWriterModelPolicy(payload);

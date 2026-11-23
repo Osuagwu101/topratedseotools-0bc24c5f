@@ -29,10 +29,11 @@ test("history returns only the current writer's conversations",()=>{
  expect(filterClaudeWriterHistory({data:list,has_more:false},new Set([conv])).data).toEqual([list[0]]);
  expect(()=>filterClaudeWriterHistory({new_history_shape:list},new Set([conv]))).toThrow();
 });
-test("bootstrap removes private shared content and connector settings",()=>{
- const value=sanitizeClaudeBootstrap({account:{uuid:conv,invites:[{name:"private"}],settings:{enabled_mcp_tools:{"tool":true},grove_enabled:true,profile_instructions:"private"},email_address:"owner"},intercom_user_jwt:"private",chat_messages:["private"],projects:[{name:"private"}]});
+test("bootstrap removes private shared content; connectors stay except GitHub/Supabase",()=>{
+ const value=sanitizeClaudeBootstrap({account:{uuid:conv,invites:[{name:"private"}],settings:{enabled_mcp_tools:{"notion:search":true,"github:repos":true},grove_enabled:true,profile_instructions:"private"},email_address:"owner"},intercom_user_jwt:"private",chat_messages:["private"],projects:[{name:"private"}],connectors:[{uuid:"c-notion-1",name:"Notion"},{uuid:"c-github-1",name:"GitHub",url:"https://api.githubcopilot.com/mcp"},{uuid:"c-sb-0001",name:"Supabase"}]});
  expect(JSON.stringify(value)).not.toContain("private");
- expect(value.account.settings.enabled_mcp_tools).toEqual({});
+ expect(value.account.settings.enabled_mcp_tools).toEqual({"notion:search":true});
+ expect(value.connectors).toEqual([{uuid:"c-notion-1",name:"Notion"}]);
  expect(value.account.settings.grove_enabled).toBe(false);
  expect(value.account.invites).toEqual([]);
 });
@@ -49,9 +50,11 @@ test("empty native attachment defaults are accepted, real references rejected",(
  expect(claudeWriterHasExternalReferences({attachments:["foreign"]})).toBe(true);
 });
 
-test("text messages cannot enable shared memory or connector tools",()=>{
- const out=isolateClaudeWriterPayload({tools:[{type:"memory"}],chat_memory_mode:"enabled",include_conversation_preferences:true,create_conversation_params:{include_conversation_preferences:true,enabled_mcp_tools:{private:true}}});
- expect(out.tools).toEqual([]);expect(out.chat_memory_mode).toBeUndefined();expect(out.include_conversation_preferences).toBeUndefined();expect(out.create_conversation_params.chat_memory_mode).toBe("disabled");expect(out.create_conversation_params.include_conversation_preferences).toBe(false);expect(out.create_conversation_params.enabled_mcp_tools).toBeUndefined();
+test("messages keep connector tools but never shared memory, past-chat search, GitHub or Supabase",()=>{
+ const out=isolateClaudeWriterPayload({tools:[{type:"memory"},{name:"conversation_search"},{name:"recent_chats"},{type:"web_search_v0",name:"web_search"},{type:"mcp",name:"notion_search"},{type:"mcp",name:"github_create_issue"},{type:"mcp",server:"supabase"}],chat_memory_mode:"enabled",include_conversation_preferences:true,enabled_mcp_tools:{"notion:x":true,"supabase:sql":true},create_conversation_params:{include_conversation_preferences:true,enabled_mcp_tools:{"notion:x":true,"github:y":true}}});
+ expect(out.tools).toEqual([{type:"web_search_v0",name:"web_search"},{type:"mcp",name:"notion_search"}]);
+ expect(out.enabled_mcp_tools).toEqual({"notion:x":true});
+ expect(out.chat_memory_mode).toBeUndefined();expect(out.include_conversation_preferences).toBeUndefined();expect(out.create_conversation_params.chat_memory_mode).toBe("disabled");expect(out.create_conversation_params.include_conversation_preferences).toBe(false);expect(out.create_conversation_params.enabled_mcp_tools).toEqual({"notion:x":true});
 });
 
 test("writer uploads: own file ids are collected, foreign/shared references are refused",async()=>{
@@ -63,7 +66,8 @@ test("writer uploads: own file ids are collected, foreign/shared references are 
  expect(claudeWriterReferences({files:[{path:"/mnt/user-data/../etc/passwd"}]}).blocked).toBe("files");
  expect(claudeWriterReferences({files:[{path:"/home/other/a.pdf"}]}).blocked).toBe("files");
  expect(claudeWriterReferences({project_uuid:"p"}).blocked).toBe("project_uuid");
- expect(claudeWriterReferences({sync_sources:[{id:"drive"}]}).blocked).toBe("sync_sources");
+ expect(claudeWriterReferences({sync_sources:[{id:"drive"}]}).blocked).toBeNull();
+ expect(claudeWriterReferences({sync_sources:[{type:"github",repo:"x/y"}]}).blocked).toBe("sync_sources");
  expect(claudeWriterReferences({files:"not-a-list"}).blocked).toBe("files");
  expect(claudeWriterReferences({files:["../x"]}).blocked).toBe("files");
  expect(claudeWriterReferences({options:{fileUuid:"foreign-file-1"}}).fileIds).toEqual(["foreign-file-1"]);
@@ -81,5 +85,14 @@ test("upload and file routes are narrowly scoped",async()=>{
  expect(claudeRoutePolicy("GET",`/api/${o}/files/abcdef123456/preview`)).toEqual({kind:"file",org:o,file:"abcdef123456"});
  expect(claudeRoutePolicy("GET",`/api/organizations/${o}/conversations/${c}/wiggle/download-file`)).toEqual({kind:"file",org:o,conversation:c});
  for(const [m,p] of [["GET",`/api/${o}/files`],["GET",`/api/${o}/files/abcdef123456`],["DELETE",`/api/${o}/files/abcdef123456/preview`],["POST",`/api/organizations/${o}/conversations/${c}/wiggle/delete-file`],["GET",`/api/organizations/${o}/conversations/${c}/wiggle/upload-file`],["POST",`/api/${o}/files/abcdef123456/preview`]] as const)
+  expect(claudeRoutePolicy(m,p)).toBeNull();
+});
+
+test("connector, plugin and skill routes open; GitHub/Supabase and projects stay closed",async()=>{
+ const {claudeRoutePolicy}=await import("../src/lib/claude-proxy-policy");
+ const o="11111111-2222-4333-8444-555555555555";
+ for(const [m,p] of [["GET",`/api/organizations/${o}/mcp/remote_servers`],["POST",`/api/organizations/${o}/plugins/install`],["DELETE",`/api/organizations/${o}/plugins/abc-123`],["GET",`/api/organizations/${o}/skills`],["POST",`/api/organizations/${o}/mcp/start-auth/srv_1`],["GET","/plugins"],["GET","/customize/connectors"]] as const)
+  expect(claudeRoutePolicy(m,p)).not.toBeNull();
+ for(const [m,p] of [["POST",`/api/organizations/${o}/mcp/github/connect`],["GET",`/api/organizations/${o}/plugins/supabase`],["GET",`/api/organizations/${o}/projects`],["GET","/settings/billing"],["POST",`/api/organizations/${o}/plugins/../../account`]] as const)
   expect(claudeRoutePolicy(m,p)).toBeNull();
 });
