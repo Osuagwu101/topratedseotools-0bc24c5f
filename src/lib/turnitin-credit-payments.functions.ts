@@ -192,6 +192,37 @@ async function finalizeVerifiedPurchase(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Report a confirmed Turnitin credit payment to Meta (and the other ad platforms)
+ * as a Purchase. The event id matches the browser Pixel event, so Meta counts it
+ * once. Never blocks or fails the payment flow.
+ */
+async function trackTurnitinPurchaseConversion(
+  admin: AdminClient,
+  purchase: TurnitinPurchaseRow,
+): Promise<void> {
+  try {
+    const { trackServerConversion, buildEventId } = await import("@/lib/marketing/server-events");
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", purchase.user_id)
+      .maybeSingle();
+    await trackServerConversion(admin as any, {
+      kind: "purchase",
+      event_id: buildEventId("purchase", purchase.id),
+      user_id: purchase.user_id,
+      tool_slug: "turnitin",
+      amount: Number(purchase.total_amount_ngn),
+      currency: "NGN",
+      email: (prof as { email?: string } | null)?.email ?? null,
+      custom: { source: "turnitin_credits", quantity: Number(purchase.quantity), paystack_reference: purchase.payment_reference },
+    });
+  } catch (err) {
+    console.warn("[marketing] turnitin purchase conversion failed", err);
+  }
+}
+
 export const initializeTurnitinCreditPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -373,6 +404,7 @@ export const verifyTurnitinCreditPurchase = createServerFn({ method: "POST" })
         status: "paid" as const,
         purchaseId: purchase.id,
         quantity: Number(purchase.quantity),
+        amountNgn: Number(purchase.total_amount_ngn),
         expiresAt: purchase.expires_at,
         alreadyPaid: true,
       };
@@ -434,6 +466,7 @@ export const verifyTurnitinCreditPurchase = createServerFn({ method: "POST" })
     );
 
     await finalizeVerifiedPurchase(admin, purchase, tx);
+    await trackTurnitinPurchaseConversion(admin, purchase);
 
     const { data: finalized } = await admin
       .from("turnitin_credit_purchases")
@@ -446,6 +479,7 @@ export const verifyTurnitinCreditPurchase = createServerFn({ method: "POST" })
       status: "paid" as const,
       purchaseId: purchase.id,
       quantity: Number(purchase.quantity),
+      amountNgn: Number(purchase.total_amount_ngn),
       expiresAt: finalized?.expires_at ?? null,
       alreadyPaid: false,
     };
@@ -533,6 +567,7 @@ export const reconcileLatestTurnitinCreditPurchase = createServerFn({ method: "P
     );
 
     await finalizeVerifiedPurchase(admin, purchase, tx);
+    await trackTurnitinPurchaseConversion(admin, purchase);
 
     const { data: finalized } = await admin
       .from("turnitin_credit_purchases")
