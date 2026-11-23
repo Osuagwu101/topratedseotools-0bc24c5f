@@ -96,7 +96,7 @@ export const TOOLS: Tool[] = [
     name: "SneakWrite",
     tagline: "Next-generation AI humanizer for natural, polished writing",
     description:
-      "SneakWrite is a premium AI humanizer built for writers who want AI-assisted drafts to read with stronger flow, more natural phrasing and a convincingly human voice. It refines essays, articles, reports and everyday content while preserving the core meaning, making it a standout option in the new generation of AI rewriting tools. Opens in one click from your dashboard: no password sharing, no extension, no WhatsApp back-and-forth.",
+      "SneakWrite is a premium AI humanizer built for writers who want AI-assisted drafts to read with stronger flow, more natural phrasing and a convincingly human voice. It refines essays, articles, reports and everyday content while preserving the core meaning, making it a standout option in the new generation of AI rewriting tools.",
     icon: Wand2,
     domain: "sneakwrite.net",
     category: "AI Detection Bypass",
