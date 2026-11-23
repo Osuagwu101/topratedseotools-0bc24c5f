@@ -229,3 +229,23 @@ export function claudeUploadedFileIds(payload: any): string[] {
   }
   return [...ids];
 }
+
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Artifact listings span the shared account. Keep only rows tied to the writer's
+ * conversations; rows with no recognisable conversation id are dropped.
+ */
+export function filterClaudeArtifactList(payload:any,owned:Set<string>,depth=0):any{
+ if(depth>8||!payload||typeof payload!=="object")return payload;
+ if(Array.isArray(payload)){
+  if(!payload.some(r=>r&&typeof r==="object"&&!Array.isArray(r)))return payload;
+  return payload.filter(r=>{
+   if(!r||typeof r!=="object")return false;
+   const ids=["conversation_uuid","conversation_id","chat_conversation_uuid","conversationUuid","artifact_id","uuid","id"].map(k=>r[k]).filter(v=>typeof v==="string"&&UUID_RE.test(v)).map(v=>v.toLowerCase());
+   return ids.some(id=>owned.has(id));
+  });
+ }
+ const out:any={};
+ for(const [k,v] of Object.entries(payload))out[k]=filterClaudeArtifactList(v,owned,depth+1);
+ return out;
+}

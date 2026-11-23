@@ -206,6 +206,12 @@ globalThis.fetch = (async (input: any, init: any) => {
   const path = new URL(String(input)).pathname;
   if (/\/(?:upload|upload-file)$/.test(path))
     return new Response(JSON.stringify(uploadResponse), { headers: { "content-type": "application/json" } });
+  if (path === "/api/frame/artifacts")
+    return new Response(JSON.stringify({ artifacts: [{ uuid: mine, conversation_uuid: mine, title: "mine" }, { uuid: other, conversation_uuid: other, title: "theirs" }, { title: "no id" }] }), { headers: { "content-type": "application/json" } });
+  if (/\/artifacts\/[^/]+\/versions$/.test(path))
+    return new Response(JSON.stringify([{ uuid: "v1", file: "test-download.txt" }]), { headers: { "content-type": "application/json" } });
+  if (path === "/v1/privacy-consents/check")
+    return new Response(JSON.stringify({ consented: true }), { headers: { "content-type": "application/json" } });
   if (/\/mcp\/remote_servers$/.test(path))
     return new Response(JSON.stringify([{ uuid: "srv-notion-01", name: "Notion" }, { uuid: "srv-gh-00001", name: "GitHub" }]), { headers: { "content-type": "application/json" } });
   if (/\/files\/[^/]+\/preview$/.test(path))
@@ -305,6 +311,18 @@ try {
   assert.equal(download.status, 200);
   assert.match(download.headers.get("content-disposition") ?? "", /^attachment/);
   assert.equal(await download.text(), "<script>alert(1)</script>", "file bytes are returned unmodified");
+  // Claude-created files: own chat's artifact opens; another writer's is 404; the shared list is filtered.
+  const versions = await handle(request(`/api/organizations/${org}/artifacts/${mine}/versions`));
+  assert.equal(versions.status, 200);
+  assert.match(versions.headers.get("content-security-policy") ?? "", /sandbox/);
+  assert.equal((await handle(request(`/api/organizations/${org}/artifacts/${other}/versions`))).status, 404);
+  const artifactList = await handle(request(`/api/frame/artifacts?org=${org}`));
+  assert.equal(artifactList.status, 200);
+  assert.deepEqual((await artifactList.json()).artifacts.map((a: any) => a.title), ["mine"]);
+  // Dictation's consent check reaches Claude, with or without a JSON body.
+  const emptyConsent = new Request(`${origin}/v1/privacy-consents/check`, { method: "POST", headers: { Cookie: `trst_claude_proxy=${"a".repeat(43)}`, Origin: origin } });
+  assert.equal((await handle(emptyConsent)).status, 200);
+  assert.equal((await handle(request("/v1/privacy-consents/check", "POST", "{}"))).status, 200);
   // Connectors: listed for writers without GitHub/Supabase; connecting those is refused before Claude.
   const listed = await handle(request(`/api/organizations/${org}/mcp/remote_servers`));
   assert.equal(listed.status, 200);
