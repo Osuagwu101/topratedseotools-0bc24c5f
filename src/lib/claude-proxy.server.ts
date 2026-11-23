@@ -537,11 +537,16 @@ import {
 } from "@/lib/claude-proxy-policy";
 
 /** Owned file previews/downloads: no script execution on the proxy origin. */
-function applyFileHeaders(out: Headers, upstream: Response, type: string) {
+function applyFileHeaders(out: Headers, upstream: Response, type: string, exactBody = false) {
   out.set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; media-src 'self'");
   const disposition = upstream.headers.get("content-disposition");
   if (/html|svg|xml|javascript/i.test(type)) out.set("Content-Disposition", disposition?.replace(/^\s*inline/i, "attachment") || "attachment");
   else if (disposition && !/[\r\n]/.test(disposition)) out.set("Content-Disposition", disposition);
+  // Claude's download button checks the file size it was promised before saving.
+  const servedSize = upstream.headers.get("x-served-file-size");
+  if (servedSize && /^\d{1,15}$/.test(servedSize)) out.set("X-Served-File-Size", servedSize);
+  const length = upstream.headers.get("content-length");
+  if (exactBody && length && /^\d{1,15}$/.test(length) && !upstream.headers.get("content-encoding")) out.set("Content-Length", length);
 }
 
 export async function handleClaudeProxyRequest(request: Request): Promise<Response> {
@@ -724,7 +729,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if ([204, 205, 304].includes(upstream.status) || request.method === "HEAD")
       return new Response(null, { status: upstream.status, headers: out });
     if (!/text\/|javascript|json|xml|svg/i.test(type)) {
-      if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(upstream.body, { status: upstream.status, headers: out }); }
+      if (route.kind === "file") { applyFileHeaders(out, upstream, type, true); return new Response(upstream.body, { status: upstream.status, headers: out }); }
       if (route.kind === "integration") { applyFileHeaders(out, upstream, type); return new Response(upstream.body, { status: upstream.status, headers: out }); }
       if (route.kind !== "asset") return plain(502, "Unexpected Claude response");
       return new Response(upstream.body, { status: upstream.status, headers: out });

@@ -227,7 +227,10 @@ class BrowserConnection {
       if(event.kind==='meta') {
         if(!Number.isInteger(event.status)||event.status<200||event.status>599)return fail();
         const headers={'Cache-Control':'no-store','X-TRST-Browser-Path':event.path};
-        for(const [name,value] of Object.entries(event.headers??{})) if(['content-type','etag','last-modified','cf-mitigated','content-range','accept-ranges','connect-content-encoding','connect-accept-encoding','connect-protocol-version','grpc-status','grpc-message'].includes(name.toLowerCase())) headers[name]=value;
+        for(const [name,value] of Object.entries(event.headers??{})) if(['content-type','etag','last-modified','cf-mitigated','content-range','accept-ranges','x-served-file-size','content-disposition','connect-content-encoding','connect-accept-encoding','connect-protocol-version','grpc-status','grpc-message'].includes(name.toLowerCase())) headers[name]=value;
+        // File downloads check the promised size; only exact when the body was not re-encoded.
+        const length=String(event.headers?.['content-length']??'');
+        if(/^\d{1,15}$/.test(length)&&!event.headers?.['content-encoding'])headers['Content-Length']=length;
         // Claude answers a logged-out browser with 401 or 403. Flag it only when
         // the browser really has no sessionKey, so permission errors are not mistaken for logouts.
         if((event.status===401||event.status===403) && !(await this.hasSessionKey())) headers['X-TRST-Browser-Login']='required';

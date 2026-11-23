@@ -216,6 +216,8 @@ globalThis.fetch = (async (input: any, init: any) => {
     return new Response(JSON.stringify([{ uuid: "srv-notion-01", name: "Notion" }, { uuid: "srv-gh-00001", name: "GitHub" }]), { headers: { "content-type": "application/json" } });
   if (/\/files\/[^/]+\/preview$/.test(path))
     return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
+  if (/\/wiggle\/download-file$/.test(path) && String(input).includes("report.docx"))
+    return new Response(new Uint8Array([80, 75, 3, 4, 9]), { headers: { "content-type": "application/octet-stream", "x-served-file-size": "5", "content-length": "5", "content-disposition": 'attachment; filename="report.docx"' } });
   if (/\/wiggle\/download-file$/.test(path))
     return new Response("<script>alert(1)</script>", { headers: { "content-type": "text/html", "content-disposition": "inline; filename=x.html" } });
   return new Response('event: completion\ndata: {"completion":"hello"}\n\n', {
@@ -307,6 +309,13 @@ try {
   assert.equal(preview.status, 200);
   assert.equal(preview.headers.get("content-type"), "image/png");
   assert.match(preview.headers.get("content-security-policy") ?? "", /sandbox/);
+  // Claude's download button needs the promised size and name (observed 23 Nov 2026).
+  const docx = await handle(request(`/api/organizations/${org}/conversations/${mine}/wiggle/download-file?path=/mnt/user-data/outputs/report.docx`));
+  assert.equal(docx.status, 200);
+  assert.equal(docx.headers.get("x-served-file-size"), "5");
+  assert.equal(docx.headers.get("content-length"), "5");
+  assert.match(docx.headers.get("content-disposition") ?? "", /report\.docx/);
+  assert.equal((await docx.arrayBuffer()).byteLength, 5);
   const download = await handle(request(`/api/organizations/${org}/conversations/${mine}/wiggle/download-file?path=/mnt/user-data/outputs/x.html`));
   assert.equal(download.status, 200);
   assert.match(download.headers.get("content-disposition") ?? "", /^attachment/);
