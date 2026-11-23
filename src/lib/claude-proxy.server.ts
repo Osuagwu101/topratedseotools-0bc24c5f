@@ -1,7 +1,7 @@
 import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
-import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterHasExternalReferences,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
+import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
@@ -401,6 +401,23 @@ async function reserveWriterConversation(id:string,org:string,writer:string,acco
  if(result.error)return ownsConversation(id,org,writer,account);
  return true;
 }
+/** True when every provider file id belongs to this writer on this account. */
+async function ownsFiles(ids:string[],writer:string,account:ClaudeProviderAccountKey,org?:string){
+ if(!ids.length)return true;
+ let query=(supabaseAdmin as any).from("claude_file_owners").select("file_id,user_id,organization_id").eq("provider_account_key",account).in("file_id",ids);
+ const {data,error}=await query;
+ if(error)throw Error("Could not verify file ownership");
+ const mine=new Set((data??[]).filter((r:any)=>r.user_id===writer&&(!org||r.organization_id===org)).map((r:any)=>String(r.file_id)));
+ return ids.every(id=>mine.has(id));
+}
+async function registerWriterFiles(ids:string[],org:string,writer:string,account:ClaudeProviderAccountKey,conversation?:string){
+ if(!ids.length)return true;
+ const rows=ids.map(file_id=>({file_id,organization_id:org,user_id:writer,provider_account_key:account,conversation_id:conversation??null}));
+ const {error}=await (supabaseAdmin as any).from("claude_file_owners").upsert(rows,{onConflict:"provider_account_key,file_id",ignoreDuplicates:true});
+ if(error)return false;
+ // A provider id already claimed by someone else must never become visible to this writer.
+ return ownsFiles(ids,writer,account,org);
+}
 function filterClaudeModelCatalog(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.filter(entry => !isDisabledClaudeModel(entry) &&
@@ -510,6 +527,14 @@ import {
   filterClaudeConversationList,
 } from "@/lib/claude-proxy-policy";
 
+/** Owned file previews/downloads: no script execution on the proxy origin. */
+function applyFileHeaders(out: Headers, upstream: Response, type: string) {
+  out.set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; media-src 'self'");
+  const disposition = upstream.headers.get("content-disposition");
+  if (/html|svg|xml|javascript/i.test(type)) out.set("Content-Disposition", disposition?.replace(/^\s*inline/i, "attachment") || "attachment");
+  else if (disposition && !/[\r\n]/.test(disposition)) out.set("Content-Disposition", disposition);
+}
+
 export async function handleClaudeProxyRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   try {
@@ -536,9 +561,11 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     const writer = String(session.user_id);
     const account:ClaudeProviderAccountKey = session.provider_account_key;
     if(route.conversation&&!await ownsConversation(route.conversation,route.org,writer,account)){
-      const firstMessage=browser&&request.method==="POST"&&/\/completion$/.test(url.pathname)&&route.org;
+      const firstMessage=((browser&&request.method==="POST"&&/\/completion$/.test(url.pathname))||(route.kind==="upload"&&route.upload==="wiggle"))&&route.org;
       if(!firstMessage||!await reserveWriterConversation(route.conversation,route.org!,writer,account))return json(404,{error:"Conversation not found"});
     }
+    if(route.kind==="file"&&route.file&&!await ownsFiles([route.file],writer,account,route.org))
+      return json(404,{error:"File not found"});
     let body: string | ArrayBuffer | undefined;
     let createId: string | undefined;
     let messageKey:string|undefined;
@@ -547,7 +574,12 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
         return plain(413, "Request too large");
       const bytes = await request.arrayBuffer();
       if (bytes.byteLength > MAX_REQUEST_BYTES) return plain(413, "Request too large");
-      if(rpc){
+      if(route.kind==="upload"){
+       const type=request.headers.get("content-type")??"";
+       if(!/^multipart\/form-data;\s*boundary=/i.test(type))return plain(415,"File upload required");
+       body=bytes;
+      }
+      else if(rpc){
        let info:ReturnType<typeof inspectClaudeWriterRpc>;
        try{info=inspectClaudeWriterRpc(url.pathname,new Uint8Array(bytes),request.headers.get("content-type")??"",request.headers.get("connect-content-encoding"));}
        catch{return json(403,{error:"This Claude action is not available through writer access."});}
@@ -579,9 +611,14 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
        messageKey=hashClaudeProxyToken(route.conversation+":"+requestId);
        payload=isolateClaudeWriterPayload(payload);body=JSON.stringify(payload);
       }
-      // File/project/integration references require their own ownership tracking.
-      if(claudeWriterHasExternalReferences(payload))
-        return json(403, { error: "File, project and integration access has not been enabled." });
+      // Writers may attach only their own uploads; projects and connectors stay closed.
+      const refs=claudeWriterReferences(payload);
+      if(refs.blocked){
+        console.warn("[claude-proxy] refused reference shape",refs.blocked,url.pathname.replace(/[0-9a-f-]{36}/gi,":id"));
+        return json(403, { error: "Projects, connectors and shared files are not available on Claude OneClick. Upload the file again in this chat." });
+      }
+      if(!await ownsFiles(refs.fileIds,writer,account,route.org))
+        return json(404, { error: "File not found. Upload it again in this chat." });
       if (route.kind === "create" && !shared) {
         applyClaudeNewConversationDefaults(payload);
         payload.chat_memory_mode="disabled";payload.include_conversation_preferences=false;
@@ -662,12 +699,21 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     if ([204, 205, 304].includes(upstream.status) || request.method === "HEAD")
       return new Response(null, { status: upstream.status, headers: out });
     if (!/text\/|javascript|json|xml|svg/i.test(type)) {
+      if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(upstream.body, { status: upstream.status, headers: out }); }
       if (route.kind !== "asset") return plain(502, "Unexpected Claude response");
       return new Response(upstream.body, { status: upstream.status, headers: out });
     }
     let text = await upstream.text();
     if (claudeResponseContainsSecret(text, state))
       return plain(502, "Claude returned private account state. Contact Admin (CL-06).");
+    // Writer file contents are returned byte-for-byte, never rewritten or rendered on this origin.
+    if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(text, { status: upstream.status, headers: out }); }
+    if (route.kind === "upload" && upstream.ok && route.org && type.includes("json")) {
+      let uploaded: any;
+      try { uploaded = JSON.parse(text); } catch { return plain(502, "Invalid Claude upload response"); }
+      if (!await registerWriterFiles(claudeUploadedFileIds(uploaded), route.org, writer, account, route.conversation))
+        return plain(503, "Could not save your file privately. Try again.");
+    }
     if (type.includes("json")) {
       let payload: any;
       try {
