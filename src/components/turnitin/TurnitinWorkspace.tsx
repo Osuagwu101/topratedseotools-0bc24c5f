@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { trackPurchase } from "@/lib/marketing/track";
+import { buildEventId } from "@/lib/marketing/config";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -328,6 +330,17 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
 
         if (result.status === "paid") {
           window.sessionStorage.removeItem("turnitin-credit-reference");
+          // Browser half of the Purchase; same event id as the server event so Meta counts it once.
+          if (!result.alreadyPaid && result.purchaseId) {
+            trackPurchase({
+              order_id: result.purchaseId,
+              slug: "turnitin",
+              name: "Turnitin Checks",
+              amount: Number(result.amountNgn ?? 0),
+              currency: "NGN",
+              event_id: buildEventId("purchase", result.purchaseId),
+            });
+          }
           setPaymentMessage(
             `${result.quantity} Turnitin credit${result.quantity === 1 ? "" : "s"} added successfully.`,
           );
