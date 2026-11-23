@@ -2,7 +2,7 @@
 import type { ClaudeSessionState } from "./claude-session.server";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 export type ClaudeRoute = {
-  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file" | "integration";
+  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file" | "integration" | "artifact_list" | "consent";
   org?: string;
   conversation?: string;
   /** Provider file id for per-file routes; ownership is checked by the proxy. */
@@ -24,6 +24,9 @@ export function claudeFileRoutePolicy(m: string, p: string): ClaudeRoute | null 
     return null;
   }
   if (!["GET", "HEAD"].includes(m)) return null;
+  // Claude-created files: the artifact id is the conversation id (observed 23 Nov 2026).
+  const artifact = p.match(new RegExp(`^/api/organizations/(${UUID})/artifacts/(${UUID})(?:/[A-Za-z0-9_.:-]{1,200}){0,4}$`, "i"));
+  if (artifact) return { kind: "file", org: artifact[1].toLowerCase(), conversation: artifact[2].toLowerCase() };
   const stored = p.match(new RegExp(`^/api/(?:organizations/)?(${UUID})/files/(${FILE_ID})/(preview|thumbnail|document_pdf|contents)(?:/[A-Za-z0-9_.-]{1,200})?$`, "i"));
   if (stored) return { kind: "file", org: stored[1].toLowerCase(), file: stored[2].toLowerCase() };
   const sandbox = p.match(new RegExp(`^/api/organizations/(${UUID})/conversations/(${UUID})/wiggle/(?:list-files|download-file|file-metadata|download-files)$`, "i"));
@@ -67,6 +70,11 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
     return { kind: "bootstrap" };
   const fileRoute = claudeFileRoutePolicy(m, p);
   if (fileRoute) return fileRoute;
+  // Artifact viewer frame: type catalogue and the per-org artifact list (filtered to the writer's chats).
+  if (m === "GET" && p === "/api/frame/types") return { kind: "bootstrap" };
+  if (m === "GET" && p === "/api/frame/artifacts") return { kind: "artifact_list" };
+  // Dictation and voice first check the account's privacy consent.
+  if (["GET", "POST"].includes(m) && /^\/v1\/privacy-consents(?:\/[a-z0-9_-]{1,80}){0,2}$/i.test(p)) return { kind: "consent" };
   const integrationRoute = claudeIntegrationRoutePolicy(m, p);
   if (integrationRoute) return integrationRoute;
   const org = p.match(new RegExp(`^/api/organizations/(${UUID})(/.*)?$`, "i"));

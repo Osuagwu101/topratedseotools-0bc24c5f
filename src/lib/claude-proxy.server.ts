@@ -1,7 +1,7 @@
 import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
-import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,BLOCKED_CONNECTOR_RE,blockedConnectorIds} from "@/lib/claude-writer-policy";
+import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,BLOCKED_CONNECTOR_RE,blockedConnectorIds,filterClaudeArtifactList} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
@@ -584,7 +584,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
         return plain(413, "Request too large");
       const bytes = await request.arrayBuffer();
       if (bytes.byteLength > MAX_REQUEST_BYTES) return plain(413, "Request too large");
-      if(route.kind==="integration"&&!(request.headers.get("content-type")??"").includes("application/json")){
+      if((route.kind==="integration"||route.kind==="consent")&&!(request.headers.get("content-type")??"").includes("application/json")){
        // Plugin packages and connector forms may be multipart or empty; names are still checked.
        const sample=new TextDecoder().decode(bytes.slice(0,65536));
        if(BLOCKED_CONNECTOR_RE.test(sample)||[...blockedConnectorIds].some(id=>sample.toLowerCase().includes(id)))
@@ -727,6 +727,7 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     let text = await upstream.text();
     if (claudeResponseContainsSecret(text, state))
       return plain(502, "Claude returned private account state. Contact Admin (CL-06).");
+    if (route.kind === "artifact_list" && !type.includes("json")) return plain(502, "Unexpected Claude response");
     // Writer file contents are returned byte-for-byte, never rewritten or rendered on this origin.
     if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(text, { status: upstream.status, headers: out }); }
     if (route.kind === "upload" && upstream.ok && route.org && type.includes("json")) {
@@ -761,6 +762,11 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       if (createId && upstream.ok && payload?.uuid !== createId)
         return plain(502, "Claude conversation could not be verified (CL-06).");
       if(route.kind==="bootstrap")payload=sanitizeClaudeBootstrap(payload);
+      if(route.kind==="artifact_list"){
+        const { data, error } = await (supabaseAdmin as any).from("claude_conversation_owners").select("conversation_id").eq("user_id", writer).eq("provider_account_key",account);
+        if (error) return plain(503, "Could not load your files");
+        payload=filterClaudeArtifactList(payload,new Set((data??[]).map((r:any)=>String(r.conversation_id).toLowerCase())));
+      }
       if(route.kind==="integration")payload=withoutBlockedConnectors(payload);
       if (upstream.ok && /\/(?:models|model_configs)$/.test(url.pathname))
         payload = filterClaudeModelCatalog(payload);
