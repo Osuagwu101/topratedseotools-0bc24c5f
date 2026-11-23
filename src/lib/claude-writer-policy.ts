@@ -67,8 +67,10 @@ export function sanitizeClaudeBootstrap(value:any):any{
  const out:any={};
  for(const [key,item] of Object.entries(value)){
   if(/intercom|jwt|secret|password|verified_phone|invites|instructions|preferences|artifact_pins|browser_extension|session_state|share_notices|(?:access|refresh|session)_token/i.test(key)){out[key]=Array.isArray(item)?[]:item===null?null:typeof item==="object"?{}:typeof item==="string"?"":typeof item==="boolean"?false:0;continue;}
-  if(/^(?:enabled_mcp_tools|mcp_tools|connectors|integrations|projects|artifacts|files|recent_artifacts|pinned_conversations)$/i.test(key)){out[key]=Array.isArray(item)?[]:{};continue;}
-  if(/^(?:enabled_gdrive|enabled_connector_suggestions|grove_enabled|personalized_drafts)$/i.test(key)){out[key]=false;continue;}
+  // Connectors/plugins are shared with writers (owner decision 23 Nov 2026), minus blocked providers.
+  if(/^(?:enabled_mcp_tools|mcp_tools|connectors|integrations|mcp_servers|remote_servers|plugins|skills)$/i.test(key)){out[key]=withoutBlockedConnectors(sanitizeClaudeBootstrap(item));continue;}
+  if(/^(?:projects|artifacts|files|recent_artifacts|pinned_conversations)$/i.test(key)){out[key]=Array.isArray(item)?[]:{};continue;}
+  if(/^(?:grove_enabled|personalized_drafts)$/i.test(key)){out[key]=false;continue;}
   if(/(?:chat_conversations|chat_messages|conversation_history)/i.test(key)){out[key]=[];continue;}
   out[key]=sanitizeClaudeBootstrap(item);
  }
@@ -94,14 +96,48 @@ export function claudeWriterHasExternalReferences(value:any,depth=0):boolean{
  return false;
 }
 
-/** Text-chat rollout: no account memory, profile instructions or shared tools. */
+/** GitHub and Supabase connectors are never available to writers. */
+export const BLOCKED_CONNECTOR_RE=/github|supabase/i;
+/** Tools that read the shared account's memory or other writers' chats. */
+const SHARED_MEMORY_TOOL_RE=/memory|conversation_search|recent_chats|past_chats|chat_search|search_chats/i;
+/** Ids of blocked connectors seen in listings, so opaque ids in later requests are refused too. */
+export const blockedConnectorIds=new Set<string>();
+function mentionsBlocked(value:any){
+ let text="";try{text=JSON.stringify(value)??""}catch{return true}
+ if(BLOCKED_CONNECTOR_RE.test(text))return true;
+ for(const id of blockedConnectorIds)if(text.includes(id))return true;
+ return false;
+}
+function rememberBlocked(value:any){
+ if(!value||typeof value!=="object")return;
+ for(const k of ["uuid","id","server_id","server_uuid","plugin_id","connector_id"]){const v=value[k];if(typeof v==="string"&&v.length>=6)blockedConnectorIds.add(v.toLowerCase())}
+}
+/** Remove GitHub/Supabase entries from connector, plugin and tool listings (arrays or id-keyed maps). */
+export function withoutBlockedConnectors(value:any,depth=0):any{
+ if(depth>12||!value||typeof value!=="object")return value;
+ if(Array.isArray(value))return value.filter(v=>{if(v&&typeof v==="object"&&mentionsBlocked(v)){rememberBlocked(v);return false}return !(typeof v==="string"&&BLOCKED_CONNECTOR_RE.test(v))}).map(v=>withoutBlockedConnectors(v,depth+1));
+ const out:any={};
+ for(const [k,v] of Object.entries(value)){
+  if(BLOCKED_CONNECTOR_RE.test(k)||[...blockedConnectorIds].some(id=>k.toLowerCase().includes(id)))continue;
+  if(v&&typeof v==="object"&&!Array.isArray(v)&&depth>0&&BLOCKED_CONNECTOR_RE.test(String((v as any).name??(v as any).url??(v as any).display_name??""))){rememberBlocked(v);continue}
+  out[k]=withoutBlockedConnectors(v,depth+1);
+ }
+ return out;
+}
+function writerTools(tools:any){
+ if(!Array.isArray(tools))return [];
+ return tools.filter(t=>{let text="";try{text=JSON.stringify(t)??""}catch{return false}return !SHARED_MEMORY_TOOL_RE.test(text)&&!mentionsBlocked(t)});
+}
+/** Writer messages: connector/plugin tools allowed; shared memory, past-chat search, GitHub and Supabase removed. */
 export function isolateClaudeWriterPayload(payload:any){
- const out:any={...payload,tools:[]};
+ const out:any={...payload,tools:writerTools(payload.tools)};
+ if(payload.enabled_mcp_tools&&typeof payload.enabled_mcp_tools==="object")out.enabled_mcp_tools=withoutBlockedConnectors(payload.enabled_mcp_tools);
  // These flags belong to the conversation-creation object, not Completion.
  delete out.chat_memory_mode;delete out.include_conversation_preferences;delete out.personalized_styles;
  if(payload.create_conversation_params&&typeof payload.create_conversation_params==="object"){
   out.create_conversation_params={...payload.create_conversation_params,chat_memory_mode:"disabled",include_conversation_preferences:false};
-  delete out.create_conversation_params.enabled_mcp_tools;
+  if(out.create_conversation_params.enabled_mcp_tools&&typeof out.create_conversation_params.enabled_mcp_tools==="object")out.create_conversation_params.enabled_mcp_tools=withoutBlockedConnectors(out.create_conversation_params.enabled_mcp_tools);
+  else delete out.create_conversation_params.enabled_mcp_tools;
  }
  return out;
 }
@@ -139,8 +175,12 @@ export function claudeWriterReferences(value: any): ClaudeWriterReferences {
     if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
     for (const [key, item] of Object.entries(v)) {
       if (blocked) return;
-      if (/^(?:project_?(?:uuid|id)|sync_?sources?|integration_?ids?)$/i.test(key)) {
-        if (item != null && item !== "" && !(Array.isArray(item) && !item.length)) blocked = key;
+      if (/^project_?(?:uuid|id)$/i.test(key)) {
+        if (item != null && item !== "") blocked = key;
+        continue;
+      }
+      if (/^(?:sync_?sources?|integration_?ids?)$/i.test(key)) {
+        if (item != null && mentionsBlocked(item)) blocked = key;
         continue;
       }
       if (key === "files" || key === "attachments") {

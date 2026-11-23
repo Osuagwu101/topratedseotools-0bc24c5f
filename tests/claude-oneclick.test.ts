@@ -206,6 +206,8 @@ globalThis.fetch = (async (input: any, init: any) => {
   const path = new URL(String(input)).pathname;
   if (/\/(?:upload|upload-file)$/.test(path))
     return new Response(JSON.stringify(uploadResponse), { headers: { "content-type": "application/json" } });
+  if (/\/mcp\/remote_servers$/.test(path))
+    return new Response(JSON.stringify([{ uuid: "srv-notion-01", name: "Notion" }, { uuid: "srv-gh-00001", name: "GitHub" }]), { headers: { "content-type": "application/json" } });
   if (/\/files\/[^/]+\/preview$/.test(path))
     return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
   if (/\/wiggle\/download-file$/.test(path))
@@ -303,6 +305,14 @@ try {
   assert.equal(download.status, 200);
   assert.match(download.headers.get("content-disposition") ?? "", /^attachment/);
   assert.equal(await download.text(), "<script>alert(1)</script>", "file bytes are returned unmodified");
+  // Connectors: listed for writers without GitHub/Supabase; connecting those is refused before Claude.
+  const listed = await handle(request(`/api/organizations/${org}/mcp/remote_servers`));
+  assert.equal(listed.status, 200);
+  assert.deepEqual(await listed.json(), [{ uuid: "srv-notion-01", name: "Notion" }]);
+  const callsBefore = upstreamCalls;
+  assert.equal((await handle(request(`/api/organizations/${org}/mcp/remote_servers`, "POST", '{"url":"https://mcp.supabase.com/mcp"}'))).status, 403);
+  assert.equal((await handle(request(`/api/organizations/${org}/mcp/start-auth/srv-gh-00001`, "POST", "{}"))).status, 403, "learned GitHub id is refused");
+  assert.equal(upstreamCalls, callsBefore);
   const stream = await handle(request(`${base}/${mine}/completion`, "POST", '{"prompt":"hello"}'));
   assert.equal(stream.status, 200);
   assert((await stream.text()).includes('"completion":"hello"'));
