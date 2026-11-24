@@ -47,17 +47,42 @@ function isAstraModelEntry(entry: any): boolean {
 export function applyChatGptWriterModelPolicy(value: any, depth = 0): any {
   if (depth > 40 || !value || typeof value !== "object") return value;
   if (Array.isArray(value)) {
-    let out = value.map((v) => applyChatGptWriterModelPolicy(v, depth + 1));
-    out = out.filter((v) => !isAstraModelEntry(v));
-    if (isLevelList(out)) out = out.filter((v) => !levelValues(v).some(isDisabledChatGptEffort));
-    return out;
+    // Drop disabled entries first, while their raw values are still visible.
+    let kept = value.filter((v) => !isAstraModelEntry(v));
+    if (isLevelList(kept)) kept = kept.filter((v) => !levelValues(v).some(isDisabledChatGptEffort));
+    return kept.map((v) => applyChatGptWriterModelPolicy(v, depth + 1));
   }
   const out: any = {};
   for (const [key, item] of Object.entries(value)) {
     if (EFFORT_VALUE_KEYS.test(key) && isDisabledChatGptEffort(item)) out[key] = CHATGPT_WRITER_MAX_EFFORT;
-    else out[key] = applyChatGptWriterModelPolicy(item, depth + 1);
+    else if (typeof item === "boolean" && /xhigh|extra_?high/i.test(key)) out[key] = false;
+    else if (typeof item === "string" && STRINGIFIED_CONFIG.test(item) && /^\s*[\[{]/.test(item)) {
+      // Settings blobs are sometimes JSON stored inside a string.
+      try { out[key] = JSON.stringify(applyChatGptWriterModelPolicy(JSON.parse(item), depth + 1)); } catch { out[key] = item; }
+    } else out[key] = applyChatGptWriterModelPolicy(item, depth + 1);
   }
   return out;
+}
+
+const STRINGIFIED_CONFIG = /astra|xhigh|extra.?high|reasoning_effort|thinking_effort/i;
+
+/**
+ * The ChatGPT page embeds its picker settings in the HTML itself, inside
+ * <script id="client-bootstrap" type="application/json">. Apply the same
+ * policy to that block so Astra and the top levels are gone before the page loads.
+ */
+export function applyChatGptBootstrapPolicy(html: string): string {
+  return html.replace(
+    /(<script\b[^>]*\bid=["']client-bootstrap["'][^>]*>)([\s\S]*?)(<\/script>)/i,
+    (whole, open: string, body: string, close: string) => {
+      try {
+        const policy = JSON.stringify(applyChatGptWriterModelPolicy(JSON.parse(body))).replace(/</g, "\\u003c");
+        return open + policy + close;
+      } catch {
+        return whole; // not parseable: leave the page untouched
+      }
+    },
+  );
 }
 
 /** True when a writer request names an Astra model. */

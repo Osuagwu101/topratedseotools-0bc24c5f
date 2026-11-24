@@ -2,7 +2,7 @@ import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfCon
 import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
-import {applyChatGptWriterModelPolicy,clampChatGptRequestEffort,requestUsesDisabledChatGptModel} from "./chatgpt-model-policy";
+import {applyChatGptBootstrapPolicy,applyChatGptWriterModelPolicy,clampChatGptRequestEffort,requestUsesDisabledChatGptModel} from "./chatgpt-model-policy";
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
 import {imagePointerFileId} from './chatgpt-attachment-model';
 import {chatGptAccountAuthorization,chatGptAccountSession} from "./chatgpt-account-auth.server";
@@ -1454,6 +1454,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       const script="<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstChatGptAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstChatGptAccount',m)}}catch{}})();</script>";
       rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script+(durable?historyBootstrap(proxyBase):''));
     }
+    if (isChatGptOrigin && contentType.includes("text/html")) rewritten = applyChatGptBootstrapPolicy(rewritten);
     // Remove Astra models and the Extra high / Max levels from model lists.
     if (isChatGptOrigin && contentType.includes("application/json") && target.pathname.startsWith("/backend-api/") &&
         !/^\/backend-api\/(?:f\/)?conversations?(?:\/|$)/.test(target.pathname)) {

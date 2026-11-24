@@ -265,10 +265,10 @@ def deploy_chatgpt_process(rel, short):
     for _ in range(25):
         time.sleep(2)
         code = local_check()
-        if code == "401":  # anonymous request, healthy dedicated host
+        if code in ("200", "401"):  # the live process answers 200 locally; the public host answers 401
             break
     log(f"ChatGPT host: local check on {new_port} -> {code}")
-    if code != "401":
+    if code not in ("200", "401"):
         subprocess.run(["pm2", "delete", name], capture_output=True)
         raise RuntimeError(f"new ChatGPT process did not become healthy ({code})")
 
