@@ -40,6 +40,9 @@ jobs:
 
       - name: ChatGPT model policy test
         run: bun tests/chatgpt-model-policy.test.ts
+      - name: Claude hidden skills test
+        run: bun tests/claude-hidden-skills.test.ts
+
       - name: Claude connector stream test
         run: bun tests/claude-connector-stream.test.ts
 
