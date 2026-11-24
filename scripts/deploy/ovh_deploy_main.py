@@ -144,9 +144,11 @@ def pm2_names_for_port(port):
 
 
 UPLOAD_LIMIT = "30m"
+# ChatGPT accepts large files; the proxy allows 50 MB, nginx needs headroom for multipart overhead.
+CHATGPT_UPLOAD_LIMIT = "60m"
 
 
-def ensure_upload_limit(text):
+def ensure_upload_limit(text, limit=UPLOAD_LIMIT):
     """Set client_max_body_size on every HTTPS server block (server level only)."""
     out, last = [], 0
     for m in re.finditer(r"\bserver\s*\{", text):
@@ -163,9 +165,9 @@ def ensure_upload_limit(text):
             head, sep, rest = block.partition("location")
             directive = re.compile(r"^\s*client_max_body_size\s+[^;]+;", re.M)
             if directive.search(head):
-                head = directive.sub(f"    client_max_body_size {UPLOAD_LIMIT};", head, count=1)
+                head = directive.sub(f"    client_max_body_size {limit};", head, count=1)
             else:
-                head = re.sub(r"(\bserver\s*\{\n?)", r"\1    client_max_body_size " + UPLOAD_LIMIT + ";\n", head, count=1)
+                head = re.sub(r"(\bserver\s*\{\n?)", r"\1    client_max_body_size " + limit + ";\n", head, count=1)
             block = head + sep + rest
         out.append(text[last:m.start()] + block)
         last = i + 1
@@ -274,7 +276,7 @@ def deploy_chatgpt_process(rel, short):
 
     updated = ensure_upload_limit(re.sub(
         r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + old_port + r";$",
-        r"\1proxy_pass http://127.0.0.1:" + new_port + ";", original))
+        r"\1proxy_pass http://127.0.0.1:" + new_port + ";", original), CHATGPT_UPLOAD_LIMIT)
     if updated == original:
         subprocess.run(["pm2", "delete", name], capture_output=True)
         raise RuntimeError("ChatGPT nginx config unchanged")

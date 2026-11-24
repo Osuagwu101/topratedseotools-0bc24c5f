@@ -68,7 +68,7 @@ export const CHATGPT_LANDING_PATH = "/";
 export const CHATGPT_UPSTREAM_ORIGIN = "https://chatgpt.com";
 export const CHATGPT_PROXY_COOKIE = "trst_cg_proxy";
 export const CHATGPT_HANDOFF_TTL_SECONDS = 60;
-const MAX_REQUEST_BYTES = 25 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
 
 // Only immutable asset bytes are cached. Writer/account authorization is always fresh.
 const CHATGPT_ASSET_CACHE_MAX_BYTES = 96 * 1024 * 1024;
@@ -984,7 +984,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   if (!["GET", "HEAD"].includes(request.method)) {
     const declared = Number(request.headers.get("content-length") ?? 0);
     if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
-      return new Response("Request too large", {
+      return new Response("This file is too large for ChatGPT here. The limit is 50 MB. Please upload a smaller file.", {
         status: 413,
         headers: standardHeaders("text/plain; charset=utf-8"),
       });
@@ -999,7 +999,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       });
     }
     if (bytes.byteLength > MAX_REQUEST_BYTES) {
-      return new Response("Request too large", {
+      return new Response("This file is too large for ChatGPT here. The limit is 50 MB. Please upload a smaller file.", {
         status: 413,
         headers: standardHeaders("text/plain; charset=utf-8"),
       });
