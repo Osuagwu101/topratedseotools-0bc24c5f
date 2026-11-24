@@ -2,6 +2,7 @@ import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfCon
 import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
+import {applyChatGptWriterModelPolicy,clampChatGptRequestEffort,requestUsesDisabledChatGptModel} from "./chatgpt-model-policy";
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
 import {imagePointerFileId} from './chatgpt-attachment-model';
 import {chatGptAccountAuthorization,chatGptAccountSession} from "./chatgpt-account-auth.server";
@@ -1092,6 +1093,19 @@ export async function handleChatGPTProxyRequest(request: Request) {
     }
     const hidden = hiddenAccountSurface(request.method, target.pathname);
     if (hidden) return jsonResponse(hidden, 200);
+    // Astra models and the Extra high / Max thinking levels are closed to every writer.
+    if (bodyText && request.method !== "GET" && request.method !== "HEAD" && target.pathname.startsWith("/backend-api/")) {
+      let modelPayload: any;
+      try { modelPayload = JSON.parse(bodyText); } catch { modelPayload = undefined; /* not JSON: leave untouched */ }
+      if (modelPayload && typeof modelPayload === "object") {
+        if (requestUsesDisabledChatGptModel(modelPayload))
+          return jsonResponse({ detail: "Astra models are not available here. Choose another model." }, 403);
+        if (clampChatGptRequestEffort(modelPayload)) {
+          bodyText = JSON.stringify(modelPayload);
+          body = new TextEncoder().encode(bodyText).buffer;
+        }
+      }
+    }
 
     const isDocument = isChatGptDocumentRequest(request) && request.method === "GET";
     // Shared projects granted to one writer are invisible to everyone else.
@@ -1439,6 +1453,11 @@ export async function handleChatGPTProxyRequest(request: Request) {
       const marker=hashChatGPTProxyToken(writerId+":"+account).slice(0,24);
       const script="<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstChatGptAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstChatGptAccount',m)}}catch{}})();</script>";
       rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script+(durable?historyBootstrap(proxyBase):''));
+    }
+    // Remove Astra models and the Extra high / Max levels from model lists.
+    if (isChatGptOrigin && contentType.includes("application/json") && target.pathname.startsWith("/backend-api/") &&
+        !/^\/backend-api\/(?:f\/)?conversations?(?:\/|$)/.test(target.pathname)) {
+      try { rewritten = JSON.stringify(applyChatGptWriterModelPolicy(JSON.parse(rewritten))); } catch { /* not JSON: leave untouched */ }
     }
     if (isChatGptOrigin && ownedIds && !storeAsset) {
       if (contentType.includes("text/html")) {
