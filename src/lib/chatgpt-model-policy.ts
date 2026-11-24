@@ -35,12 +35,23 @@ const levelValues = (o: any): string[] =>
 const isLevelList = (arr: any[]) =>
   arr.length > 0 && arr.some((e) => levelValues(e).some((s) => KNOWN_EFFORTS.has(letters(s))));
 
-/** An entry in a model list: it has a model id/slug, and that names an Astra model. */
+/** Keys whose value names a model, model family or picker entry. */
+const MODEL_NAME_KEYS = [
+  "slug", "model_slug", "model", "category", "default_model", "human_category_name",
+  "human_category_short_name", "model_version", "action_pill_short_name", "display_text",
+  "display_text_full", "display_text_for_intelligence", "short_display_text_for_intelligence", "id",
+];
+/** A bare model id such as "gpt-6.2-astra-wm" (no spaces), as found in slug lists. */
+const BARE_MODEL_ID = /^[a-z0-9._-]*astra[a-z0-9._-]*$/i;
+const isAstraKey = (k: string) => BARE_MODEL_ID.test(k);
+
+/** An entry in a model/category/version list that names an Astra model. */
 function isAstraModelEntry(entry: any): boolean {
+  if (typeof entry === "string") return BARE_MODEL_ID.test(entry) && isDisabledChatGptModel(entry);
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
-  const id = entry.slug ?? entry.model_slug ?? entry.model;
-  if (typeof id !== "string") return false;
-  return isDisabledChatGptModel(id) || isDisabledChatGptModel(entry.title) || isDisabledChatGptModel(entry.display_name);
+  if (MODEL_NAME_KEYS.some((k) => isDisabledChatGptModel(entry[k]))) return true;
+  // A chat or project that merely mentions the word in its title is not a model entry.
+  return typeof entry.slug === "string" && (isDisabledChatGptModel(entry.title) || isDisabledChatGptModel(entry.display_name));
 }
 
 /** Rewrites a ChatGPT JSON response for writers. */
@@ -54,6 +65,7 @@ export function applyChatGptWriterModelPolicy(value: any, depth = 0): any {
   }
   const out: any = {};
   for (const [key, item] of Object.entries(value)) {
+    if (isAstraKey(key)) continue; // e.g. a map keyed by "gpt-6-astra"
     if (EFFORT_VALUE_KEYS.test(key) && isDisabledChatGptEffort(item)) out[key] = CHATGPT_WRITER_MAX_EFFORT;
     else if (typeof item === "boolean" && /xhigh|extra_?high/i.test(key)) out[key] = false;
     else if (typeof item === "string" && STRINGIFIED_CONFIG.test(item) && /^\s*[\[{]/.test(item)) {
