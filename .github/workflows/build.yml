@@ -35,6 +35,9 @@ jobs:
       - name: Turnitin customer postpaid controls
         run: node --test tests/turnitin-customer-postpaid-controls.test.mjs
 
+      - name: ChatGPT access notice test
+        run: bun tests/chatgpt-access-notice.test.ts
+
       - name: ChatGPT model policy test
         run: bun tests/chatgpt-model-policy.test.ts
       - name: SneakWrite SSO regression test
