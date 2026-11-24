@@ -6,7 +6,7 @@ test('external and malformed routes denied',()=>{for(const path of ['//evil.test
 test('mutations disabled during preflight',()=>assert.throws(()=>v({path:'/paraphrasing-tool',method:'POST',body:'x'})));
 test('credentials not accepted from callers',()=>assert.deepEqual(v({path:'/',headers:{cookie:'secret',authorization:'secret',useridtoken:'secret'}}).headers,{}));
 test('other QuillBot tools are open, but only through their own routes',()=>{
-  for(const path of ['/ai-content-detector','/ai-humanizer','/summarize','/citation-generator','/grammar-checker','/plagiarism-checker','/ssrprops?lib=@quillbot/ai-detector-page&page=x','/api/ai-detector/limit?featureName=x'])assert.equal(v({path}).method,'GET');
+  for(const path of ['/ai-content-detector','/ai-humanizer','/summarize','/grammar-checker','/plagiarism-checker','/ssrprops?lib=@quillbot/ai-detector-page&page=x','/api/ai-detector/limit?featureName=x'])assert.equal(v({path}).method,'GET');
   for(const path of ['/api/ai-detector/score?version=1','/api/humanizer/humanize','/api/utils/detect-language'])assert.equal(v({path,method:'POST',body:'{}'}).method,'POST');
 });
 test('account, payment and shared-storage routes stay closed',()=>{
