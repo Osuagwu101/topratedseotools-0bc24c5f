@@ -98,13 +98,17 @@ export function claudeWriterHasExternalReferences(value:any,depth=0):boolean{
 
 /** GitHub and Supabase connectors are never available to writers. */
 export const BLOCKED_CONNECTOR_RE=/github|supabase/i;
+/** Admin-only skills on the shared account. They never appear in a writer's plugin or skill lists. */
+export const HIDDEN_SKILL_NAMES=["meta-ads-school-targeting","academic-stealthwriter","final-fidelity-check","academic-god"];
+const HIDDEN_SKILL_RE=new RegExp('"(?:'+HIDDEN_SKILL_NAMES.join("|")+')"',"i");
+const HIDDEN_SKILL_NAME_RE=new RegExp("^(?:"+HIDDEN_SKILL_NAMES.join("|")+")$","i");
 /** Tools that read the shared account's memory or other writers' chats. */
 const SHARED_MEMORY_TOOL_RE=/memory|conversation_search|recent_chats|past_chats|chat_search|search_chats/i;
 /** Ids of blocked connectors seen in listings, so opaque ids in later requests are refused too. */
 export const blockedConnectorIds=new Set<string>();
 function mentionsBlocked(value:any){
  let text="";try{text=JSON.stringify(value)??""}catch{return true}
- if(BLOCKED_CONNECTOR_RE.test(text))return true;
+ if(BLOCKED_CONNECTOR_RE.test(text)||HIDDEN_SKILL_RE.test(text))return true;
  for(const id of blockedConnectorIds)if(text.includes(id))return true;
  return false;
 }
@@ -115,7 +119,7 @@ function rememberBlocked(value:any){
 /** Remove GitHub/Supabase entries from connector, plugin and tool listings (arrays or id-keyed maps). */
 export function withoutBlockedConnectors(value:any,depth=0):any{
  if(depth>12||!value||typeof value!=="object")return value;
- if(Array.isArray(value))return value.filter(v=>{if(v&&typeof v==="object"&&mentionsBlocked(v)){rememberBlocked(v);return false}return !(typeof v==="string"&&BLOCKED_CONNECTOR_RE.test(v))}).map(v=>withoutBlockedConnectors(v,depth+1));
+ if(Array.isArray(value))return value.filter(v=>{if(v&&typeof v==="object"&&mentionsBlocked(v)){rememberBlocked(v);return false}return !(typeof v==="string"&&(BLOCKED_CONNECTOR_RE.test(v)||HIDDEN_SKILL_NAME_RE.test(v)))}).map(v=>withoutBlockedConnectors(v,depth+1));
  const out:any={};
  for(const [k,v] of Object.entries(value)){
   if(BLOCKED_CONNECTOR_RE.test(k)||[...blockedConnectorIds].some(id=>k.toLowerCase().includes(id)))continue;
