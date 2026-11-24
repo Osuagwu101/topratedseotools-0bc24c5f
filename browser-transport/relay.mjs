@@ -40,7 +40,7 @@ export function validateRelayRequest(input) {
   // subscription routes stay closed. Projects and saved history stay closed too,
   // because they live on the one shared QuillBot account and need per-writer
   // isolation before they can be opened.
-  const closed = /^\/(?:logout|signout|sign-out|billing|account|accounts|subscription|subscriptions|settings|premium|upgrade|checkout|cdn-cgi|api\/(?:projects|history|auth|account|accounts|billing|subscription|subscriptions|user|users|me|profile|settings|premium|upgrade|checkout|logout|payments(?!\/get-pricing$)))(?:\/|$)/i.test(url.pathname);
+  const closed = /^\/(?:logout|signout|sign-out|billing|account|accounts|subscription|subscriptions|settings|premium|upgrade|checkout|cdn-cgi|citation-generator|api\/(?:citations-next|citations|projects|history|auth|account|accounts|billing|subscription|subscriptions|user|users|me|profile|settings|premium|upgrade|checkout|logout|payments(?!\/get-pricing$)))(?:\/|$)/i.test(url.pathname);
   const read = !closed && !url.pathname.startsWith('/claudeai-rpc/');
   const post = /^\/api\/auth\/(?:token|get-account-details|issue-token)$/.test(url.pathname) || (!closed && /^\/api\//.test(url.pathname));
   if(url.pathname==='/ssrprops' && /projects|account|settings|billing|payments|subscription/i.test(url.searchParams.get('lib')||''))throw Error('route');

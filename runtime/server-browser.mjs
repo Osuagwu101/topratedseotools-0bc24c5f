@@ -3,6 +3,7 @@ import {adaptClient,CLIENT_AUTH_PATH} from '../browser-transport/client-auth-ada
 import {bootstrapPrelude} from '../browser-transport/writer-bootstrap.mjs';
 import {browserFetch, syncBrowserSession} from '../browser-transport/browser-fetch.mjs';
 import {WriterStore} from '../browser-transport/writer-store.mjs';
+import {isProviderToolPath,providerLimitHit,toolForPath,toolHistoryEntry,PROVIDER_LIMIT_BODY} from '../browser-transport/tool-history.mjs';
 import http from "node:http";
 import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
@@ -102,7 +103,7 @@ async function handle(request) {
     const profiles=await db.from('profiles').select('id,email,full_name').in('id',ids);
     if(profiles.error)throw Error('Writer list unavailable');
     const indexed=new Map((controls.data||[]).map(v=>[v.user_id,v.status]));
-    return Response.json({writers:(profiles.data||[]).map(p=>({user_id:p.id,email:p.email,full_name:p.full_name,status:indexed.get(p.id)||'active',...writerStore.status(p.id)}))},{headers:quillBotResponseHeaders('application/json')});
+    return Response.json({writers:(profiles.data||[]).map(p=>({user_id:p.id,email:p.email,full_name:p.full_name,status:indexed.get(p.id)||'active',...writerStore.status(p.id),tools:writerStore.toolUsage(p.id)}))},{headers:quillBotResponseHeaders('application/json')});
    }
    if(path==='/__trst/admin/control'&&request.method==='POST'){
     if(request.headers.get('origin')!==PUBLIC)return new Response('Cross-site update blocked',{status:403});
@@ -211,7 +212,7 @@ async function handle(request) {
    if(profile.error)throw Error('Writer profile unavailable');
    return Response.json({...account,until:undefined,uid:session.user_id,email:profile.data?.email||'writer@topratedseotools.com',name:profile.data?.full_name||'TopRated Writer',session_expires_at:session.expires_at,client_token:CLIENT_TOKEN},{headers:quillBotResponseHeaders('application/json')});
   }
-  if(path==='/__trst/usage')return Response.json(writerStore.status(session.user_id),{headers:quillBotResponseHeaders('application/json')});
+  if(path==='/__trst/usage')return Response.json({...writerStore.status(session.user_id),tools:writerStore.toolUsage(session.user_id)},{headers:quillBotResponseHeaders('application/json')});
   if (path === "/__trst/bootstrap.js") {
    const native=await quillBotProxyBootstrapResponse("").text();
    return new Response(bootstrapPrelude(session.user_id)+native,{headers:quillBotResponseHeaders('application/javascript')});
@@ -242,11 +243,17 @@ async function handle(request) {
    const body=await request.clone().json();
    if(!writerStore.helper(session.user_id,request.headers.get('x-trst-operation'),safePath,body))return new Response('This result does not belong to your active paraphrase.',{status:403,headers:quillBotResponseHeaders()});
   }
+  const toolBody=request.method==='POST'&&toolForPath(safePath)?await request.clone().json().catch(()=>null):null;
   let response;
   try{response=await proxyQuillBotRequest(request,{cookie:'authenticated=true; premium=true',useridtoken:'trst-server-auth'},browserFetch);}catch(e){if(operation)writerStore.refund(session.user_id,operation);else if(/^\/api\/paraphraser\/single-paraphrase\/[0-9]+$/.test(safePath))writerStore.fail(session.user_id,request.headers.get('x-trst-operation'));throw e;}
   if(!response.ok&&/^\/api\/paraphraser\/single-paraphrase\/[0-9]+$/.test(safePath))writerStore.fail(session.user_id,request.headers.get('x-trst-operation'));
   if(response.ok&&safePath.startsWith('/api/paraphraser/')){try{writerStore.recordOutput(session.user_id,request.headers.get('x-trst-operation'),await response.clone().json())}catch{}}
   if(operation){if(!response.ok)writerStore.refund(session.user_id,operation);else response.headers.set('x-trst-operation',operation);}
+  if(request.method==='POST'&&isProviderToolPath(safePath)){
+    const data=await response.clone().json().catch(()=>null);
+    if(providerLimitHit(response.status,data)){console.warn(JSON.stringify({layer:'quillbot_tools',event:'provider_limit',path:safePath,status:response.status,code:data?.code}));return new Response(JSON.stringify(PROVIDER_LIMIT_BODY),{status:503,headers:quillBotResponseHeaders('application/json')});}
+    if(response.ok&&toolBody){try{const entry=toolHistoryEntry(safePath,toolBody,data);if(entry){const payload=JSON.stringify(entry);writerStore.saveHistory(session.user_id,encryptQuillBotSession(payload),createHash('sha256').update(payload).digest('hex'));writerStore.countTool(session.user_id,entry.tool);}}catch(e){console.warn(JSON.stringify({layer:'quillbot_tools',event:'history_save_failed',path:safePath}));}}
+  }
   response.headers.set('content-security-policy',"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://libs.quillbot.com https://assets.quillbot.com; connect-src 'self' https://libs.quillbot.com https://assets.quillbot.com; style-src 'self' 'unsafe-inline' https://libs.quillbot.com https://assets.quillbot.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://assets.quillbot.com https://libs.quillbot.com; img-src 'self' data: blob: https://assets.quillbot.com https://libs.quillbot.com; worker-src 'self' blob: https://assets.quillbot.com https://libs.quillbot.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
   // Diagnostics contain paths and status only, never tokens, cookies, query or text.
   console.log(JSON.stringify({ layer: "quillbot_upstream", path, status: response.status, rejected: response.headers.get("x-trst-upstream-status") || undefined, verification_challenge: response.headers.get("cf-mitigated") === "challenge", upstream_ray_present: response.headers.has("cf-ray") }));
