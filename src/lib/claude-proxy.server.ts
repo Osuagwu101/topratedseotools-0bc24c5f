@@ -574,8 +574,12 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     const shared = false;
     const browser=claudeBrowserTransportEnabled();
     const route = browser ? claudeBrowserRoutePolicy(request.method, url.pathname) : claudeRoutePolicy(request.method, url.pathname);
-    if (!route || url.searchParams.has("_rsc") || request.headers.has("rsc"))
+    if (!route || url.searchParams.has("_rsc") || request.headers.has("rsc")) {
+      // Path only (IDs masked) so Admin can see which feature was refused.
+      if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/edge-api/"))
+        console.warn("[claude-proxy] route refused", request.method, url.pathname.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "{id}"));
       return json(403, { error: "This Claude feature is not available through OneClick." });
+    }
     if(route.kind==="integration"){const lower=(url.pathname+url.search).toLowerCase();if([...blockedConnectorIds].some(id=>lower.includes(id)))return json(403,{error:"GitHub and Supabase connectors are not available on Claude OneClick."});}
     const rpc=browser && route.kind==="rpc";
     const writer = String(session.user_id);
@@ -735,8 +739,13 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
       return new Response(upstream.body, { status: upstream.status, headers: out });
     }
     let text = await upstream.text();
-    if (claudeResponseContainsSecret(text, state))
+    if (route.kind === "integration" && upstream.status >= 400)
+      console.warn("[claude-proxy] connector request failed upstream", request.method, upstream.status, url.pathname.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "{id}"));
+    if (claudeResponseContainsSecret(text, state)) {
+      if (route.kind === "integration")
+        console.warn("[claude-proxy] connector response withheld (private account state)", url.pathname.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "{id}"));
       return plain(502, "Claude returned private account state. Contact Admin (CL-06).");
+    }
     if (route.kind === "artifact_list" && !type.includes("json")) return plain(502, "Unexpected Claude response");
     // Writer file contents are returned byte-for-byte, never rewritten or rendered on this origin.
     if (route.kind === "file") { applyFileHeaders(out, upstream, type); return new Response(text, { status: upstream.status, headers: out }); }
