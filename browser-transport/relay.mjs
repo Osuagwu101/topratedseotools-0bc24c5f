@@ -36,10 +36,15 @@ export function validateRelayRequest(input) {
   const url = mapped;
   if (!['https://quillbot.com','https://media.quillbot.com'].includes(url.origin) || url.username || url.password || url.hash) throw Error('origin');
   const method=String(input.method??'GET').toUpperCase();
-  const read = /^\/(?:$|paraphrasing-tool$|ssrprops$|api\/pageq\/apps\/QBWebapp\/client-contents$|api\/payments\/get-pricing$|api\/utils\/get-ui-config$|worker\/abtest-experiments-info$|locales\/|rebrand\/|_next\/|assets\/|images\/|favicon)/.test(url.pathname);
-  const post = /^\/api\/(?:auth\/(?:token|get-account-details|issue-token)|utils\/(?:detect-language|topic-classifier|sentence-spiltter)|paraphraser\/(?:single-paraphrase\/[0-9]+|single-flip|chunker|paraphrase-thesaurus))$/.test(url.pathname);
+  // Tool pages and their data calls are open. Account, billing, sign-in and
+  // subscription routes stay closed. Projects and saved history stay closed too,
+  // because they live on the one shared QuillBot account and need per-writer
+  // isolation before they can be opened.
+  const closed = /^\/(?:logout|signout|sign-out|billing|account|accounts|subscription|subscriptions|settings|premium|upgrade|checkout|cdn-cgi|api\/(?:projects|history|auth|account|accounts|billing|subscription|subscriptions|user|users|me|profile|settings|premium|upgrade|checkout|logout|payments(?!\/get-pricing$)))(?:\/|$)/i.test(url.pathname);
+  const read = !closed && !url.pathname.startsWith('/claudeai-rpc/');
+  const post = /^\/api\/auth\/(?:token|get-account-details|issue-token)$/.test(url.pathname) || (!closed && /^\/api\//.test(url.pathname));
+  if(url.pathname==='/ssrprops' && /projects|account|settings|billing|payments|subscription/i.test(url.searchParams.get('lib')||''))throw Error('route');
   if(url.origin==='https://media.quillbot.com' && url.pathname!=='/api/auth/token')throw Error('route');
-  if(url.pathname==='/ssrprops' && url.searchParams.get('lib')!=='@quillbot/paraphraser-page')throw Error('route');
   if (!(read && ['GET','HEAD'].includes(method)) && !(post && method==='POST')) throw Error('route');
   const headers={};
   for (const [name,value] of Object.entries(input.headers??{})) {
