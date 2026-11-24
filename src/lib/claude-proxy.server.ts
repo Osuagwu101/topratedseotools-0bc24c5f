@@ -1,7 +1,7 @@
 import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
-import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,BLOCKED_CONNECTOR_RE,blockedConnectorIds,filterClaudeArtifactList} from "@/lib/claude-writer-policy";
+import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,withoutBlockedConnectorEvents,BLOCKED_CONNECTOR_RE,blockedConnectorIds,filterClaudeArtifactList} from "@/lib/claude-writer-policy";
 import {getClaudeUsage,reserveClaudeMessage,releaseClaudeMessage} from "@/lib/claude-controls.server";
 import {fetchClaudeProvider,claudeSharedBrowserTransport,claudeBrowserTransportEnabled} from "@/lib/claude-browser-fetch.server";
 import {claudeBrowserRoutePolicy} from "@/lib/claude-browser-route-policy";
@@ -723,6 +723,14 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
     }
     // Stream tokens without buffering the completion; only owned conversation routes reach here.
     if (type.includes("text/event-stream")) {
+      // Connector bootstrap is a short event stream: read it whole, filter blocked providers, then return it.
+      if (route.kind === "integration" && !request.url.includes("/completion")) {
+        const raw = await upstream.text();
+        if (claudeResponseContainsSecret(raw, state))
+          return plain(502, "Claude returned private account state. Contact Admin (CL-06).");
+        out.delete("content-length");
+        return new Response(withoutBlockedConnectorEvents(raw), { status: upstream.status, headers: out });
+      }
       if (route.kind !== "conversation") return plain(502, "Unexpected Claude stream");
       return new Response(upstream.body, { status: upstream.status, headers: out });
     }

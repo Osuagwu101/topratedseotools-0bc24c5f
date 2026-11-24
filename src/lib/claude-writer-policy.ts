@@ -249,3 +249,27 @@ export function filterClaudeArtifactList(payload:any,owned:Set<string>,depth=0):
  for(const [k,v] of Object.entries(payload))out[k]=filterClaudeArtifactList(v,owned,depth+1);
  return out;
 }
+
+/**
+ * The connector bootstrap (`/mcp/v2/bootstrap`) answers as a server-sent event
+ * stream. Filter it event by event so GitHub and Supabase never reach a writer.
+ * An event that still mentions a blocked connector after filtering is dropped.
+ */
+export function withoutBlockedConnectorEvents(raw:string):string{
+ const events=raw.split(/\r?\n\r?\n/);
+ const kept:string[]=[];
+ for(const event of events){
+  if(!event.trim())continue;
+  const lines=event.split(/\r?\n/);
+  const dataLines=lines.filter(l=>l.startsWith("data:"));
+  if(!dataLines.length){if(!mentionsBlocked(event))kept.push(event);continue;}
+  const data=dataLines.map(l=>l.slice(5).replace(/^ /,"")).join("\n");
+  let parsed:any;
+  try{parsed=JSON.parse(data)}catch{if(!mentionsBlocked(data))kept.push(event);continue;}
+  const cleaned=withoutBlockedConnectors(parsed);
+  if(mentionsBlocked(cleaned))continue;
+  const meta=lines.filter(l=>!l.startsWith("data:"));
+  kept.push([...meta,"data: "+JSON.stringify(cleaned)].join("\n"));
+ }
+ return kept.length?kept.join("\n\n")+"\n\n":"";
+}

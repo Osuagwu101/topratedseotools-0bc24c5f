@@ -40,6 +40,9 @@ jobs:
 
       - name: ChatGPT model policy test
         run: bun tests/chatgpt-model-policy.test.ts
+      - name: Claude connector stream test
+        run: bun tests/claude-connector-stream.test.ts
+
       - name: SneakWrite SSO regression test
         run: bun tests/direct-sso-url.test.ts
       - name: Phrasly proxy foundation regression tests
