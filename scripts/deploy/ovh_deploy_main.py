@@ -17,6 +17,7 @@ import shlex
 import re
 import shutil
 import subprocess
+import socket
 import sys
 import time
 from datetime import datetime, timezone
@@ -172,6 +173,146 @@ def ensure_upload_limit(text):
     return "".join(out)
 
 
+CHATGPT_NGINX_CFG = Path("/etc/nginx/sites-enabled/chatgpt-proxy")
+CHATGPT_HOST_URL = "https://chatgpt.topratedseotools.com/"
+CHATGPT_HOST_NAME = "chatgpt.topratedseotools.com"
+CHATGPT_PORT_POOL = range(3330, 3360)
+
+
+def pm2_ports(processes):
+    ports = set()
+    for proc in processes:
+        env = proc.get("pm2_env", {})
+        value = env.get("PORT") or (env.get("env") or {}).get("PORT")
+        if value:
+            ports.add(str(value))
+    return ports
+
+
+def port_is_free(port):
+    probe = socket.socket()
+    try:
+        probe.bind(("127.0.0.1", int(port)))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+def deploy_chatgpt_process(rel, short):
+    """Move the dedicated ChatGPT host onto this release, blue/green.
+
+    The ChatGPT host runs as its own PM2 process on its own port, so the main
+    swap above never touches it. This starts a copy of that process from the new
+    release (same environment, so nothing about customers, sessions or
+    subscriptions changes: those live in the database, not in the process),
+    waits until it answers, then points only the ChatGPT nginx file at it. The
+    previous process keeps running so it can be switched back instantly.
+    Any failure leaves the live ChatGPT host exactly as it was.
+    """
+    if not CHATGPT_NGINX_CFG.exists():
+        log("ChatGPT host: no nginx file, skipping")
+        return
+    original = CHATGPT_NGINX_CFG.read_text()
+    old_port = current_port(original)
+    processes = json.loads(subprocess.check_output(["pm2", "jlist"], text=True))
+    old_proc = next((p for p in processes
+                     if p.get("pm2_env", {}).get("status") == "online"
+                     and str(p["pm2_env"].get("PORT") or (p["pm2_env"].get("env") or {}).get("PORT")) == old_port), None)
+    if old_proc is None:
+        log(f"ChatGPT host: no online process on port {old_port}, skipping")
+        return
+    if Path(old_proc["pm2_env"].get("pm_cwd", "")).resolve() == rel.resolve():
+        log("ChatGPT host already runs this release")
+        return
+    used = pm2_ports(processes)
+    new_port = next((str(p) for p in CHATGPT_PORT_POOL if str(p) not in used and port_is_free(p)), None)
+    if new_port is None:
+        raise RuntimeError("no free port for the ChatGPT process")
+    name = f"trst-chatgpt-{new_port}"
+    old_cwd = Path(old_proc["pm2_env"]["pm_cwd"])
+    log(f"ChatGPT host: {old_proc['name']} (port {old_port}) -> {name} (port {new_port}) from {rel}")
+
+    # Same private environment as the running ChatGPT process, copied into the new release.
+    env_file = rel / ".env.chatgpt"
+    shutil.copy2(private_environment_source(old_proc, old_cwd), env_file)
+    env_file.chmod(0o600)
+    old_args = old_proc["pm2_env"].get("node_args") or []
+    if isinstance(old_args, str):
+        old_args = shlex.split(old_args)
+    kept, skip = [], False
+    for arg in old_args:
+        if skip:
+            skip = False
+        elif arg == "--env-file":
+            skip = True
+        elif not arg.startswith("--env-file="):
+            kept.append(arg)
+    node_args = " ".join(shlex.quote(a) for a in kept + [f"--env-file={env_file}"])
+    env = {**os.environ, **process_environment(old_proc),
+           "PORT": new_port, "NITRO_PORT": new_port, "HOST": "127.0.0.1", "NITRO_HOST": "127.0.0.1"}
+    subprocess.run(["pm2", "delete", name], capture_output=True)
+    run(["pm2", "start", str(rel / ".output/server/index.mjs"), "--name", name, "--cwd", str(rel),
+         "--interpreter", "/usr/bin/node", f"--node-args={node_args}"], env=env)
+
+    def local_check():
+        cmd = ["curl", "-sk", "-m", "15", "-o", "/dev/null", "-w", "%{http_code}",
+               "-H", f"Host: {CHATGPT_HOST_NAME}", f"http://127.0.0.1:{new_port}/"]
+        return subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
+
+    code = ""
+    for _ in range(25):
+        time.sleep(2)
+        code = local_check()
+        if code == "401":  # anonymous request, healthy dedicated host
+            break
+    log(f"ChatGPT host: local check on {new_port} -> {code}")
+    if code != "401":
+        subprocess.run(["pm2", "delete", name], capture_output=True)
+        raise RuntimeError(f"new ChatGPT process did not become healthy ({code})")
+
+    updated = ensure_upload_limit(re.sub(
+        r"(?m)^(\s+)proxy_pass http://127\.0\.0\.1:" + old_port + r";$",
+        r"\1proxy_pass http://127.0.0.1:" + new_port + ";", original))
+    if updated == original:
+        subprocess.run(["pm2", "delete", name], capture_output=True)
+        raise RuntimeError("ChatGPT nginx config unchanged")
+    BACKUPS.mkdir(parents=True, exist_ok=True)
+    (BACKUPS / f"chatgpt-proxy-before-{short}-{int(time.time())}.conf").write_text(original)
+
+    def install(text):
+        tmp = Path(f"/tmp/nginx-{short}-chatgpt-proxy.conf")
+        tmp.write_text(text)
+        subprocess.run(["sudo", "cp", str(tmp), str(CHATGPT_NGINX_CFG)], check=True)
+
+    try:
+        install(updated)
+        run(["sudo", "nginx", "-t"], capture_output=True)
+        run(["sudo", "systemctl", "reload", "nginx"])
+        time.sleep(2)
+        public = http_code(CHATGPT_HOST_URL)
+        log(f"PUBLIC {CHATGPT_HOST_URL} {public}")
+        if public != "401":
+            raise RuntimeError(f"public ChatGPT host check failed ({public})")
+    except BaseException as exc:
+        install(original)
+        subprocess.run(["sudo", "nginx", "-t"], check=True)
+        subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
+        subprocess.run(["pm2", "delete", name], capture_output=True)
+        log(f"ChatGPT host ROLLED BACK to port {old_port}: {exc}")
+        raise
+
+    # Retire ChatGPT processes older than the one just replaced (it stays for rollback).
+    for proc in processes:
+        other = proc["name"]
+        if (re.fullmatch(r"trst-chatgpt-\d+", other) and other != name
+                and str(proc.get("pm2_env", {}).get("PORT") or (proc.get("pm2_env", {}).get("env") or {}).get("PORT")) != old_port):
+            subprocess.run(["pm2", "delete", other], capture_output=True)
+            log(f"removed old ChatGPT process {other}")
+    log(f"CHATGPT_OK live on port {new_port}; previous ChatGPT process still running on {old_port} for instant rollback")
+
+
 def main():
     sha = (os.environ.get("SSH_ORIGINAL_COMMAND") or (sys.argv[1] if len(sys.argv) > 1 else "")).strip()
     if not re.fullmatch(r"[0-9a-f]{7,40}", sha):
@@ -311,6 +452,14 @@ def main():
     tmp_link.symlink_to(rel)
     os.replace(tmp_link, CURRENT_LINK)
     log(f"DEPLOY_OK {sha} live on port {new_port}; previous build still running on {live_port} for instant rollback")
+
+    # The dedicated ChatGPT host is a separate process. A problem here never
+    # affects the main site, which is already live and healthy.
+    try:
+        deploy_chatgpt_process(rel, short)
+        subprocess.run(["pm2", "save"], capture_output=True)
+    except BaseException as exc:
+        log(f"CHATGPT_NOT_UPDATED (the ChatGPT host is unchanged): {exc}")
 
     # 7. Housekeeping: keep the newest few main releases (never the two that are running).
     active_processes = json.loads(subprocess.check_output(["pm2", "jlist"], text=True))
