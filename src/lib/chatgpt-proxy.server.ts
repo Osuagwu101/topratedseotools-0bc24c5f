@@ -1,3 +1,10 @@
+import {
+  CHATGPT_ACCESS_NOTICE_HEADER,
+  chatGptAccessMessage,
+  chatGptAccessNoticeHtml,
+  chatGptReferenceForDiagnostic,
+  type ChatGptAccessReference,
+} from "./chatgpt-access-notice";
 import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfConversationListPath, touchesHiddenProject, type ProjectAccess } from "./chatgpt-project-access";
 import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
@@ -599,13 +606,13 @@ async function exchangeLaunchTicket(request: Request, ticket: string) {
       );
     }
   } catch {
-    return unavailable();
+    return unavailable(request);
   }
 
   try {
     await loadEncryptedChatGPTSession(row.provider_account_key);
   } catch {
-    return unavailable();
+    return unavailable(request, "GPT-01");
   }
 
   const sessionToken = randomBytes(32).toString("base64url");
@@ -937,13 +944,23 @@ function unauthorized() {
   );
 }
 
-function unavailable() {
+function unavailable(
+  request?: Request,
+  code: ChatGptAccessReference = "GPT-09",
+) {
+  const headers = standardHeaders();
+  headers.set(CHATGPT_ACCESS_NOTICE_HEADER, code);
+  if (request && isChatGptDocumentRequest(request)) {
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    return new Response(
+      request.method === "HEAD" ? null : chatGptAccessNoticeHtml(code),
+      { status: 503, headers },
+    );
+  }
+  headers.set("Content-Type", "application/json; charset=utf-8");
   return new Response(
-    "ChatGPT is temporarily unavailable. Admin may need to refresh the authorised session.",
-    {
-      status: 503,
-      headers: standardHeaders("text/plain; charset=utf-8"),
-    },
+    JSON.stringify({ detail: chatGptAccessMessage(code), reference: code }),
+    { status: 503, headers },
   );
 }
 
@@ -994,7 +1011,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   try {
     proxySession = await requireProxySession(request);
   } catch {
-    return unavailable();
+    return unavailable(request);
   }
   if (!proxySession) return unauthorized();
 
@@ -1023,7 +1040,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     try {
       const route = await historyRoute(request,suffix,proxyBase,String(proxySession.user_id),String(proxySession.id),jsonResponse);
       if(route) return route;
-    } catch { return unavailable(); }
+    } catch { return unavailable(request); }
   }
   let targetOrigin = CHATGPT_UPSTREAM_ORIGIN;
   let targetPath = mapChatGPTClientApiPath(suffix || CHATGPT_LANDING_PATH);
@@ -1069,7 +1086,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
   let savedHistory: any = null;
   if(durable && addressedHistoryId) {
     try { savedHistory = await threadForAlias(writerId,addressedHistoryId); }
-    catch { return unavailable(); }
+    catch { return unavailable(request); }
   }
   const originalMessages = durable && bodyText ? (()=>{try{return JSON.parse(bodyText).messages;}catch{return undefined;}})() : undefined;
   let continuationThread: string | undefined;
@@ -1082,7 +1099,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       const claimed=await claimHistoryResume(writerId,String(proxySession.id),resumeToken);
       if(!claimed) return jsonResponse({detail:'This continuation has already started.'},409);
       continuationThread=intent.thread_id;
-    } catch {return unavailable();}
+    } catch {return unavailable(request);}
   }
   if (isChatGptOrigin) {
     if (isBlockedChatGptApiRequest(request.method, target.pathname)) {
@@ -1112,7 +1129,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     try {
       projectAccess = buildProjectAccess(await projectGrants(account), writerId);
     } catch {
-      return unavailable();
+      return unavailable(request);
     }
     if (touchesHiddenProject(projectAccess, target.pathname + target.search, bodyText)) {
       if (isDocument) {
@@ -1133,7 +1150,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         owner = await ownerOfConversation(addressed,account);
         if (projectAccess.granted.size || projectAccess.hidden.size) project = await projectOfConversation(addressed,account);
       } catch {
-        return unavailable();
+        return unavailable(request);
       }
       if (project && projectAccess.granted.has(project)) sharedProjectChats.add(addressed);
       const allowed = (owner === writerId || sharedProjectChats.has(addressed)) && !(project && projectAccess.hidden.has(project));
@@ -1161,7 +1178,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       ownedIds = await ownedConversationIds(writerId,account);
       for (const id of await projectConversationIds(projectAccess.granted,account)) ownedIds.add(id);
     } catch {
-      return unavailable();
+      return unavailable(request);
     }
   }
   if (!durable && listPage && ownedIds && ownedIds.size === 0) {
@@ -1202,14 +1219,14 @@ export async function handleChatGPTProxyRequest(request: Request) {
       String(proxySession.id),
       "session_decrypt_failed",
     );
-    return unavailable();
+    return unavailable(request, chatGptReferenceForDiagnostic("session_decrypt_failed"));
   }
   if (!isSecondaryHost && !cookieHeader) {
     await recordChatGPTProxyDiagnostic(
       String(proxySession.id),
       "session_cookie_missing",
     );
-    return unavailable();
+    return unavailable(request, chatGptReferenceForDiagnostic("session_cookie_missing"));
   }
 
   let providerHeaders:Headers;
@@ -1218,12 +1235,12 @@ export async function handleChatGPTProxyRequest(request: Request) {
     if(!isSecondaryHost && request.headers.has("authorization")){
       providerHeaders.set("Authorization",await chatGptAccountAuthorization(account,sessionSnapshot,providerHeaders));
     }
-  }catch{return unavailable();}
+  }catch{return unavailable(request);}
   let historyIdentity: string | null = null;
   if(durable && isChatGptOrigin && !isImmutableChatGPTAssetPath(targetOrigin,target.pathname)) {
     try {
       const providerSession=await chatGptAccountSession(account,sessionSnapshot,providerHeaders);
-      if(!providerSession.identity) return unavailable();
+      if(!providerSession.identity) return unavailable(request);
       historyIdentity=providerSession.identity;
       providerHeaders.set('Authorization','Bearer '+providerSession.token);
       if(savedHistory) {
@@ -1252,7 +1269,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       }
     } catch(error) {
       if(error instanceof HistoryContextError) return jsonResponse({detail:error.message},409);
-      return unavailable();
+      return unavailable(request);
     }
   }
   if(durable && attachmentStorageEnabled() && historyIdentity && isChatGptOrigin) {
@@ -1274,7 +1291,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
        for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id))return jsonResponse({detail:'File not found'},404);
       }
      }
-    }catch{return unavailable();}
+    }catch{return unavailable(request);}
   }
   let upstream: Response;
   try {
@@ -1289,13 +1306,13 @@ export async function handleChatGPTProxyRequest(request: Request) {
       String(proxySession.id),
       "upstream_network_error",
     );
-    return unavailable();
+    return unavailable(request, chatGptReferenceForDiagnostic("upstream_network_error"));
   }
 
   try {
     if(!isSecondaryHost)await persistRotatedChatGPTCookies(upstream,account,sessionSnapshot);
   } catch {
-    return unavailable();
+    return unavailable(request);
   }
 
   if (!isSecondaryHost) {
@@ -1305,7 +1322,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         "upstream_401",
         upstream.status,
       );
-      return unavailable();
+      return unavailable(request, "GPT-01");
     }
     if (upstream.status === 403) {
       await recordChatGPTProxyDiagnostic(
@@ -1313,7 +1330,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         classifyChatGPT403(upstream),
         upstream.status,
       );
-      return unavailable();
+      return unavailable(request, chatGptReferenceForDiagnostic(classifyChatGPT403(upstream)));
     }
   }
 
@@ -1330,7 +1347,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         "upstream_external_redirect",
         upstream.status,
       );
-      return unavailable();
+      return unavailable(request, chatGptReferenceForDiagnostic("upstream_external_redirect"));
     }
     await recordChatGPTProxyDiagnostic(
       String(proxySession.id),
@@ -1415,12 +1432,12 @@ export async function handleChatGPTProxyRequest(request: Request) {
         pages.push(JSON.parse(rewriteChatGPTBody(await next.text(), contentType, proxyBase, publicOrigin)));
       }
     } catch {
-      return unavailable();
+      return unavailable(request);
     }
     let page = buildOwnedConversationPage(pages,ownedIds,durable?0:listPage.offset,durable?5000:listPage.limit);
     if(durable) {
       try {page=mergeHistoryPage(page,await savedHistoryItems(writerId,historyIdentity??undefined),listPage.offset,listPage.limit);}
-      catch {return unavailable();}
+      catch {return unavailable(request);}
     }
     return new Response(JSON.stringify(page),{status:200,headers});
   }
@@ -1446,7 +1463,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       } catch {console.error('[chatgpt-history] opened chat backup failed');}
     }
     if(durable && attachmentStorageEnabled() && historyIdentity && upstream.ok && isChatGptOrigin && request.method==='POST' && /^\/backend-api\/files\/?$/.test(target.pathname)) {
-      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch{return unavailable();}
+      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch{return unavailable(request);}
     }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){
@@ -1467,7 +1484,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         try {
           await rememberProjectConversations(found, account);
         } catch {
-          return unavailable();
+          return unavailable(request);
         }
       } else if (contentType.includes("application/json") && target.pathname.startsWith("/backend-api/")) {
         let parsed: any;
@@ -1482,7 +1499,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
             try {
               await rememberProjectConversations(shared.grantedConversations, account);
             } catch {
-              return unavailable();
+              return unavailable(request);
             }
             for (const id of shared.grantedConversations.keys()) ownedIds.add(id);
           }
