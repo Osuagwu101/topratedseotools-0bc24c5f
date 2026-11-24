@@ -47,7 +47,7 @@ try{
   'Community gardens help families grow fresh vegetables close to home. Volunteers share seeds, tools and advice so that beginners can start without large costs. Neighbours who work together on shared plots often build lasting friendships. Health workers note that access to fresh produce supports better eating habits across the whole neighbourhood.'
  ];
  const detect=async(s,text)=>request('/api/ai-detector/score?version=2',{method:'POST',headers:headers(s),body:JSON.stringify({language:'en',text,explain:true,origin:'text-editor-aidr',checkType:'foreground'})});
- const summarize=async(s,text)=>request('/api/summarizer/summarize-para/abs',{method:'POST',headers:headers(s),body:JSON.stringify({para:text,lang:'en',modeId:'abs'})});
+ const summarize=async(s,text)=>request('/api/summarizer/summarize-para/abs',{method:'POST',headers:headers(s),body:JSON.stringify({para:text,lang:'en',modeId:'abs',ratio:1})});
  const results=[];
  for(const [i,s] of sessions.entries()){
   const d=await detect(s,TEXTS[i]);assert.equal(d.r.status,200,'AI Detector call failed: '+d.r.status+' '+d.text.slice(0,200));

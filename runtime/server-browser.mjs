@@ -193,7 +193,7 @@ async function handle(request) {
   if(path==='/__trst/history'){
    if(request.method==='GET'){
     if([...url.searchParams.keys()].length)return new Response('History belongs to the signed-in writer.',{status:403,headers:quillBotResponseHeaders()});
-    const items=writerStore.history(session.user_id).map(row=>({id:row.id,created_at:row.created,...JSON.parse(decryptQuillBotSession(row.payload))}));
+    const items=writerStore.history(session.user_id).flatMap(row=>{try{return [{id:row.id,created_at:row.created,...JSON.parse(decryptQuillBotSession(row.payload))}];}catch{return [];}});
     return Response.json({items},{headers:quillBotResponseHeaders('application/json')});
    }
    if(request.method==='POST'){
