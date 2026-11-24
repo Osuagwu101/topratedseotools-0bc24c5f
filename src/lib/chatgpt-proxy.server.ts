@@ -1277,6 +1277,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     try {
      const fileId=filePath?.[1]??(target.pathname==='/backend-api/estuary/content'?target.searchParams.get('id'):null);
      if(fileId && !await ownsWriterFile(writerId,historyIdentity,fileId)) {
+      console.warn('[chatgpt-files] file not owned by this writer',request.method,target.pathname.replace(/file[-_][A-Za-z0-9_-]+/g,'file-{id}'),writerId.slice(0,8),account);
       const conversation=target.searchParams.get('conversation_id')??target.searchParams.get('cid')??conversationIdFromDocumentPath(new URL(request.headers.get('referer')??request.url).pathname.replace(proxyBase,''));
       if(request.method!=='GET'||!conversation||!await claimOwnedGeneratedFile(writerId,historyIdentity,fileId,conversation,account,providerHeaders))return jsonResponse({detail:'File not found'},404);
      }
@@ -1288,7 +1289,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
        for(const p of m.content?.parts??[])if(p&&typeof p==='object') {
         const id=imagePointerFileId(p.asset_pointer??p.image_asset_pointer);if(id)ids.add(id);
        }
-       for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id))return jsonResponse({detail:'File not found'},404);
+       for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id)){console.warn('[chatgpt-files] message references a file this writer did not upload',writerId.slice(0,8),account);return jsonResponse({detail:'File not found'},404);}
       }
      }
     }catch{return unavailable(request);}
@@ -1333,6 +1334,9 @@ export async function handleChatGPTProxyRequest(request: Request) {
       return unavailable(request, chatGptReferenceForDiagnostic(classifyChatGPT403(upstream)));
     }
   }
+
+  if (isChatGptOrigin && !upstream.ok && request.method !== "GET" && /^\/backend-api\/files(?:\/|$)/.test(target.pathname))
+    console.warn('[chatgpt-files] ChatGPT refused a file request',request.method,upstream.status,target.pathname.replace(/file[-_][A-Za-z0-9_-]+/g,'file-{id}'),writerId.slice(0,8),account);
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
@@ -1463,7 +1467,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       } catch {console.error('[chatgpt-history] opened chat backup failed');}
     }
     if(durable && attachmentStorageEnabled() && historyIdentity && upstream.ok && isChatGptOrigin && request.method==='POST' && /^\/backend-api\/files\/?$/.test(target.pathname)) {
-      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch{return unavailable(request);}
+      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch(error){console.error('[chatgpt-files] could not register upload',writerId.slice(0,8),error instanceof Error?error.message.slice(0,160):'error');return unavailable(request);}
     }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){
