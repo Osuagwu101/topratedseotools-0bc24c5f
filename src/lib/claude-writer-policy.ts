@@ -101,36 +101,109 @@ export const BLOCKED_CONNECTOR_RE=/github|supabase/i;
 /** Admin-only skills on the shared account. They never appear in a writer's plugin or skill lists. */
 export const HIDDEN_SKILL_NAMES=["meta-ads-school-targeting","academic-stealthwriter","final-fidelity-check","academic-god"];
 const HIDDEN_SKILL_RE=new RegExp('"(?:'+HIDDEN_SKILL_NAMES.join("|")+')"',"i");
-const HIDDEN_SKILL_NAME_RE=new RegExp("^(?:"+HIDDEN_SKILL_NAMES.join("|")+")$","i");
+// A skill name on its own or prefixed by its plugin ("anthropic-skills:academic-god").
+const HIDDEN_SKILL_NAME_RE=new RegExp("(?:^|[:/])(?:"+HIDDEN_SKILL_NAMES.join("|")+")$","i");
 /** Tools that read the shared account's memory or other writers' chats. */
 const SHARED_MEMORY_TOOL_RE=/memory|conversation_search|recent_chats|past_chats|chat_search|search_chats/i;
 /** Ids of blocked connectors seen in listings, so opaque ids in later requests are refused too. */
 export const blockedConnectorIds=new Set<string>();
-function mentionsBlocked(value:any){
- let text="";try{text=JSON.stringify(value)??""}catch{return true}
- if(BLOCKED_CONNECTOR_RE.test(text)||HIDDEN_SKILL_RE.test(text))return true;
- for(const id of blockedConnectorIds)if(text.includes(id))return true;
+/*
+ * A connector, plugin, skill or tool is identified by its own name fields and,
+ * for remote MCP servers, by the server's host. Descriptions, homepages and
+ * marketplace sources are NOT identity: most plugins and the official plugin
+ * marketplace live on github.com, and matching the word "github" anywhere in
+ * the JSON used to remove the whole plugin store (Nov 2026 regression).
+ */
+const IDENTITY_KEYS=["server","name","display_name","displayName","title","slug","server_name","serverName","connector_name","integration_name","mcp_server_name","provider","type_name","plugin_name","skill_name"];
+const SERVER_URL_KEYS=["url","server_url","serverUrl","mcp_url","mcp_server_url","remote_url","endpoint"];
+const BLOCKED_SERVER_HOST_RE=/(?:^|\.)(?:githubcopilot\.com|supabase\.(?:com|co|io))$/i;
+const BLOCKED_GITHUB_MCP_RE=/^(?:api\.)?github\.com$/i;
+function identityText(v:any):string{
+ if(typeof v==="string")return v;
+ if(v&&typeof v==="object"&&!Array.isArray(v))return Object.values(v).filter(x=>typeof x==="string").join(" ");
+ return "";
+}
+/** True when this object itself is a GitHub/Supabase connector or an admin-only skill. */
+export function isBlockedEntry(value:any):boolean{
+ if(!value||typeof value!=="object"||Array.isArray(value))return false;
+ for(const k of IDENTITY_KEYS){
+  if(!(k in value))continue;
+  const text=identityText(value[k]);
+  if(!text)continue;
+  if(BLOCKED_CONNECTOR_RE.test(text))return true;
+  if(text.split(/\s+/).some(t=>HIDDEN_SKILL_NAME_RE.test(t)))return true;
+ }
+ for(const k of SERVER_URL_KEYS){
+  const v=value[k];
+  if(typeof v!=="string"||!/^https?:\/\//i.test(v))continue;
+  try{
+   const u=new URL(v);
+   // A remote MCP server URL, not a marketplace or homepage link to a repository.
+   if(BLOCKED_SERVER_HOST_RE.test(u.hostname))return true;
+   if(BLOCKED_GITHUB_MCP_RE.test(u.hostname)&&/(?:^|\/)mcp(?:\/|$)/i.test(u.pathname))return true;
+  }catch{}
+ }
+ for(const k of ["uuid","id","server_id","server_uuid","plugin_id","connector_id"]){
+  const v=value[k];if(typeof v==="string"&&blockedConnectorIds.has(v.toLowerCase()))return true;
+ }
  return false;
 }
-function rememberBlocked(value:any){
- if(!value||typeof value!=="object")return;
- for(const k of ["uuid","id","server_id","server_uuid","plugin_id","connector_id"]){const v=value[k];if(typeof v==="string"&&v.length>=6)blockedConnectorIds.add(v.toLowerCase())}
+/** True when a value is, or wraps (through plain object fields), a blocked entry. */
+function wrapsBlocked(value:any,depth=0):boolean{
+ if(!value||typeof value!=="object"||Array.isArray(value)||depth>2)return false;
+ if(isBlockedEntry(value))return true;
+ return Object.values(value).some(v=>wrapsBlocked(v,depth+1));
 }
-/** Remove GitHub/Supabase entries from connector, plugin and tool listings (arrays or id-keyed maps). */
+/** True when a blocked entry, learned blocked id or hidden skill name appears anywhere in the value. */
+function mentionsBlocked(value:any,depth=0):boolean{
+ if(depth>14||value==null)return false;
+ if(typeof value==="string"){
+  const lower=value.toLowerCase();
+  if(HIDDEN_SKILL_NAME_RE.test(value))return true;
+  for(const id of blockedConnectorIds)if(lower===id||lower.includes(id))return true;
+  return false;
+ }
+ if(typeof value!=="object")return false;
+ if(Array.isArray(value))return value.some(v=>mentionsBlocked(v,depth+1));
+ if(isBlockedEntry(value))return true;
+ return Object.entries(value).some(([k,v])=>blockedKey(k)||mentionsBlocked(v,depth+1));
+}
+function blockedKey(k:string){
+ const lower=k.toLowerCase();
+ return BLOCKED_CONNECTOR_RE.test(k)||HIDDEN_SKILL_NAME_RE.test(k)||[...blockedConnectorIds].some(id=>lower.includes(id));
+}
+function rememberBlocked(value:any,depth=0){
+ if(!value||typeof value!=="object"||Array.isArray(value)||depth>2)return;
+ if(isBlockedEntry(value)){
+  for(const k of ["uuid","id","server_id","server_uuid","plugin_id","connector_id"]){const v=value[k];if(typeof v==="string"&&v.length>=6)blockedConnectorIds.add(v.toLowerCase())}
+  return;
+ }
+ for(const v of Object.values(value))rememberBlocked(v,depth+1);
+}
+/** Remove GitHub/Supabase connectors and admin-only skills from connector, plugin, skill and tool listings (arrays or id-keyed maps). Everything else is left untouched. */
 export function withoutBlockedConnectors(value:any,depth=0):any{
  if(depth>12||!value||typeof value!=="object")return value;
- if(Array.isArray(value))return value.filter(v=>{if(v&&typeof v==="object"&&mentionsBlocked(v)){rememberBlocked(v);return false}return !(typeof v==="string"&&(BLOCKED_CONNECTOR_RE.test(v)||HIDDEN_SKILL_NAME_RE.test(v)))}).map(v=>withoutBlockedConnectors(v,depth+1));
+ if(Array.isArray(value))return value.filter(v=>{
+  if(v&&typeof v==="object"&&wrapsBlocked(v)){rememberBlocked(v);return false}
+  return !(typeof v==="string"&&(BLOCKED_CONNECTOR_RE.test(v)||HIDDEN_SKILL_NAME_RE.test(v)||blockedConnectorIds.has(v.toLowerCase())));
+ }).map(v=>withoutBlockedConnectors(v,depth+1));
  const out:any={};
  for(const [k,v] of Object.entries(value)){
-  if(BLOCKED_CONNECTOR_RE.test(k)||[...blockedConnectorIds].some(id=>k.toLowerCase().includes(id)))continue;
-  if(v&&typeof v==="object"&&!Array.isArray(v)&&depth>0&&BLOCKED_CONNECTOR_RE.test(String((v as any).name??(v as any).url??(v as any).display_name??""))){rememberBlocked(v);continue}
+  if(blockedKey(k))continue;
+  if(v&&typeof v==="object"&&!Array.isArray(v)&&depth>0&&isBlockedEntry(v)){rememberBlocked(v);continue}
   out[k]=withoutBlockedConnectors(v,depth+1);
  }
  return out;
 }
+function syncSourceIsBlocked(item:any):boolean{
+ const list=Array.isArray(item)?item:[item];
+ return list.some(v=>v&&typeof v==="object"&&BLOCKED_CONNECTOR_RE.test(String(v.type??v.source??v.provider??"")));
+}
+/** True when a request body tries to use a blocked connector or hidden skill. */
+export function requestUsesBlockedConnector(payload:any):boolean{return mentionsBlocked(payload)}
 function writerTools(tools:any){
  if(!Array.isArray(tools))return [];
- return tools.filter(t=>{let text="";try{text=JSON.stringify(t)??""}catch{return false}return !SHARED_MEMORY_TOOL_RE.test(text)&&!mentionsBlocked(t)});
+ return tools.filter(t=>{if(!t||typeof t!=="object")return false;const id=[t.name,t.type,t.server_name,t.mcp_server_name].filter(x=>typeof x==="string").join(" ");return !SHARED_MEMORY_TOOL_RE.test(id)&&!mentionsBlocked(t)});
 }
 /** Writer messages: connector/plugin tools allowed; shared memory, past-chat search, GitHub and Supabase removed. */
 export function isolateClaudeWriterPayload(payload:any){
@@ -186,7 +259,8 @@ export function claudeWriterReferences(value: any): ClaudeWriterReferences {
       // Tool definitions describe parameters (a schema may have a property named fileId); they are not references.
       if (/^(?:input_?schema|output_?schema|json_?schema)$/i.test(key)) continue;
       if (/^(?:sync_?sources?|integration_?ids?)$/i.test(key)) {
-        if (item != null && mentionsBlocked(item)) blocked = key;
+        // A sync source names its provider in "type" (e.g. a GitHub repository sync).
+        if (item != null && (mentionsBlocked(item) || syncSourceIsBlocked(item))) blocked = key;
         continue;
       }
       if (key === "files" || key === "attachments") {
