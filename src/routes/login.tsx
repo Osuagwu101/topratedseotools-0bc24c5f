@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME } from "@/lib/site-config";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { emailConfirmationRedirect, isEmailNotConfirmed } from "@/lib/email-confirmation";
+import { emailConfirmationRedirect, isEmailNotConfirmed, turnitinAuthDestination } from "@/lib/email-confirmation";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -39,6 +39,7 @@ function LoginPage() {
   const [cooldown, setCooldown] = useState(0);
   const [confirmationSent, setConfirmationSent] = useState(false);
   const dest = search.redirect ?? "/dashboard";
+  const turnitinDestination = turnitinAuthDestination(search.redirect);
 
   useEffect(() => {
     if (search.confirmation !== "check") return;
@@ -52,14 +53,23 @@ function LoginPage() {
           return;
         }
         const { data: verified, error: userError } = await supabase.auth.getUser();
-        if (active) setConfirmation(!userError && verified.user?.email_confirmed_at ? "confirmed" : "error");
+        if (!active) return;
+        if (!userError && verified.user?.email_confirmed_at) {
+          if (turnitinDestination) {
+            void navigate({ to: turnitinDestination, replace: true });
+          } else {
+            setConfirmation("confirmed");
+          }
+        } else {
+          setConfirmation("error");
+        }
       } catch {
         if (active) setConfirmation("error");
       }
     }
     void checkConfirmation();
     return () => { active = false; };
-  }, [search.confirmation]);
+  }, [navigate, search.confirmation, turnitinDestination]);
 
   useEffect(() => {
     if (!resendAfter) return;
@@ -79,7 +89,7 @@ function LoginPage() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: parsed.data,
-        options: { emailRedirectTo: emailConfirmationRedirect(window.location.origin) },
+        options: { emailRedirectTo: emailConfirmationRedirect(window.location.origin, turnitinDestination) },
       });
       if (error) {
         if (error.status === 429) setResendAfter(Date.now() + 60_000);
@@ -152,7 +162,7 @@ function LoginPage() {
   async function onGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}${turnitinDestination ?? ""}` },
     });
     if (error) toast.error(error.message ?? "Google sign-in failed");
   }
@@ -162,7 +172,7 @@ function LoginPage() {
       topNotice={accountBanned ? "Account Banned for using multiple devices" : undefined}
       title="Welcome back"
       subtitle="Sign in to manage your subscriptions, payments, and tool access."
-      footer={<>Don't have an account?{" "}<Link to="/register" className="font-medium text-primary hover:underline">Create one</Link></>}
+      footer={<>Don't have an account?{" "}<Link to="/register" search={{ redirect: turnitinDestination }} className="font-medium text-primary hover:underline">Create one</Link></>}
     >
       {confirmation && (
         <div role="status" aria-live="polite" className="mb-4 rounded-md border border-input bg-muted p-4 text-sm">

@@ -31,7 +31,7 @@ const tools = readFileSync("src/lib/tools-data.ts", "utf8");
 
 assert(
   legacyRoute.includes('params.slug === "turnitin"') &&
-    legacyRoute.includes('redirect({ to: "/turnitin" })') &&
+    legacyRoute.includes('redirect({ to: "/turnitin", statusCode: 301 })') &&
     productPage.includes("<TurnitinWorkspace") &&
     legacyRoute.includes('tool.pricingModel === "per_use"'),
   "legacy Turnitin tool URLs redirect to the dedicated product while generic per-use tools remain intact",

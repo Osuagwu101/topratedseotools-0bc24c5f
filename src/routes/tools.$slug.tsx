@@ -62,7 +62,7 @@ const sessionQuery = queryOptions({
 export const Route = createFileRoute("/tools/$slug")({
   loader: async ({ params, context }) => {
     if (params.slug === "turnitin") {
-      throw redirect({ to: "/turnitin" });
+      throw redirect({ to: "/turnitin", statusCode: 301 });
     }
 
     // Overrides carry both admin edits and admin-created (custom) tools, so the

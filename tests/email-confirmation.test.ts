@@ -20,6 +20,8 @@ for (const href of [
 ]) assert.equal(emailLinkError(href), null);
 assert.equal(emailConfirmationRedirect("https://topratedseotools.com"), "https://topratedseotools.com/login?confirmation=check");
 assert.equal(emailConfirmationRedirect("https://www.topratedseotools.com"), "https://www.topratedseotools.com/login?confirmation=check");
+assert.equal(emailConfirmationRedirect("https://topratedseotools.com", "/turnitin/buy"), "https://topratedseotools.com/login?confirmation=check&redirect=%2Fturnitin%2Fbuy");
+assert.equal(emailConfirmationRedirect("https://topratedseotools.com", "//untrusted.example"), "https://topratedseotools.com/login?confirmation=check");
 assert(isEmailNotConfirmed({ code: "email_not_confirmed", message: "Email not confirmed" }));
 assert(isEmailNotConfirmed({ message: "Email not confirmed" }));
 assert(!isEmailNotConfirmed({ code: "invalid_credentials", message: "Invalid login credentials" }));

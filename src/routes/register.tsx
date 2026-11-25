@@ -5,9 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { AuthShell, FieldEmail, FieldPassword, GoogleIcon } from "./login";
 import { trackSignUp } from "@/lib/marketing/track";
-import { emailConfirmationRedirect } from "@/lib/email-confirmation";
+import { emailConfirmationRedirect, turnitinAuthDestination } from "@/lib/email-confirmation";
 
 export const Route = createFileRoute("/register")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: ReturnType<typeof turnitinAuthDestination> } => ({
+    redirect: turnitinAuthDestination(search.redirect),
+  }),
   head: () => ({
     meta: [
       { title: "Create your account — Top Rated SEO Tools" },
@@ -23,6 +26,7 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,26 +35,30 @@ function RegisterPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: emailConfirmationRedirect(window.location.origin),
+        emailRedirectTo: emailConfirmationRedirect(window.location.origin, redirect),
         data: { full_name: name },
       },
     });
     setLoading(false);
     if (error) return toast.error(error.message);
     trackSignUp("email");
+    if (data.session && redirect) {
+      void navigate({ to: redirect });
+      return;
+    }
     toast.success("Check your email to verify your account.");
-    navigate({ to: "/login" });
+    void navigate({ to: "/login", search: { redirect } });
   }
 
   async function onGoogle() {
     trackSignUp("google");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}${redirect ?? ""}` },
     });
     if (error) toast.error(error.message ?? "Google sign-in failed");
   }
@@ -62,7 +70,7 @@ function RegisterPage() {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
+          <Link to="/login" search={{ redirect }} className="font-medium text-primary hover:underline">
             Sign in
           </Link>
         </>

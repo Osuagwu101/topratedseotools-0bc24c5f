@@ -8,6 +8,8 @@ import { listToolPricing } from "@/lib/tool-pricing.functions";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { useMoney } from "@/components/currency/CurrencyProvider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/site-config";
+import { toolPageLink } from "@/lib/tools-data";
+import { TURNITIN_CREDIT_UNIT_PRICE_LABEL } from "@/lib/turnitin-pricing";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -60,7 +62,10 @@ function Home() {
   const featured = catalog.filter((t) => t.featured);
   const { data: pricing } = useSuspenseQuery(pricingQuery);
   const showcase = catalog.slice(0, 8).map((t) => {
-    if (t.pricingModel === "per_use" && t.perUse) return { tool: t, baseLines: [], perUseLabel: `${money.fmt(t.perUse.amount)} / ${t.perUse.unit}` };
+    if (t.pricingModel === "per_use" && t.perUse) {
+      const price = t.slug === "turnitin" ? TURNITIN_CREDIT_UNIT_PRICE_LABEL : money.fmt(t.perUse.amount);
+      return { tool: t, baseLines: [], perUseLabel: `${price} / ${t.perUse.unit}` };
+    }
     const lines = baseMonthlyLines(pricing.options.filter((o) => o.tool_slug === t.slug));
     return { tool: t, baseLines: lines, perUseLabel: null as string | null };
   });
@@ -105,7 +110,7 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between gap-4"><div><h2 className="text-3xl font-bold tracking-tight">Popular tools</h2><p className="mt-2 text-muted-foreground">Hand-picked picks that our members reach for daily.</p></div><Link to="/tools" className="hidden shrink-0 text-sm font-medium text-primary hover:underline sm:inline-flex">View all →</Link></div>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((t) => <Link key={t.slug} to="/tools/$slug" params={{ slug: t.slug }} className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><ToolBrandMark tool={t} className="mb-4" /><div className="text-lg font-semibold">{t.name}</div><div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div><div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">View plans <ArrowRight className="h-4 w-4" /></div></Link>)}
+          {featured.map((t) => <Link key={t.slug} {...toolPageLink(t.slug)} className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><ToolBrandMark tool={t} className="mb-4" /><div className="text-lg font-semibold">{t.name}</div><div className="mt-1 text-sm text-muted-foreground">{t.tagline}</div><div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">View plans <ArrowRight className="h-4 w-4" /></div></Link>)}
         </div>
       </section>
 
@@ -122,7 +127,7 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center"><h2 className="text-3xl font-bold tracking-tight">Premium tools without the forced bundle</h2><p className="mt-3 text-muted-foreground">Subscribe separately to the tools that support your work. Add or remove subscriptions as your needs change, while managing everything from one account.</p></div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {showcase.map(({ tool, baseLines, perUseLabel }) => <Link key={tool.slug} to="/tools/$slug" params={{ slug: tool.slug }} className="group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><div className="flex items-center gap-3"><ToolBrandMark tool={tool} size="sm" /><div className="min-w-0"><div className="truncate font-semibold">{tool.name}</div><div className="truncate text-xs text-muted-foreground">{tool.category}</div></div></div><div className="mt-4 flex-1 text-sm text-muted-foreground line-clamp-2">{tool.tagline}</div><div className="mt-4 border-t pt-3">{perUseLabel ? <><div className="text-lg font-bold">{perUseLabel}</div><div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div></> : baseLines.length > 0 ? <div className="space-y-1">{baseLines.map((line) => <div key={line.access} className="text-sm font-semibold">{`${line.title} from ${money.fmt(line.amount)}/month`}</div>)}</div> : <div className="text-sm font-medium text-primary">Pricing confirmed on WhatsApp</div>}</div></Link>)}
+          {showcase.map(({ tool, baseLines, perUseLabel }) => <Link key={tool.slug} {...toolPageLink(tool.slug)} className="group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"><div className="flex items-center gap-3"><ToolBrandMark tool={tool} size="sm" /><div className="min-w-0"><div className="truncate font-semibold">{tool.name}</div><div className="truncate text-xs text-muted-foreground">{tool.category}</div></div></div><div className="mt-4 flex-1 text-sm text-muted-foreground line-clamp-2">{tool.tagline}</div><div className="mt-4 border-t pt-3">{perUseLabel ? <><div className="text-lg font-bold">{perUseLabel}</div><div className="text-[11px] text-muted-foreground">One-time · pay per {tool.perUse!.unit}</div></> : baseLines.length > 0 ? <div className="space-y-1">{baseLines.map((line) => <div key={line.access} className="text-sm font-semibold">{`${line.title} from ${money.fmt(line.amount)}/month`}</div>)}</div> : <div className="text-sm font-medium text-primary">Pricing confirmed on WhatsApp</div>}</div></Link>)}
         </div>
         <div className="mt-8 text-center"><Link to="/pricing" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">View full pricing <ArrowRight className="h-4 w-4" /></Link></div>
       </section>

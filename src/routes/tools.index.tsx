@@ -4,13 +4,14 @@ import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { Search, Sparkles } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { CATEGORIES, type ToolCategory } from "@/lib/tools-data";
+import { CATEGORIES, toolPageLink, type ToolCategory } from "@/lib/tools-data";
 import { mergeToolCatalog } from "@/lib/tool-catalog";
 import { listToolPricing } from "@/lib/tool-pricing.functions";
 import { baseMonthlyLines } from "@/lib/base-pricing";
 import { listToolOverrides } from "@/lib/tool-overrides.functions";
 import { cn } from "@/lib/utils";
 import { useMoney } from "@/components/currency/CurrencyProvider";
+import { TURNITIN_CREDIT_UNIT_PRICE_LABEL } from "@/lib/turnitin-pricing";
 
 const pricingQuery = queryOptions({
   queryKey: ["tool-pricing"],
@@ -129,8 +130,7 @@ function ToolsDirectory() {
             {filtered.map((t) => (
               <Link
                 key={t.slug}
-                to="/tools/$slug"
-                params={{ slug: t.slug }}
+                {...toolPageLink(t.slug)}
                 className="group relative flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow"
               >
                 <div className="flex items-center justify-between">
@@ -160,7 +160,7 @@ function ToolsDirectory() {
                 <div className="mt-4 space-y-1 text-xs">
                   {t.pricingModel === "per_use" && t.perUse ? (
                     <div className="font-semibold text-foreground">
-                      {money.fmt(t.perUse.amount)} / {t.perUse.unit}
+                      {t.slug === "turnitin" ? TURNITIN_CREDIT_UNIT_PRICE_LABEL : money.fmt(t.perUse.amount)} / {t.perUse.unit}
                     </div>
                   ) : (baseLinesByTool.get(t.slug) ?? []).length > 0 ? (
                     (baseLinesByTool.get(t.slug) ?? []).map((line) => (
