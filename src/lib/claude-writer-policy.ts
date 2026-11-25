@@ -183,6 +183,8 @@ export function claudeWriterReferences(value: any): ClaudeWriterReferences {
         if (item != null && item !== "") blocked = key;
         continue;
       }
+      // Tool definitions describe parameters (a schema may have a property named fileId); they are not references.
+      if (/^(?:input_?schema|output_?schema|json_?schema)$/i.test(key)) continue;
       if (/^(?:sync_?sources?|integration_?ids?)$/i.test(key)) {
         if (item != null && mentionsBlocked(item)) blocked = key;
         continue;
