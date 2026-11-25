@@ -228,14 +228,17 @@ function buildUserData(
   return userData;
 }
 
-function mapEventName(kind: string): string {
+export function mapEventName(kind: string): string {
   switch (kind) {
     case "purchase":
     case "renewal_success":
     case "private_fulfilment":
       return "Purchase";
+    // A paid first subscription month is a sale. Sales campaigns optimise for
+    // Purchase, and the browser already reports this payment as Purchase with
+    // the same event_id, so Meta merges the two instead of counting twice.
     case "subscription_start":
-      return "Subscribe";
+      return "Purchase";
     case "renewal_failed":
       return "SubscriptionRenewalFailed";
     case "renewal_disabled":
