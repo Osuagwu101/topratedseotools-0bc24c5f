@@ -62,6 +62,9 @@ test("writer uploads: own file ids are collected, foreign/shared references are 
  expect(claudeWriterReferences({prompt:"hi",files:[],attachments:[],sync_sources:[]})).toEqual({fileIds:[],blocked:null});
  expect(claudeWriterReferences({files:["ABCdef12-3456",{file_uuid:"0f0e0d0c-aaaa"}]}).fileIds).toEqual(["abcdef12-3456","0f0e0d0c-aaaa"]);
  expect(claudeWriterReferences({attachments:[{file_name:"a.docx",extracted_content:"x",id:"local"}]}).blocked).toBeNull();
+ // Connector tools carry JSON schemas with a "fileId" property; that is a parameter definition, not a file reference.
+ expect(claudeWriterReferences({prompt:"hi",files:[],tools:[{name:"copy_file",integration_name:"Google Drive",input_schema:{type:"object",properties:{fileId:{description:"The ID of the file to copy.",type:"string"}},required:["fileId"]}}]})).toEqual({fileIds:[],blocked:null});
+ expect(claudeWriterReferences({prompt:"hi",fileId:{x:1}}).blocked).toBe("fileId");
  expect(claudeWriterReferences({files:[{path:"/mnt/user-data/uploads/a.pdf"}]}).blocked).toBeNull();
  expect(claudeWriterReferences({files:[{path:"/mnt/user-data/../etc/passwd"}]}).blocked).toBe("files");
  expect(claudeWriterReferences({files:[{path:"/home/other/a.pdf"}]}).blocked).toBe("files");
