@@ -1,5 +1,10 @@
 export type EmailLinkError = "expired" | "error";
 
+export function turnitinAuthDestination(redirect: unknown) {
+  if (redirect === "/turnitin" || redirect === "/turnitin/buy") return redirect;
+  return undefined;
+}
+
 // Legacy signup emails return to the homepage. Inspect errors before Auth
 // processes the fragment; never treat a query parameter as proof of success.
 export function emailLinkError(href: string): EmailLinkError | null {
@@ -12,8 +17,11 @@ export function emailLinkError(href: string): EmailLinkError | null {
     ? "expired" : "error";
 }
 
-export function emailConfirmationRedirect(origin: string): string {
-  return new URL("/login?confirmation=check", origin).href;
+export function emailConfirmationRedirect(origin: string, redirect?: string): string {
+  const url = new URL("/login?confirmation=check", origin);
+  const destination = turnitinAuthDestination(redirect);
+  if (destination) url.searchParams.set("redirect", destination);
+  return url.href;
 }
 
 export function isEmailNotConfirmed(error: { code?: string; message: string }): boolean {

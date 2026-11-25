@@ -4,11 +4,12 @@ import { Search, Users, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ToolBrandMark } from "@/components/tools/ToolBrandMark";
-import { TOOLS, getTool } from "@/lib/tools-data";
+import { TOOLS, getTool, toolPageLink } from "@/lib/tools-data";
 import { listToolPricing, type ToolPricingOption, type AccessType } from "@/lib/tool-pricing.functions";
 import { listToolSettings, type ToolSetting } from "@/lib/access.functions";
 import { getBillingKind, normaliseBillingKind } from "@/lib/currency";
 import { useMoney } from "@/components/currency/CurrencyProvider";
+import { TURNITIN_CREDIT_UNIT_PRICE_LABEL } from "@/lib/turnitin-pricing";
 
 const pricingQuery = queryOptions({ queryKey: ["tool-pricing"], queryFn: () => listToolPricing() });
 const settingsQuery = queryOptions({ queryKey: ["tool-settings"], queryFn: () => listToolSettings() });
@@ -135,7 +136,7 @@ function ToolPricingCard({ group, tool }: { group: GroupedTool; tool: ReturnType
       <div className="mt-5 flex-1 space-y-2">
         {lines.length > 0 ? lines.map((line) => <div key={line.access} className="flex items-center gap-2 text-sm font-semibold">{line.access === "shared" ? <Users className="h-3.5 w-3.5 text-muted-foreground" /> : <Lock className="h-3.5 w-3.5 text-muted-foreground" />}<span>{line.text}</span></div>) : <p className="rounded-lg border bg-background/40 px-3 py-2 text-xs text-primary">Pricing confirmed on WhatsApp</p>}
       </div>
-      <div className="mt-5 flex gap-2"><Link to="/tools/$slug" params={{ slug: tool.slug }} className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted">Learn more</Link><Link to="/tools/$slug" params={{ slug: tool.slug }} className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90">View Plans</Link></div>
+      <div className="mt-5 flex gap-2"><Link {...toolPageLink(tool.slug)} className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted">Learn more</Link><Link {...toolPageLink(tool.slug)} className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90">View Plans</Link></div>
     </div>
   );
 }
@@ -143,11 +144,12 @@ function ToolPricingCard({ group, tool }: { group: GroupedTool; tool: ReturnType
 function PerUseCard({ tool }: { tool: ReturnType<typeof getTool> & object }) {
   const money = useMoney();
   const perUse = tool.perUse!;
+  const price = tool.slug === "turnitin" ? TURNITIN_CREDIT_UNIT_PRICE_LABEL : money.fmt(perUse.amount);
   return (
     <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-center gap-3"><ToolBrandMark tool={tool} size="sm" /><div className="min-w-0"><div className="truncate font-semibold">{tool.name}</div><div className="truncate text-xs text-muted-foreground">{tool.category}</div></div></div>
-      <div className="mt-5 flex-1 rounded-lg border bg-background/40 p-3"><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Per-{perUse.unit} pricing</div><div className="mt-1 text-lg font-bold">{money.fmt(perUse.amount)} per {perUse.unit}</div><p className="mt-2 text-[11px] text-muted-foreground">One-time payment. No recurring billing, Shared/Private selection or automatic renewal.</p></div>
-      <div className="mt-5 flex gap-2"><Link to="/tools/$slug" params={{ slug: tool.slug }} className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted">Learn more</Link><Link to="/tools/$slug" params={{ slug: tool.slug }} className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90">Buy checks</Link></div>
+      <div className="mt-5 flex-1 rounded-lg border bg-background/40 p-3"><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Per-{perUse.unit} pricing</div><div className="mt-1 text-lg font-bold">{price} per {perUse.unit}</div><p className="mt-2 text-[11px] text-muted-foreground">One-time payment. No recurring billing, Shared/Private selection or automatic renewal.</p></div>
+      <div className="mt-5 flex gap-2"><Link {...toolPageLink(tool.slug)} className="flex-1 rounded-md border border-input px-3 py-2 text-center text-xs font-medium hover:bg-muted">Learn more</Link><Link {...toolPageLink(tool.slug)} className="flex-1 rounded-md bg-gradient-primary px-3 py-2 text-center text-xs font-medium text-primary-foreground shadow-glow hover:opacity-90">Buy checks</Link></div>
     </div>
   );
 }

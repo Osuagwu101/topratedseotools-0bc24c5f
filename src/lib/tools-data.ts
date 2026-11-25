@@ -21,6 +21,7 @@ import {
   ScanText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { TURNITIN_CREDIT_UNIT_PRICE_NGN } from "./turnitin-pricing";
 
 export type ToolCategory =
   | "Writing"
@@ -250,7 +251,7 @@ export const TOOLS: Tool[] = [
     access: "pro",
     featured: true,
     pricingModel: "per_use",
-    perUse: { unit: "check", amount: 2300, currency: "₦" },
+    perUse: { unit: "check", amount: TURNITIN_CREDIT_UNIT_PRICE_NGN, currency: "₦" },
     features: [
       "Not saved to Turnitin's repository",
       "AI and similarity reports in minutes",
@@ -410,4 +411,10 @@ export function getExtraTools(): Tool[] {
 
 export function getTool(slug: string): Tool | undefined {
   return TOOLS.find((t) => t.slug === slug) ?? extraTools.get(slug);
+}
+
+export function toolPageLink(slug: string) {
+  return slug === "turnitin"
+    ? { to: "/turnitin" as const }
+    : { to: "/tools/$slug" as const, params: { slug } };
 }

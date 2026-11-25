@@ -1,4 +1,5 @@
 export const TURNITIN_CREDIT_UNIT_PRICE_NGN = 2300;
+export const TURNITIN_CREDIT_UNIT_PRICE_LABEL = `₦${TURNITIN_CREDIT_UNIT_PRICE_NGN.toLocaleString("en-NG")}`;
 export const TURNITIN_CREDIT_MAX_QUANTITY = 500;
 
 export function turnitinCreditTotalNgn(quantity: number): number {

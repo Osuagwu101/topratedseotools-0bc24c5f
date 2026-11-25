@@ -102,7 +102,7 @@ assert(
 
 assert(
   legacyRoute.includes('params.slug === "turnitin"') &&
-    legacyRoute.includes('redirect({ to: "/turnitin" })') &&
+    legacyRoute.includes('redirect({ to: "/turnitin", statusCode: 301 })') &&
     !legacyRoute.includes("<TurnitinWorkspace"),
   "the legacy /tools/turnitin route redirects into the dedicated product area",
 );

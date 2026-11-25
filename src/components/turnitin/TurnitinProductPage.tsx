@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileClock,
   LayoutDashboard,
@@ -10,6 +10,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { TurnitinLandingPage } from "@/components/turnitin/TurnitinLandingPage";
 import {
   TurnitinWorkspace,
   type TurnitinWorkspaceView,
@@ -55,6 +56,7 @@ const TABS = [
 ];
 
 export function TurnitinProductPage({ section }: { section: Section }) {
+  const queryClient = useQueryClient();
   const session = useQuery({
     queryKey: ["turnitin-session-flag"],
     queryFn: async () => {
@@ -79,10 +81,21 @@ export function TurnitinProductPage({ section }: { section: Section }) {
     if (section === "submit") setSubmitOpen(true);
   }, [section]);
 
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        queryClient.setQueryData(["turnitin-session-flag"], { isAuthenticated: !!nextSession });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [queryClient]);
+
   const closeSubmit = () => {
     setSubmitOpen(false);
     if (section === "submit") void navigate({ to: "/turnitin" });
   };
+
+  if (section === "overview" && !session.data?.isAuthenticated) return <TurnitinLandingPage />;
 
   return (
     <SiteLayout>
