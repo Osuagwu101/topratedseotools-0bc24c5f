@@ -1,3 +1,4 @@
+import { fetchWithNetworkRetry, networkErrorCode } from "./chatgpt-upstream-retry";
 import {
   CHATGPT_ACCESS_NOTICE_HEADER,
   chatGptAccessMessage,
@@ -1296,13 +1297,19 @@ export async function handleChatGPTProxyRequest(request: Request) {
   }
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
-      method: request.method,
-      headers: providerHeaders,
-      body,
-      redirect: "manual",
-    });
-  } catch {
+    // Brief network blips are retried before writers see reference GPT-04.
+    upstream = await fetchWithNetworkRetry(
+      () =>
+        fetch(target, {
+          method: request.method,
+          headers: providerHeaders,
+          body,
+          redirect: "manual",
+        }),
+      request.method,
+    );
+  } catch (error) {
+    console.warn("[chatgpt-proxy] upstream network error", networkErrorCode(error) ?? String(error));
     await recordChatGPTProxyDiagnostic(
       String(proxySession.id),
       "upstream_network_error",
