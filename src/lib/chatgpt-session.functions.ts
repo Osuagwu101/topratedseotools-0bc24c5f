@@ -118,7 +118,7 @@ export const adminVerifyChatGptAccount=createServerFn({method:"POST"}).middlewar
  const {chatGptAccountAuthorization}=await import("./chatgpt-account-auth.server");
  const cookie=buildChatGPTCookieHeader(decryptChatGptSession(row.encrypted_payload),"https://chatgpt.com/api/auth/session");
  try{await chatGptAccountAuthorization(data.account_key,row.encrypted_payload,new Headers({Cookie:cookie}));}
- catch{return {ok:false,message:"This ChatGPT account could not be verified. Refresh its session and retry."};}
+ catch(error){return {ok:false,message:error instanceof Error&&/expired/i.test(error.message)?"This ChatGPT login has expired (ChatGPT can no longer renew it). Sign in to ChatGPT again, then save the fresh session here.":"This ChatGPT account could not be verified. Refresh its session and retry."};}
  const saved=await admin.from("chatgpt_provider_accounts").update({verified_at:new Date().toISOString()}).eq("account_key",data.account_key).eq("encrypted_payload",row.encrypted_payload).select("account_key").maybeSingle();
  if(saved.error||!saved.data)throw Error("Session changed during verification. Verify again.");
  await logAdminActivity(context,{action:"chatgpt.provider_session_verify",area:"tools",target_type:"chatgpt_provider_account",target_id:data.account_key,details:"Upstream authentication verified."});

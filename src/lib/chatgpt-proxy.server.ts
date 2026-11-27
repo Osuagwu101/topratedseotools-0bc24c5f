@@ -14,7 +14,7 @@ import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.se
 import {applyChatGptBootstrapPolicy,applyChatGptWriterModelPolicy,clampChatGptRequestEffort,requestUsesDisabledChatGptModel} from "./chatgpt-model-policy";
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
 import {imagePointerFileId} from './chatgpt-attachment-model';
-import {chatGptAccountAuthorization,chatGptAccountSession} from "./chatgpt-account-auth.server";
+import {chatGptAccountAuthorization,chatGptAccountSession,ChatGptLoginExpiredError} from "./chatgpt-account-auth.server";
 import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccount} from "./chatgpt-account-policy";
 /*
  * Phase 3 — ChatGPT server-side one-click proxy for authorised internal writers.
@@ -1271,6 +1271,10 @@ export async function handleChatGPTProxyRequest(request: Request) {
       }
     } catch(error) {
       if(error instanceof HistoryContextError) return jsonResponse({detail:error.message},409);
+      if(error instanceof ChatGptLoginExpiredError){
+        await recordChatGPTProxyDiagnostic(String(proxySession.id),"upstream_401",401);
+        return unavailable(request,"GPT-01");
+      }
       return unavailable(request);
     }
   }
