@@ -859,7 +859,16 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
           >
             PAY NOW
           </button>
+          <button
+            type="button"
+            onClick={() => void reconcileLatestPostpaidPayment()}
+            disabled={reconcilingPayment || settlingPostpaid || verifyingPayment}
+            className="ml-3 text-xs font-semibold text-primary underline disabled:opacity-50"
+          >
+            {reconcilingPayment ? "Verifying payment…" : "Retry payment verification"}
+          </button>
           {paymentError && <p role="alert" className="mt-2 text-xs text-destructive">{paymentError}</p>}
+          {paymentMessage && <p role="status" className="mt-2 text-xs">{paymentMessage}</p>}
         </section>
       ) : null}
 
