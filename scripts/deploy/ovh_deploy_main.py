@@ -251,6 +251,10 @@ def deploy_chatgpt_process(rel, short):
             skip = True
         elif not arg.startswith("--env-file="):
             kept.append(arg)
+    # ChatGPT's responses can carry more header data than Node's 16 KB default
+    # (error UND_ERR_HEADERS_OVERFLOW, shown to writers as GPT-04). Always allow 1 MB.
+    if not any(a.startswith("--max-http-header-size") for a in kept):
+        kept.append("--max-http-header-size=1048576")
     node_args = " ".join(shlex.quote(a) for a in kept + [f"--env-file={env_file}"])
     env = {**os.environ, **process_environment(old_proc),
            "PORT": new_port, "NITRO_PORT": new_port, "HOST": "127.0.0.1", "NITRO_HOST": "127.0.0.1"}
