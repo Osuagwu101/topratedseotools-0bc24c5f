@@ -51,6 +51,8 @@ globalThis.fetch=(async(input:any,init:any)=>{
  if(url.pathname==='/backend-api/estuary/content')return new Response(null,{status:302,headers:{Location:'https://uploads.blob.core.windows.net/'+url.searchParams.get('id')}});
  if(url.pathname==='/backend-api/files'&&init?.method==='POST') {
   const id='file_qa_'+(++uploadCounter),path='/upload-'+uploadCounter;signedUploads.set(path,id);
+  const payload=JSON.parse(init.body instanceof ArrayBuffer?new TextDecoder().decode(init.body):init.body);
+  if(payload.file_name==='id-only.txt')return Response.json({id,upload_url:'https://uploads.blob.core.windows.net'+path});
   return Response.json({file_id:id,upload_url:'https://uploads.blob.core.windows.net'+path});
  }
  if(/^\/backend-api\/files\/file[-_][^/]+\/uploaded$/.test(url.pathname))return Response.json({status:'success'});
@@ -145,11 +147,19 @@ try {
  const docId=(await upload.json()).file_id;providerFiles.set(docId,new TextEncoder().encode('private-file-marker'));
  const imgUpload=await handle(req(0,'/backend-api/files',{file_name:'photo.png',file_size:18,use_case:'multimodal'}));assert.equal(imgUpload.status,200);
  const imageId=(await imgUpload.json()).file_id;providerFiles.set(imageId,new Uint8Array([137,80,78,71,13,10,26,10]));
+ const alternateUpload=await handle(req(0,'/backend-api/files',{file_name:'id-only.txt',file_size:4,use_case:'multimodal'}));
+ assert.equal(alternateUpload.status,200,'A successful upload response with provider id must be registered');
+ const alternateId=(await alternateUpload.json()).id;
+ assert(tables.chatgpt_file_owners.some(f=>f.user_id===userA&&f.file_id===alternateId),'Upload ownership must exist before replying to the browser');
  const withFiles=prompt('Describe my image and read my private notes');
  withFiles.messages[0].content={content_type:'multimodal_text',parts:[{content_type:'image_asset_pointer',asset_pointer:'file-service://'+imageId,width:1,height:1},'Describe my image and read my private notes']} as any;
- (withFiles.messages[0] as any).metadata={attachments:[{id:docId,name:'notes.txt',mime_type:'text/plain'}]};
+ // An attachment can carry a client-side ID separately from its provider file_id.
+ // The client ID is not a provider file and must not hide the owned file_id.
+ (withFiles.messages[0] as any).metadata={attachments:[{id:randomUUID(),file_id:docId,name:'notes.txt',mime_type:'text/plain'}]};
  const binaryChat=randomUUID();nextId=binaryChat;
- await (await handle(req(0,'/backend-api/f/conversation',withFiles))).text();
+ const attachedReply=await handle(req(0,'/backend-api/f/conversation',withFiles));
+ assert.equal(attachedReply.status,200,'A client attachment ID must not hide the owned provider file_id');
+ await attachedReply.text();
  await drainAttachmentCaptures();
  const assets=await attachmentRows(userA,binaryChat);assert.equal(assets.length,3);assert(assets.every(r=>r.status==='ready'));
  assert([...blobs.values()].every(b=>!new TextDecoder().decode(b).includes('private-file-marker')));
@@ -161,6 +171,10 @@ try {
  assert.equal((await handle(req(1,'/backend-api/estuary/content?id='+docId))).status,404);
  const stolen=prompt('read another writer file');(stolen.messages[0] as any).metadata={attachments:[{id:docId,name:'stolen.txt'}]};
  assert.equal((await handle(req(1,'/backend-api/f/conversation',stolen))).status,404);
+ (stolen.messages[0] as any).metadata.attachments[0]={id:randomUUID(),file_id:docId,name:'stolen.txt'};
+ assert.equal((await handle(req(1,'/backend-api/f/conversation',stolen))).status,404,'A client ID must not bypass the other writer file check');
+ const concealed=prompt('read both references');(concealed.messages[0] as any).metadata={attachments:[{id:docId,file_id:'file_not_uploaded_by_writer'}]};
+ assert.equal((await handle(req(0,'/backend-api/f/conversation',concealed))).status,404,'An owned reference must not conceal an unowned reference');
  assert.equal((await handle(req(0,'/backend-api/files'))).status,403);
  assert.equal(await readAttachment(userB,binaryChat,doc.id),null);
  tables.tool_access_grants[0].expires_at=new Date(Date.now()-1000).toISOString();assert.equal((await handle(req(0,download))).status,401);

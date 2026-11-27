@@ -1,4 +1,5 @@
 import { historyBranchMessages, type HistorySnapshot } from "./chatgpt-history-model";
+import { attachmentFileIds, providerFileId } from "./chatgpt-file-reference-model";
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export type AttachmentRef = {
   key: string;
@@ -12,10 +13,8 @@ export type AttachmentRef = {
   width?: number;
   height?: number;
 };
-const fileId = (v: unknown) =>
-  typeof v === "string" && /^file[-_][A-Za-z0-9_-]{1,200}$/.test(v) ? v : undefined;
 export const imagePointerFileId = (v: unknown) =>
-  fileId(typeof v === "string" ? v.replace(/^(?:file-service|sediment):\/\//, "") : null);
+  providerFileId(typeof v === "string" ? v.replace(/^(?:file-service|sediment):\/\//, "") : null);
 const name = (v: unknown, fallback: string) =>
   String(v || fallback)
     .split(/[\\/]/)
@@ -45,7 +44,8 @@ export function attachmentRefs(snapshot: HistorySnapshot): AttachmentRef[] {
       });
     };
     for (const a of generated ? [] : m.metadata?.attachments ?? []) {
-      const id = fileId(a.id ?? a.file_id);
+      const ids = attachmentFileIds(a);
+      const id = ids.length === 1 ? ids[0] : undefined;
       add({
         kind: id ? "file" : "unsupported",
         fileId: id,
