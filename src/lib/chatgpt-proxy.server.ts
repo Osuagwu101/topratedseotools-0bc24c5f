@@ -14,6 +14,7 @@ import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.se
 import {applyChatGptBootstrapPolicy,applyChatGptWriterModelPolicy,clampChatGptRequestEffort,requestUsesDisabledChatGptModel} from "./chatgpt-model-policy";
 import {continuationBody,HistoryContextError,mergeHistoryPage} from './chatgpt-history-model';
 import {imagePointerFileId} from './chatgpt-attachment-model';
+import {attachmentFileIds,createdUploadFileId} from './chatgpt-file-reference-model';
 import {chatGptAccountAuthorization,chatGptAccountSession,ChatGptLoginExpiredError} from "./chatgpt-account-auth.server";
 import {chatGptAccountMatches,isChatGptProviderAccount,type ChatGptProviderAccount} from "./chatgpt-account-policy";
 /*
@@ -1291,11 +1292,15 @@ export async function handleChatGPTProxyRequest(request: Request) {
      if(bodyText && request.method==='POST' && /^\/backend-api\/(?:f\/)?conversation\/?$/.test(target.pathname)) {
       for(const m of JSON.parse(bodyText).messages??[]) {
        const ids=new Set<string>();
-       for(const a of m.metadata?.attachments??[])if(typeof (a.id??a.file_id)==='string')ids.add(a.id??a.file_id);
+       for(const a of m.metadata?.attachments??[]) {
+        const references=attachmentFileIds(a);
+        if(!references.length)return jsonResponse({detail:'This attachment has no valid file reference. Remove it and upload it again.'},409);
+        for(const id of references)ids.add(id);
+       }
        for(const p of m.content?.parts??[])if(p&&typeof p==='object') {
         const id=imagePointerFileId(p.asset_pointer??p.image_asset_pointer);if(id)ids.add(id);
        }
-       for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id)){console.warn('[chatgpt-files] message references a file this writer did not upload',writerId.slice(0,8),account);return jsonResponse({detail:'File not found'},404);}
+       for(const id of ids)if(!await ownsWriterFile(writerId,historyIdentity,id)){console.warn('[chatgpt-files] message references a file this writer did not upload',writerId.slice(0,8),account,'file_reference='+createHash('sha256').update(id).digest('hex').slice(0,16),'provider='+historyIdentity.slice(0,12));return jsonResponse({detail:'File not found'},404);}
       }
      }
     }catch{return unavailable(request);}
@@ -1495,7 +1500,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
       } catch {console.error('[chatgpt-history] opened chat backup failed');}
     }
     if(durable && attachmentStorageEnabled() && historyIdentity && upstream.ok && isChatGptOrigin && request.method==='POST' && /^\/backend-api\/files\/?$/.test(target.pathname)) {
-      try{const info=JSON.parse(text);await registerWriterFile(writerId,historyIdentity,info.file_id);}catch(error){console.error('[chatgpt-files] could not register upload',writerId.slice(0,8),error instanceof Error?error.message.slice(0,160):'error');return unavailable(request);}
+      try{const info=JSON.parse(text),fileId=createdUploadFileId(info);if(!fileId)throw Error('Upload response has no unambiguous provider file ID.');await registerWriterFile(writerId,historyIdentity,fileId);}catch(error){console.error('[chatgpt-files] could not register upload',writerId.slice(0,8),error instanceof Error?error.message.slice(0,160):'error');return unavailable(request);}
     }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){
