@@ -40,3 +40,24 @@ build passed before deployment.
 Customer confirmation after a fresh attachment retry is still required to prove
 that this defect accounts for their specific failed message; new hashed
 diagnostics allow any remaining mismatch to be traced without logging content.
+
+## Deployment handoff (27 November 2026)
+
+PR #223 is merged. Code commit 8afa9e23da36fdb8e051039eddbfc4d8da5fa25b passed
+GitHub Production Build run 46011954171. Main-site deployment run 46012136101
+succeeded and published /home/ubuntu/releases/trst-main-8afa9e2 on port 3271.
+The installed main deployment runner did not emit a dedicated ChatGPT update.
+The last verified ChatGPT vhost still targeted port 3332 from release
+trst-main-fd25693. Do not report this fix live on that host until it is verified.
+
+Remote Desktop Commander stopped responding while checking the dedicated host.
+Two read-only calls timed out/were pending. After the authorized laptop reconnects,
+first verify the current vhost and process release. If still old, use the existing
+blue/green deploy_chatgpt_process function from the newly built release's
+scripts/deploy/ovh_deploy_main.py, preserving the running ChatGPT environment.
+The function checks the candidate for the expected anonymous 401 response before
+switching the ChatGPT vhost and retains the old process for rollback. Confirm its
+CHATGPT_OK output, nginx target, process cwd/commit and public 401 health afterward.
+Then ask the customer to remove the failed attachment and upload it again.
+
+No customer files, balances, upstream sessions or ownership rows were changed.
