@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveActiveGateway, getAdapter } from "@/lib/gateways/registry";
 import { loadGatewaySecrets } from "@/lib/gateways/secrets.server";
+import { recoverPendingPostpaidCheckout } from "@/lib/turnitin-postpaid-checkout-recovery";
 import {
   isGatewaySlug,
   majorToMinor,
@@ -214,18 +215,49 @@ export const initializeTurnitinPostpaidSettlement = createServerFn({ method: "PO
       throw new Error("Postpaid payment must cover your full outstanding balance. Partial payments are not available.");
     }
 
-    const { data: pending } = await admin
+    const { data: pending, error: pendingError } = await admin
       .from("turnitin_postpaid_settlements")
-      .select("id")
+      .select("id, user_id, amount_ngn, allocated_amount_ngn, method, status, payment_gateway, payment_reference, gateway_environment, gateway_reference, gateway_transaction_id, confirmed_at")
       .eq("user_id", context.userId)
       .eq("method", "website")
       .eq("status", "pending")
       .maybeSingle();
 
+    if (pendingError) throw new Error("Unable to check your previous Postpaid payment. Please retry.");
     if (pending) {
-      throw new Error(
-        "You already have a Postpaid payment awaiting confirmation. Verify it before starting another.",
-      );
+      const previous = pending as SettlementRow;
+      const previousGateway = await loadSettlementGateway(admin, previous.payment_gateway);
+      const recovered = await recoverPendingPostpaidCheckout({
+        reference: previous.payment_reference,
+        settlementEnvironment: previous.gateway_environment,
+        gatewayEnvironment: previousGateway.environment,
+        verify: (reference) => previousGateway.adapter.verify(reference),
+        markFailed: async () => {
+          const { data: changed, error } = await admin
+            .from("turnitin_postpaid_settlements")
+            .update({ status: "failed", failed_at: new Date().toISOString() })
+            .eq("id", previous.id)
+            .eq("user_id", context.userId)
+            .eq("status", "pending")
+            .select("id")
+            .maybeSingle();
+          if (error || !changed) throw new Error("Your previous payment changed. Refresh before trying again.");
+        },
+        confirm: async (tx) => {
+          validateVerifiedSettlement(tx, previous);
+          await finalizeSettlement(admin, previous, tx);
+        },
+      });
+      if (recovered === "pending") {
+        throw new Error("Your payment provider still reports the previous payment as pending. Use Retry payment verification before starting another.");
+      }
+      if (recovered === "confirmed") {
+        throw new Error("Your previous Postpaid payment is now confirmed. Refresh the page to see your updated balance before paying again.");
+      }
+      // A manual payment or webhook could have changed the balance during verification.
+      if (await outstandingNgn(admin, context.userId) !== outstanding) {
+        throw new Error("Your outstanding balance changed. Refresh the page before paying again.");
+      }
     }
 
     const gateway = await resolveActiveGateway(admin, "NGN");
