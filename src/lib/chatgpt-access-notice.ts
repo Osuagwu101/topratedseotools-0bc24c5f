@@ -75,3 +75,12 @@ export function chatGptReferenceForDiagnostic(
       return "GPT-09";
   }
 }
+
+/**
+ * ChatGPT's own sign-in pages. Writers use the shared account through the
+ * saved login and must never be sent to these; if the saved login stops
+ * working they see reference GPT-01 instead.
+ */
+export function isChatGptSignInPath(pathname: string): boolean {
+  return /^\/auth\/(?:login|logout|signin|signup|error)(?:\/|$)/i.test(pathname);
+}

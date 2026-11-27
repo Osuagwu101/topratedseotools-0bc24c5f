@@ -4,6 +4,7 @@ import {
   chatGptAccessMessage,
   chatGptAccessNoticeHtml,
   chatGptReferenceForDiagnostic,
+  isChatGptSignInPath,
   type ChatGptAccessReference,
 } from "./chatgpt-access-notice";
 import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfConversationListPath, touchesHiddenProject, type ProjectAccess } from "./chatgpt-project-access";
@@ -1295,6 +1296,12 @@ export async function handleChatGPTProxyRequest(request: Request) {
      }
     }catch{return unavailable(request);}
   }
+  if (isChatGptOrigin && !isSecondaryHost && isChatGptSignInPath(target.pathname)) {
+    // The saved login stopped working: ChatGPT is asking for a sign-in.
+    // Writers get the clear notice, not ChatGPT's own sign-in page.
+    await recordChatGPTProxyDiagnostic(String(proxySession.id), "upstream_401", 401);
+    return unavailable(request, "GPT-01");
+  }
   let upstream: Response;
   try {
     // Brief network blips are retried before writers see reference GPT-04.
@@ -1347,6 +1354,16 @@ export async function handleChatGPTProxyRequest(request: Request) {
 
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get("location") ?? "/";
+    if (!isSecondaryHost) {
+      try {
+        if (isChatGptSignInPath(new URL(location, targetOrigin).pathname)) {
+          await recordChatGPTProxyDiagnostic(String(proxySession.id), "upstream_401", upstream.status);
+          return unavailable(request, "GPT-01");
+        }
+      } catch {
+        /* fall through to normal redirect handling */
+      }
+    }
     const rewritten = rewriteChatGPTLocation(
       location,
       targetOrigin,
