@@ -1,4 +1,5 @@
 import { getStealthWriterUserLabel } from "./stealthwriter-controls.server";
+import { validateClaudeToolApproval } from "./claude-tool-approval-policy";
 import {assignedClaudeAccount,requireClaudeAccount} from "./claude-accounts.server";
 import {claudeSessionMatchesAccount,type ClaudeProviderAccountKey} from "./claude-account-policy";
 import {inspectClaudeWriterRpc,sanitizeClaudeBootstrap,filterClaudeWriterHistory,claudeWriterReferences,claudeUploadedFileIds,isolateClaudeWriterPayload,withoutBlockedConnectors,withoutBlockedConnectorEvents,BLOCKED_CONNECTOR_RE,blockedConnectorIds,filterClaudeArtifactList,requestUsesBlockedConnector} from "@/lib/claude-writer-policy";
@@ -619,6 +620,17 @@ export async function handleClaudeProxyRequest(request: Request): Promise<Respon
        if(!await reserveWriterConversation(info.conversation,org,writer,account))return json(404,{error:"Conversation not found"});
 
        body=bytes;
+      }
+      else if(route.kind === "tool_approval") {
+        if (!(request.headers.get("content-type") ?? "").includes("application/json"))
+          return plain(415, "JSON required");
+        if (bytes.byteLength > 65536) return plain(413, "Tool approval too large");
+        let payload: unknown;
+        try { payload = JSON.parse(new TextDecoder().decode(bytes)); }
+        catch { return plain(400, "Invalid JSON"); }
+        const approval = validateClaudeToolApproval(payload);
+        if ("error" in approval) return json(approval.status, { error: approval.error });
+        body = JSON.stringify(approval.payload);
       }
       else {
       if (!(request.headers.get("content-type") ?? "").includes("application/json"))
