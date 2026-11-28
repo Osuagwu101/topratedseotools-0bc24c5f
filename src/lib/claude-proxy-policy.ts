@@ -2,7 +2,7 @@
 import type { ClaudeSessionState } from "./claude-session.server";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 export type ClaudeRoute = {
-  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "upload" | "file" | "integration" | "artifact_list" | "consent";
+  kind: "page" | "asset" | "bootstrap" | "list" | "create" | "conversation" | "tool_approval" | "upload" | "file" | "integration" | "artifact_list" | "consent";
   org?: string;
   conversation?: string;
   /** Provider file id for per-file routes; ownership is checked by the proxy. */
@@ -89,6 +89,8 @@ export function claudeRoutePolicy(method: string, pathname: string): ClaudeRoute
   const chat = suffix.match(new RegExp(`^/chat_conversations/(${UUID})(/.*)?$`, "i"));
   if (!chat) return null;
   const action = chat[2] ?? "";
+    if (m === "POST" && action === "/tool_approval")
+      return { kind: "tool_approval", org: org[1].toLowerCase(), conversation: chat[1].toLowerCase() };
   if (
     (m === "GET" && ["","/serving","/composer_notices"].includes(action)) ||
     (m === "POST" && ["/completion", "/retry_completion", "/stop", "/title"].includes(action)) ||
