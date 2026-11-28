@@ -12,7 +12,7 @@
  * from every writer.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { NO_PROJECT_ACCESS, isProjectId, type ProjectAccess } from "./chatgpt-project-access";
+import { applyProjectAccess, NO_PROJECT_ACCESS, isProjectId, type ProjectAccess } from "./chatgpt-project-access";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const UUID_RE = new RegExp(`^${UUID}$`, "i");
@@ -184,6 +184,19 @@ function encodeForScript(payload: string) {
 }
 
 export function filterServerRenderedHistory(html: string, owned: Owned, projects: ProjectAccess = NO_PROJECT_ACCESS, grantedFound?: Map<string, string>): string {
+  // JSON bootstrap data must follow the same project rules as API responses.
+  html = html.replace(/(<script\b[^>]*type=["']application\/json["'][^>]*>)([\s\S]*?)(<\/script>)/gi, (all, open, raw, close) => {
+    try {
+      const result = applyProjectAccess(JSON.parse(raw), projects);
+      for (const [id, project] of result.grantedConversations) grantedFound?.set(id, project);
+      const visible = { has: (id: string) => owned.has(id) || result.grantedConversations.has(id) };
+      return open + JSON.stringify(deepFilterConversations(result.payload, visible)).replace(/</g, "\\u003c") + close;
+    } catch { return all; }
+  });
+  html = html.replace(/<a\b[^>]*\bhref=["']([^"']*)["'][^>]*>[\s\S]*?<\/a>/gi, (all, href) => {
+    const ids = href.match(/g-p-[0-9a-f]{32}/gi) ?? [];
+    return ids.some((id: string) => !projects.granted.has(id.toLowerCase())) ? "" : all;
+  });
   type Line = { chunk: number; prefix: string; values: any[] | null; raw: string };
   const chunks: { literal: string; lines: Line[] }[] = [];
   let m: RegExpExecArray | null;
@@ -227,6 +240,14 @@ export function filterServerRenderedHistory(html: string, owned: Owned, projects
   const foreignObjects = new Set<number>();
   const foreignStrings = new Set<number>();
   const ownedStrings = new Set<number>();
+  const collectStrings = (index: number, out: Set<number>, seen = new Set<number>(), depth = 0) => {
+    if (seen.has(index) || depth > 20) return;
+    seen.add(index);
+    const node = G[index];
+    if (typeof node === "string") out.add(index);
+    else if (Array.isArray(node)) { for (const n of node) if (Number.isInteger(n)) collectStrings(n, out, seen, depth + 1); }
+    else if (isObj(node)) { for (const n of Object.values(node)) if (Number.isInteger(n)) collectStrings(n as number, out, seen, depth + 1); }
+  };
   const projectOf = (v: any): string | null => {
     for (const [k, vi] of Object.entries(v)) {
       const name = keyName(k);
@@ -249,11 +270,19 @@ export function filterServerRenderedHistory(html: string, owned: Owned, projects
     }
     const project = projectOf(v);
     // Projects granted to another writer disappear entirely.
-    if (project && projects.hidden.has(project)) {
+    if (project && !projects.granted.has(project)) {
       foreignObjects.add(i);
+      collectStrings(i, foreignStrings);
       if (titleIdx >= 0) foreignStrings.add(titleIdx);
+      for (const [k, vi] of Object.entries(v)) {
+        const name = keyName(k);
+        if (["id", "gizmo_id", "project_id", "conversation_template_id", "name", "description"].includes(name)) {
+          if (typeof G[vi as number] === "string") foreignStrings.add(vi as number);
+        }
+      }
       return;
     }
+    if (project && projects.granted.has(project)) collectStrings(i, ownedStrings);
     if (idIdx < 0 || !hasCreate) return;
     const id = G[idIdx];
     if (typeof id !== "string" || !UUID_RE.test(id)) return;
@@ -330,6 +359,18 @@ export async function claimConversation(conversationId:string,userId:string,acco
 
 const grantCache = new Map<string, { at: number; rows: Array<{ project_id: string; user_id: string }> }>();
 export function forgetProjectGrantCache() { grantCache.clear(); }
+
+export async function rememberCreatedProject(projectId: string, userId: string, account: import("./chatgpt-account-policy").ChatGptProviderAccount) {
+  if (!isProjectId(projectId)) throw Error("Invalid created project.");
+  const { error } = await (supabaseAdmin as any).from("chatgpt_project_grants").upsert(
+    { provider_account_key: account, project_id: projectId, user_id: userId },
+    { onConflict: "provider_account_key,project_id", ignoreDuplicates: true },
+  );
+  if (error) throw Error("Could not save project ownership.");
+  forgetProjectGrantCache();
+  const rows = await projectGrants(account);
+  if (!rows.some((r: {project_id: string; user_id: string}) => r.project_id === projectId && r.user_id === userId)) throw Error("Project already belongs to another writer.");
+}
 
 export async function projectGrants(account: import("./chatgpt-account-policy").ChatGptProviderAccount = "account_1") {
   const hit = grantCache.get(account);

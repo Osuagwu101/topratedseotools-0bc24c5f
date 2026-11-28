@@ -10,7 +10,8 @@
  *     continue them;
  *   - every other writer no longer sees the project at all (sidebar, pages,
  *     API calls or chats inside it).
- * Projects without a grant behave exactly as before.
+ * Unrecorded upstream projects are private and never visible to a writer.
+ * A successfully created OneClick project is recorded as access for its creator.
  */
 
 /** A ChatGPT project id: g-p- followed by 32 hex characters. */
@@ -67,9 +68,12 @@ export function touchesHiddenProject(
   pathAndQuery: string,
   bodyText: string | null | undefined,
 ): boolean {
-  if (!access.hidden.size) return false;
-  for (const id of projectIdsIn(pathAndQuery)) if (access.hidden.has(id)) return true;
-  for (const id of projectIdsIn(bodyText)) if (access.hidden.has(id)) return true;
+  let path = pathAndQuery;
+  try { path = decodeURIComponent(path); } catch { /* invalid URL remains subject to normal routing */ }
+  let body = bodyText;
+  try { if (body) body = JSON.stringify(JSON.parse(body)); } catch { /* binary/form requests retain raw matching */ }
+  for (const id of projectIdsIn(path)) if (!access.granted.has(id)) return true;
+  for (const id of projectIdsIn(body)) if (!access.granted.has(id)) return true;
   return false;
 }
 
@@ -122,7 +126,6 @@ export function applyProjectAccess(
   pathProject: string | null = null,
 ): { payload: any; grantedConversations: Map<string, string> } {
   const grantedConversations = new Map<string, string>();
-  if (!access.granted.size && !access.hidden.size) return { payload, grantedConversations };
 
   const visit = (node: any, context: string | null, depth: number): any => {
     if (depth > 14 || node === null || typeof node !== "object") return node;
@@ -130,12 +133,13 @@ export function applyProjectAccess(
       const kept: any[] = [];
       for (const el of node) {
         const project = projectReferencedBy(el) ?? (conversationIdOf(el) ? context : null);
-        if (project && access.hidden.has(project)) continue;
+        if (project && !access.granted.has(project)) continue;
         kept.push(visit(el, project ?? context, depth + 1));
       }
       return kept;
     }
     const own = projectReferencedBy(node);
+    if (own && !access.granted.has(own)) return null;
     const ctx = own ?? context;
     const convo = conversationIdOf(node);
     if (convo && ctx && access.granted.has(ctx)) grantedConversations.set(convo, ctx);
@@ -145,4 +149,12 @@ export function applyProjectAccess(
   };
 
   return { payload: visit(payload, pathProject, 0), grantedConversations };
+}
+
+/** Only a successful provider creation response can establish creator access. */
+export function createdProjectId(method: string, pathname: string, payload: unknown): string | null {
+  if (method !== "POST" || !/^\/backend-api\/gizmos(?:\/snorlax)?\/?$/.test(pathname)) return null;
+  if (!isPlainObject(payload)) return null;
+  const candidate = payload.gizmo?.gizmo?.id ?? payload.gizmo?.id ?? payload.project?.id ?? payload.id;
+  return isProjectId(candidate) ? candidate.toLowerCase() : null;
 }

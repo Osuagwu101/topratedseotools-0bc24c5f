@@ -4,6 +4,7 @@
  */
 import {
   applyProjectAccess,
+  createdProjectId,
   buildProjectAccess,
   projectIdFromInput,
   projectOfConversationListPath,
@@ -34,7 +35,7 @@ assert(other.hidden.has(P1) && !other.granted.size, "other writer has it hidden"
 
 assert(touchesHiddenProject(other, `/g/${P1}-thesis/project`, null), "page of hidden project blocked");
 assert(touchesHiddenProject(other, "/backend-api/f/conversation", `{"gizmo_id":"${P1}"}`), "posting into hidden project blocked");
-assert(!touchesHiddenProject(other, `/g/${P2}-x/project`, null), "ungranted project still open");
+assert(touchesHiddenProject(other, `/g/${P2}-x/project`, null), "unassigned upstream project blocked");
 assert(!touchesHiddenProject(grantee, `/g/${P1}-thesis/project`, null), "grantee may open project");
 
 // Project sidebar: [{gizmo:{gizmo:{id}}, conversations:{items:[…]}}]
@@ -47,18 +48,18 @@ const sidebar = {
 };
 {
   const r = applyProjectAccess(sidebar, other);
-  assert(r.payload.items.length === 1 && r.payload.items[0].gizmo.gizmo.id === P2, "other writer: hidden project removed from sidebar");
+  assert(r.payload.items.length === 0, "writer without access sees no upstream projects");
   assert(r.grantedConversations.size === 0, "other writer gains nothing");
 }
 {
   const r = applyProjectAccess(sidebar, grantee);
-  assert(r.payload.items.length === 2, "grantee keeps both projects");
+  assert(r.payload.items.length === 1, "grantee keeps only the permitted project");
   assert(r.grantedConversations.get(C1) === P1, "collaborator chat inside granted project found");
   assert(!r.grantedConversations.has(C3), "chat in other project not granted");
   const owned = new Set([C2, ...r.grantedConversations.keys()]);
   const filtered = deepFilterConversations(r.payload, owned);
   assert(filtered.items[0].conversations.items.length === 1, "grantee sees collaborator chat");
-  assert(filtered.items[1].conversations.items.length === 0, "grantee does not see others' chats elsewhere");
+  assert(filtered.items.length === 1, "grantee does not see other projects or their chats");
 }
 {
   const list = { items: [conv(C1)], cursor: null };
@@ -90,4 +91,25 @@ const values = [[1, 6], { _2: 3, _4: 5 }, "id", P1, "title", "Thesis", { _2: 7, 
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);
+
+const empty = buildProjectAccess([], "new-writer");
+assert(applyProjectAccess(sidebar, empty).payload.items.length === 0, "empty grants fail closed for all projects");
+assert(touchesHiddenProject(empty, `/g/${P1}/project`, null), "untracked project direct link denied");
+assert(touchesHiddenProject(empty, "/backend-api/f/conversation", JSON.stringify({gizmo_id:P1})), "untracked project conversation denied");
+assert(touchesHiddenProject(empty, "/backend-api/f/conversation", '{"gizmo_id":"\\u0067-p-'+'a'.repeat(32)+'"}'), "JSON escaped project ID denied");
+assert(!touchesHiddenProject(empty, "/backend-api/f/conversation", '{"prompt":"hello"}'), "ordinary new chat unaffected");
+assert(!filterServerRenderedHistory(sse(values), new Set(), empty).includes("Thesis"), "SSR unassigned upstream titles removed");
+assert(createdProjectId("POST", "/backend-api/gizmos", {gizmo:{gizmo:{id:P1}}})===P1, "provider project creation response recognised");
+assert(createdProjectId("GET", "/backend-api/gizmos", {gizmo:{id:P1}})===null, "listing cannot claim ownership");
+assert(createdProjectId("POST", `/backend-api/gizmos/${P1}/share`, {id:P1})===null, "editing or joining existing project cannot claim ownership");
+assert(createdProjectId("POST", "/backend-api/gizmos", {id:"g-custom-gpt"})===null, "custom GPT is not a project");
+if (failed) process.exit(1);
+
+const bootstrap = '<script type="application/json">'+JSON.stringify(sidebar)+'</script>';
+assert(!filterServerRenderedHistory(bootstrap,new Set(),empty).includes(P1), "JSON bootstrap hides unknown projects");
+assert(!filterServerRenderedHistory('<a href="/g/'+P2+'/project"><span>Private upstream</span></a>',new Set(),grantee).includes("Private upstream"), "rendered foreign project links removed");
+const nested = [[1],{_2:3,_4:5},"id",P2,"display",{_6:7},"name","Nested private title"];
+assert(!filterServerRenderedHistory(sse(nested),new Set(),empty).includes("Nested private title"),"SSR nested project display metadata scrubbed");
+console.log(`Final project checks: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

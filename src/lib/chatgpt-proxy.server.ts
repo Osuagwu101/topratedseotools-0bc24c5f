@@ -7,7 +7,7 @@ import {
   isChatGptSignInPath,
   type ChatGptAccessReference,
 } from "./chatgpt-access-notice";
-import { applyProjectAccess, buildProjectAccess, NO_PROJECT_ACCESS, projectOfConversationListPath, touchesHiddenProject, type ProjectAccess } from "./chatgpt-project-access";
+import { applyProjectAccess, buildProjectAccess, createdProjectId, NO_PROJECT_ACCESS, projectOfConversationListPath, touchesHiddenProject, type ProjectAccess } from "./chatgpt-project-access";
 import {attachmentStorageEnabled,attachmentRows,restoreAttachments,scheduleAttachmentCapture,registerWriterFile,ownsWriterFile,claimOwnedGeneratedFile} from './chatgpt-attachments.server';
 import {durableHistoryEnabled,threadForAlias,historyLink,captureConversation,captureHistoryStream,savedHistoryItems,historyResume,finishHistoryResume,claimHistoryResume} from './chatgpt-history.server';
 import {historyPage,historyRoute,historyBootstrap} from './chatgpt-history-ui.server';
@@ -46,6 +46,7 @@ import {
   projectConversationIds,
   projectOfConversation,
   rememberProjectConversations,
+  rememberCreatedProject,
 } from "@/lib/chatgpt-isolation.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
@@ -1151,12 +1152,12 @@ export async function handleChatGPTProxyRequest(request: Request) {
       let project: string | null = null;
       try {
         owner = await ownerOfConversation(addressed,account);
-        if (projectAccess.granted.size || projectAccess.hidden.size) project = await projectOfConversation(addressed,account);
+        project = await projectOfConversation(addressed,account);
       } catch {
         return unavailable(request);
       }
       if (project && projectAccess.granted.has(project)) sharedProjectChats.add(addressed);
-      const allowed = (owner === writerId || sharedProjectChats.has(addressed)) && !(project && projectAccess.hidden.has(project));
+      const allowed = (owner === writerId || sharedProjectChats.has(addressed)) && !(project && !projectAccess.granted.has(project));
       // A client-provided ID cannot claim an existing untracked provider chat.
       if (!allowed) {
         if (isDocument) {
@@ -1176,7 +1177,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
         }
       : null;
   let ownedIds: Set<string> | null = null;
-  if (isChatGptOrigin && request.method === "GET" && !isImmutableChatGPTAssetPath(targetOrigin, target.pathname)) {
+  if (isChatGptOrigin && !isImmutableChatGPTAssetPath(targetOrigin, target.pathname)) {
     try {
       ownedIds = await ownedConversationIds(writerId,account);
       for (const id of await projectConversationIds(projectAccess.granted,account)) ownedIds.add(id);
@@ -1504,7 +1505,7 @@ export async function handleChatGPTProxyRequest(request: Request) {
     }
     let rewritten = rewriteChatGPTBody(text, contentType, proxyBase, publicOrigin);
     if(contentType.includes("text/html") && isChatGptOrigin){
-      const marker=hashChatGPTProxyToken(writerId+":"+account).slice(0,24);
+      const marker=hashChatGPTProxyToken("project-isolation-v2:"+writerId+":"+account).slice(0,24);
       const script="<script>(()=>{try{const m="+JSON.stringify(marker)+";if(localStorage.getItem('trstChatGptAccount')!==m){localStorage.clear();sessionStorage.clear();localStorage.setItem('trstChatGptAccount',m)}}catch{}})();</script>";
       rewritten=rewritten.replace(/<head([^>]*)>/i,m=>m+script+(durable?historyBootstrap(proxyBase):''));
     }
@@ -1531,6 +1532,13 @@ export async function handleChatGPTProxyRequest(request: Request) {
           parsed = undefined; /* not JSON after all: leave untouched */
         }
         if (parsed !== undefined) {
+          const created = upstream.ok ? createdProjectId(request.method, target.pathname, parsed) : null;
+          if (created) {
+            try { await rememberCreatedProject(created, writerId, account); }
+            catch { return unavailable(request); }
+            projectAccess.granted.add(created);
+            projectAccess.hidden.delete(created);
+          }
           const shared = applyProjectAccess(parsed, projectAccess, projectOfConversationListPath(target.pathname));
           if (shared.grantedConversations.size) {
             try {
