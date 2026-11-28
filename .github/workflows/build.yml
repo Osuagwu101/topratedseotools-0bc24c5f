@@ -38,6 +38,9 @@ jobs:
       - name: Turnitin pending checkout recovery
         run: node --experimental-strip-types --test tests/turnitin-postpaid-checkout-recovery.test.ts
 
+      - name: Turnitin original submission downloads
+        run: node --experimental-strip-types --test tests/turnitin-original-download.test.mjs
+
       - name: ChatGPT access notice test
         run: bun tests/chatgpt-access-notice.test.ts
 

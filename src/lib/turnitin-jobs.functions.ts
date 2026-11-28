@@ -154,6 +154,7 @@ async function markExplicitPreAcceptanceFailure(
       .from("turnitin_jobs")
       .update({
         status: "failed",
+        source_storage_path: null,
         failed_at: new Date().toISOString(),
         failure_code:
           error instanceof OriginalityAdapterError
@@ -315,6 +316,7 @@ export const cancelTurnitinUpload = createServerFn({ method: "POST" })
       .from("turnitin_jobs")
       .update({
         status: "failed",
+        source_storage_path: null,
         failed_at: new Date().toISOString(),
         failure_code: "UPLOAD_CANCELLED",
         failure_message: data.reason || "Document upload was cancelled.",
@@ -479,12 +481,10 @@ export const submitTurnitinJob = createServerFn({ method: "POST" })
         }
       }
 
-      // The provider now owns the accepted source; remove our private copy.
-      await removeSource(admin, job.source_storage_path);
+      // Retain the private original so its owner can download it from history.
       await admin
         .from("turnitin_jobs")
         .update({
-          source_storage_path: null,
           upstream_last_error: null,
         })
         .eq("id", job.id);
