@@ -36,6 +36,7 @@ export interface TurnitinReportRow {
 export interface TurnitinJobRow {
   id: string;
   original_filename: string;
+  source_storage_path?: string | null;
   display_name: string | null;
   status: TurnitinJobStatus;
   upstream_status: string | null;
@@ -85,7 +86,7 @@ function missingFoundation(error: unknown): boolean {
   );
 }
 
-const HISTORY_JOB_FIELDS = "id, original_filename, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at";
+const HISTORY_JOB_FIELDS = "id, original_filename, source_storage_path, display_name, status, upstream_status, similarity_percentage, ai_percentage, ai_unavailable_reason, submitted_at, accepted_at, completed_at, failed_at, failure_code, failure_message, credit_state, billing_mode, upstream_submission_id, upstream_last_error, word_count, created_at";
 const HISTORY_REPORT_FIELDS = "id, job_id, report_type, status, score, storage_bucket, storage_path, unavailable_reason, available_at";
 const ACTIVE_HISTORY_STATUSES = ["draft", "uploading", "queued", "processing"];
 
@@ -280,6 +281,15 @@ export const getMyTurnitinWorkspace = createServerFn({ method: "GET" })
     return { foundationReady: true, summary, account, postpaid, jobs };
   });
 
+export const getMyTurnitinOriginalDownload = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { prepareTurnitinOriginalDownload } = await import("@/lib/turnitin-original-download.server");
+    return prepareTurnitinOriginalDownload(context.supabase, supabaseAdmin, context.userId, data.jobId);
+  });
+
 export const getMyTurnitinReportDownload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -370,7 +380,7 @@ export const deleteMyTurnitinCheck = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
     const { data: job, error } = await admin.from("turnitin_jobs")
-      .select("id, user_id, status, history_deleted_at")
+      .select("id, user_id, status, history_deleted_at, source_storage_bucket, source_storage_path")
       .eq("id", data.jobId)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -391,6 +401,11 @@ export const deleteMyTurnitinCheck = createServerFn({ method: "POST" })
       .maybeSingle();
     if (updateError || !deleted) throw new Error("Could not delete this check. Please retry.");
 
+    // Remove the retained original after hiding the check, so new links are refused.
+    if (job.source_storage_bucket === "turnitin-source" && job.source_storage_path) {
+      const { error: sourceError } = await admin.storage.from("turnitin-source").remove([job.source_storage_path]);
+      if (sourceError) console.error("[Turnitin] Original cleanup failed", sourceError.message);
+    }
     // Revoke the customer's future report downloads and clean stored PDF
     // copies without touching the financial ledger or upstream provider.
     const { data: reports, error: reportError } = await admin.from("turnitin_reports")

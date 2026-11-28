@@ -24,9 +24,11 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   getMyTurnitinReportDownload,
+  getMyTurnitinOriginalDownload,
   getMyTurnitinWorkspace,
   getMyTurnitinHistoryPage,
   deleteMyTurnitinCheck,
@@ -167,6 +169,7 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
   const [smallMatchMode, setSmallMatchMode] = useState<"words" | "percent">("words");
   const [smallMatchThreshold, setSmallMatchThreshold] = useState(8);
   const [downloadingReport, setDownloadingReport] = useState<string | null>(null);
+  const [downloadingOriginal, setDownloadingOriginal] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -610,6 +613,26 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
       );
     } finally {
       setDownloadingReport(null);
+    }
+  };
+
+  const downloadOriginal = async (jobId: string) => {
+    setDownloadError(null);
+    setDownloadingOriginal(jobId);
+    try {
+      const result = await getMyTurnitinOriginalDownload({ data: { jobId } });
+      const link = document.createElement("a");
+      link.href = result.url;
+      link.download = result.filename;
+      link.rel = "noopener";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "Could not download the original submission.");
+    } finally {
+      setDownloadingOriginal(null);
     }
   };
 
@@ -1705,6 +1728,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                       job={job}
                       downloadingReport={downloadingReport}
                       onDownload={downloadReport}
+                      downloadingOriginal={downloadingOriginal}
+                      onDownloadOriginal={downloadOriginal}
                       retryingJob={retryingJob}
                       onRetry={retrySubmission}
                       onDelete={(row) => { setDeleteError(null); setDeleteTarget(row); }}
@@ -1721,6 +1746,8 @@ export function TurnitinWorkspace({ isAuthenticated, view = "all", onOpenSubmit,
                   job={job}
                   downloadingReport={downloadingReport}
                   onDownload={downloadReport}
+                      downloadingOriginal={downloadingOriginal}
+                      onDownloadOriginal={downloadOriginal}
                   retryingJob={retryingJob}
                   onRetry={retrySubmission}
                   onDelete={(row) => { setDeleteError(null); setDeleteTarget(row); }}
@@ -1913,12 +1940,48 @@ function HistorySubmittedDate({ value }: { value: string | null | undefined }) {
   );
 }
 
+function HistoryDownloadMenu({ job, downloadingReport, onDownload, downloadingOriginal, onDownloadOriginal }: {
+  job: TurnitinJobRow;
+  downloadingReport: string | null;
+  onDownload: (report: TurnitinReportRow) => void;
+  downloadingOriginal: string | null;
+  onDownloadOriginal: (jobId: string) => void;
+}) {
+  const pending = downloadingOriginal === job.id || job.reports.some(r => r.id === downloadingReport);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" disabled={pending} aria-label={"Actions for " + (job.display_name || job.original_filename)}
+          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50">
+          {pending ? <LoaderCircle className="h-3 w-3 animate-spin" /> : null}
+          {pending ? "Preparing…" : "Actions"} <ChevronDown className="h-3 w-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={!job.source_storage_path} onSelect={() => onDownloadOriginal(job.id)}>
+          <Download /> Download original submission
+        </DropdownMenuItem>
+        {!job.source_storage_path ? <DropdownMenuLabel className="max-w-64 text-xs font-normal text-muted-foreground">Original file no longer available</DropdownMenuLabel> : null}
+        <DropdownMenuSeparator />
+        {(["similarity", "ai"] as const).map(type => {
+          const report = reportFor(job, type);
+          return <DropdownMenuItem key={type} disabled={report?.status !== "available"} onSelect={() => { if (report) onDownload(report); }}>
+            <Download /> Download {type === "ai" ? "AI" : "Similarity"} report
+          </DropdownMenuItem>;
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function HistoryRow({
-  job, downloadingReport, onDownload, retryingJob, onRetry, onDelete,
+  job, downloadingReport, onDownload, downloadingOriginal, onDownloadOriginal, retryingJob, onRetry, onDelete,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
+  downloadingOriginal: string | null;
+  onDownloadOriginal: (jobId: string) => void;
   retryingJob: string | null;
   onRetry: (jobId: string) => void;
   onDelete: (job: TurnitinJobRow) => void;
@@ -1967,6 +2030,7 @@ function HistoryRow({
       </td>
       <td className="px-2 py-3">
         <div className="flex flex-wrap items-center gap-2">
+        <HistoryDownloadMenu job={job} downloadingReport={downloadingReport} onDownload={onDownload} downloadingOriginal={downloadingOriginal} onDownloadOriginal={onDownloadOriginal} />
         {job.status === "completed" && similarity?.status === "available" && job.upstream_submission_id ? (
           <Link to="/turnitin/report/$jobId" params={{ jobId: job.id }}
             className="inline-flex items-center gap-1 rounded-md bg-turnitin-violet px-2.5 py-1.5 text-sm font-semibold text-turnitin-violet-foreground transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-turnitin-violet">
@@ -1996,11 +2060,13 @@ function HistoryRow({
 }
 
 function HistoryCard({
-  job, downloadingReport, onDownload, retryingJob, onRetry, onDelete,
+  job, downloadingReport, onDownload, downloadingOriginal, onDownloadOriginal, retryingJob, onRetry, onDelete,
 }: {
   job: TurnitinJobRow;
   downloadingReport: string | null;
   onDownload: (report: TurnitinReportRow) => void;
+  downloadingOriginal: string | null;
+  onDownloadOriginal: (jobId: string) => void;
   retryingJob: string | null;
   onRetry: (jobId: string) => void;
   onDelete: (job: TurnitinJobRow) => void;
@@ -2053,7 +2119,8 @@ function HistoryCard({
           <ReportButton report={ai} label="Download" downloadingReport={downloadingReport} onDownload={onDownload} />
         </div>
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <HistoryDownloadMenu job={job} downloadingReport={downloadingReport} onDownload={onDownload} downloadingOriginal={downloadingOriginal} onDownloadOriginal={onDownloadOriginal} />
         {["completed", "failed"].includes(job.status) ? (
           <button type="button" onClick={() => onDelete(job)} title="Delete check"
             aria-label={"Delete " + (job.display_name || job.original_filename)}
